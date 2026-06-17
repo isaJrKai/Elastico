@@ -1,0 +1,532 @@
+   600→   600→   600→                      className="size-4 rounded-full"
+   601→   601→   601→                      style={{
+   602→   602→   602→                        backgroundColor: statusColor(veronicaOnline ? 'ONLINE' : 'OFFLINE'),
+   603→   603→   603→                        boxShadow: `0 0 12px ${statusColor(veronicaOnline ? 'ONLINE' : 'OFFLINE')}80`,
+   604→   604→   604→                      }}
+   605→   605→   605→                    />
+   606→   606→   606→                    <span className="text-xl font-bold" style={{ color: statusColor(veronicaOnline ? 'ONLINE' : 'OFFLINE') }}>
+   607→   607→   607→                      {veronicaOnline ? 'ONLINE' : 'OFFLINE'}
+   608→   608→   608→                    </span>
+   609→   609→   609→                  </div>
+   610→   610→   610→                  <p className="text-xs text-muted-foreground">
+   611→   611→   611→                    Self-healing engine active · Monitoring {healingEvents.length} events
+   612→   612→   612→                  </p>
+   613→   613→   613→                  <div className="flex gap-2 pt-2">
+   614→   614→   614→                    <Button size="sm" className="flex-1 gap-2" onClick={triggerDiagnostic} disabled={healingLoading}>
+   615→   615→   615→                      {healingLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Terminal className="size-3.5" />}
+   616→   616→   616→                      Trigger Diagnostic
+   617→   617→   617→                    </Button>
+   618→   618→   618→                  </div>
+   619→   619→   619→                </CardContent>
+   620→   620→   620→              </Card>
+   621→   621→   621→            </motion.div>
+   622→   622→   622→
+   623→   623→   623→            {/* Last Healing Event */}
+   624→   624→   624→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   625→   625→   625→              <Card className="glass-card-premium">
+   626→   626→   626→                <CardHeader className="pb-3">
+   627→   627→   627→                  <div className="flex items-center justify-between">
+   628→   628→   628→                    <CardTitle className="text-sm font-medium text-muted-foreground">Last Healing Event</CardTitle>
+   629→   629→   629→                    <Clock className="size-4 text-muted-foreground" />
+   630→   630→   630→                  </div>
+   631→   631→   631→                </CardHeader>
+   632→   632→   632→                <CardContent className="space-y-3">
+   633→   633→   633→                  {healingEvents[0] ? (
+   634→   634→   634→                    <>
+   635→   635→   635→                      <div className="flex items-center gap-2">
+   636→   636→   636→                        {healingEvents[0].status === 'HEALED' ? (
+   637→   637→   637→                          <CheckCircle className="size-5 text-emerald-400" />
+   638→   638→   638→                        ) : healingEvents[0].status === 'QUARANTINED' ? (
+   639→   639→   639→                          <AlertTriangle className="size-5 text-yellow-400" />
+   640→   640→   640→                        ) : (
+   641→   641→   641→                          <XCircle className="size-5 text-red-400" />
+   642→   642→   642→                        )}
+   643→   643→   643→                        <Badge variant="outline" className={statusBgClass(healingEvents[0].status)}>
+   644→   644→   644→                          {healingEvents[0].status}
+   645→   645→   645→                        </Badge>
+   646→   646→   646→                      </div>
+   647→   647→   647→                      <div className="text-sm">
+   648→   648→   648→                        <span className="text-muted-foreground">File: </span>
+   649→   649→   649→                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{healingEvents[0].file}</code>
+   650→   650→   650→                      </div>
+   651→   651→   651→                      <div className="text-sm">
+   652→   652→   652→                        <span className="text-muted-foreground">Error: </span>
+   653→   653→   653→                        <span className="font-medium">{healingEvents[0].errorType}</span>
+   654→   654→   654→                      </div>
+   655→   655→   655→                      <p className="text-xs text-muted-foreground">{healingEvents[0].timestamp}</p>
+   656→   656→   656→                    </>
+   657→   657→   657→                  ) : (
+   658→   658→   658→                    <p className="text-sm text-muted-foreground">No healing events recorded</p>
+   659→   659→   659→                  )}
+   660→   660→   660→                </CardContent>
+   661→   661→   661→              </Card>
+   662→   662→   662→            </motion.div>
+   663→   663→   663→          </div>
+   664→   664→   664→
+   665→   665→   665→          {/* Healing Event Log */}
+   666→   666→   666→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+   667→   667→   667→            <Card className="glass-card-premium">
+   668→   668→   668→              <CardHeader className="pb-3">
+   669→   669→   669→                <CardTitle className="text-sm font-medium">Healing Event Log</CardTitle>
+   670→   670→   670→              </CardHeader>
+   671→   671→   671→              <CardContent>
+   672→   672→   672→                <Table>
+   673→   673→   673→                  <TableHeader>
+   674→   674→   674→                    <TableRow>
+   675→   675→   675→                      <TableHead>Timestamp</TableHead>
+   676→   676→   676→                      <TableHead>File</TableHead>
+   677→   677→   677→                      <TableHead>Error Type</TableHead>
+   678→   678→   678→                      <TableHead>Status</TableHead>
+   679→   679→   679→                    </TableRow>
+   680→   680→   680→                  </TableHeader>
+   681→   681→   681→                  <TableBody>
+   682→   682→   682→                    {healingEvents.slice(0, 10).map(evt => (
+   683→   683→   683→                      <TableRow key={evt.id}>
+   684→   684→   684→                        <TableCell className="text-xs text-muted-foreground font-mono">{evt.timestamp}</TableCell>
+   685→   685→   685→                        <TableCell>
+   686→   686→   686→                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono max-w-[200px] truncate block">
+   687→   687→   687→                            {evt.file}
+   688→   688→   688→                          </code>
+   689→   689→   689→                        </TableCell>
+   690→   690→   690→                        <TableCell className="text-xs">{evt.errorType}</TableCell>
+   691→   691→   691→                        <TableCell>
+   692→   692→   692→                          <Badge variant="outline" className={statusBgClass(evt.status)}>
+   693→   693→   693→                            {evt.status}
+   694→   694→   694→                          </Badge>
+   695→   695→   695→                        </TableCell>
+   696→   696→   696→                      </TableRow>
+   697→   697→   697→                    ))}
+   698→   698→   698→                  </TableBody>
+   699→   699→   699→                </Table>
+   700→   700→   700→              </CardContent>
+   701→   701→   701→            </Card>
+   702→   702→   702→          </motion.div>
+   703→   703→   703→
+   704→   704→   704→          {/* Code Sandbox */}
+   705→   705→   705→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   706→   706→   706→            <Card className="glass-card-premium">
+   707→   707→   707→              <CardHeader className="pb-3">
+   708→   708→   708→                <div className="flex items-center justify-between">
+   709→   709→   709→                  <CardTitle className="text-sm font-medium">Code Sandbox Test Panel</CardTitle>
+   710→   710→   710→                  <Terminal className="size-4 text-muted-foreground" />
+   711→   711→   711→                </div>
+   712→   712→   712→              </CardHeader>
+   713→   713→   713→              <CardContent className="space-y-3">
+   714→   714→   714→                <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-3">
+   715→   715→   715→                  <div className="space-y-2">
+   716→   716→   716→                    <Label className="text-xs text-muted-foreground">Filename</Label>
+   717→   717→   717→                    <div className="flex items-center gap-2">
+   718→   718→   718→                      <FileCode className="size-4 text-muted-foreground shrink-0" />
+   719→   719→   719→                      <Input
+   720→   720→   720→                        value={sandboxFilename}
+   721→   721→   721→                        onChange={e => setSandboxFilename(e.target.value)}
+   722→   722→   722→                        placeholder="test.ts"
+   723→   723→   723→                        className="h-8 text-sm"
+   724→   724→   724→                      />
+   725→   725→   725→                    </div>
+   726→   726→   726→                  </div>
+   727→   727→   727→                  <div className="flex items-end">
+   728→   728→   728→                    <Button size="sm" className="w-full gap-2" onClick={testInSandbox} disabled={sandboxLoading}>
+   729→   729→   729→                      {sandboxLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+   730→   730→   730→                      Test in Sandbox
+   731→   731→   731→                    </Button>
+   732→   732→   732→                  </div>
+   733→   733→   733→                </div>
+   734→   734→   734→                <div className="space-y-2">
+   735→   735→   735→                  <Label className="text-xs text-muted-foreground">Code</Label>
+   736→   736→   736→                  <Textarea
+   737→   737→   737→                    value={sandboxCode}
+   738→   738→   738→                    onChange={e => setSandboxCode(e.target.value)}
+   739→   739→   739→                    className="min-h-[100px] font-mono text-xs bg-muted/50 resize-y"
+   740→   740→   740→                    placeholder="// Enter test code here..."
+   741→   741→   741→                  />
+   742→   742→   742→                </div>
+   743→   743→   743→                {sandboxResult && (
+   744→   744→   744→                  <div className="bg-muted/50 rounded-lg p-3 font-mono text-xs whitespace-pre-wrap border border-border/50">
+   745→   745→   745→                    {sandboxResult}
+   746→   746→   746→                  </div>
+   747→   747→   747→                )}
+   748→   748→   748→              </CardContent>
+   749→   749→   749→            </Card>
+   750→   750→   750→          </motion.div>
+   751→   751→   751→        </TabsContent>
+   752→   752→   752→
+   753→   753→   753→        {/* ═══════════════════════════════════════════════════════════════════
+   754→   754→   754→           TAB 3: SAIM SECURITY
+   755→   755→   755→           ═══════════════════════════════════════════════════════════════════ */}
+   756→   756→   756→        <TabsContent value="saim" className="space-y-6 mt-4">
+   757→   757→   757→          {/* Score + Actions */}
+   758→   758→   758→          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4">
+   759→   759→   759→            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.05 }}>
+   760→   760→   760→              <Card className="glass-card-premium">
+   761→   761→   761→                <CardContent className="flex flex-col items-center py-6 px-8">
+   762→   762→   762→                  <CircGauge
+   763→   763→   763→                    value={integrityScore}
+   764→   764→   764→                    max={100}
+   765→   765→   765→                    size={140}
+   766→   766→   766→                    label="Integrity Score"
+   767→   767→   767→                  />
+   768→   768→   768→                  <p className="text-xs text-muted-foreground mt-1">
+   769→   769→   769→                    {integrityScore >= 90 ? 'Excellent' : integrityScore >= 70 ? 'Good' : 'Needs Attention'}
+   770→   770→   770→                  </p>
+   771→   771→   771→                </CardContent>
+   772→   772→   772→              </Card>
+   773→   773→   773→            </motion.div>
+   774→   774→   774→
+   775→   775→   775→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-4">
+   776→   776→   776→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   777→   777→   777→                {/* Auto-Destruct Toggle */}
+   778→   778→   778→                <Card className="glass-card-premium">
+   779→   779→   779→                  <CardContent className="py-4 space-y-3">
+   780→   780→   780→                    <div className="flex items-center justify-between">
+   781→   781→   781→                      <div className="flex items-center gap-2">
+   782→   782→   782→                        <AlertTriangle className="size-4 text-red-400" />
+   783→   783→   783→                        <span className="text-sm font-medium">Auto-Destruct Mode</span>
+   784→   784→   784→                      </div>
+   785→   785→   785→                      <Switch
+   786→   786→   786→                        checked={autoDestruct}
+   787→   787→   787→                        onCheckedChange={setAutoDestruct}
+   788→   788→   788→                        className="data-[state=checked]:bg-red-500"
+   789→   789→   789→                      />
+   790→   790→   790→                    </div>
+   791→   791→   791→                    <p className="text-xs text-muted-foreground">
+   792→   792→   792→                      {autoDestruct
+   793→   793→   793→                        ? '⚠️ ACTIVE — System will self-destruct on critical breach'
+   794→   794→   794→                        : 'Disabled — System runs in monitoring mode only'}
+   795→   795→   795→                    </p>
+   796→   796→   796→                  </CardContent>
+   797→   797→   797→                </Card>
+   798→   798→   798→
+   799→   799→   799→                {/* Alert Channels */}
+   800→   800→   800→                <Card className="glass-card-premium">
+   801→   801→   801→                  <CardContent className="py-4 space-y-3">
+   802→   802→   802→                    <span className="text-sm font-medium">Alert Channels</span>
+   803→   803→   803→                    <div className="space-y-2">
+   804→   804→   804→                      <div className="flex items-center justify-between">
+   805→   805→   805→                        <div className="flex items-center gap-2">
+   806→   806→   806→                          <Send className="size-3.5 text-blue-400" />
+   807→   807→   807→                          <span className="text-xs text-muted-foreground">Telegram Bot</span>
+   808→   808→   808→                        </div>
+   809→   809→   809→                        <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">
+   810→   810→   810→                          CONFIGURED
+   811→   811→   811→                        </Badge>
+   812→   812→   812→                      </div>
+   813→   813→   813→                      <div className="flex items-center justify-between">
+   814→   814→   814→                        <div className="flex items-center gap-2">
+   815→   815→   815→                          <Radio className="size-3.5 text-indigo-400" />
+   816→   816→   816→                          <span className="text-xs text-muted-foreground">Discord Webhook</span>
+   817→   817→   817→                        </div>
+   818→   818→   818→                        <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">
+   819→   819→   819→                          CONFIGURED
+   820→   820→   820→                        </Badge>
+   821→   821→   821→                      </div>
+   822→   822→   822→                    </div>
+   823→   823→   823→                  </CardContent>
+   824→   824→   824→                </Card>
+   825→   825→   825→
+   826→   826→   826→                {/* Run Integrity Check Button */}
+   827→   827→   827→                <Card className="glass-card-premium sm:col-span-2">
+   828→   828→   828→                  <CardContent className="py-4 flex items-center justify-between">
+   829→   829→   829→                    <div>
+   830→   830→   830→                      <p className="text-sm font-medium">Run Full Integrity Check</p>
+   831→   831→   831→                      <p className="text-xs text-muted-foreground">Audits all monitored files, verifies SHA-256 hashes</p>
+   832→   832→   832→                    </div>
+   833→   833→   833→                    <Button
+   834→   834→   834→                      size="sm" className="gap-2 shrink-0"
+   835→   835→   835→                      onClick={runIntegrityCheck}
+   836→   836→   836→                      disabled={integrityLoading}
+   837→   837→   837→                    >
+   838→   838→   838→                      {integrityLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Fingerprint className="size-3.5" />}
+   839→   839→   839→                      {integrityLoading ? 'Scanning...' : 'Run Integrity Check'}
+   840→   840→   840→                    </Button>
+   841→   841→   841→                  </CardContent>
+   842→   842→   842→                </Card>
+   843→   843→   843→              </div>
+   844→   844→   844→            </motion.div>
+   845→   845→   845→          </div>
+   846→   846→   846→
+   847→   847→   847→          {/* File Integrity Grid */}
+   848→   848→   848→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+   849→   849→   849→            <Card className="glass-card-premium">
+   850→   850→   850→              <CardHeader className="pb-3">
+   851→   851→   851→                <div className="flex items-center justify-between">
+   852→   852→   852→                  <CardTitle className="text-sm font-medium">File Integrity Grid</CardTitle>
+   853→   853→   853→                  <Badge variant="outline" className="text-xs">
+   854→   854→   854→                    {fileIntegrity.filter(f => f.status === 'INTACT').length}/{fileIntegrity.length} INTACT
+   855→   855→   855→                  </Badge>
+   856→   856→   856→                </div>
+   857→   857→   857→              </CardHeader>
+   858→   858→   858→              <CardContent>
+   859→   859→   859→                <Table>
+   860→   860→   860→                  <TableHeader>
+   861→   861→   861→                    <TableRow>
+   862→   862→   862→                      <TableHead>File</TableHead>
+   863→   863→   863→                      <TableHead className="hidden sm:table-cell">SHA-256 Hash</TableHead>
+   864→   864→   864→                      <TableHead>Status</TableHead>
+   865→   865→   865→                      <TableHead className="hidden md:table-cell">Last Checked</TableHead>
+   866→   866→   866→                    </TableRow>
+   867→   867→   867→                  </TableHeader>
+   868→   868→   868→                  <TableBody>
+   869→   869→   869→                    {fileIntegrity.map((f, i) => (
+   870→   870→   870→                      <TableRow key={i}>
+   871→   871→   871→                        <TableCell>
+   872→   872→   872→                          <code className="text-xs font-mono">{f.file.split('/').pop()}</code>
+   873→   873→   873→                          <span className="hidden sm:inline text-xs text-muted-foreground ml-2">
+   874→   874→   874→                            {f.file.split('/').slice(0, -1).join('/')}
+   875→   875→   875→                          </span>
+   876→   876→   876→                        </TableCell>
+   877→   877→   877→                        <TableCell className="hidden sm:table-cell">
+   878→   878→   878→                          <code className="text-[10px] text-muted-foreground font-mono">{f.hash}</code>
+   879→   879→   879→                        </TableCell>
+   880→   880→   880→                        <TableCell>
+   881→   881→   881→                          <Badge variant="outline" className={statusBgClass(f.status)}>{f.status}</Badge>
+   882→   882→   882→                        </TableCell>
+   883→   883→   883→                        <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">
+   884→   884→   884→                          {f.lastChecked}
+   885→   885→   885→                        </TableCell>
+   886→   886→   886→                      </TableRow>
+   887→   887→   887→                    ))}
+   888→   888→   888→                  </TableBody>
+   889→   889→   889→                </Table>
+   890→   890→   890→              </CardContent>
+   891→   891→   891→            </Card>
+   892→   892→   892→          </motion.div>
+   893→   893→   893→
+   894→   894→   894→          {/* Security Event Log */}
+   895→   895→   895→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   896→   896→   896→            <Card className="glass-card-premium">
+   897→   897→   897→              <CardHeader className="pb-3">
+   898→   898→   898→                <CardTitle className="text-sm font-medium">Security Event Log</CardTitle>
+   899→   899→   899→              </CardHeader>
+   900→   900→   900→              <CardContent>
+   901→   901→   901→                <div className="space-y-2">
+   902→   902→   902→                  {securityLogs.map(log => (
+   903→   903→   903→                    <div key={log.id} className="flex items-start gap-3 py-2 border-b border-border/30 last:border-0">
+   904→   904→   904→                      <div className="mt-0.5">
+   905→   905→   905→                        {log.severity === 'critical' ? (
+   906→   906→   906→                          <XCircle className="size-4 text-red-400" />
+   907→   907→   907→                        ) : log.severity === 'warning' ? (
+   908→   908→   908→                          <AlertTriangle className="size-4 text-yellow-400" />
+   909→   909→   909→                        ) : (
+   910→   910→   910→                          <CheckCircle className="size-4 text-emerald-400" />
+   911→   911→   911→                        )}
+   912→   912→   912→                      </div>
+   913→   913→   913→                      <div className="flex-1 min-w-0">
+   914→   914→   914→                        <p className="text-sm">{log.event}</p>
+   915→   915→   915→                        <p className="text-xs text-muted-foreground font-mono mt-0.5">{log.time}</p>
+   916→   916→   916→                      </div>
+   917→   917→   917→                      <Badge
+   918→   918→   918→                        variant="outline"
+   919→   919→   919→                        className={
+   920→   920→   920→                          log.severity === 'critical'
+   921→   921→   921→                            ? 'bg-red-500/15 text-red-400 border-red-500/30 text-[10px]'
+   922→   922→   922→                            : log.severity === 'warning'
+   923→   923→   923→                              ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30 text-[10px]'
+   924→   924→   924→                              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]'
+   925→   925→   925→                        }
+   926→   926→   926→                      >
+   927→   927→   927→                        {log.severity.toUpperCase()}
+   928→   928→   928→                      </Badge>
+   929→   929→   929→                    </div>
+   930→   930→   930→                  ))}
+   931→   931→   931→                </div>
+   932→   932→   932→              </CardContent>
+   933→   933→   933→            </Card>
+   934→   934→   934→          </motion.div>
+   935→   935→   935→        </TabsContent>
+   936→   936→   936→
+   937→   937→   937→        {/* ═══════════════════════════════════════════════════════════════════
+   938→   938→   938→           TAB 4: TIMESFM 2.5
+   939→   939→   939→           ═══════════════════════════════════════════════════════════════════ */}
+   940→   940→   940→        <TabsContent value="timesfm" className="space-y-6 mt-4">
+   941→   941→   941→          {/* Model Status + Conditioning Panel */}
+   942→   942→   942→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   943→   943→   943→            {/* Model Status */}
+   944→   944→   944→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+   945→   945→   945→              <Card className="glass-card-premium">
+   946→   946→   946→                <CardHeader className="pb-3">
+   947→   947→   947→                  <div className="flex items-center justify-between">
+   948→   948→   948→                    <CardTitle className="text-sm font-medium text-muted-foreground">Model Status</CardTitle>
+   949→   949→   949→                    <Cpu className="size-4 text-muted-foreground" />
+   950→   950→   950→                  </div>
+   951→   951→   951→                </CardHeader>
+   952→   952→   952→                <CardContent className="space-y-4">
+   953→   953→   953→                  <div className="flex items-center gap-3">
+   954→   954→   954→                    <div
+   955→   955→   955→                      className="size-4 rounded-full"
+   956→   956→   956→                      style={{
+   957→   957→   957→                        backgroundColor: statusColor(modelStatus === 'CONNECTED' ? 'ONLINE' : 'OFFLINE'),
+   958→   958→   958→                        boxShadow: `0 0 12px ${statusColor(modelStatus === 'CONNECTED' ? 'ONLINE' : 'OFFLINE')}80`,
+   959→   959→   959→                      }}
+   960→   960→   960→                    />
+   961→   961→   961→                    <span className="text-lg font-bold" style={{ color: statusColor(modelStatus === 'CONNECTED' ? 'ONLINE' : 'OFFLINE') }}>
+   962→   962→   962→                      {modelStatus === 'CONNECTED' ? 'Connected to NVIDIA NIM' : 'Offline (Mock Mode)'}
+   963→   963→   963→                    </span>
+   964→   964→   964→                  </div>
+   965→   965→   965→                  <div className="space-y-2 text-xs text-muted-foreground">
+   966→   966→   966→                    <p><strong className="text-foreground">Model:</strong> TimesFM 2.5 (500M params)</p>
+   967→   967→   967→                    <p><strong className="text-foreground">Backend:</strong> {modelStatus === 'CONNECTED' ? 'NVIDIA NIM API' : 'Local Fallback'}</p>
+   968→   968→   968→                    <p><strong className="text-foreground">Context Window:</strong> 512 tokens</p>
+   969→   969→   969→                    <p><strong className="text-foreground">Conditioning:</strong> xReg enabled</p>
+   970→   970→   970→                  </div>
+   971→   971→   971→                  {forecastResult && (
+   972→   972→   972→                    <div className="bg-muted/50 rounded-lg p-3 space-y-2 border border-primary/20">
+   973→   973→   973→                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Latest Forecast Result</p>
+   974→   974→   974→                      <div className="flex items-center gap-4">
+   975→   975→   975→                        <div>
+   976→   976→   976→                          <p className="text-2xl font-bold gradient-text">{forecastResult.score}</p>
+   977→   977→   977→                          <p className="text-xs text-muted-foreground">Projected Score</p>
+   978→   978→   978→                        </div>
+   979→   979→   979→                        <div className="h-10 w-px bg-border" />
+   980→   980→   980→                        <div>
+   981→   981→   981→                          <p className="text-2xl font-bold" style={{
+   982→   982→   982→                            color: forecastResult.confidence >= 75 ? '#00e676' : forecastResult.confidence >= 60 ? '#eab308' : '#ef4444',
+   983→   983→   983→                          }}>
+   984→   984→   984→                            {forecastResult.confidence}%
+   985→   985→   985→                          </p>
+   986→   986→   986→                          <p className="text-xs text-muted-foreground">Confidence</p>
+   987→   987→   987→                        </div>
+   988→   988→   988→                      </div>
+   989→   989→   989→                    </div>
+   990→   990→   990→                  )}
+   991→   991→   991→                </CardContent>
+   992→   992→   992→              </Card>
+   993→   993→   993→            </motion.div>
+   994→   994→   994→
+   995→   995→   995→            {/* Conditioning Test Panel */}
+   996→   996→   996→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   997→   997→   997→              <Card className="glass-card-premium">
+   998→   998→   998→                <CardHeader className="pb-3">
+   999→   999→   999→                  <div className="flex items-center justify-between">
+  1000→  1000→  1000→                    <CardTitle className="text-sm font-medium text-muted-foreground">Conditioning Test Panel</CardTitle>
+  1001→  1001→  1001→                    <Brain className="size-4 text-muted-foreground" />
+  1002→  1002→  1002→                  </div>
+  1003→  1003→  1003→                </CardHeader>
+  1004→  1004→  1004→                <CardContent className="space-y-3">
+  1005→  1005→  1005→                  <div className="space-y-1.5">
+  1006→  1006→  1006→                    <Label className="text-xs text-muted-foreground">Team Name</Label>
+  1007→  1007→  1007→                    <Input
+  1008→  1008→  1008→                      value={forecastTeam}
+  1009→  1009→  1009→                      onChange={e => setForecastTeam(e.target.value)}
+  1010→  1010→  1010→                      placeholder="e.g. Manchester City"
+  1011→  1011→  1011→                      className="h-8 text-sm"
+  1012→  1012→  1012→                    />
+  1013→  1013→  1013→                  </div>
+  1014→  1014→  1014→                  <div className="space-y-1.5">
+  1015→  1015→  1015→                    <Label className="text-xs text-muted-foreground">64-Game History (comma separated: W=3, D=1, L=0)</Label>
+  1016→  1016→  1016→                    <Textarea
+  1017→  1017→  1017→                      value={forecastHistory}
+  1018→  1018→  1018→                      onChange={e => setForecastHistory(e.target.value)}
+  1019→  1019→  1019→                      placeholder="3,1,0,3,3,1,0,0,3,1,..."
+  1020→  1020→  1020→                      className="min-h-[60px] font-mono text-xs bg-muted/50 resize-y"
+  1021→  1021→  1021→                    />
+  1022→  1022→  1022→                  </div>
+  1023→  1023→  1023→                  <div className="space-y-1.5">
+  1024→  1024→  1024→                    <Label className="text-xs text-muted-foreground">Recent Indicators (comma separated)</Label>
+  1025→  1025→  1025→                    <Input
+  1026→  1026→  1026→                      value={forecastIndicators}
+  1027→  1027→  1027→                      onChange={e => setForecastIndicators(e.target.value)}
+  1028→  1028→  1028→                      placeholder="1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8"
+  1029→  1029→  1029→                      className="h-8 text-sm font-mono"
+  1030→  1030→  1030→                    />
+  1031→  1031→  1031→                  </div>
+  1032→  1032→  1032→                  <Button
+  1033→  1033→  1033→                    size="sm" className="w-full gap-2"
+  1034→  1034→  1034→                    onClick={runForecast}
+  1035→  1035→  1035→                    disabled={forecastLoading || !forecastTeam}
+  1036→  1036→  1036→                  >
+  1037→  1037→  1037→                    {forecastLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
+  1038→  1038→  1038→                    Run Conditioned Forecast
+  1039→  1039→  1039→                  </Button>
+  1040→  1040→  1040→                </CardContent>
+  1041→  1041→  1041→              </Card>
+  1042→  1042→  1042→            </motion.div>
+  1043→  1043→  1043→          </div>
+  1044→  1044→  1044→
+  1045→  1045→  1045→          {/* Forecast History + xReg Chart */}
+  1046→  1046→  1046→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1047→  1047→  1047→            {/* Forecast History */}
+  1048→  1048→  1048→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+  1049→  1049→  1049→              <Card className="glass-card-premium">
+  1050→  1050→  1050→                <CardHeader className="pb-3">
+  1051→  1051→  1051→                  <CardTitle className="text-sm font-medium">Forecast History</CardTitle>
+  1052→  1052→  1052→                </CardHeader>
+  1053→  1053→  1053→                <CardContent>
+  1054→  1054→  1054→                  <Table>
+  1055→  1055→  1055→                    <TableHeader>
+  1056→  1056→  1056→                      <TableRow>
+  1057→  1057→  1057→                        <TableHead>Timestamp</TableHead>
+  1058→  1058→  1058→                        <TableHead>Team</TableHead>
+  1059→  1059→  1059→                        <TableHead>Score</TableHead>
+  1060→  1060→  1060→                        <TableHead>Conf</TableHead>
+  1061→  1061→  1061→                      </TableRow>
+  1062→  1062→  1062→                    </TableHeader>
+  1063→  1063→  1063→                    <TableBody>
+  1064→  1064→  1064→                      {forecasts.slice(0, 8).map(f => (
+  1065→  1065→  1065→                        <TableRow key={f.id}>
+  1066→  1066→  1066→                          <TableCell className="text-xs text-muted-foreground font-mono">{f.timestamp.slice(11, 19)}</TableCell>
+  1067→  1067→  1067→                          <TableCell className="text-sm font-medium">{f.team}</TableCell>
+  1068→  1068→  1068→                          <TableCell className="text-sm font-mono">{f.projectedScore}</TableCell>
+  1069→  1069→  1069→                          <TableCell>
+  1070→  1070→  1070→                            <span className="text-xs font-bold" style={{
+  1071→  1071→  1071→                              color: f.confidence >= 75 ? '#00e676' : f.confidence >= 60 ? '#eab308' : '#ef4444',
+  1072→  1072→  1072→                            }}>
+  1073→  1073→  1073→                              {f.confidence}%
+  1074→  1074→  1074→                            </span>
+  1075→  1075→  1075→                          </TableCell>
+  1076→  1076→  1076→                        </TableRow>
+  1077→  1077→  1077→                      ))}
+  1078→  1078→  1078→                    </TableBody>
+  1079→  1079→  1079→                  </Table>
+  1080→  1080→  1080→                </CardContent>
+  1081→  1081→  1081→              </Card>
+  1082→  1082→  1082→            </motion.div>
+  1083→  1083→  1083→
+  1084→  1084→  1084→            {/* xReg Conditioning Visualization */}
+  1085→  1085→  1085→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+  1086→  1086→  1086→              <Card className="glass-card-premium">
+  1087→  1087→  1087→                <CardHeader className="pb-3">
+  1088→  1088→  1088→                  <CardTitle className="text-sm font-medium">xReg Conditioning — Indicator Trend</CardTitle>
+  1089→  1089→  1089→                </CardHeader>
+  1090→  1090→  1090→                <CardContent>
+  1091→  1091→  1091→                  <div className="h-[250px]">
+  1092→  1092→  1092→                    <ResponsiveContainer width="100%" height="100%">
+  1093→  1093→  1093→                      <BarChart data={indicatorTrendData}>
+  1094→  1094→  1094→                        <XAxis
+  1095→  1095→  1095→                          dataKey="name"
+  1096→  1096→  1096→                          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
+  1097→  1097→  1097→                          axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+  1098→  1098→  1098→                          tickLine={false}
+  1099→  1099→  1099→                        />
+  1100→  1100→  1100→                        <YAxis
+  1101→  1101→  1101→                          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
+  1102→  1102→  1102→                          axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+  1103→  1103→  1103→                          tickLine={false}
+  1104→  1104→  1104→                        />
+  1105→  1105→  1105→                        <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
+  1106→  1106→  1106→                          {indicatorTrendData.map((entry, index) => (
+  1107→  1107→  1107→                            <Cell
+  1108→  1108→  1108→                              key={index}
+  1109→  1109→  1109→                              fill={entry.value >= 2.0 ? '#00e676' : entry.value >= 1.5 ? '#00bfa5' : entry.value >= 1.0 ? '#eab308' : '#ef4444'}
+  1110→  1110→  1110→                              fillOpacity={0.8}
+  1111→  1111→  1111→                            />
+  1112→  1112→  1112→                          ))}
+  1113→  1113→  1113→                        </Bar>
+  1114→  1114→  1114→                      </BarChart>
+  1115→  1115→  1115→                    </ResponsiveContainer>
+  1116→  1116→  1116→                  </div>
+  1117→  1117→  1117→                  <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-muted-foreground">
+  1118→  1118→  1118→                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-red-500 inline-block" /> &lt;1.0</span>
+  1119→  1119→  1119→                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-yellow-500 inline-block" /> 1.0-1.4</span>
+  1120→  1120→  1120→                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-teal-500 inline-block" /> 1.5-1.9</span>
+  1121→  1121→  1121→                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-emerald-500 inline-block" /> ≥2.0</span>
+  1122→  1122→  1122→                  </div>
+  1123→  1123→  1123→                </CardContent>
+  1124→  1124→  1124→              </Card>
+  1125→  1125→  1125→            </motion.div>
+  1126→  1126→  1126→          </div>
+  1127→  1127→  1127→        </TabsContent>
+  1128→  1128→  1128→      </Tabs>
+  1129→  1129→  1129→    </div>
+  1130→  1130→  1130→  )
+  1131→  1131→  1131→}

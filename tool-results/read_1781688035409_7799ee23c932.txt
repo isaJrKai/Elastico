@@ -1,0 +1,1009 @@
+     1→import React, { useState, useEffect, useRef } from "react";
+     2→import { 
+     3→  AlertCircle, Newspaper, Flame, Radio, Volume2, VolumeX, Bookmark, 
+     4→  Share2, Play, Pause, RotateCcw, TrendingUp, CloudRain, 
+     5→  Thermometer, Wind, Video, MapPin, Eye, Copy, ChevronUp, ChevronDown, 
+     6→  Type, Activity, CheckCircle, Ticket, Compass, Plus, Trash2, Heart, Award,
+     7→  Sparkles, Globe, X
+     8→} from "lucide-react";
+     9→import { motion, AnimatePresence } from "motion/react";
+    10→import { User, Match } from "../types";
+    11→
+    12→
+    13→interface StadiumNewsTickerProps {
+    14→  user: User;
+    15→  selectedMatch: Match | null;
+    16→}
+    17→
+    18→interface NewsItem {
+    19→  id: string;
+    20→  title: string;
+    21→  summary: string;
+    22→  category: "Local" | "Global" | "Transfer" | "Tactics";
+    23→  time: string;
+    24→  thumbnail: string;
+    25→  url?: string;
+    26→  summarized_headline?: string;
+    27→  reactions: {
+    28→    bravo: number;
+    29→    shock: number;
+    30→    genius: number;
+    31→    ole: number;
+    32→    class: number;
+    33→  };
+    34→}
+    35→
+    36→export default function StadiumNewsTicker({ user, selectedMatch }: StadiumNewsTickerProps) {
+    37→  // States
+    38→  const [news, setNews] = useState<NewsItem[]>([]);
+    39→  const [currentIdx, setCurrentIdx] = useState(0);
+    40→  const [isPlaying, setIsPlaying] = useState(true);
+    41→  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 1.5 | 2 | 5>(1); // simulation speed dial multiplier
+    42→  const [soundEnabled, setSoundEnabled] = useState(false);
+    43→  const [savedNews, setSavedNews] = useState<NewsItem[]>(() => {
+    44→    try {
+    45→      const saved = localStorage.getItem("kickiq_saved_news");
+    46→      return saved ? JSON.parse(saved) : [];
+    47→    } catch {
+    48→      return [];
+    49→    }
+    50→  });
+    51→
+    52→  const [activeTab, setActiveTab] = useState<"news" | "highlights" | "weather" | "seating" | "camera">("news");
+    53→  const [isCollapsed, setIsCollapsed] = useState(true);
+    54→  const [textSizeScale, setTextSizeScale] = useState<"sm" | "base" | "lg">("base");
+    55→  const [activeReactions, setActiveReactions] = useState<Record<string, string>>({}); // for triggering reaction bubbles
+    56→  const [summariesCache, setSummariesCache] = useState<Record<string, string>>({});
+    57→  const [loadingSummaries, setLoadingSummaries] = useState<Record<string, boolean>>({});
+    58→
+    59→  // AI-powered summarize all ticker items & translation states
+    60→  const [isGroupSummaryOpen, setIsGroupSummaryOpen] = useState(false);
+    61→  const [groupSummaryText, setGroupSummaryText] = useState("");
+    62→  const [isLoadingGroupSummary, setIsLoadingGroupSummary] = useState(false);
+    63→  const [targetLang, setTargetLang] = useState<string>("en");
+    64→  const [translationCache, setTranslationCache] = useState<Record<string, { title: string; summary: string }>>({});
+    65→  const [isTranslating, setIsTranslating] = useState<boolean>(false);
+    66→
+    67→
+    68→  // Virtual seating states
+    69→  const [gateId, setGateId] = useState("Gate C");
+    70→  const [rowId, setRowId] = useState("12");
+    71→  const [seatId, setSeatId] = useState("24");
+    72→  const [isPassGenerated, setIsPassGenerated] = useState(false);
+    73→
+    74→  // Weather States
+    75→  const [temp, setTemp] = useState(24);
+    76→  const [rainProb, setRainProb] = useState(15);
+    77→  const [windSpeed, setWindSpeed] = useState(12);
+    78→  const [fieldFriction, setFieldFriction] = useState(0.85);
+    79→
+    80→  // Sound Synth Ref
+    81→  const audioContextRef = useRef<AudioContext | null>(null);
+    82→
+    83→  // Beep sound generator for alerts (Professional auditory signal)
+    84→  const playAlertSound = (type: "new" | "click" | "reaction") => {
+    85→    if (!soundEnabled) return;
+    86→    try {
+    87→      if (!audioContextRef.current) {
+    88→        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    89→      }
+    90→      const ctx = audioContextRef.current;
+    91→      if (ctx.state === "suspended") {
+    92→        ctx.resume();
+    93→      }
+    94→      const osc = ctx.createOscillator();
+    95→      const gain = ctx.createGain();
+    96→      osc.connect(gain);
+    97→      gain.connect(ctx.destination);
+    98→
+    99→      if (type === "new") {
+   100→        osc.type = "sine";
+   101→        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+   102→        osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.15); // G5
+   103→        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+   104→        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+   105→        osc.start();
+   106→        osc.stop(ctx.currentTime + 0.25);
+   107→      } else if (type === "reaction") {
+   108→        osc.type = "triangle";
+   109→        osc.frequency.setValueAtTime(329.63, ctx.currentTime); // E4
+   110→        osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.08); // E5
+   111→        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+   112→        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+   113→        osc.start();
+   114→        osc.stop(ctx.currentTime + 0.15);
+   115→      } else {
+   116→        osc.type = "sine";
+   117→        osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
+   118→        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+   119→        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+   120→        osc.start();
+   121→        osc.stop(ctx.currentTime + 0.05);
+   122→      }
+   123→    } catch (e) {
+   124→      console.warn("Audio Context init blocked by browser policies", e);
+   125→    }
+   126→  };
+   127→
+   128→  // Fetch match occurrences on mount / selection
+   129→  useEffect(() => {
+   130→    const fetchArticles = async () => {
+   131→      try {
+   132→        const res = await fetch("/matches/stadium-news/articles");
+   133→        const data = await res.json();
+   134→        if (data && data.events) {
+   135→          const initialNews: NewsItem[] = data.events.map((ev: any) => ({
+   136→            ...ev,
+   137→            reactions: {
+   138→              bravo: Math.floor(Math.random() * 45) + 12,
+   139→              shock: Math.floor(Math.random() * 18) + 2,
+   140→              genius: Math.floor(Math.random() * 32) + 5,
+   141→              ole: Math.floor(Math.random() * 60) + 25,
+   142→              class: Math.floor(Math.random() * 28) + 8
+   143→            }
+   144→          }));
+   145→          setNews(initialNews);
+   146→        }
+   147→      } catch (err) {
+   148→        console.error("Failed to load stadium articles pool", err);
+   149→      }
+   150→    };
+   151→    fetchArticles();
+   152→  }, [selectedMatch]);
+   153→
+   154→  // Escape key global listener for accessibility
+   155→  useEffect(() => {
+   156→    const handleKeyDown = (e: KeyboardEvent) => {
+   157→      if (e.key === "Escape") {
+   158→        setIsGroupSummaryOpen(false);
+   159→      }
+   160→    };
+   161→    window.addEventListener("keydown", handleKeyDown);
+   162→    return () => window.removeEventListener("keydown", handleKeyDown);
+   163→  }, []);
+   164→
+   165→
+   166→  // Auto loop manager simulating real-time updates and 2 hour loop replays
+   167→  useEffect(() => {
+   168→    if (!isPlaying || news.length === 0) return;
+   169→
+   170→    // Fast-pacing interval based on Speed Dilations (e.g., 6000ms divided by playback ratio)
+   171→    const intervalTime = 7000 / playbackSpeed;
+   172→
+   173→    const timer = setInterval(() => {
+   174→      setCurrentIdx(prev => {
+   175→        const next = (prev + 1) % news.length;
+   176→        // When news loop finishes, shuffle and re-loop based on Reaction count!
+   177→        if (next === 0) {
+   178→          // Re-sort current pool by total reactions to show "Most Reacted" first on repeat!
+   179→          setNews(current => {
+   180→            const sortedByEngagement = [...current].sort((a, b) => {
+   181→              const scoreA = (a.reactions.bravo || 0) + (a.reactions.shock || 0) + (a.reactions.genius || 0) + (a.reactions.ole || 0) + (a.reactions.class || 0);
+   182→              const scoreB = (b.reactions.bravo || 0) + (b.reactions.shock || 0) + (b.reactions.genius || 0) + (b.reactions.ole || 0) + (b.reactions.class || 0);
+   183→              return scoreB - scoreA;
+   184→            });
+   185→            return sortedByEngagement;
+   186→          });
+   187→        }
+   188→        return next;
+   189→      });
+   190→      playAlertSound("click");
+   191→    }, intervalTime);
+   192→
+   193→    // Weather fluctuations to make the environment "legit and dynamic"
+   194→    const weatherTimer = setInterval(() => {
+   195→      setTemp(t => Math.min(34, Math.max(16, t + (Math.random() > 0.5 ? 1 : -1))));
+   196→      setRainProb(r => Math.min(100, Math.max(0, r + Math.floor(Math.random() * 6 - 3))));
+   197→      setWindSpeed(w => Math.min(35, Math.max(2, w + Math.floor(Math.random() * 4 - 2))));
+   198→      setFieldFriction(f => Math.min(1.0, Math.max(0.6, parseFloat((f + (Math.random() * 0.04 - 0.02)).toFixed(2)))));
+   199→    }, 12000);
+   200→
+   201→    return () => {
+   202→      clearInterval(timer);
+   203→      clearInterval(weatherTimer);
+   204→    };
+   205→  }, [isPlaying, news, currentIdx, playbackSpeed]);
+   206→
+   207→  const activeNews = news[currentIdx] || null;
+   208→
+   209→  // Active translation tracking effect
+   210→  useEffect(() => {
+   211→    if (activeNews && targetLang !== "en") {
+   212→      translateCurrentItem(activeNews, targetLang);
+   213→    }
+   214→  }, [currentIdx, targetLang, activeNews]);
+   215→
+   216→  // Translate a news item to preferred target language
+   217→  const translateCurrentItem = async (item: NewsItem, langCode: string) => {
+   218→    if (langCode === "en") return;
+   219→    const cacheKey = `${item.id}-${langCode}`;
+   220→    if (translationCache[cacheKey]) return;
+   221→
+   222→    setIsTranslating(true);
+   223→    try {
+   224→      const textToTranslate = `${item.summarized_headline || item.title} ||| ${item.summary}`;
+   225→      const langNames: Record<string, string> = {
+   226→        es: "Spanish",
+   227→        fr: "French",
+   228→        de: "German",
+   229→        it: "Italian",
+   230→        pt: "Portuguese",
+   231→        ja: "Japanese"
+   232→      };
+   233→
+   234→      const res = await fetch("/matches/stadium-news/translate", {
+   235→        method: "POST",
+   236→        headers: { "Content-Type": "application/json" },
+   237→        body: JSON.stringify({
+   238→          text: textToTranslate,
+   239→          targetLanguage: langNames[langCode] || "Spanish"
+   240→        })
+   241→      });
+   242→      const data = await res.json();
+   243→      if (res.ok && data.translatedText) {
+   244→        const parts = data.translatedText.split("|||");
+   245→        const translatedTitle = parts[0]?.trim() || item.title;
+   246→        const translatedSummary = parts[1]?.trim() || item.summary;
+   247→
+   248→        setTranslationCache(prev => ({
+   249→          ...prev,
+   250→          [cacheKey]: {
+   251→            title: translatedTitle,
+   252→            summary: translatedSummary
+   253→          }
+   254→        }));
+   255→      }
+   256→    } catch (err) {
+   257→      console.error("Failed to translate ticker news item", err);
+   258→    } finally {
+   259→      setIsTranslating(false);
+   260→    }
+   261→  };
+   262→
+   263→  const handleLanguageChange = (langCode: string) => {
+   264→    setTargetLang(langCode);
+   265→    playAlertSound("click");
+   266→  };
+   267→
+   268→  // Summarize all active articles with Gemini AI
+   269→  const handleOpenGroupSummary = async () => {
+   270→    setIsGroupSummaryOpen(true);
+   271→    setIsLoadingGroupSummary(true);
+   272→    setGroupSummaryText("");
+   273→    try {
+   274→      const articlesPayload = news.map(item => ({
+   275→        title: item.title,
+   276→        summary: item.summary
+   277→      }));
+   278→
+   279→      const res = await fetch("/matches/stadium-news/summarize-all", {
+   280→        method: "POST",
+   281→        headers: { "Content-Type": "application/json" },
+   282→        body: JSON.stringify({ articles: articlesPayload })
+   283→      });
+   284→      const data = await res.json();
+   285→      if (res.ok && data.summary) {
+   286→        setGroupSummaryText(data.summary);
+   287→      } else {
+   288→        setGroupSummaryText("Failed to retrieve a comprehensive summary of news ticker articles. Please retry.");
+   289→      }
+   290→    } catch (err) {
+   291→      console.error("Group summary fetch failed", err);
+   292→      setGroupSummaryText("Failed to connect with KICKIQ AI summarization services.");
+   293→    } finally {
+   294→      setIsLoadingGroupSummary(false);
+   295→    }
+   296→  };
+   297→
+   298→
+   299→  // Track reaction bubble triggers
+   300→  const handleReaction = (type: "bravo" | "shock" | "genius" | "ole" | "class") => {
+   301→    if (!activeNews) return;
+   302→    
+   303→    // Increment reactions local state
+   304→    setNews(prev => {
+   305→      const copy = [...prev];
+   306→      if (copy[currentIdx]) {
+   307→        copy[currentIdx].reactions[type] += 1;
+   308→      }
+   309→      return copy;
+   310→    });
+   311→
+   312→    // Trigger standard audit beeping frequency
+   313→    playAlertSound("reaction");
+   314→
+   315→    // Spawn a temporary CSS floating bubble
+   316→    const reactionEmojis = { bravo: "🔥", shock: "🚨", genius: "💡", ole: "⚽", class: "👏" };
+   317→    const emoji = reactionEmojis[type];
+   318→    const triggerId = `${Date.now()}-${Math.random()}`;
+   319→
+   320→    setActiveReactions(prev => ({ ...prev, [triggerId]: emoji }));
+   321→    setTimeout(() => {
+   322→      setActiveReactions(prev => {
+   323→        const copy = { ...prev };
+   324→        delete copy[triggerId];
+   325→        return copy;
+   326→      });
+   327→    }, 1400);
+   328→  };
+   329→
+   330→  // Bookmark / Save feature (microfeature helper)
+   331→  const toggleBookmark = (item: NewsItem) => {
+   332→    setSavedNews(prev => {
+   333→      const isExist = prev.some(n => n.id === item.id);
+   334→      let updated;
+   335→      if (isExist) {
+   336→        updated = prev.filter(n => n.id !== item.id);
+   337→      } else {
+   338→        updated = [...prev, item];
+   339→      }
+   340→      localStorage.setItem("kickiq_saved_news", JSON.stringify(updated));
+   341→      return updated;
+   342→    });
+   343→    playAlertSound("click");
+   344→  };
+   345→
+   346→  // Copy catchphrase summary to clipboard
+   347→  const copyToClipboard = (text: string) => {
+   348→    navigator.clipboard.writeText(text);
+   349→    playAlertSound("click");
+   350→    alert("📢 STADIUM COMMUNICATOR: Copied catchy headline to dashboard clipboard!");
+   351→  };
+   352→
+   353→  if (isCollapsed) {
+   354→    return (
+   355→      <div className="fixed bottom-4 left-4 right-4 z-50 flex justify-center">
+   356→        <button
+   357→          onClick={() => { setIsCollapsed(false); playAlertSound("click"); }}
+   358→          className="flex items-center gap-2.5 px-5 py-2 bg-slate-950/90 backdrop-blur-md hover:bg-slate-900 border border-slate-800 rounded-2xl shadow-xl hover:border-emerald-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer text-slate-350 hover:text-emerald-400 group"
+   359→          id="stadium-news-expand-btn"
+   360→        >
+   361→          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+   362→          <Radio className="w-3.5 h-3.5 text-red-500 group-hover:animate-pulse" />
+   363→          <span className="font-mono text-[9px] font-black uppercase tracking-widest">
+   364→            Stadium Ticker Minimized • Show Feed
+   365→          </span>
+   366→          <ChevronUp className="w-3 h-3 text-slate-500 group-hover:text-emerald-400 font-bold transition-transform group-hover:-translate-y-0.5" />
+   367→        </button>
+   368→      </div>
+   369→    );
+   370→  }
+   371→
+   372→  return (
+   373→    <div className="fixed bottom-4 left-4 right-4 z-50 flex flex-col items-center">
+   374→      
+   375→      {/* Floating bubble reactions portal */}
+   376→      <div className="absolute -top-16 pointer-events-none flex gap-1 z-50">
+   377→        <AnimatePresence>
+   378→          {Object.entries(activeReactions).map(([id, emoji]) => (
+   379→            <motion.div
+   380→              key={id}
+   381→              initial={{ y: 20, opacity: 0, scale: 0.5 }}
+   382→              animate={{ y: -80, opacity: 1, scale: 1.3 }}
+   383→              exit={{ opacity: 0, scale: 0.8 }}
+   384→              transition={{ duration: 1.2, ease: "easeOut" }}
+   385→              className="text-2xl font-sans font-bold bg-slate-900/90 py-1 px-2.5 rounded-full border border-emerald-500/20 shadow-lg shadow-emerald-500/5"
+   386→            >
+   387→              {emoji}
+   388→            </motion.div>
+   389→          ))}
+   390→        </AnimatePresence>
+   391→      </div>
+   392→
+   393→      {/* Main Bar Wrapper */}
+   394→      <div className="w-full max-w-5xl bg-slate-950/85 backdrop-blur-2xl border-2 border-slate-900/90 rounded-3xl overflow-hidden shadow-2xl shadow-emerald-950/20 transition-all duration-300">
+   395→        
+   396→        {/* UPPER STATUS DECK (Interactive switches) */}
+   397→        {!isCollapsed && (
+   398→          <div className="px-5 py-2.5 bg-slate-950 border-b border-slate-900 flex flex-wrap items-center justify-between gap-3 text-xs">
+   399→            
+   400→            {/* Left Nav Tabs */}
+   401→            <div className="flex items-center gap-1.5 overflow-x-auto">
+   402→              <button
+   403→                onClick={() => { setActiveTab("news"); playAlertSound("click"); }}
+   404→                className={`flex items-center gap-1.5 py-1 px-3 rounded-lg font-mono font-bold uppercase text-[9.5px] transition cursor-pointer ${
+   405→                  activeTab === "news" 
+   406→                    ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" 
+   407→                    : "text-slate-400 hover:text-slate-200"
+   408→                }`}
+   409→              >
+   410→                <Radio className={`w-3 h-3 ${isPlaying && activeTab === "news" ? "animate-pulse text-red-500" : ""}`} />
+   411→                Stadium News
+   412→              </button>
+   413→
+   414→              <button
+   415→                onClick={() => { setActiveTab("highlights"); playAlertSound("click"); }}
+   416→                className={`flex items-center gap-1.5 py-1 px-3 rounded-lg font-mono font-bold uppercase text-[9.5px] transition cursor-pointer relative ${
+   417→                  activeTab === "highlights" 
+   418→                    ? "bg-amber-500/10 text-amber-300 border border-amber-500/20" 
+   419→                    : "text-slate-400 hover:text-slate-250"
+   420→                }`}
+   421→              >
+   422→                <Bookmark className="w-3 h-3" />
+   423→                Saves Ledger ({savedNews.length})
+   424→              </button>
+   425→
+   426→              <button
+   427→                onClick={() => { setActiveTab("weather"); playAlertSound("click"); }}
+   428→                className={`flex items-center gap-1.5 py-1 px-3 rounded-lg font-mono font-bold uppercase text-[9.5px] transition cursor-pointer ${
+   429→                  activeTab === "weather" 
+   430→                    ? "bg-blue-500/10 text-blue-300 border border-blue-500/20" 
+   431→                    : "text-slate-400 hover:text-slate-250"
+   432→                }`}
+   433→              >
+   434→                <CloudRain className="w-3 h-3" />
+   435→                Weather Engine
+   436→              </button>
+   437→
+   438→              <button
+   439→                onClick={() => { setActiveTab("seating"); playAlertSound("click"); }}
+   440→                className={`flex items-center gap-1.5 py-1 px-3 rounded-lg font-mono font-bold uppercase text-[9.5px] transition cursor-pointer ${
+   441→                  activeTab === "seating" 
+   442→                    ? "bg-purple-500/10 text-purple-300 border border-purple-500/20" 
+   443→                    : "text-slate-400 hover:text-slate-250"
+   444→                }`}
+   445→              >
+   446→                <Ticket className="w-3 h-3" />
+   447→                Virtual Seat View
+   448→              </button>
+   449→
+   450→              <button
+   451→                onClick={() => { setActiveTab("camera"); playAlertSound("click"); }}
+   452→                className={`flex items-center gap-1.5 py-1 px-3 rounded-lg font-mono font-bold uppercase text-[9.5px] transition cursor-pointer ${
+   453→                  activeTab === "camera" 
+   454→                    ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20" 
+   455→                    : "text-slate-400 hover:text-slate-250"
+   456→                }`}
+   457→              >
+   458→                <Video className="w-3 h-3" />
+   459→                Drone Camera HUD
+   460→              </button>
+   461→
+   462→              <button
+   463→                onClick={handleOpenGroupSummary}
+   464→                className="flex items-center gap-1.5 py-1 px-3 rounded-lg font-mono font-extrabold uppercase text-[9.5px] transition cursor-pointer bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 shadow-sm shadow-emerald-500/5 hover:border-emerald-500/60"
+   465→                title="Instant Summarization of all news articles in the log"
+   466→              >
+   467→                <Sparkles className="w-3 h-3 text-emerald-400 animate-pulse" />
+   468→                Summarize Ticker
+   469→              </button>
+   470→            </div>
+   471→
+   472→            {/* Right Quick Controls */}
+   473→            <div className="flex items-center gap-2.5 ml-auto text-[8px] font-mono text-slate-500">
+   474→              
+   475→              {/* Auto-Translate Option Dropdown */}
+   476→              <div className="flex items-center bg-slate-900 border border-slate-850 px-1.5 py-0.5 rounded-md gap-1">
+   477→                <span className="text-slate-500 uppercase flex items-center gap-0.5"><Globe className="w-2.5 h-2.5" /> Translate</span>
+   478→                <select 
+   479→                  value={targetLang} 
+   480→                  onChange={(e) => handleLanguageChange(e.target.value)}
+   481→                  className="bg-transparent text-emerald-400 font-bold focus:outline-none cursor-pointer text-[8px]"
+   482→                >
+   483→                  <option value="en">Source (EN)</option>
+   484→                  <option value="es">Español</option>
+   485→                  <option value="fr">Français</option>
+   486→                  <option value="de">Deutsch</option>
+   487→                  <option value="it">Italiano</option>
+   488→                  <option value="pt">Português</option>
+   489→                  <option value="ja">日本語</option>
+   490→                </select>
+   491→              </div>
+   492→
+   493→              {/* Dynamic Font Controller */}
+   494→              <div className="flex items-center bg-slate-900 border border-slate-850 px-1.5 py-0.5 rounded-md gap-1">
+   495→                <span className="text-slate-500 uppercase flex items-center gap-0.5"><Type className="w-2.5 h-2.5" /> Scale</span>
+   496→                <button 
+   497→                  onClick={() => { setTextSizeScale("sm"); playAlertSound("click"); }}
+   498→                  className={`px-1 rounded ${textSizeScale === "sm" ? "bg-emerald-500/25 text-emerald-400 font-extrabold" : "hover:text-white"}`}
+   499→                >
+   500→                  S
+   501→                </button>
+   502→                <button 
+   503→                  onClick={() => { setTextSizeScale("base"); playAlertSound("click"); }}
+   504→                  className={`px-1 rounded ${textSizeScale === "base" ? "bg-emerald-500/25 text-emerald-400 font-extrabold" : "hover:text-white"}`}
+   505→                >
+   506→                  M
+   507→                </button>
+   508→                <button 
+   509→                  onClick={() => { setTextSizeScale("lg"); playAlertSound("click"); }}
+   510→                  className={`px-1 rounded ${textSizeScale === "lg" ? "bg-emerald-500/25 text-emerald-400 font-extrabold" : "hover:text-white"}`}
+   511→                >
+   512→                  L
+   513→                </button>
+   514→              </div>
+   515→
+   516→              {/* Sound toggle */}
+   517→              <button
+   518→                onClick={() => setSoundEnabled(prev => !prev)}
+   519→                className={`p-1 rounded-md transition cursor-pointer ${
+   520→                  soundEnabled 
+   521→                    ? "bg-rose-500/15 text-rose-400 border border-rose-500/25" 
+   522→                    : "bg-slate-900 text-slate-500 hover:text-slate-350 border border-slate-850"
+   523→                }`}
+   524→                title="Toggle Beeping Audio Feeds"
+   525→              >
+   526→                {soundEnabled ? <Volume2 className="w-3 h-3 animate-bounce" /> : <VolumeX className="w-3 h-3" />}
+   527→              </button>
+   528→
+   529→              {/* Play / Pause Cycle slider */}
+   530→              <button
+   531→                onClick={() => { setIsPlaying(p => !p); playAlertSound("click"); }}
+   532→                className={`py-0.5 px-2 rounded-md font-bold uppercase min-w-[50px] cursor-pointer transition ${
+   533→                  isPlaying 
+   534→                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25" 
+   535→                    : "bg-amber-500/10 text-amber-400 border border-amber-500/25 animate-pulse"
+   536→                }`}
+   537→              >
+   538→                {isPlaying ? "📻 ON-AIR" : "⏸️ PLAY"}
+   539→              </button>
+   540→
+   541→              {/* Simulation Speed Dilation dial */}
+   542→              <div className="flex items-center bg-slate-900 border border-slate-850 px-1.5 py-0.5 rounded-md gap-1">
+   543→                <span>Speed:</span>
+   544→                <select 
+   545→                  value={playbackSpeed} 
+   546→                  onChange={(e) => setPlaybackSpeed(Number(e.target.value) as any)}
+   547→                  className="bg-transparent text-emerald-400 font-bold focus:outline-none cursor-pointer text-[8px]"
+   548→                >
+   549→                  <option value={1}>1.0x</option>
+   550→                  <option value={1.5}>1.5x</option>
+   551→                  <option value={2}>2.0x</option>
+   552→                  <option value={5}>5.0x</option>
+   553→                </select>
+   554→              </div>
+   555→
+   556→              {/* Minimize/Collapse button */}
+   557→              <button
+   558→                onClick={() => { setIsCollapsed(true); playAlertSound("new"); }}
+   559→                className="p-1 px-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-850 hover:border-slate-700 text-slate-400 hover:text-white rounded-md transition cursor-pointer flex items-center gap-1 font-mono text-[8px] font-bold uppercase tracking-wider"
+   560→                title="Minimize Stadium News Feed"
+   561→                id="stadium-news-minimize-btn"
+   562→              >
+   563→                <ChevronDown className="w-3 h-3 text-emerald-400" />
+   564→                <span>Minimize</span>
+   565→              </button>
+   566→            </div>
+   567→          </div>
+   568→        )}
+   569→
+   570→        {/* TRAY BODY SHELF */}
+   571→        <div className="relative p-4 md:p-5 flex flex-col md:flex-row items-center gap-4.5 bg-gradient-to-b from-slate-950/50 to-slate-950/90 relative">
+   572→          
+   573→          {/* GLINT SHIMMER GRADIENT (Visual glow ring) */}
+   574→          <div className="absolute inset-px -z-10 rounded-[22px] bg-gradient-to-r from-transparent via-emerald-500/5 to-transparent animate-pulse pointer-events-none" />
+   575→
+   576→          {/* Render Active View Tab */}
+   577→          {activeTab === "news" && activeNews && (
+   578→            <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4">
+   579→              
+   580→              {/* Ticker Indicator tag */}
+   581→              <div className="flex items-start gap-4 flex-1">
+   582→                
+   583→                {/* Visual Thumbnail */}
+   584→                <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 border-2 border-slate-900 relative bg-slate-900 hidden sm:block">
+   585→                  <img 
+   586→                    src={activeNews.thumbnail} 
+   587→                    alt="stadium_flash" 
+   588→                    className="w-full h-full object-cover"
+   589→                    referrerPolicy="no-referrer"
+   590→                  />
+   591→                  <div className="absolute top-1 left-1 bg-red-600 rounded-full w-2 h-2 animate-ping" />
+   592→                </div>
+   593→
+   594→                <div className="space-y-1.5 text-left flex-1">
+   595→                  
+   596→                  {/* Category badging */}
+   597→                  <div className="flex items-center gap-2">
+   598→                    <span className={`text-[7px] font-black tracking-widest uppercase font-mono px-2 py-0.5 rounded ${
+   599→                      activeNews.category === "Tactics" ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" :
+   600→                      activeNews.category === "Transfer" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+   601→                      activeNews.category === "Global" ? "bg-pink-500/10 text-pink-400 border border-pink-500/20" :
+   602→                      "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+   603→                    }`}>
+   604→                      🏟️ {activeNews.category} FEED
+   605→                    </span>
+   606→                    
+   607→                    <span className="text-[7.5px] font-mono font-bold text-slate-550 flex items-center gap-1 uppercase">
+   608→                      <Radio className="w-2.5 h-2.5 animate-pulse text-red-500" />
+   609→                      Live Streamed {activeNews.time}
+   610→                    </span>
+   611→
+   612→                    {/* Crowd Tension status analyzer indicators */}
+   613→                    <span className="text-[7.5px] font-mono bg-slate-900 text-slate-400 border border-slate-800 px-1.5 py-0.5 rounded flex items-center gap-1">
+   614→                      <Activity className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />
+   615→                      DECIBELS: {(100 + activeNews.reactions.ole % 25).toFixed(1)} dB
+   616→                    </span>
+   617→                  </div>
+   618→
+   619→                  {/* Catchy translated headline and news text */}
+   620→                  <div className="min-h-[44px]">
+   621→                    {isTranslating ? (
+   622→                      <div className="flex items-center gap-2 py-1 text-slate-450 animate-pulse font-mono text-[10px]">
+   623→                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" />
+   624→                        Translating headline and summary via Gemini AI...
+   625→                      </div>
+   626→                    ) : (
+   627→                      <div className="space-y-1">
+   628→                        <p className={`font-semibold tracking-tight leading-snug text-slate-100 ${
+   629→                          textSizeScale === "sm" ? "text-xs" : 
+   630→                          textSizeScale === "lg" ? "text-base" : "text-sm"
+   631→                        }`}>
+   632→                          {translationCache[`${activeNews.id}-${targetLang}`]?.title || activeNews.summarized_headline || activeNews.title}
+   633→                        </p>
+   634→                        <p className="text-[9.5px] text-slate-450 font-sans leading-relaxed tracking-normal line-clamp-1">
+   635→                          {translationCache[`${activeNews.id}-${targetLang}`] 
+   636→                            ? `Translated: "${translationCache[`${activeNews.id}-${targetLang}`].summary}"`
+   637→                            : `Source content: "${activeNews.summary}"`
+   638→                          }
+   639→                        </p>
+   640→                      </div>
+   641→                    )}
+   642→                  </div>
+   643→                </div>
+   644→              </div>
+   645→
+   646→              {/* Action Buttons deck (reactions & bookmarks) */}
+   647→              <div className="flex items-center gap-3 shrink-0 flex-wrap py-2 border-t border-slate-900/40 md:border-t-0 md:py-0">
+   648→                
+   649→                {/* 5 Reaction buttons */}
+   650→                <div className="flex items-center bg-slate-950/80 border border-slate-900 p-1 rounded-2xl gap-1">
+   651→                  <button 
+   652→                    onClick={() => handleReaction("bravo")}
+   653→                    className="flex items-center gap-1 px-2.5 py-1 text-[8px] font-mono text-slate-400 hover:text-amber-400 hover:bg-amber-500/5 rounded-xl transition cursor-pointer"
+   654→                    title="Engage Hot Reaction"
+   655→                  >
+   656→                    <span>🔥</span>
+   657→                    <span className="font-extrabold">{activeNews.reactions.bravo}</span>
+   658→                  </button>
+   659→
+   660→                  <button 
+   661→                    onClick={() => handleReaction("shock")}
+   662→                    className="flex items-center gap-1 px-2.5 py-1 text-[8px] font-mono text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded-xl transition cursor-pointer"
+   663→                    title="Engage Shock Alert"
+   664→                  >
+   665→                    <span>🚨</span>
+   666→                    <span className="font-extrabold">{activeNews.reactions.shock}</span>
+   667→                  </button>
+   668→
+   669→                  <button 
+   670→                    onClick={() => handleReaction("genius")}
+   671→                    className="flex items-center gap-1 px-2.5 py-1 text-[8px] font-mono text-slate-400 hover:text-yellow-400 hover:bg-yellow-500/5 rounded-xl transition cursor-pointer"
+   672→                    title="Engage Genius Move"
+   673→                  >
+   674→                    <span>💡</span>
+   675→                    <span className="font-extrabold">{activeNews.reactions.genius}</span>
+   676→                  </button>
+   677→
+   678→                  <button 
+   679→                    onClick={() => handleReaction("ole")}
+   680→                    className="flex items-center gap-1 px-2.5 py-1 text-[8px] font-mono text-slate-400 hover:text-blue-450 hover:bg-blue-500/5 rounded-xl transition cursor-pointer"
+   681→                    title="Chant Ole Ole"
+   682→                  >
+   683→                    <span>⚽</span>
+   684→                    <span className="font-extrabold">{activeNews.reactions.ole}</span>
+   685→                  </button>
+   686→
+   687→                  <button 
+   688→                    onClick={() => handleReaction("class")}
+   689→                    className="flex items-center gap-1 px-2.5 py-1 text-[8px] font-mono text-slate-400 hover:text-purple-450 hover:bg-purple-500/5 rounded-xl transition cursor-pointer"
+   690→                    title="Express Pure Class"
+   691→                  >
+   692→                    <span>👏</span>
+   693→                    <span className="font-extrabold">{activeNews.reactions.class}</span>
+   694→                  </button>
+   695→                </div>
+   696→
+   697→                {/* Additional Quick Utility Actions */}
+   698→                <div className="flex items-center gap-1.5">
+   699→                  <button
+   700→                    onClick={() => copyToClipboard(activeNews.summarized_headline || activeNews.title)}
+   701→                    className="p-1 px-2.5 bg-slate-900 hover:bg-slate-850 hover:text-white border border-slate-850 text-slate-400 text-[9.5px] font-bold uppercase rounded-xl flex items-center gap-1 transition cursor-pointer"
+   702→                    title="Copy catchphrase line"
+   703→                  >
+   704→                    <Copy className="w-3.5 h-3.5" />
+   705→                    Copy
+   706→                  </button>
+   707→
+   708→                  <button
+   709→                    onClick={() => toggleBookmark(activeNews)}
+   710→                    className={`p-1 px-2.5 rounded-xl border text-[9.5px] font-bold uppercase flex items-center gap-1 transition cursor-pointer ${
+   711→                      savedNews.some(n => n.id === activeNews.id)
+   712→                        ? "bg-amber-500/10 text-amber-400 border-amber-500/35"
+   713→                        : "bg-slate-900 border-slate-850 text-slate-400 hover:bg-slate-850"
+   714→                    }`}
+   715→                  >
+   716→                    <Bookmark className="w-3.5 h-3.5" />
+   717→                    Save
+   718→                  </button>
+   719→                </div>
+   720→
+   721→              </div>
+   722→            </div>
+   723→          )}
+   724→
+   725→          {/* VIEW: HIGHLIGHT DRAW / SAVES LEDGER */}
+   726→          {activeTab === "highlights" && (
+   727→            <div className="w-full text-left font-mono">
+   728→              <div className="flex items-center justify-between border-b border-slate-900 pb-2 mb-2.5">
+   729→                <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+   730→                  <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+   731→                  Your Bookmarked Stadium Alerts ({savedNews.length})
+   732→                </span>
+   733→                {savedNews.length > 0 && (
+   734→                  <button 
+   735→                    onClick={() => { setSavedNews([]); localStorage.removeItem("kickiq_saved_news"); playAlertSound("click"); }}
+   736→                    className="text-[8px] font-black text-rose-400 hover:text-rose-300 uppercase cursor-pointer flex items-center gap-1 border border-rose-500/15 py-0.5 px-2 rounded bg-rose-500/5 transition"
+   737→                  >
+   738→                    <Trash2 className="w-2.5 h-2.5" /> Clear All Ledger
+   739→                  </button>
+   740→                )}
+   741→              </div>
+   742→
+   743→              {savedNews.length === 0 ? (
+   744→                <div className="p-4 bg-slate-900/25 border border-dashed border-slate-850 rounded-2xl text-center">
+   745→                  <p className="text-[9.5px] text-slate-500">
+   746→                    Saves ledger ledger empty. Hover or expand standard stadium news reports and click "Save" to populate this slot.
+   747→                  </p>
+   748→                </div>
+   749→              ) : (
+   750→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[140px] overflow-y-auto pr-1">
+   751→                  {savedNews.map(item => (
+   752→                    <div key={item.id} className="p-2 bg-slate-950/65 border border-slate-900 rounded-xl flex items-start gap-2.5 justify-between">
+   753→                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+   754→                        <span className="text-[7.5px] text-slate-500 font-extrabold uppercase">{item.category} REPORT • {item.time}</span>
+   755→                        <p className="text-[10px] text-slate-200 font-sans leading-tight font-semibold truncate hover:text-white transition">
+   756→                          {item.summarized_headline || item.title}
+   757→                        </p>
+   758→                        <p className="text-[8px] text-slate-450 line-clamp-1">{item.summary}</p>
+   759→                      </div>
+   760→                      <button 
+   761→                        onClick={() => toggleBookmark(item)}
+   762→                        className="text-slate-500 hover:text-rose-450 p-1 cursor-pointer shrink-0 transition"
+   763→                      >
+   764→                        <Trash2 className="w-3.5 h-3.5" />
+   765→                      </button>
+   766→                    </div>
+   767→                  ))}
+   768→                </div>
+   769→              )}
+   770→            </div>
+   771→          )}
+   772→
+   773→          {/* VIEW: DYNAMIC WEATHER ENGINE */}
+   774→          {activeTab === "weather" && (
+   775→            <div className="w-full text-left font-mono">
+   776→              <div className="border-b border-slate-900 pb-2 mb-3.5 flex items-center gap-1.5 justify-between">
+   777→                <span className="text-[10px] font-black text-blue-400 uppercase tracking-wider flex items-center gap-1">
+   778→                  <CloudRain className="w-3.5 h-[14px] text-blue-500" />
+   779→                  Venue Weather & Atmospheric Friction Modifiers
+   780→                </span>
+   781→                <span className="text-[7.5px] font-extrabold uppercase bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">
+   782→                  🛰️ Direct Satellite Link Live
+   783→                </span>
+   784→              </div>
+   785→
+   786→              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   787→                <div className="bg-slate-900/40 p-2 border border-slate-900 rounded-2xl flex items-center gap-2.5">
+   788→                  <Thermometer className="w-5 h-5 text-amber-500 shrink-0" />
+   789→                  <div>
+   790→                    <span className="block text-[7.5px] text-slate-500 font-black uppercase">Air Temp</span>
+   791→                    <span className="text-sm font-bold text-slate-200">{temp}°C</span>
+   792→                  </div>
+   793→                </div>
+   794→
+   795→                <div className="bg-slate-900/40 p-2 border border-slate-900 rounded-2xl flex items-center gap-2.5">
+   796→                  <CloudRain className="w-5 h-5 text-blue-400 shrink-0" />
+   797→                  <div>
+   798→                    <span className="block text-[7.5px] text-slate-500 font-black uppercase">Humidity</span>
+   799→                    <span className="text-sm font-bold text-blue-300">{rainProb}%</span>
+   800→                  </div>
+   801→                </div>
+   802→
+   803→                <div className="bg-slate-900/40 p-2 border border-slate-900 rounded-2xl flex items-center gap-2.5">
+   804→                  <Wind className="w-5 h-5 text-cyan-400 shrink-0" />
+   805→                  <div>
+   806→                    <span className="block text-[7.5px] text-slate-500 font-black uppercase">Wind Velocity</span>
+   807→                    <span className="text-sm font-bold text-cyan-300">{windSpeed} km/h</span>
+   808→                  </div>
+   809→                </div>
+   810→
+   811→                <div className="bg-slate-900/40 p-2 border border-slate-900 rounded-2xl flex items-center gap-2.5">
+   812→                  <Activity className="w-5 h-5 text-emerald-400 shrink-0 animate-pulse" />
+   813→                  <div>
+   814→                    <span className="block text-[7.5px] text-slate-500 font-black uppercase">Turf Friction</span>
+   815→                    <span className="text-sm font-bold text-emerald-400">{fieldFriction} Coef</span>
+   816→                  </div>
+   817→                </div>
+   818→              </div>
+   819→
+   820→              <p className="text-[8px] text-slate-500 uppercase mt-2.5 text-center leading-relaxed">
+   821→                🔔 TACTICAL ADVISORY: Turf sliding drag index currently locked at {fieldFriction}. 
+   822→                High wind shears from Northeast could tilt corner kick trajectory by up to {(windSpeed * 0.12).toFixed(2)} degrees.
+   823→              </p>
+   824→            </div>
+   825→          )}
+   826→
+   827→          {/* VIEW: VIRTUAL SEATING RADIAL PLOTS */}
+   828→          {activeTab === "seating" && (
+   829→            <div className="w-full text-left font-mono">
+   830→              <div className="border-b border-slate-900 pb-2 mb-3.5 flex items-center justify-between">
+   831→                <span className="text-[10px] font-black text-purple-400 uppercase tracking-wider flex items-center gap-1">
+   832→                  <Ticket className="w-3.5 h-3.5 text-purple-500" />
+   833→                  Dynamic Seating Sightline projection Coordinates
+   834→                </span>
+   835→                <span className="text-[7.5px] text-purple-400 font-extrabold uppercase">
+   836→                  🏟️ Stadium Deck: East Canopy Block B
+   837→                </span>
+   838→              </div>
+   839→
+   840→              {!isPassGenerated ? (
+   841→                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+   842→                  <p className="text-[9.5px] text-slate-400 leading-relaxed max-w-lg font-sans">
+   843→                    By plotting your seat coordinates below, KICKIQ will calculate your virtual field perspectives. Generate a customized <strong>FIFA World Cup 2026 digital stadium pass</strong> with exact physical coordinate vectors mapped securely.
+   844→                  </p>
+   845→                  
+   846→                  <div className="flex items-center gap-1.5 flex-wrap">
+   847→                    <input 
+   848→                      type="text" 
+   849→                      value={gateId} 
+   850→                      onChange={(e) => setGateId(e.target.value)}
+   851→                      placeholder="Gate" 
+   852→                      className="w-18 px-2 py-1 bg-slate-900 border border-slate-850 rounded text-[9.5px] font-bold text-slate-205 py-1.5 text-center focus:outline-none focus:border-purple-500"
+   853→                    />
+   854→                    <input 
+   855→                      type="text" 
+   856→                      value={rowId} 
+   857→                      onChange={(e) => setRowId(e.target.value)}
+   858→                      placeholder="Row" 
+   859→                      className="w-12 px-2 py-1 bg-slate-900 border border-slate-850 rounded text-[9.5px] font-bold text-slate-205 py-1.5 text-center focus:outline-none focus:border-purple-500"
+   860→                    />
+   861→                    <input 
+   862→                      type="text" 
+   863→                      value={seatId} 
+   864→                      onChange={(e) => setSeatId(e.target.value)}
+   865→                      placeholder="Seat" 
+   866→                      className="w-12 px-2 py-1 bg-slate-900 border border-slate-850 rounded text-[9.5px] font-bold text-slate-205 py-1.5 text-center focus:outline-none focus:border-purple-500"
+   867→                    />
+   868→                    <button
+   869→                      onClick={() => { setIsPassGenerated(true); playAlertSound("new"); }}
+   870→                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-black text-[9.5px] uppercase tracking-wider rounded transition cursor-pointer"
+   871→                    >
+   872→                      🎟️ Map Seat Pass
+   873→                    </button>
+   874→                  </div>
+   875→                </div>
+   876→              ) : (
+   877→                <div className="bg-gradient-to-r from-slate-950 via-purple-950/20 to-slate-950 border border-purple-500/20 p-3 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+   878→                  <div className="flex items-center gap-3">
+   879→                    <div className="w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-xl flex items-center justify-center text-purple-400">
+   880→                      <Ticket className="w-6 h-6 animate-pulse" />
+   881→                    </div>
+   882→                    <div>
+   883→                      <span className="block text-[8px] font-black text-purple-400 uppercase tracking-widest">Digital Match Ticket Ready</span>
+   884→                      <span className="block text-xs font-black text-slate-100 uppercase tracking-wide mt-0.5">
+   885→                        KICKIQ Arena Seat View Point
+   886→                      </span>
+   887→                      <span className="block text-[8.5px] text-slate-400 uppercase mt-1">
+   888→                        Loc: <strong className="text-slate-100">{gateId}</strong> • Row <strong className="text-slate-100">{rowId}</strong> • Seat <strong className="text-slate-100">{seatId}</strong>
+   889→                      </span>
+   890→                    </div>
+   891→                  </div>
+   892→
+   893→                  <div className="flex items-center gap-2">
+   894→                    <button
+   895→                      onClick={() => copyToClipboard(`Match Pass Coordinate Vector: Block ${gateId}, Row ${rowId}, Seat ${seatId} via KickIQ`)}
+   896→                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-[8px] font-extrabold uppercase rounded transition cursor-pointer"
+   897→                    >
+   898→                      Copy Coordinates
+   899→                    </button>
+   900→                    <button
+   901→                      onClick={() => { setIsPassGenerated(false); playAlertSound("click"); }}
+   902→                      className="px-2.5 py-1 bg-purple-650/40 hover:bg-purple-550 border border-purple-500/35 text-[8px] font-extrabold uppercase rounded transition cursor-pointer text-purple-200"
+   903→                    >
+   904→                      ✏️ Edit Seat View
+   905→                    </button>
+   906→                  </div>
+   907→                </div>
+   908→              )}
+   909→            </div>
+   910→          )}
+   911→
+   912→          {/* VIEW: DRONE PERSPECTIVE SCANNER HUD */}
+   913→          {activeTab === "camera" && (
+   914→            <div className="w-full text-left font-mono relative">
+   915→              <div className="absolute top-0 right-0 z-10 flex items-center gap-1.5">
+   916→                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+   917→                <span className="text-[7.5px] font-black uppercase text-red-400">RCAM STREAM</span>
+   918→              </div>
+   919→              
+   920→              <div className="border-b border-slate-900 pb-2 mb-3.5">
+   921→                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+   922→                  <Video className="w-3.5 h-3.5 text-cyan-500" />
+   923→                  Tactical Aerial Scouting Drone Overlay
+   924→                </span>
+   925→              </div>
+   926→
+   927→              <div className="p-3.5 bg-slate-950 border border-slate-900 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 font-mono">
+   928→                <div className="space-y-1">
+   929→                  <div className="text-[9px] text-cyan-400 font-extrabold uppercase flex items-center gap-1">
+   930→                    <Compass className="w-3 h-3 animate-spin duration-3000" /> Auto-Track Target Mode Active
+   931→                  </div>
+   932→                  <p className="text-[9px] text-slate-450 leading-relaxed font-sans mt-1">
+   933→                    Sensors tracking ELO distribution levels on physical match lines. Current horizontal pitch coverage angle is locked at <strong>82.4°</strong> on 2X Zoom.
+   934→                  </p>
+   935→                </div>
+   936→
+   937→                <div className="flex items-center gap-2">
+   938→                  <button
+   939→                    onClick={() => playAlertSound("new")}
+   940→                    className="px-3 py-1.5 bg-cyan-950 text-cyan-400 hover:bg-cyan-900 hover:text-white border border-cyan-500/15 text-[8.5px] uppercase font-bold tracking-wider rounded-xl transition cursor-pointer"
+   941→                  >
+   942→                    🎥 Lock Focal Coordinates
+   943→                  </button>
+   944→                </div>
+   945→              </div>
+   946→            </div>
+   947→          )}
+   948→
+   949→        </div>
+   950→
+   951→      </div>
+   952→
+   953→      {/* GROUP SUMMARY AI MODAL */}
+   954→      <AnimatePresence>
+   955→        {isGroupSummaryOpen && (
+   956→          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+   957→            <motion.div
+   958→              initial={{ scale: 0.95, opacity: 0 }}
+   959→              animate={{ scale: 1, opacity: 1 }}
+   960→              exit={{ scale: 0.95, opacity: 0 }}
+   961→              className="w-full max-w-xl bg-slate-905 border-2 border-slate-800 rounded-3xl p-6 shadow-2xl relative text-left"
+   962→            >
+   963→              <button
+   964→                onClick={() => { setIsGroupSummaryOpen(false); playAlertSound("click"); }}
+   965→                className="absolute top-4 right-4 text-slate-400 hover:text-white transition p-1 hover:bg-slate-800 rounded-full"
+   966→              >
+   967→                <X className="w-4 h-4" />
+   968→              </button>
+   969→
+   970→              <div className="flex items-center gap-2 mb-4">
+   971→                <Sparkles className="w-5 h-5 text-emerald-400 animate-pulse" />
+   972→                <h3 className="text-sm font-black font-mono tracking-wider text-slate-100 uppercase">
+   973→                  AI Ticker News Summary
+   974→                </h3>
+   975→              </div>
+   976→
+   977→              <div className="border border-slate-800/60 bg-slate-950/90 rounded-2xl p-4 min-h-[160px] max-h-[350px] overflow-y-auto text-xs text-slate-300 font-sans leading-relaxed space-y-2">
+   978→                {isLoadingGroupSummary ? (
+   979→                  <div className="flex flex-col items-center justify-center h-full py-12 space-y-3">
+   980→                    <div className="w-8 h-8 rounded-full border-2 border-emerald-500/20 border-t-emerald-400 animate-spin" />
+   981→                    <p className="font-mono text-[10px] text-emerald-400/90 tracking-widest uppercase animate-pulse">
+   982→                      Synthesizing active news items with Gemini...
+   983→                    </p>
+   984→                  </div>
+   985→                ) : (
+   986→                  <div className="whitespace-pre-line max-w-none">
+   987→                    {groupSummaryText}
+   988→                  </div>
+   989→                )}
+   990→              </div>
+   991→
+   992→              <div className="mt-4 flex items-center justify-between text-[10px] font-mono text-slate-500">
+   993→                <span>Press <kbd className="px-1.5 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700">ESC</kbd> to close</span>
+   994→                <button
+   995→                  onClick={() => { setIsGroupSummaryOpen(false); playAlertSound("click"); }}
+   996→                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 font-extrabold text-[#000] rounded-xl text-xs transition cursor-pointer"
+   997→                >
+   998→                  Understood
+   999→                </button>
+  1000→              </div>
+  1001→            </motion.div>
+  1002→          </div>
+  1003→        )}
+  1004→      </AnimatePresence>
+  1005→
+  1006→    </div>
+  1007→  );
+  1008→}
+  1009→

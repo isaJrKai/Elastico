@@ -1,0 +1,902 @@
+     1→import React, { useState, useEffect } from "react";
+     2→import { Mail, Phone, Lock, User, ArrowRight, Shield, Sparkles, Server, Eye, EyeOff, Check, X } from "lucide-react";
+     3→import SoccerSkillsAnimator from "./SoccerSkillsAnimator";
+     4→
+     5→interface LoginViewProps {
+     6→  onLoginSuccess: (token: string) => void;
+     7→}
+     8→
+     9→export default function LoginView({ onLoginSuccess }: LoginViewProps) {
+    10→  const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
+    11→  const [tab, setTab] = useState<"email" | "sms">("email");
+    12→  const [showAuthTips, setShowAuthTips] = useState(false);
+    13→
+    14→  // Input states
+    15→  const [email, setEmail] = useState("");
+    16→  const [password, setPassword] = useState("");
+    17→  const [displayName, setDisplayName] = useState("");
+    18→  const [phone, setPhone] = useState("");
+    19→  const [otp, setOtp] = useState("");
+    20→  const [forgotEmail, setForgotEmail] = useState("");
+    21→  const [resetToken, setResetToken] = useState("");
+    22→  const [newPassword, setNewPassword] = useState("");
+    23→  const [adminSecretCode, setAdminSecretCode] = useState("");
+    24→  const [showSecretCode, setShowSecretCode] = useState(false);
+    25→
+    26→  // Request logs states
+    27→  const [otpSent, setOtpSent] = useState(false);
+    28→  const [sandboxOtp, setSandboxOtp] = useState<string | null>(null);
+    29→  const [sandboxResetToken, setSandboxResetToken] = useState<string | null>(null);
+    30→  const [resetSuccess, setResetSuccess] = useState(false);
+    31→
+    32→  // Support resuming the shared Web Audio API context upon initial user interaction on the login screen
+    33→  React.useEffect(() => {
+    34→    const resumeSharedContext = () => {
+    35→      try {
+    36→        const globalCtx = (window as any).__kickiq_audio_context__;
+    37→        if (globalCtx && globalCtx.state === "suspended") {
+    38→          globalCtx.resume().then(() => {
+    39→            console.log("[KICKIQ AUDIO] Suspended audio context resumed on container page interaction.");
+    40→          }).catch((err: any) => {
+    41→            console.log("[KICKIQ AUDIO] Error resuming context:", err);
+    42→          });
+    43→        }
+    44→      } catch (e) {
+    45→        // quiet fail
+    46→      }
+    47→    };
+    48→    window.addEventListener("click", resumeSharedContext);
+    49→    window.addEventListener("touchstart", resumeSharedContext);
+    50→    window.addEventListener("keydown", resumeSharedContext);
+    51→    return () => {
+    52→      window.removeEventListener("click", resumeSharedContext);
+    53→      window.removeEventListener("touchstart", resumeSharedContext);
+    54→      window.removeEventListener("keydown", resumeSharedContext);
+    55→    };
+    56→  }, []);
+    57→  
+    58→  const [error, setError] = useState<string | null>(null);
+    59→  const [success, setSuccess] = useState<string | null>(null);
+    60→  const [loading, setLoading] = useState(false);
+    61→
+    62→  // ── Handle Real Google Login Response ────────────────────────────────────
+    63→  const handleGoogleCredentialResponse = async (response: any) => {
+    64→    resetAllMessages();
+    65→    setLoading(true);
+    66→    try {
+    67→      const res = await fetch("/auth/google", {
+    68→        method: "POST",
+    69→        headers: { "Content-Type": "application/json" },
+    70→        body: JSON.stringify({
+    71→          credential: response.credential,
+    72→          admin_secret_code: adminSecretCode,
+    73→        }),
+    74→      });
+    75→
+    76→      const data = await res.json();
+    77→      if (!res.ok) throw new Error(data.error || "Google identity verification failed.");
+    78→
+    79→      onLoginSuccess(data.token);
+    80→    } catch (err: any) {
+    81→      setError(err.message);
+    82→    } finally {
+    83→      setLoading(false);
+    84→    }
+    85→  };
+    86→
+    87→  useEffect(() => {
+    88→    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    89→    if (!clientId) return;
+    90→
+    91→    const initGoogle = () => {
+    92→      if (!(window as any).google) return;
+    93→      
+    94→      (window as any).google.accounts.id.initialize({
+    95→        client_id: clientId,
+    96→        callback: handleGoogleCredentialResponse,
+    97→        auto_select: false,
+    98→        cancel_on_tap_outside: true,
+    99→      });
+   100→
+   101→      const parent = document.getElementById("google-signin-btn-container");
+   102→      if (parent) {
+   103→        (window as any).google.accounts.id.renderButton(parent, {
+   104→          theme: "outline",
+   105→          size: "large",
+   106→          shape: "pill",
+   107→          text: "signin_with",
+   108→          logo_alignment: "left",
+   109→          width: "100%"
+   110→        });
+   111→      }
+   112→    };
+   113→
+   114→    // Wait for script to load
+   115→    const interval = setInterval(() => {
+   116→      if ((window as any).google) {
+   117→        initGoogle();
+   118→        clearInterval(interval);
+   119→      }
+   120→    }, 100);
+   121→
+   122→    return () => clearInterval(interval);
+   123→  }, [adminSecretCode, mode]);
+   124→
+   125→  const resetAllMessages = () => {
+   126→    setError(null);
+   127→    setSuccess(null);
+   128→    setSandboxOtp(null);
+   129→    setSandboxResetToken(null);
+   130→  };
+   131→
+   132→  // ── Handle Email Login ───────────────────────────────────────────────────
+   133→  const handleEmailLogin = async (e: React.FormEvent) => {
+   134→    e.preventDefault();
+   135→    resetAllMessages();
+   136→    if (!email || !password) return setError("Please input both email and password.");
+   137→
+   138→    setLoading(true);
+   139→    try {
+   140→      const res = await fetch("/auth/login", {
+   141→        method: "POST",
+   142→        headers: { "Content-Type": "application/json" },
+   143→        body: JSON.stringify({ email, password, admin_secret_code: adminSecretCode }),
+   144→      });
+   145→      const data = await res.json();
+   146→      if (!res.ok) throw new Error(data.error || "Authentication failed.");
+   147→
+   148→      onLoginSuccess(data.token);
+   149→    } catch (err: any) {
+   150→      setError(err.message);
+   151→    } finally {
+   152→      setLoading(false);
+   153→    }
+   154→  };
+   155→
+   156→  // ── Handle Email Register ────────────────────────────────────────────────
+   157→  const handleEmailRegister = async (e: React.FormEvent) => {
+   158→    e.preventDefault();
+   159→    resetAllMessages();
+   160→    if (!email || !password) return setError("Please input required email and password credentials.");
+   161→    if (password.length < 8) return setError("Password security constraints require at least 8 characters.");
+   162→
+   163→    setLoading(true);
+   164→    try {
+   165→      const res = await fetch("/auth/register", {
+   166→        method: "POST",
+   167→        headers: { "Content-Type": "application/json" },
+   168→        body: JSON.stringify({ email, password, display_name: displayName, admin_secret_code: adminSecretCode }),
+   169→      });
+   170→      const data = await res.json();
+   171→      if (!res.ok) throw new Error(data.error || "Registration request failed.");
+   172→
+   173→      onLoginSuccess(data.token);
+   174→    } catch (err: any) {
+   175→      setError(err.message);
+   176→    } finally {
+   177→      setLoading(false);
+   178→    }
+   179→  };
+   180→
+   181→  // ── Handle SMS Send OTP ──────────────────────────────────────────────────
+   182→  const handleSendOtp = async () => {
+   183→    resetAllMessages();
+   184→    const e164Regex = /^\+[1-9]\d{7,14}$/;
+   185→    if (!phone || !e164Regex.test(phone)) {
+   186→      return setError("Please input a valid E.164 formatted phone number, e.g., +2348012345678");
+   187→    }
+   188→
+   189→    setLoading(true);
+   190→    try {
+   191→      const res = await fetch("/auth/sms/send-otp", {
+   192→        method: "POST",
+   193→        headers: { "Content-Type": "application/json" },
+   194→        body: JSON.stringify({ phone, purpose: "login" }),
+   195→      });
+   196→      const data = await res.json();
+   197→      if (!res.ok) throw new Error(data.error || "Failed raw SMS dispatch.");
+   198→
+   199→      setOtpSent(true);
+   200→      setSuccess(`Security verification OTP successfully dispatched to ${phone}.`);
+   201→      if (data.dev_otp) {
+   202→        setSandboxOtp(data.dev_otp);
+   203→      }
+   204→    } catch (err: any) {
+   205→      setError(err.message);
+   206→    } finally {
+   207→      setLoading(false);
+   208→    }
+   209→  };
+   210→
+   211→  // ── Handle SMS OTP Verify ────────────────────────────────────────────────
+   212→  const handleVerifyOtp = async (e: React.FormEvent) => {
+   213→    e.preventDefault();
+   214→    resetAllMessages();
+   215→    if (!otp) return setError("Please input the 6-digit SMS code.");
+   216→
+   217→    setLoading(true);
+   218→    try {
+   219→      const res = await fetch("/auth/sms/verify-otp", {
+   220→        method: "POST",
+   221→        headers: { "Content-Type": "application/json" },
+   222→        body: JSON.stringify({ phone, code: otp, purpose: "login", display_name: displayName }),
+   223→      });
+   224→      const data = await res.json();
+   225→      if (!res.ok) throw new Error(data.error || "Invalid validation code.");
+   226→
+   227→      onLoginSuccess(data.token);
+   228→    } catch (err: any) {
+   229→      setError(err.message);
+   230→    } finally {
+   231→      setLoading(false);
+   232→    }
+   233→  };
+   234→
+   235→  // ── Handle Password Reset Send link ──────────────────────────────────────
+   236→  const handleForgotRequest = async (e: React.FormEvent) => {
+   237→    e.preventDefault();
+   238→    resetAllMessages();
+   239→    if (!forgotEmail) return setError("Please enter your registered email address.");
+   240→
+   241→    setLoading(true);
+   242→    try {
+   243→      const res = await fetch("/auth/password-reset/request", {
+   244→        method: "POST",
+   245→        headers: { "Content-Type": "application/json" },
+   246→        body: JSON.stringify({ email: forgotEmail }),
+   247→      });
+   248→      const data = await res.json();
+   249→      if (!res.ok) throw new Error(data.error || "Reset dispatch failed.");
+   250→
+   251→      setSuccess("If that email exists, a password reset token has been processed.");
+   252→      if (data.dev_token) {
+   253→        setSandboxResetToken(data.dev_token);
+   254→        setResetToken(data.dev_token);
+   255→      }
+   256→    } catch (err: any) {
+   257→      setError(err.message);
+   258→    } finally {
+   259→      setLoading(false);
+   260→    }
+   261→  };
+   262→
+   263→  // ── Confirm Password Reset ──────────────────────────────────────────────
+   264→  const handleConfirmReset = async (e: React.FormEvent) => {
+   265→    e.preventDefault();
+   266→    resetAllMessages();
+   267→    if (!resetToken || !newPassword) return setError("Please fill in both the token code and new password.");
+   268→    if (newPassword.length < 8) return setError("New password must be at least 8 characters long.");
+   269→
+   270→    setLoading(true);
+   271→    try {
+   272→      const res = await fetch("/auth/password-reset/confirm", {
+   273→        method: "POST",
+   274→        headers: { "Content-Type": "application/json" },
+   275→        body: JSON.stringify({ token: resetToken, password: newPassword }),
+   276→      });
+   277→      const data = await res.json();
+   278→      if (!res.ok) throw new Error(data.error || "Password restoration failed.");
+   279→
+   280→      setResetSuccess(true);
+   281→      setSuccess("Your account password has been successfully restored!");
+   282→      setTimeout(() => {
+   283→        setMode("login");
+   284→        setResetSuccess(false);
+   285→      }, 2000);
+   286→    } catch (err: any) {
+   287→      setError(err.message);
+   288→    } finally {
+   289→      setLoading(false);
+   290→    }
+   291→  };
+   292→
+   293→  return (
+   294→    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans text-slate-100">
+   295→      {/* Visual Ambiance / Turf Grass Grid glow backdrops */}
+   296→      <div className="absolute inset-0 z-0 pointer-events-none opacity-20">
+   297→        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-emerald-500/10 blur-[120px]" />
+   298→        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-teal-500/10 blur-3xl" />
+   299→        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-green-500/5 blur-3xl" />
+   300→      </div>
+   301→
+   302→      <div className="relative z-10 w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+   303→        
+   304→        {/* Pitch Branding Banner */}
+   305→        <div className="bg-gradient-to-b from-emerald-950/40 p-8 pb-4 text-center border-b border-slate-800/60 relative">
+   306→          <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] uppercase tracking-wider text-emerald-400 font-mono">
+   307→            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+   308→            Cup 2026 Live
+   309→          </div>
+   310→          <div 
+   311→            className={`inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-2xl mb-3 shadow-[0_0_20px_rgba(16,185,129,0.15)] select-none transition-all duration-300 ${
+   312→              loading ? "ball-roll-faster" : "pixar-ball-bounce hover:scale-110"
+   313→            }`}
+   314→          >
+   315→            ⚽
+   316→          </div>
+   317→          <h1 className="font-sans text-3xl tracking-tight">
+   318→            <span className="kickiq-live-effect">KICKIQ</span>{" "}
+   319→            <span className="text-slate-100 font-medium">Analyst</span>
+   320→          </h1>
+   321→          <p className="text-xs text-slate-400 mt-1.5 max-w-xs mx-auto">
+   322→            World Cup 2026 Analytical Intelligence Engine & Live Dixon-Coles Poisson Predictor.
+   323→          </p>
+   324→        </div>
+   325→
+   326→        {/* Messaging Logs */}
+   327→        <div className="px-8 mt-4">
+   328→          {error && (
+   329→            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400 flex items-start gap-2.5">
+   330→              <span>⚠</span>
+   331→              <p className="flex-1">{error}</p>
+   332→            </div>
+   333→          )}
+   334→
+   335→          {success && (
+   336→            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 flex items-start gap-2.5">
+   337→              <span>✓</span>
+   338→              <p className="flex-1">{success}</p>
+   339→            </div>
+   340→          )}
+   341→
+   342→          {/* Sandbox Development OTP Helper alerts */}
+   343→          {sandboxOtp && (
+   344→            <div className="mt-2.5 p-3 rounded-xl bg-teal-500/10 border border-teal-500/30 text-xs text-teal-300 font-mono text-center relative overflow-hidden">
+   345→              <span className="absolute top-1 left-1.5 text-[8px] bg-teal-500/20 px-1 py-0.5 rounded text-teal-400 font-sans font-bold uppercase tracking-widest">
+   346→                Developer Sandbox
+   347→              </span>
+   348→              <p className="mt-1">Generated OTP: <strong className="text-emerald-300 text-lg tracking-wider font-semibold">{sandboxOtp}</strong></p>
+   349→            </div>
+   350→          )}
+   351→
+   352→          {sandboxResetToken && (
+   353→            <div className="mt-2.5 p-3 rounded-xl bg-orange-500/10 border border-orange-500/30 text-[11px] text-orange-300 font-mono text-center relative">
+   354→              <span className="absolute top-1 left-1.5 text-[8px] bg-orange-500/20 px-1 py-0.5 rounded text-orange-400 font-sans font-bold uppercase tracking-widest">
+   355→                Sandbox Token
+   356→              </span>
+   357→              <p className="mt-2">Use recovery token code: <strong className="text-orange-200 select-all underline">{sandboxResetToken}</strong></p>
+   358→            </div>
+   359→          )}
+   360→        </div>
+   361→
+   362→        <div className="px-8 mt-2">
+   363→          <button
+   364→            id="toggle-auth-tips-btn"
+   365→            type="button"
+   366→            onClick={() => setShowAuthTips(true)}
+   367→            className="w-full py-2.5 px-3 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 rounded-2xl text-[11px] font-bold tracking-wide uppercase transition flex items-center justify-center gap-2 cursor-pointer"
+   368→          >
+   369→            🔑 Platform Access & Sign-Up Tips Guide
+   370→          </button>
+   371→        </div>
+   372→
+   373→        {/* Dynamic Views Switcher */}
+   374→        <div className="p-8">
+   375→          {/* Premium Animated Soccer Skills Logo */}
+   376→          <div className="mb-5">
+   377→            <SoccerSkillsAnimator />
+   378→          </div>
+   379→
+   380→          {mode === "login" && (
+   381→            <>
+   382→              {/* Login Tabs Selector */}
+   383→              <div className="flex bg-slate-950 p-1 border border-slate-800 rounded-xl mb-6">
+   384→                <button
+   385→                  type="button"
+   386→                  onClick={() => { setTab("email"); resetAllMessages(); }}
+   387→                  className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+   388→                    tab === "email" ? "bg-slate-800 text-emerald-400 shadow" : "text-slate-400 hover:text-slate-200"
+   389→                  }`}
+   390→                >
+   391→                  <Mail className="inline w-3.5 h-3.5 mr-1.5" />
+   392→                  Email Sign In
+   393→                </button>
+   394→                <button
+   395→                  type="button"
+   396→                  onClick={() => { setTab("sms"); resetAllMessages(); }}
+   397→                  className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+   398→                    tab === "sms" ? "bg-slate-800 text-emerald-400 shadow" : "text-slate-400 hover:text-slate-200"
+   399→                  }`}
+   400→                >
+   401→                  <Phone className="inline w-3.5 h-3.5 mr-1.5" />
+   402→                  SMS verification
+   403→                </button>
+   404→              </div>
+   405→
+   406→              {tab === "email" ? (
+   407→                <form onSubmit={handleEmailLogin} className="space-y-4">
+   408→                  <div>
+   409→                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
+   410→                    <div className="relative">
+   411→                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+   412→                      <input
+   413→                        type="email"
+   414→                        placeholder="analyst@kickiq.com"
+   415→                        value={email}
+   416→                        onChange={(e) => setEmail(e.target.value)}
+   417→                        className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition"
+   418→                        required
+   419→                      />
+   420→                    </div>
+   421→                  </div>
+   422→
+   423→                  <div>
+   424→                    <div className="flex justify-between mb-2">
+   425→                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Password</label>
+   426→                      <button
+   427→                        type="button"
+   428→                        onClick={() => { setMode("forgot"); resetAllMessages(); }}
+   429→                        className="text-xs text-emerald-400 hover:underline hover:text-emerald-300"
+   430→                      >
+   431→                        Reset Password?
+   432→                      </button>
+   433→                    </div>
+   434→                    <div className="relative">
+   435→                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+   436→                      <input
+   437→                        type="password"
+   438→                        placeholder="••••••••••••"
+   439→                        value={password}
+   440→                        onChange={(e) => setPassword(e.target.value)}
+   441→                        className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition"
+   442→                        required
+   443→                      />
+   444→                    </div>
+   445→                  </div>
+   446→
+   447→                  {email.toLowerCase().trim() === "kaisoisaac@gmail.com" && (
+   448→                    <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-2 animate-pulse mt-3">
+   449→                      <div className="flex justify-between">
+   450→                        <label className="block text-[11px] font-bold text-red-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
+   451→                          <Shield className="w-3.5 h-3.5 text-red-500" />
+   452→                          Security Code Verification
+   453→                        </label>
+   454→                      </div>
+   455→                      <div className="relative">
+   456→                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-red-400/80" />
+   457→                        <input
+   458→                          id="login-admin-security-code-input"
+   459→                          type={showSecretCode ? "text" : "password"}
+   460→                          placeholder="Enter Enforced 090/;dk23.3 Code"
+   461→                          value={adminSecretCode}
+   462→                          onChange={(e) => setAdminSecretCode(e.target.value)}
+   463→                          className="w-full bg-slate-950/80 border border-red-500/30 focus:border-red-500 rounded-xl pl-11 pr-12 py-2.5 text-xs text-red-200 placeholder-red-900/60 outline-none transition font-mono"
+   464→                          required
+   465→                        />
+   466→                        <button
+   467→                          type="button"
+   468→                          onClick={() => setShowSecretCode(!showSecretCode)}
+   469→                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-red-400 hover:text-red-300 transition cursor-pointer"
+   470→                          title={showSecretCode ? "Hide administrative secret code" : "Unmask administrative secret code"}
+   471→                        >
+   472→                          {showSecretCode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+   473→                        </button>
+   474→                      </div>
+   475→                    </div>
+   476→                  )}
+   477→
+   478→                  <button
+   479→                    type="submit"
+   480→                    disabled={loading}
+   481→                    className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.25)] text-slate-950 font-bold tracking-wide transition text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+   482→                  >
+   483→                    {loading ? "Verifying..." : "Access Analytics Board"}
+   484→                    <ArrowRight className="w-4 h-4" />
+   485→                  </button>
+   486→                </form>
+   487→              ) : (
+   488→                <form onSubmit={handleVerifyOtp} className="space-y-4">
+   489→                  <div>
+   490→                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">E.164 Phone Number</label>
+   491→                    <div className="flex gap-2">
+   492→                      <div className="relative flex-1">
+   493→                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+   494→                        <input
+   495→                          type="tel"
+   496→                          placeholder="+2348012345678"
+   497→                          value={phone}
+   498→                          onChange={(e) => setPhone(e.target.value)}
+   499→                          className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition"
+   500→                          disabled={otpSent}
+   501→                          required
+   502→                        />
+   503→                      </div>
+   504→                      <button
+   505→                        type="button"
+   506→                        onClick={handleSendOtp}
+   507→                        disabled={loading || otpSent}
+   508→                        className="px-4 py-3 text-xs font-bold rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition flex items-center justify-center cursor-pointer disabled:opacity-50"
+   509→                      >
+   510→                        {otpSent ? "Sent" : "Send OTP"}
+   511→                      </button>
+   512→                    </div>
+   513→                  </div>
+   514→
+   515→                  {otpSent && (
+   516→                    <>
+   517→                      <div>
+   518→                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Verification Code</label>
+   519→                        <input
+   520→                          type="text"
+   521→                          maxLength={6}
+   522→                          placeholder="e.g. 123456"
+   523→                          value={otp}
+   524→                          onChange={(e) => setOtp(e.target.value)}
+   525→                          className="w-full text-center bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-lg font-mono tracking-widest text-slate-100 placeholder-slate-700 outline-none transition"
+   526→                          required
+   527→                        />
+   528→                      </div>
+   529→
+   530→                      <button
+   531→                        type="submit"
+   532→                        disabled={loading}
+   533→                        className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold transition text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+   534→                      >
+   535→                        {loading ? "Confirming..." : "Verify & Start Analyzing"}
+   536→                        <ArrowRight className="w-4 h-4" />
+   537→                      </button>
+   538→                    </>
+   539→                  )}
+   540→                </form>
+   541→              )}
+   542→
+   543→              {/* Account conversion navigation */}
+   544→              <div className="mt-6 text-center text-xs">
+   545→                <span className="text-slate-400">New analyst recruit? </span>
+   546→                <button
+   547→                  type="button"
+   548→                  onClick={() => { setMode("register"); resetAllMessages(); }}
+   549→                  className="text-emerald-400 font-semibold hover:underline"
+   550→                >
+   551→                  Create free account
+   552→                </button>
+   553→              </div>
+   554→            </>
+   555→          )}
+   556→
+   557→          {mode === "register" && (
+   558→            <form onSubmit={handleEmailRegister} className="space-y-4">
+   559→              <div>
+   560→                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Display Name (Optional)</label>
+   561→                <div className="relative">
+   562→                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+   563→                  <input
+   564→                    type="text"
+   565→                    placeholder="Striker99"
+   566→                    value={displayName}
+   567→                    onChange={(e) => setDisplayName(e.target.value)}
+   568→                    className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition"
+   569→                  />
+   570→                </div>
+   571→              </div>
+   572→
+   573→              <div>
+   574→                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
+   575→                <div className="relative">
+   576→                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+   577→                  <input
+   578→                    type="email"
+   579→                    placeholder="you@email.com"
+   580→                    value={email}
+   581→                    onChange={(e) => setEmail(e.target.value)}
+   582→                    className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition"
+   583→                    required
+   584→                  />
+   585→                </div>
+   586→              </div>
+   587→
+   588→              <div>
+   589→                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Create Password</label>
+   590→                <div className="relative">
+   591→                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+   592→                  <input
+   593→                    type="password"
+   594→                    placeholder="Min 8 characters"
+   595→                    value={password}
+   596→                    onChange={(e) => setPassword(e.target.value)}
+   597→                    className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition"
+   598→                    required
+   599→                  />
+   600→                </div>
+   601→
+   602→                {/* Real-time Password Strength Validation Indicators */}
+   603→                {password.length > 0 && (
+   604→                  <div className="mt-2.5 p-3.5 bg-slate-950/40 border border-slate-850 rounded-2xl space-y-3 animate-fade-in">
+   605→                    <div className="flex items-center justify-between">
+   606→                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider font-mono">
+   607→                        Password Integrity:
+   608→                      </span>
+   609→                      <span className={`text-[10px] uppercase font-extrabold tracking-wider font-mono ${
+   610→                        password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)
+   611→                          ? "text-emerald-400"
+   612→                          : password.length >= 8 && (/[A-Z]/.test(password) || /[0-9]/.test(password))
+   613→                          ? "text-amber-500"
+   614→                          : "text-red-500"
+   615→                      }`}>
+   616→                        {password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)
+   617→                          ? "Strong / Fully Hardened"
+   618→                          : password.length >= 8 && (/[A-Z]/.test(password) || /[0-9]/.test(password))
+   619→                          ? "Moderate Security Check"
+   620→                          : "Weak / Vulnerable Strength"}
+   621→                      </span>
+   622→                    </div>
+   623→
+   624→                    {/* Colored visual health segments */}
+   625→                    <div className="grid grid-cols-4 gap-1.5 h-1.5">
+   626→                      <div className={`rounded-full transition-all duration-300 ${password.length >= 1 ? 'bg-red-500' : 'bg-slate-850'}`} />
+   627→                      <div className={`rounded-full transition-all duration-300 ${password.length >= 8 ? 'bg-amber-500' : 'bg-slate-850'}`} />
+   628→                      <div className={`rounded-full transition-all duration-300 ${password.length >= 8 && (/[A-Z]/.test(password) || /[0-9]/.test(password)) ? 'bg-teal-500' : 'bg-slate-850'}`} />
+   629→                      <div className={`rounded-full transition-all duration-300 ${password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password) ? 'bg-emerald-400' : 'bg-slate-850'}`} />
+   630→                    </div>
+   631→
+   632→                    {/* Dynamic checklist requirements */}
+   633→                    <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+   634→                      <div className="flex items-center gap-1.5">
+   635→                        {password.length >= 8 ? (
+   636→                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+   637→                        ) : (
+   638→                          <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
+   639→                        )}
+   640→                        <span className={password.length >= 8 ? "text-slate-300" : "text-slate-500"}>
+   641→                          8+ Characters
+   642→                        </span>
+   643→                      </div>
+   644→
+   645→                      <div className="flex items-center gap-1.5">
+   646→                        {/[A-Z]/.test(password) ? (
+   647→                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+   648→                        ) : (
+   649→                          <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
+   650→                        )}
+   651→                        <span className={/[A-Z]/.test(password) ? "text-slate-300" : "text-slate-500"}>
+   652→                          Uppercase letter
+   653→                        </span>
+   654→                      </div>
+   655→
+   656→                      <div className="flex items-center gap-1.5">
+   657→                        {/[0-9]/.test(password) ? (
+   658→                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+   659→                        ) : (
+   660→                          <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
+   661→                        )}
+   662→                        <span className={/[0-9]/.test(password) ? "text-slate-300" : "text-slate-500"}>
+   663→                          Number digit (0-9)
+   664→                        </span>
+   665→                      </div>
+   666→
+   667→                      <div className="flex items-center gap-1.5">
+   668→                        {/[^A-Za-z0-9]/.test(password) ? (
+   669→                          <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+   670→                        ) : (
+   671→                          <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
+   672→                        )}
+   673→                        <span className={/[^A-Za-z0-9]/.test(password) ? "text-slate-300" : "text-slate-500"}>
+   674→                          Symbol (!@#_...)
+   675→                        </span>
+   676→                      </div>
+   677→                    </div>
+   678→                  </div>
+   679→                )}
+   680→              </div>
+   681→
+   682→              {email.toLowerCase().trim() === "kaisoisaac@gmail.com" && (
+   683→                <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-2 animate-pulse mt-3">
+   684→                  <div className="flex justify-between">
+   685→                    <label className="block text-[11px] font-bold text-red-400 uppercase tracking-wider font-mono flex items-center gap-1.5">
+   686→                      <Shield className="w-3.5 h-3.5 text-red-500" />
+   687→                      Security Code Verification
+   688→                    </label>
+   689→                  </div>
+   690→                  <div className="relative">
+   691→                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-red-400/80" />
+   692→                    <input
+   693→                      id="register-admin-security-code-input"
+   694→                      type={showSecretCode ? "text" : "password"}
+   695→                      placeholder="Enter Enforced 090/;dk23.3 Code"
+   696→                      value={adminSecretCode}
+   697→                      onChange={(e) => setAdminSecretCode(e.target.value)}
+   698→                      className="w-full bg-slate-950/80 border border-red-500/30 focus:border-red-500 rounded-xl pl-11 pr-12 py-2.5 text-xs text-red-200 placeholder-red-900/60 outline-none transition font-mono"
+   699→                      required
+   700→                    />
+   701→                    <button
+   702→                      type="button"
+   703→                      onClick={() => setShowSecretCode(!showSecretCode)}
+   704→                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-red-500 hover:text-red-400 transition cursor-pointer"
+   705→                      title={showSecretCode ? "Hide registration admin security code" : "Unmask registration admin security code"}
+   706→                    >
+   707→                      {showSecretCode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+   708→                    </button>
+   709→                  </div>
+   710→                </div>
+   711→              )}
+   712→
+   713→              <button
+   714→                type="submit"
+   715→                disabled={loading}
+   716→                className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold transition text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+   717→              >
+   718→                {loading ? "Creating..." : "Sign Up & Start Predicting"}
+   719→                <ArrowRight className="w-4 h-4" />
+   720→              </button>
+   721→
+   722→              <div className="text-center text-xs mt-4">
+   723→                <span className="text-slate-400">Already registered? </span>
+   724→                <button
+   725→                  type="button"
+   726→                  onClick={() => { setMode("login"); resetAllMessages(); }}
+   727→                  className="text-emerald-400 font-semibold hover:underline"
+   728→                >
+   729→                  Sign in instead
+   730→                </button>
+   731→              </div>
+   732→            </form>
+   733→          )}
+   734→
+   735→          {mode === "forgot" && (
+   736→            <div className="space-y-4">
+   737→              {!sandboxResetToken ? (
+   738→                <form onSubmit={handleForgotRequest} className="space-y-4">
+   739→                  <div>
+   740→                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Registered Email Address</label>
+   741→                    <div className="relative">
+   742→                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+   743→                      <input
+   744→                        type="email"
+   745→                        placeholder="you@email.com"
+   746→                        value={forgotEmail}
+   747→                        onChange={(e) => setForgotEmail(e.target.value)}
+   748→                        className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition"
+   749→                        required
+   750→                      />
+   751→                    </div>
+   752→                  </div>
+   753→
+   754→                  <button
+   755→                    type="submit"
+   756→                    disabled={loading}
+   757→                    className="w-full h-12 rounded-xl bg-slate-800 border border-slate-700 font-bold hover:bg-slate-700 transition text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+   758→                  >
+   759→                    {loading ? "Processing..." : "Generate Reset Code"}
+   760→                    <ArrowRight className="w-4 h-4" />
+   761→                  </button>
+   762→                </form>
+   763→              ) : (
+   764→                <form onSubmit={handleConfirmReset} className="space-y-4">
+   765→                  <div>
+   766→                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Copy Reset Token Code</label>
+   767→                    <input
+   768→                      type="text"
+   769→                      placeholder="Input token from notification box above"
+   770→                      value={resetToken}
+   771→                      onChange={(e) => setResetToken(e.target.value)}
+   772→                      className="w-full text-center bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-sm font-mono tracking-wider text-orange-400 outline-none transition"
+   773→                      required
+   774→                    />
+   775→                  </div>
+   776→
+   777→                  <div>
+   778→                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">New Security Password</label>
+   779→                    <input
+   780→                      type="password"
+   781→                      placeholder="Min 8 characters requirement"
+   782→                      value={newPassword}
+   783→                      onChange={(e) => setNewPassword(e.target.value)}
+   784→                      className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-700 outline-none transition"
+   785→                      required
+   786→                    />
+   787→                  </div>
+   788→
+   789→                  <button
+   790→                    type="submit"
+   791→                    disabled={loading || resetSuccess}
+   792→                    className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold transition text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+   793→                  >
+   794→                    {loading ? "Updating..." : "Establish New Password"}
+   795→                  </button>
+   796→                </form>
+   797→              )}
+   798→
+   799→              <button
+   800→                type="button"
+   801→                onClick={() => { setMode("login"); resetAllMessages(); }}
+   802→                className="w-full py-1.5 text-xs text-slate-400 hover:text-slate-200 mt-2 hover:underline text-center block font-semibold"
+   803→              >
+   804→                ← Return to main entrance
+   805→              </button>
+   806→            </div>
+   807→          )}
+   808→
+   809→          {/* Social Sign-In Integrator panel */}
+   810→          <div className="mt-8 pt-6 border-t border-slate-850/60 flex flex-col gap-3">
+   811→            <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-950/50 border border-slate-850/60">
+   812→              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest font-mono">
+   813→                Official Google Identity Sync
+   814→              </span>
+   815→              <Shield className="w-3 h-3 text-emerald-500 ml-auto" />
+   816→            </div>
+   817→
+   818→            <div id="google-signin-btn-container" className="w-full flex justify-center min-h-[44px]">
+   819→              {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+   820→                <div className="text-[10px] text-rose-400 font-mono text-center p-3 border border-rose-500/20 rounded-xl bg-rose-500/5">
+   821→                  GOOGLE_CLIENT_ID NOT CONFIGURED
+   822→                </div>
+   823→              )}
+   824→            </div>
+   825→            
+   826→            <p className="text-[9px] text-slate-500 text-center px-4 leading-relaxed">
+   827→              Authenticate securely with your real Google account to access elite Cup 2026 analytical dashboards.
+   828→            </p>
+   829→          </div>
+   830→
+   831→        </div>
+   832→      </div>
+   833→
+   834→      {showAuthTips && (
+   835→        <div id="auth-tips-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+   836→          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl relative max-h-[85vh] overflow-y-auto">
+   837→            <button
+   838→              id="close-auth-tips-btn"
+   839→              type="button"
+   840→              onClick={() => setShowAuthTips(false)}
+   841→              className="absolute top-4 right-4 text-slate-400 hover:text-slate-150 p-1.5 rounded-lg hover:bg-slate-850 transition cursor-pointer font-bold border border-slate-800 bg-slate-900"
+   842→            >
+   843→              ✕
+   844→            </button>
+   845→            <div className="flex items-center gap-2.5 mb-4 text-emerald-400 border-b border-slate-800/80 pb-3">
+   846→              <Shield className="w-5 h-5 text-emerald-400" />
+   847→              <h2 className="text-base font-bold tracking-tight">KICKIQ Authentication Platform Guide</h2>
+   848→            </div>
+   849→
+   850→            <div className="space-y-4 text-xs text-slate-300 font-sans">
+   851→              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-850">
+   852→                <h3 className="text-slate-100 font-bold mb-1 flex items-center gap-1.5 font-mono">
+   853→                  <span className="text-emerald-400">1.</span> Quick Sign-Up Flow
+   854→                </h3>
+   855→                <p className="leading-relaxed">
+   856→                  Toggle the <span className="text-emerald-400 font-bold">Create free account</span> mode link below the sign-in form. Fill in your preferred email address, any optional display nickname, and secure password.
+   857→                </p>
+   858→              </div>
+   859→
+   860→              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-850">
+   861→                <h3 className="text-slate-100 font-bold mb-1 flex items-center gap-1.5 font-mono">
+   862→                  <span className="text-teal-400">2.</span> Strict Password Requirements
+   863→                </h3>
+   864→                <p className="leading-relaxed">
+   865→                  Your security password MUST contain at least <span className="text-teal-400 font-bold text-sm">8 characters</span>. Inputting shorter passwords will prompt an error warning to uphold platform safety configurations.
+   866→                </p>
+   867→              </div>
+   868→
+   869→              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-850">
+   870→                <h3 className="text-slate-100 font-bold mb-1 flex items-center gap-1.5 font-mono">
+   871→                  <span className="text-orange-400">3.</span> Restricted Admin Role Verification
+   872→                </h3>
+   873→                <p className="leading-relaxed">
+   874→                  Access control to the full <span className="text-slate-100 font-semibold">Admin Panel</span> is strictly restricted to verified owner accounts. The primary root administrator email is locked permanently to <span className="text-emerald-400 font-mono select-all font-bold">kaisoisaac@gmail.com</span>. Any custom modifications or remote logouts will check your email against this hardcoded setting first.
+   875→                </p>
+   876→              </div>
+   877→
+   878→              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-850">
+   879→                <h3 className="text-slate-100 font-bold mb-1 flex items-center gap-1.5 font-mono">
+   880→                  <span className="text-purple-400">4.</span> Official Google Identity Sync
+   881→                </h3>
+   882→                <p className="leading-relaxed text-slate-300">
+   883→                  We use <span className="text-purple-400 font-semibold">Official Google Sign-In</span> to securely verify your identity. This ensures your analytical data, streaks, and preferences are synchronized across devices using industry-standard OAuth 2.0 protocols.
+   884→                </p>
+   885→              </div>
+   886→            </div>
+   887→
+   888→            <button
+   889→              id="confirm-auth-tips-btn"
+   890→              type="button"
+   891→              onClick={() => setShowAuthTips(false)}
+   892→              className="mt-6 w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold rounded-xl transition text-xs flex items-center justify-center cursor-pointer uppercase tracking-wider"
+   893→            >
+   894→              I Understand the Authentication Rules
+   895→            </button>
+   896→          </div>
+   897→        </div>
+   898→      )}
+   899→    </div>
+   900→  );
+   901→}
+   902→

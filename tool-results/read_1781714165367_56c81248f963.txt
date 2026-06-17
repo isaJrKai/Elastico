@@ -1,0 +1,664 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+     4→import { useKickIQStore, type Match } from '@/store/use-kickiq-store'
+     5→import { Card, CardContent } from '@/components/ui/card'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Skeleton } from '@/components/ui/skeleton'
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→import {
+    12→  Select,
+    13→  SelectContent,
+    14→  SelectItem,
+    15→  SelectTrigger,
+    16→  SelectValue,
+    17→} from '@/components/ui/select'
+    18→import { Separator } from '@/components/ui/separator'
+    19→import {
+    20→  Search,
+    21→  MapPin,
+    22→  Clock,
+    23→  Trophy,
+    24→  Users,
+    25→  RefreshCw,
+    26→  Zap,
+    27→  Filter,
+    28→  ChevronDown,
+    29→  Eye,
+    30→  ArrowUpDown,
+    31→  TrendingUp,
+    32→} from 'lucide-react'
+    33→import { cn } from '@/lib/utils'
+    34→
+    35→// ── Types ────────────────────────────────────────────────────────────────────
+    36→
+    37→type MatchTab = 'live' | 'upcoming' | 'finished' | 'all'
+    38→
+    39→interface MatchesApiResponse {
+    40→  matches: Match[]
+    41→  error?: string
+    42→}
+    43→
+    44→// ── Constants ──────────────────────────────────────────────────────────────────
+    45→
+    46→const STATUS_TABS: { value: MatchTab; label: string; icon?: React.ReactNode }[] = [
+    47→  { value: 'live', label: 'Live' },
+    48→  { value: 'upcoming', label: 'Upcoming' },
+    49→  { value: 'finished', label: 'Finished' },
+    50→  { value: 'all', label: 'All' },
+    51→]
+    52→
+    53→const STAGES = ['Group Stage', 'Round of 16', 'Quarter-Final', 'Semi-Final', 'Final', 'Third Place']
+    54→const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+    55→
+    56→// ── Helper: Status Config ─────────────────────────────────────────────────────
+    57→
+    58→function getStatusConfig(status: string) {
+    59→  switch (status) {
+    60→    case 'live':
+    61→      return {
+    62→        label: 'LIVE',
+    63→        className: 'bg-red-500/15 text-red-400 border-red-500/30',
+    64→        dotClass: 'bg-red-500 animate-pulse-live',
+    65→        showPulse: true,
+    66→      }
+    67→    case 'halftime':
+    68→      return {
+    69→        label: 'HT',
+    70→        className: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+    71→        dotClass: 'bg-yellow-500',
+    72→        showPulse: false,
+    73→      }
+    74→    case 'finished':
+    75→      return {
+    76→        label: 'FT',
+    77→        className: 'bg-muted text-muted-foreground border-border',
+    78→        dotClass: 'bg-muted-foreground',
+    79→        showPulse: false,
+    80→      }
+    81→    case 'postponed':
+    82→      return {
+    83→        label: 'PPD',
+    84→        className: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+    85→        dotClass: 'bg-orange-500',
+    86→        showPulse: false,
+    87→      }
+    88→    default:
+    89→      return {
+    90→        label: 'Upcoming',
+    91→        className: 'bg-primary/15 text-primary border-primary/30',
+    92→        dotClass: 'bg-primary',
+    93→        showPulse: false,
+    94→      }
+    95→  }
+    96→}
+    97→
+    98→// ── Helper: Format date ─────────────────────────────────────────────────────────
+    99→
+   100→function formatMatchDate(dateStr: string | null): string {
+   101→  if (!dateStr) return 'TBD'
+   102→  const d = new Date(dateStr)
+   103→  return d.toLocaleDateString('en-US', {
+   104→    month: 'short',
+   105→    day: 'numeric',
+   106→    hour: '2-digit',
+   107→    minute: '2-digit',
+   108→  })
+   109→}
+   110→
+   111→function formatMatchTime(dateStr: string | null): string {
+   112→  if (!dateStr) return ''
+   113→  const d = new Date(dateStr)
+   114→  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+   115→}
+   116→
+   117→// ── Helper: Prediction Result Badge ──────────────────────────────────────────
+   118→
+   119→function getResultBadge(
+   120→  match: Match,
+   121→  userPredictionOutcome: string | null,
+   122→): { label: string; className: string } | null {
+   123→  if (match.status !== 'finished' || !userPredictionOutcome) return null
+   124→
+   125→  const actual =
+   126→    match.homeScore > match.awayScore
+   127→      ? 'home'
+   128→      : match.homeScore === match.awayScore
+   129→        ? 'draw'
+   130→        : 'away'
+   131→
+   132→  if (userPredictionOutcome === actual) {
+   133→    return { label: '✓ Won', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' }
+   134→  }
+   135→  return { label: '✗ Lost', className: 'bg-red-500/15 text-red-400 border-red-500/30' }
+   136→}
+   137→
+   138→// ── Match Card Component ───────────────────────────────────────────────────────
+   139→
+   140→function MatchCard({ match }: { match: Match }) {
+   141→  const { selectMatch, user, predictions } = useKickIQStore()
+   142→  const statusConfig = getStatusConfig(match.status)
+   143→
+   144→  const handleClick = useCallback(() => {
+   145→    selectMatch(match.id)
+   146→  }, [selectMatch, match.id])
+   147→
+   148→  // Check if user has a prediction for this match
+   149→  const userPrediction = predictions?.find((p: { matchId: string; predictedOutcome: string }) => p.matchId === match.id)
+   150→  const resultBadge = getResultBadge(match, userPrediction?.predictedOutcome || null)
+   151→
+   152→  const isLive = match.status === 'live' || match.status === 'halftime'
+   153→
+   154→  return (
+   155→    <Card
+   156→      className={cn(
+   157→        'glass-card cursor-pointer transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 animate-fade-in-up group',
+   158→        isLive && 'border-red-500/20 hover:border-red-500/40',
+   159→      )}
+   160→      onClick={handleClick}
+   161→      role="button"
+   162→      tabIndex={0}
+   163→      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}
+   164→      aria-label={`View details: ${match.homeTeam?.name || 'Home'} vs ${match.awayTeam?.name || 'Away'}`}
+   165→    >
+   166→      <CardContent className="p-4">
+   167→        {/* ── Status & Competition Header ──────────────────────────────────── */}
+   168→        <div className="flex items-center justify-between mb-3">
+   169→          <div className="flex items-center gap-2">
+   170→            <Badge variant="outline" className={cn('h-5 rounded-md px-1.5 text-[10px] font-bold tracking-wider', statusConfig.className)}>
+   171→              {statusConfig.showPulse && (
+   172→                <span className="relative flex size-1.5 mr-1.5">
+   173→                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+   174→                  <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
+   175→                </span>
+   176→              )}
+   177→              {statusConfig.label}
+   178→            </Badge>
+   179→            {isLive && match.simulationMinute != null && match.simulationMinute > 0 && (
+   180→              <Badge variant="outline" className="h-5 rounded-md px-1.5 text-[10px] font-bold bg-red-500/10 text-red-300 border-red-500/20">
+   181→                {match.simulationMinute}&apos;
+   182→              </Badge>
+   183→            )}
+   184→          </div>
+   185→          {resultBadge && (
+   186→            <Badge variant="outline" className={cn('h-5 rounded-md px-1.5 text-[10px] font-bold', resultBadge.className)}>
+   187→              {resultBadge.label}
+   188→            </Badge>
+   189→          )}
+   190→        </div>
+   191→
+   192→        {/* ── Team Names + Score ─────────────────────────────────────────── */}
+   193→        <div className="flex items-center justify-between gap-2 mb-3">
+   194→          {/* Home Team */}
+   195→          <div className="flex-1 flex items-center gap-2 min-w-0">
+   196→            <span
+   197→              className="shrink-0 size-3 rounded-full border border-white/20"
+   198→              style={{ backgroundColor: match.homeTeam?.primaryColor || '#00e676' }}
+   199→            />
+   200→            <span className="text-sm font-semibold truncate">{match.homeTeam?.name || 'Home'}</span>
+   201→          </div>
+   202→
+   203→          {/* Score */}
+   204→          <div className="shrink-0 flex items-center gap-1.5 min-w-[60px] justify-center">
+   205→            {match.status === 'upcoming' ? (
+   206→              <span className="text-xs font-bold text-muted-foreground bg-muted/50 rounded-md px-2.5 py-1">vs</span>
+   207→            ) : (
+   208→              <div className="flex items-center gap-1">
+   209→                <span className={cn(
+   210→                  'text-lg font-bold tabular-nums',
+   211→                  isLive ? 'text-foreground' : 'text-foreground',
+   212→                  match.homeScore > match.awayScore && match.status === 'finished' && 'text-primary',
+   213→                )}>
+   214→                  {match.homeScore}
+   215→                </span>
+   216→                <span className="text-xs text-muted-foreground font-medium">-</span>
+   217→                <span className={cn(
+   218→                  'text-lg font-bold tabular-nums',
+   219→                  isLive ? 'text-foreground' : 'text-foreground',
+   220→                  match.awayScore > match.homeScore && match.status === 'finished' && 'text-primary',
+   221→                )}>
+   222→                  {match.awayScore}
+   223→                </span>
+   224→              </div>
+   225→            )}
+   226→          </div>
+   227→
+   228→          {/* Away Team */}
+   229→          <div className="flex-1 flex items-center gap-2 min-w-0 justify-end">
+   230→            <span className="text-sm font-semibold truncate text-right">{match.awayTeam?.name || 'Away'}</span>
+   231→            <span
+   232→              className="shrink-0 size-3 rounded-full border border-white/20"
+   233→              style={{ backgroundColor: match.awayTeam?.primaryColor || '#00b4d8' }}
+   234→            />
+   235→          </div>
+   236→        </div>
+   237→
+   238→        {/* ── xG indicator (for live/finished) ───────────────────────────── */}
+   239→        {(isLive || match.status === 'finished') && (match.homeXg > 0 || match.awayXg > 0) && (
+   240→          <div className="flex items-center justify-between gap-2 mb-2 px-1">
+   241→            <span className="text-[10px] text-muted-foreground tabular-nums">
+   242→              xG {match.homeXg.toFixed(1)}
+   243→            </span>
+   244→            <div className="flex-1 mx-3 h-1 rounded-full bg-muted overflow-hidden flex">
+   245→              <div
+   246→                className="h-full bg-primary/60 rounded-full transition-all duration-500"
+   247→                style={{ width: `${Math.min(((match.homeXg) / (match.homeXg + match.awayXg + 0.01)) * 100, 100)}%` }}
+   248→              />
+   249→            </div>
+   250→            <span className="text-[10px] text-muted-foreground tabular-nums">
+   251→              xG {match.awayXg.toFixed(1)}
+   252→            </span>
+   253→          </div>
+   254→        )}
+   255→
+   256→        <Separator className="opacity-30 mb-2.5" />
+   257→
+   258→        {/* ── Match Info Footer ──────────────────────────────────────────── */}
+   259→        <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
+   260→          <div className="flex items-center gap-1">
+   261→            <Clock className="size-3" />
+   262→            <span>{formatMatchDate(match.date)}</span>
+   263→          </div>
+   264→          {match.venue && (
+   265→            <div className="flex items-center gap-1 truncate">
+   266→              <MapPin className="size-3 shrink-0" />
+   267→              <span className="truncate">{match.venue}</span>
+   268→            </div>
+   269→          )}
+   270→        </div>
+   271→
+   272→        {/* ── Competition / Stage / Group ──────────────────────────────────── */}
+   273→        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+   274→          <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] font-medium bg-muted/50 text-muted-foreground">
+   275→            <Trophy className="size-2.5 mr-1" />
+   276→            {match.competition}
+   277→          </Badge>
+   278→          <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] font-medium bg-muted/50 text-muted-foreground">
+   279→            {match.stage}
+   280→          </Badge>
+   281→          {match.group && (
+   282→            <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] font-medium bg-muted/50 text-muted-foreground">
+   283→              Group {match.group}
+   284→            </Badge>
+   285→          )}
+   286→        </div>
+   287→
+   288→        {/* ── Prediction / Vote Count ────────────────────────────────────── */}
+   289→        {match._count && (match._count.predictions > 0 || match._count.votes > 0) && (
+   290→          <div className="flex items-center gap-3 mt-2.5 text-[10px] text-muted-foreground">
+   291→            {match._count.predictions > 0 && (
+   292→              <div className="flex items-center gap-1">
+   293→                <TrendingUp className="size-3 text-primary" />
+   294→                <span>{match._count.predictions} predictions</span>
+   295→              </div>
+   296→            )}
+   297→            {match._count.votes > 0 && (
+   298→              <div className="flex items-center gap-1">
+   299→                <Users className="size-3 text-primary" />
+   300→                <span>{match._count.votes} votes</span>
+   301→              </div>
+   302→            )}
+   303→          </div>
+   304→        )}
+   305→      </CardContent>
+   306→    </Card>
+   307→  )
+   308→}
+   309→
+   310→// ── Match Card Skeleton ─────────────────────────────────────────────────────────
+   311→
+   312→function MatchCardSkeleton() {
+   313→  return (
+   314→    <Card className="glass-card animate-fade-in-up">
+   315→      <CardContent className="p-4">
+   316→        <div className="flex items-center justify-between mb-3">
+   317→          <Skeleton className="h-5 w-14 rounded-md" />
+   318→          <Skeleton className="h-5 w-10 rounded-md" />
+   319→        </div>
+   320→        <div className="flex items-center justify-between gap-2 mb-3">
+   321→          <div className="flex-1 flex items-center gap-2">
+   322→            <Skeleton className="size-3 rounded-full" />
+   323→            <Skeleton className="h-4 w-24 rounded" />
+   324→          </div>
+   325→          <Skeleton className="h-7 w-14 rounded-md" />
+   326→          <div className="flex-1 flex items-center gap-2 justify-end">
+   327→            <Skeleton className="h-4 w-24 rounded" />
+   328→            <Skeleton className="size-3 rounded-full" />
+   329→          </div>
+   330→        </div>
+   331→        <Skeleton className="h-px w-full mb-2.5" />
+   332→        <div className="flex items-center gap-3">
+   333→          <Skeleton className="h-3 w-20 rounded" />
+   334→          <Skeleton className="h-3 w-24 rounded" />
+   335→        </div>
+   336→        <div className="flex items-center gap-1.5 mt-2">
+   337→          <Skeleton className="h-5 w-16 rounded-md" />
+   338→          <Skeleton className="h-5 w-20 rounded-md" />
+   339→        </div>
+   340→      </CardContent>
+   341→    </Card>
+   342→  )
+   343→}
+   344→
+   345→// ── Main MatchesView Component ─────────────────────────────────────────────────
+   346→
+   347→export function MatchesView() {
+   348→  const { token, selectMatch } = useKickIQStore()
+   349→
+   350→  const [activeTab, setActiveTab] = useState<MatchTab>('live')
+   351→  const [searchQuery, setSearchQuery] = useState('')
+   352→  const [stageFilter, setStageFilter] = useState<string>('all')
+   353→  const [groupFilter, setGroupFilter] = useState<string>('all')
+   354→  const [matchesMap, setMatchesMap] = useState<Record<MatchTab, Match[]>>({
+   355→    live: [],
+   356→    upcoming: [],
+   357→    finished: [],
+   358→    all: [],
+   359→  })
+   360→  const [loadingMap, setLoadingMap] = useState<Record<MatchTab, boolean>>({
+   361→    live: false,
+   362→    upcoming: false,
+   363→    finished: false,
+   364→    all: false,
+   365→  })
+   366→  const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+   367→  const liveRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null)
+   368→
+   369→  // ── Fetch matches for a given tab ──────────────────────────────────────
+   370→  const fetchMatches = useCallback(
+   371→    async (tab: MatchTab, force = false) => {
+   372→      // Don't re-fetch if already loading (unless forced)
+   373→      if (!force && loadingMap[tab]) return
+   374→
+   375→      setLoadingMap((prev) => ({ ...prev, [tab]: true }))
+   376→
+   377→      try {
+   378→        const params = new URLSearchParams()
+   379→        if (tab !== 'all') params.set('status', tab)
+   380→        if (searchQuery) params.set('search', searchQuery)
+   381→        if (stageFilter !== 'all') params.set('stage', stageFilter)
+   382→        if (groupFilter !== 'all') params.set('group', groupFilter)
+   383→
+   384→        const headers: Record<string, string> = {}
+   385→        if (token) headers['Authorization'] = `Bearer ${token}`
+   386→
+   387→        const res = await fetch(`/api/matches?${params.toString()}`, {
+   388→          headers,
+   389→        })
+   390→        const data: MatchesApiResponse = await res.json()
+   391→
+   392→        if (data.matches) {
+   393→          setMatchesMap((prev) => ({ ...prev, [tab]: data.matches }))
+   394→        }
+   395→      } catch (err) {
+   396→        console.error(`Failed to fetch matches (${tab}):`, err)
+   397→      } finally {
+   398→        setLoadingMap((prev) => ({ ...prev, [tab]: false }))
+   399→        setLastRefresh(new Date())
+   400→      }
+   401→    },
+   402→    [searchQuery, stageFilter, groupFilter, token, loadingMap],
+   403→  )
+   404→
+   405→  // ── Initial fetch on mount and when tab changes ─────────────────────────
+   406→  useEffect(() => {
+   407→    fetchMatches(activeTab)
+   408→  }, [activeTab, fetchMatches])
+   409→
+   410→  // ── Re-fetch when filters change ───────────────────────────────────────
+   411→  useEffect(() => {
+   412→    fetchMatches(activeTab, true)
+   413→  }, [searchQuery, stageFilter, groupFilter, activeTab, fetchMatches])
+   414→
+   415→  // ── Auto-refresh live tab every 15 seconds ──────────────────────────────
+   416→  useEffect(() => {
+   417→    if (activeTab === 'live') {
+   418→      liveRefreshRef.current = setInterval(() => {
+   419→        fetchMatches('live', true)
+   420→      }, 15_000)
+   421→    }
+   422→
+   423→    return () => {
+   424→      if (liveRefreshRef.current) {
+   425→        clearInterval(liveRefreshRef.current)
+   426→        liveRefreshRef.current = null
+   427→      }
+   428→    }
+   429→  }, [activeTab, fetchMatches])
+   430→
+   431→  // ── Also keep live data fresh even on other tabs ───────────────────────
+   432→  useEffect(() => {
+   433→    const interval = setInterval(() => {
+   434→      fetchMatches('live', true)
+   435→    }, 30_000)
+   436→    return () => clearInterval(interval)
+   437→  }, [fetchMatches])
+   438→
+   439→  // ── Debounced search ──────────────────────────────────────────────────
+   440→  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+   441→  const handleSearchChange = useCallback((value: string) => {
+   442→    setSearchQuery(value)
+   443→    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+   444→    searchTimeoutRef.current = setTimeout(() => {
+   445→      // The effect above will trigger refetch
+   446→    }, 300)
+   447→  }, [])
+   448→
+   449→  // ── Current matches ───────────────────────────────────────────────────
+   450→  const currentMatches = matchesMap[activeTab] || []
+   451→  const isLoading = loadingMap[activeTab]
+   452→
+   453→  // ── Live match count for tab badges ────────────────────────────────────
+   454→  const liveCount = (matchesMap['live'] || []).length
+   455→
+   456→  // ── Count matches per tab (from the "all" set for total reference) ──────
+   457→  const allMatches = matchesMap['all'] || []
+   458→  const upcomingCount = allMatches.filter((m) => m.status === 'upcoming').length
+   459→  const finishedCount = allMatches.filter((m) => m.status === 'finished').length
+   460→
+   461→  // ── Extract unique stages / groups from fetched data ─────────────────────
+   462→  const availableStages = useMemo(() => {
+   463→    const stages = new Set(allMatches.map((m) => m.stage))
+   464→    return STAGES.filter((s) => stages.has(s))
+   465→  }, [allMatches])
+   466→
+   467→  const availableGroups = useMemo(() => {
+   468→    const groups = new Set(allMatches.map((m) => m.group).filter(Boolean) as string[])
+   469→    return GROUPS.filter((g) => groups.has(g))
+   470→  }, [allMatches])
+   471→
+   472→  return (
+   473→    <div className="flex flex-col gap-4 animate-fade-in-up">
+   474→      {/* ── Filter Bar ────────────────────────────────────────────────────── */}
+   475→      <div className="glass-card rounded-xl p-4">
+   476→        <div className="flex flex-col sm:flex-row gap-3">
+   477→          {/* Search */}
+   478→          <div className="relative flex-1">
+   479→            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   480→            <Input
+   481→              placeholder="Search by team name..."
+   482→              value={searchQuery}
+   483→              onChange={(e) => handleSearchChange(e.target.value)}
+   484→              className="pl-9 h-9 bg-muted/50 border-border text-sm"
+   485→            />
+   486→          </div>
+   487→
+   488→          {/* Stage Filter */}
+   489→          <Select value={stageFilter} onValueChange={setStageFilter}>
+   490→            <SelectTrigger className="h-9 w-full sm:w-[160px] bg-muted/50 border-border text-sm">
+   491→              <Filter className="size-3.5 mr-1.5 text-muted-foreground" />
+   492→              <SelectValue placeholder="Stage" />
+   493→            </SelectTrigger>
+   494→            <SelectContent className="glass-card border-border">
+   495→              <SelectItem value="all">All Stages</SelectItem>
+   496→              {availableStages.map((stage) => (
+   497→                <SelectItem key={stage} value={stage}>
+   498→                  {stage}
+   499→                </SelectItem>
+   500→              ))}
+   501→            </SelectContent>
+   502→          </Select>
+   503→
+   504→          {/* Group Filter */}
+   505→          <Select value={groupFilter} onValueChange={setGroupFilter}>
+   506→            <SelectTrigger className="h-9 w-full sm:w-[120px] bg-muted/50 border-border text-sm">
+   507→              <SelectValue placeholder="Group" />
+   508→            </SelectTrigger>
+   509→            <SelectContent className="glass-card border-border">
+   510→              <SelectItem value="all">All Groups</SelectItem>
+   511→              {availableGroups.map((group) => (
+   512→                <SelectItem key={group} value={group}>
+   513→                  Group {group}
+   514→                </SelectItem>
+   515→              ))}
+   516→            </SelectContent>
+   517→          </Select>
+   518→
+   519→          {/* Refresh */}
+   520→          <Button
+   521→            variant="outline"
+   522→            size="icon"
+   523→            className="h-9 w-9 shrink-0 border-border bg-muted/50 hover:bg-accent"
+   524→            onClick={() => fetchMatches(activeTab, true)}
+   525→            disabled={isLoading}
+   526→            aria-label="Refresh matches"
+   527→          >
+   528→            <RefreshCw className={cn('size-4', isLoading && 'animate-spin')} />
+   529→          </Button>
+   530→        </div>
+   531→      </div>
+   532→
+   533→      {/* ── Tabs ───────────────────────────────────────────────────────────── */}
+   534→      <Tabs
+   535→        value={activeTab}
+   536→        onValueChange={(v) => setActiveTab(v as MatchTab)}
+   537→        className="w-full"
+   538→      >
+   539→        <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
+   540→          {STATUS_TABS.map((tab) => {
+   541→            const count =
+   542→              tab.value === 'live'
+   543→                ? liveCount
+   544→                : tab.value === 'upcoming'
+   545→                  ? upcomingCount
+   546→                  : tab.value === 'finished'
+   547→                    ? finishedCount
+   548→                    : allMatches.length
+   549→
+   550→            return (
+   551→              <TabsTrigger
+   552→                key={tab.value}
+   553→                value={tab.value}
+   554→                className={cn(
+   555→                  'flex-1 h-8 text-xs font-semibold rounded-md transition-all gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-sm',
+   556→                )}
+   557→              >
+   558→                {tab.value === 'live' && liveCount > 0 && (
+   559→                  <span className="relative flex size-1.5">
+   560→                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+   561→                    <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
+   562→                  </span>
+   563→                )}
+   564→                {tab.label}
+   565→                {count > 0 && (
+   566→                  <span className="ml-0.5 text-[10px] opacity-60">
+   567→                    ({count})
+   568→                  </span>
+   569→                )}
+   570→              </TabsTrigger>
+   571→            )
+   572→          })}
+   573→        </TabsList>
+   574→
+   575→        {/* ── Tab Content ────────────────────────────────────────────────── */}
+   576→        {STATUS_TABS.map((tab) => (
+   577→          <TabsContent key={tab.value} value={tab.value} className="mt-4">
+   578→            {/* ── Loading State ──────────────────────────────────────────── */}
+   579→            {isLoading && currentMatches.length === 0 && (
+   580→              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   581→                {Array.from({ length: 6 }).map((_, i) => (
+   582→                  <MatchCardSkeleton key={i} />
+   583→                ))}
+   584→              </div>
+   585→            )}
+   586→
+   587→            {/* ── Empty State ────────────────────────────────────────────── */}
+   588→            {!isLoading && currentMatches.length === 0 && (
+   589→              <div className="flex flex-col items-center justify-center py-16 text-center">
+   590→                <div className="size-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+   591→                  {tab.value === 'live' ? (
+   592→                    <Zap className="size-7 text-muted-foreground" />
+   593→                  ) : (
+   594→                    <Eye className="size-7 text-muted-foreground" />
+   595→                  )}
+   596→                </div>
+   597→                <h3 className="text-sm font-semibold text-foreground mb-1">
+   598→                  No {tab.value === 'all' ? '' : tab.value} matches found
+   599→                </h3>
+   600→                <p className="text-xs text-muted-foreground max-w-[260px]">
+   601→                  {tab.value === 'live'
+   602→                    ? 'There are no live matches at the moment. Check back later!'
+   603→                    : tab.value === 'upcoming'
+   604→                      ? 'No upcoming matches scheduled. Stay tuned for updates!'
+   605→                      : tab.value === 'finished'
+   606→                        ? 'No finished matches yet. Matches will appear here after completion.'
+   607→                        : searchQuery
+   608→                          ? 'Try adjusting your search or filters to find matches.'
+   609→                          : 'No matches available. Check back later!'}
+   610→                </p>
+   611→                {(searchQuery || stageFilter !== 'all' || groupFilter !== 'all') && (
+   612→                  <Button
+   613→                    variant="outline"
+   614→                    size="sm"
+   615→                    className="mt-4 h-8 text-xs border-border"
+   616→                    onClick={() => {
+   617→                      setSearchQuery('')
+   618→                      setStageFilter('all')
+   619→                      setGroupFilter('all')
+   620→                    }}
+   621→                  >
+   622→                    Clear Filters
+   623→                  </Button>
+   624→                )}
+   625→              </div>
+   626→            )}
+   627→
+   628→            {/* ── Match Grid ─────────────────────────────────────────────── */}
+   629→            {currentMatches.length > 0 && (
+   630→              <>
+   631→                <div className="flex items-center justify-between mb-2 px-1">
+   632→                  <span className="text-[11px] text-muted-foreground">
+   633→                    {currentMatches.length} match{currentMatches.length !== 1 ? 'es' : ''}
+   634→                    {isLoading && ' (refreshing...)'}
+   635→                  </span>
+   636→                  <span className="text-[10px] text-muted-foreground/50">
+   637→                    Updated {lastRefresh.toLocaleTimeString()}
+   638→                  </span>
+   639→                </div>
+   640→                <div
+   641→                  className={cn(
+   642→                    'grid gap-4',
+   643→                    // Responsive columns: 1 on mobile, 2 on sm, 3 on lg
+   644→                    'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+   645→                  )}
+   646→                >
+   647→                  {currentMatches.map((match, idx) => (
+   648→                    <div
+   649→                      key={match.id}
+   650→                      style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}
+   651→                    >
+   652→                      <MatchCard match={match} />
+   653→                    </div>
+   654→                  ))}
+   655→                </div>
+   656→              </>
+   657→            )}
+   658→          </TabsContent>
+   659→        ))}
+   660→      </Tabs>
+   661→    </div>
+   662→  )
+   663→}
+   664→

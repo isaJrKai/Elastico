@@ -1,0 +1,1575 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { useKickIQStore, type Match, type MatchEvent, type Team, type User } from '@/store/use-kickiq-store'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Progress } from '@/components/ui/progress'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import { Skeleton } from '@/components/ui/skeleton'
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    12→import {
+    13→  BarChart,
+    14→  Bar,
+    15→  XAxis,
+    16→  YAxis,
+    17→  Tooltip as RTooltip,
+    18→  ResponsiveContainer,
+    19→  Cell,
+    20→  ReferenceLine,
+    21→} from 'recharts'
+    22→import {
+    23→  ArrowLeft,
+    24→  Bookmark,
+    25→  BookmarkCheck,
+    26→  Share2,
+    27→  Play,
+    28→  Sparkles,
+    29→  Brain,
+    30→  MapPin,
+    31→  Cloud,
+    32→  Thermometer,
+    33→  Users,
+    34→  Trophy,
+    35→  Clock,
+    36→  Zap,
+    37→  TrendingUp,
+    38→  CheckCircle2,
+    39→  XCircle,
+    40→  Vote,
+    41→  Target,
+    42→  Activity,
+    43→  ChevronDown,
+    44→  Loader2,
+    45→  AlertCircle,
+    46→  Swords,
+    47→  Flame,
+    48→  MessageSquare,
+    49→  CircleDot,
+    50→} from 'lucide-react'
+    51→import { cn } from '@/lib/utils'
+    52→
+    53→// ── Extended Types (API returns more data than store) ──────────────────────────
+    54→
+    55→interface VoteUser {
+    56→  id: string
+    57→  name: string
+    58→  displayName: string | null
+    59→  avatarUrl: string | null
+    60→  plan: string
+    61→}
+    62→
+    63→interface Vote {
+    64→  id: string
+    65→  userId: string
+    66→  matchId: string
+    67→  choice: string
+    68→  createdAt: string
+    69→  user: VoteUser
+    70→}
+    71→
+    72→interface PredictionUser {
+    73→  id: string
+    74→  name: string
+    75→  displayName: string | null
+    76→  avatarUrl: string | null
+    77→  predictionAccuracy: number
+    78→}
+    79→
+    80→interface Prediction {
+    81→  id: string
+    82→  userId: string
+    83→  matchId: string
+    84→  predictedHomeGoals: number
+    85→  predictedAwayGoals: number
+    86→  predictedOutcome: string
+    87→  confidence: number
+    88→  model: string
+    89→  isCorrect: boolean | null
+    90→  points: number
+    91→  createdAt: string
+    92→  user: PredictionUser
+    93→}
+    94→
+    95→interface MatchDetail extends Match {
+    96→  homeTeam: Team & { players: Team['players'] }
+    97→  awayTeam: Team & { players: Team['players'] }
+    98→  events: MatchEvent[]
+    99→  votes: Vote[]
+   100→  predictions: Prediction[]
+   101→  voteDistribution: { home: number; draw: number; away: number }
+   102→  _count: {
+   103→    predictions: number
+   104→    votes: number
+   105→    bookmarks: number
+   106→  }
+   107→  attendance?: number | null
+   108→  weather?: string | null
+   109→  temperature?: number | null
+   110→}
+   111→
+   112→// ── Stat Bar Row ─────────────────────────────────────────────────────────────
+   113→
+   114→function StatBarRow({
+   115→  label,
+   116→  homeValue,
+   117→  awayValue,
+   118→  homeColor,
+   119→  awayColor,
+   120→  suffix = '',
+   121→  decimals = 0,
+   122→}: {
+   123→  label: string
+   124→  homeValue: number
+   125→  awayValue: number
+   126→  homeColor?: string
+   127→  awayColor?: string
+   128→  suffix?: string
+   129→  decimals?: number
+   130→}) {
+   131→  const total = homeValue + awayValue || 1
+   132→  const homePercent = (homeValue / total) * 100
+   133→  const awayPercent = (awayValue / total) * 100
+   134→
+   135→  const formatVal = (v: number) =>
+   136→    decimals > 0 ? v.toFixed(decimals) : String(Math.round(v))
+   137→
+   138→  return (
+   139→    <div className="space-y-1.5">
+   140→      <div className="flex items-center justify-between text-xs">
+   141→        <span className={cn('font-semibold tabular-nums', homePercent >= 50 ? 'text-foreground' : 'text-muted-foreground')}>
+   142→          {formatVal(homeValue)}{suffix}
+   143→        </span>
+   144→        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
+   145→        <span className={cn('font-semibold tabular-nums', awayPercent > homePercent ? 'text-foreground' : 'text-muted-foreground')}>
+   146→          {formatVal(awayValue)}{suffix}
+   147→        </span>
+   148→      </div>
+   149→      <div className="flex h-2 gap-0.5 rounded-full overflow-hidden bg-muted">
+   150→        <div
+   151→          className="h-full rounded-full transition-all duration-700 ease-out"
+   152→          style={{
+   153→            width: `${homePercent}%`,
+   154→            backgroundColor: homeColor || 'oklch(0.72 0.19 163)',
+   155→          }}
+   156→        />
+   157→        <div
+   158→          className="h-full rounded-full transition-all duration-700 ease-out ml-auto"
+   159→          style={{
+   160→            width: `${awayPercent}%`,
+   161→            backgroundColor: awayColor || 'oklch(0.68 0.15 230)',
+   162→          }}
+   163→        />
+   164→      </div>
+   165→    </div>
+   166→  )
+   167→}
+   168→
+   169→// ── Event Icon Helper ────────────────────────────────────────────────────────
+   170→
+   171→function getEventIcon(type: string) {
+   172→  switch (type) {
+   173→    case 'goal':
+   174→    case 'penalty':
+   175→    case 'own_goal':
+   176→      return '⚽'
+   177→    case 'yellow_card':
+   178→      return '🟨'
+   179→    case 'red_card':
+   180→      return '🟥'
+   181→    case 'substitution':
+   182→      return '🔄'
+   183→    case 'var_review':
+   184→      return '📺'
+   185→    default:
+   186→      return '⚡'
+   187→  }
+   188→}
+   189→
+   190→function getEventLabel(type: string) {
+   191→  switch (type) {
+   192→    case 'goal':
+   193→      return 'Goal'
+   194→    case 'penalty':
+   195→      return 'Penalty'
+   196→    case 'own_goal':
+   197→      return 'Own Goal'
+   198→    case 'yellow_card':
+   199→      return 'Yellow Card'
+   200→    case 'red_card':
+   201→      return 'Red Card'
+   202→    case 'substitution':
+   203→      return 'Substitution'
+   204→    case 'var_review':
+   205→      return 'VAR Review'
+   206→    default:
+   207→      return type
+   208→  }
+   209→}
+   210→
+   211→// ── Status Config ─────────────────────────────────────────────────────────────
+   212→
+   213→function getStatusConfig(status: string) {
+   214→  switch (status) {
+   215→    case 'live':
+   216→      return {
+   217→        label: 'LIVE',
+   218→        className: 'bg-red-500/15 text-red-400 border-red-500/30',
+   219→        showPulse: true,
+   220→      }
+   221→    case 'halftime':
+   222→      return {
+   223→        label: 'HALF TIME',
+   224→        className: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+   225→        showPulse: false,
+   226→      }
+   227→    case 'finished':
+   228→      return {
+   229→        label: 'FULL TIME',
+   230→        className: 'bg-muted text-muted-foreground border-border',
+   231→        showPulse: false,
+   232→      }
+   233→    case 'postponed':
+   234→      return {
+   235→        label: 'POSTPONED',
+   236→        className: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+   237→        showPulse: false,
+   238→      }
+   239→    default:
+   240→      return {
+   241→        label: 'UPCOMING',
+   242→        className: 'bg-primary/15 text-primary border-primary/30',
+   243→        showPulse: false,
+   244→      }
+   245→  }
+   246→}
+   247→
+   248→function getWeatherIcon(weather: string | null) {
+   249→  if (!weather) return <Cloud className="size-3.5 text-muted-foreground" />
+   250→  const w = weather.toLowerCase()
+   251→  if (w.includes('sun') || w.includes('clear')) return <span className="text-sm">☀️</span>
+   252→  if (w.includes('rain')) return <span className="text-sm">🌧️</span>
+   253→  if (w.includes('cloud')) return <span className="text-sm">⛅</span>
+   254→  if (w.includes('hot') || w.includes('warm')) return <span className="text-sm">🔥</span>
+   255→  if (w.includes('cold') || w.includes('snow')) return <span className="text-sm">❄️</span>
+   256→  return <Cloud className="size-3.5 text-muted-foreground" />
+   257→}
+   258→
+   259→// ── Main Component ────────────────────────────────────────────────────────────
+   260→
+   261→export function MatchDetailView() {
+   262→  const { selectedMatchId, setView, user, token } = useKickIQStore()
+   263→
+   264→  const [match, setMatch] = useState<MatchDetail | null>(null)
+   265→  const [loading, setLoading] = useState(true)
+   266→  const [error, setError] = useState<string | null>(null)
+   267→  const [activeTab, setActiveTab] = useState('statistics')
+   268→
+   269→  // AI Analysis
+   270→  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
+   271→  const [aiLoading, setAiLoading] = useState(false)
+   272→  const [aiError, setAiError] = useState<string | null>(null)
+   273→
+   274→  // Vote state
+   275→  const [voting, setVoting] = useState(false)
+   276→
+   277→  // Simulate state
+   278→  const [simulating, setSimulating] = useState(false)
+   279→  const [simulateError, setSimulateError] = useState<string | null>(null)
+   280→
+   281→  // Bookmark state
+   282→  const [bookmarked, setBookmarked] = useState(false)
+   283→
+   284→  // ── Fetch match detail ─────────────────────────────────────────────────
+   285→  const fetchMatch = useCallback(async () => {
+   286→    if (!selectedMatchId) return
+   287→    setLoading(true)
+   288→    setError(null)
+   289→
+   290→    try {
+   291→      const headers: Record<string, string> = {}
+   292→      if (token) headers['Authorization'] = `Bearer ${token}`
+   293→
+   294→      const res = await fetch(`/api/matches/${selectedMatchId}`, { headers })
+   295→      if (!res.ok) {
+   296→        throw new Error(`Failed to fetch match (status: ${res.status})`)
+   297→      }
+   298→      const data = await res.json()
+   299→      setMatch(data.match)
+   300→
+   301→      // Check if user has bookmarked
+   302→      if (user && data.match._count) {
+   303→        setBookmarked(data.match._count.bookmarks > 0)
+   304→      }
+   305→    } catch (err) {
+   306→      console.error('Match detail fetch error:', err)
+   307→      setError(err instanceof Error ? err.message : 'Failed to load match')
+   308→    } finally {
+   309→      setLoading(false)
+   310→    }
+   311→  }, [selectedMatchId, token, user])
+   312→
+   313→  useEffect(() => {
+   314→    fetchMatch()
+   315→  }, [fetchMatch])
+   316→
+   317→  // ── Fetch AI Analysis ─────────────────────────────────────────────────
+   318→  const fetchAiAnalysis = useCallback(async () => {
+   319→    if (!selectedMatchId || !token) return
+   320→    setAiLoading(true)
+   321→    setAiError(null)
+   322→
+   323→    try {
+   324→      const res = await fetch('/api/chat', {
+   325→        method: 'POST',
+   326→        headers: {
+   327→          'Content-Type': 'application/json',
+   328→          Authorization: `Bearer ${token}`,
+   329→        },
+   330→        body: JSON.stringify({
+   331→          message: 'Analyze this match tactically',
+   332→          matchId: selectedMatchId,
+   333→        }),
+   334→      })
+   335→
+   336→      if (!res.ok) throw new Error('Failed to get AI analysis')
+   337→      const data = await res.json()
+   338→      setAiAnalysis(data.response)
+   339→    } catch (err) {
+   340→      console.error('AI analysis error:', err)
+   341→      setAiError('Could not load AI analysis. Try again later.')
+   342→    } finally {
+   343→      setAiLoading(false)
+   344→    }
+   345→  }, [selectedMatchId, token])
+   346→
+   347→  // ── Handle Vote ─────────────────────────────────────────────────────────
+   348→  const handleVote = useCallback(
+   349→    async (choice: 'home' | 'draw' | 'away') => {
+   350→      if (!selectedMatchId || !token) return
+   351→      setVoting(true)
+   352→
+   353→      try {
+   354→        const res = await fetch(`/api/matches/${selectedMatchId}`, {
+   355→          method: 'POST',
+   356→          headers: {
+   357→            'Content-Type': 'application/json',
+   358→            Authorization: `Bearer ${token}`,
+   359→          },
+   360→          body: JSON.stringify({ choice }),
+   361→        })
+   362→
+   363→        if (!res.ok) throw new Error('Failed to vote')
+   364→        // Re-fetch match to update vote distribution
+   365→        await fetchMatch()
+   366→      } catch (err) {
+   367→        console.error('Vote error:', err)
+   368→      } finally {
+   369→        setVoting(false)
+   370→      }
+   371→    },
+   372→    [selectedMatchId, token, fetchMatch],
+   373→  )
+   374→
+   375→  // ── Handle Simulate ────────────────────────────────────────────────────
+   376→  const handleSimulate = useCallback(async () => {
+   377→    if (!selectedMatchId || !token) return
+   378→    setSimulating(true)
+   379→    setSimulateError(null)
+   380→
+   381→    try {
+   382→      const res = await fetch(`/api/matches/${selectedMatchId}/simulate`, {
+   383→        method: 'POST',
+   384→        headers: {
+   385→          Authorization: `Bearer ${token}`,
+   386→        },
+   387→      })
+   388→
+   389→      if (!res.ok) {
+   390→        const data = await res.json().catch(() => ({}))
+   391→        throw new Error(data.error || 'Simulation failed')
+   392→      }
+   393→
+   394→      // Re-fetch match with simulated data
+   395→      await fetchMatch()
+   396→    } catch (err) {
+   397→      console.error('Simulate error:', err)
+   398→      setSimulateError(err instanceof Error ? err.message : 'Simulation failed')
+   399→    } finally {
+   400→      setSimulating(false)
+   401→    }
+   402→  }, [selectedMatchId, token, fetchMatch])
+   403→
+   404→  // ── Handle Bookmark ─────────────────────────────────────────────────────
+   405→  const handleBookmark = useCallback(async () => {
+   406→    if (!selectedMatchId || !token) return
+   407→    // Toggle bookmark
+   408→    setBookmarked((prev) => !prev)
+   409→    // In a real app, this would POST/DELETE to /api/bookmarks
+   410→  }, [selectedMatchId, token])
+   411→
+   412→  // ── Handle Share ────────────────────────────────────────────────────────
+   413→  const handleShare = useCallback(() => {
+   414→    if (navigator.share && match) {
+   415→      navigator.share({
+   416→        title: `${match.homeTeam?.name} vs ${match.awayTeam?.name} - KickIQ`,
+   417→        text: `Check out this match on KickIQ!`,
+   418→        url: window.location.href,
+   419→      }).catch(() => {})
+   420→    }
+   421→  }, [match])
+   422→
+   423→  // ── xG Chart Data ─────────────────────────────────────────────────────
+   424→  const xgChartData = useMemo(() => {
+   425→    if (!match || !match.events || match.events.length === 0) return []
+   426→
+   427→    // Build cumulative xG over time based on goal events
+   428→    const goalEvents = match.events
+   429→      .filter((e) => e.type === 'goal')
+   430→      .sort((a, b) => a.minute - b.minute)
+   431→
+   432→    let homeCum = 0
+   433→    let awayCum = 0
+   434→    const dataPoints: { minute: string; 'Home xG': number; 'Away xG': number }[] = [
+   435→      { minute: "0'", 'Home xG': 0, 'Away xG': 0 },
+   436→    ]
+   437→
+   438→    // Create data points at each goal event and intermediate points
+   439→    const goalXgPerGoal = match.homeXg > 0 || match.awayXg > 0
+   440→      ? (match.homeXg / Math.max((match.events || []).filter(e => e.team === 'home' && e.type === 'goal').length, 1))
+   441→      : 0
+   442→    const awayGoalXgPerGoal = match.awayXg > 0 || match.homeXg > 0
+   443→      ? (match.awayXg / Math.max((match.events || []).filter(e => e.team === 'away' && e.type === 'goal').length, 1))
+   444→      : 0
+   445→
+   446→    for (const event of goalEvents) {
+   447→      if (event.team === 'home') {
+   448→        homeCum += goalXgPerGoal
+   449→      } else {
+   450→        awayCum += awayGoalXgPerGoal
+   451→      }
+   452→      dataPoints.push({
+   453→        minute: `${event.minute}'`,
+   454→        'Home xG': Math.round(homeCum * 100) / 100,
+   455→        'Away xG': Math.round(awayCum * 100) / 100,
+   456→      })
+   457→    }
+   458→
+   459→    // Final totals
+   460→    dataPoints.push({
+   461→      minute: "90'",
+   462→      'Home xG': Math.round(match.homeXg * 100) / 100,
+   463→      'Away xG': Math.round(match.awayXg * 100) / 100,
+   464→    })
+   465→
+   466→    return dataPoints
+   467→  }, [match])
+   468→
+   469→  // ── User's existing vote ─────────────────────────────────────────────────
+   470→  const userVote = useMemo(() => {
+   471→    if (!match || !user) return null
+   472→    return match.votes?.find((v) => v.userId === user.id) || null
+   473→  }, [match, user])
+   474→
+   475→  // ── User's existing prediction ─────────────────────────────────────────
+   476→  const userPrediction = useMemo(() => {
+   477→    if (!match || !user) return null
+   478→    return match.predictions?.find((p) => p.userId === user.id) || null
+   479→  }, [match, user])
+   480→
+   481→  // ── Get prediction result for finished matches ──────────────────────────
+   482→  const predictionResult = useMemo(() => {
+   483→    if (!userPrediction || match?.status !== 'finished') return null
+   484→    const actual =
+   485→      (match?.homeScore ?? 0) > (match?.awayScore ?? 0)
+   486→        ? 'home'
+   487→        : (match?.homeScore ?? 0) === (match?.awayScore ?? 0)
+   488→          ? 'draw'
+   489→          : 'away'
+   490→    return userPrediction.predictedOutcome === actual ? 'correct' : 'incorrect'
+   491→  }, [userPrediction, match])
+   492→
+   493→  // ── Loading State ──────────────────────────────────────────────────────
+   494→  if (loading) {
+   495→    return (
+   496→      <div className="flex flex-col gap-4 animate-fade-in-up">
+   497→        <Skeleton className="h-44 w-full rounded-xl" />
+   498→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   499→          <Skeleton className="h-64 w-full rounded-xl" />
+   500→          <Skeleton className="h-64 w-full rounded-xl" />
+   501→        </div>
+   502→        <Skeleton className="h-48 w-full rounded-xl" />
+   503→      </div>
+   504→    )
+   505→  }
+   506→
+   507→  // ── Error State ────────────────────────────────────────────────────────
+   508→  if (error || !match) {
+   509→    return (
+   510→      <div className="flex flex-col items-center justify-center py-20 animate-fade-in-up">
+   511→        <AlertCircle className="size-12 text-destructive mb-4" />
+   512→        <h3 className="text-lg font-semibold mb-2">Failed to Load Match</h3>
+   513→        <p className="text-sm text-muted-foreground mb-6 max-w-md text-center">{error || 'Match not found'}</p>
+   514→        <Button
+   515→          variant="outline"
+   516→          onClick={() => setView('matches')}
+   517→          className="gap-2 border-border"
+   518→        >
+   519→          <ArrowLeft className="size-4" />
+   520→          Back to Matches
+   521→        </Button>
+   522→      </div>
+   523→    )
+   524→  }
+   525→
+   526→  const statusConfig = getStatusConfig(match.status)
+   527→  const isUpcoming = match.status === 'upcoming'
+   528→  const isLive = match.status === 'live' || match.status === 'halftime'
+   529→  const isFinished = match.status === 'finished'
+   530→  const isProOrElite = user && (user.plan === 'pro' || user.plan === 'elite')
+   531→  const homeTeam = match.homeTeam
+   532→  const awayTeam = match.awayTeam
+   533→
+   534→  // ── Compute ELO probabilities if not stored ────────────────────────────
+   535→  const homeWinProb = match.homeWinProb ?? computeEloProb(
+   536→    match.homeEloBefore ?? homeTeam?.eloRating ?? 1500,
+   537→    match.awayEloBefore ?? awayTeam?.eloRating ?? 1500,
+   538→    'home'
+   539→  )
+   540→  const drawProb = match.drawProb ?? computeEloProb(
+   541→    match.homeEloBefore ?? homeTeam?.eloRating ?? 1500,
+   542→    match.awayEloBefore ?? awayTeam?.eloRating ?? 1500,
+   543→    'draw'
+   544→  )
+   545→  const awayWinProb = match.awayWinProb ?? computeEloProb(
+   546→    match.homeEloBefore ?? homeTeam?.eloRating ?? 1500,
+   547→    match.awayEloBefore ?? awayTeam?.eloRating ?? 1500,
+   548→    'away'
+   549→  )
+   550→
+   551→  const totalVotes = (match.voteDistribution?.home ?? 0) + (match.voteDistribution?.draw ?? 0) + (match.voteDistribution?.away ?? 0)
+   552→
+   553→  return (
+   554→    <div className="flex flex-col gap-4 animate-fade-in-up">
+   555→      {/* ══════════════════════════════════════════════════════════════════════
+   556→          ACTION BUTTONS BAR
+   557→      ══════════════════════════════════════════════════════════════════════ */}
+   558→      <div className="flex items-center gap-2 flex-wrap">
+   559→        <Button
+   560→          variant="outline"
+   561→          size="sm"
+   562→          className="h-8 gap-1.5 border-border text-xs"
+   563→          onClick={() => setView('matches')}
+   564→        >
+   565→          <ArrowLeft className="size-3.5" />
+   566→          Back
+   567→        </Button>
+   568→
+   569→        <div className="flex-1" />
+   570→
+   571→        <Button
+   572→          variant="ghost"
+   573→          size="sm"
+   574→          className={cn('h-8 gap-1.5 text-xs', bookmarked && 'text-primary')}
+   575→          onClick={handleBookmark}
+   576→          aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark match'}
+   577→        >
+   578→          {bookmarked ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />}
+   579→          {bookmarked ? 'Saved' : 'Bookmark'}
+   580→        </Button>
+   581→
+   582→        <Button
+   583→          variant="ghost"
+   584→          size="sm"
+   585→          className="h-8 gap-1.5 text-xs border-border"
+   586→          onClick={handleShare}
+   587→        >
+   588→          <Share2 className="size-3.5" />
+   589→          Share
+   590→        </Button>
+   591→
+   592→        {isProOrElite && isUpcoming && (
+   593→          <Button
+   594→            variant="outline"
+   595→            size="sm"
+   596→            className="h-8 gap-1.5 text-xs bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 hover:text-primary"
+   597→            onClick={handleSimulate}
+   598→            disabled={simulating}
+   599→          >
+   600→            {simulating ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+   601→            {simulating ? 'Simulating...' : 'Simulate'}
+   602→          </Button>
+   603→        )}
+   604→
+   605→        {simulateError && (
+   606→          <span className="text-[10px] text-destructive">{simulateError}</span>
+   607→        )}
+   608→      </div>
+   609→
+   610→      {/* ══════════════════════════════════════════════════════════════════════
+   611→          MATCH HEADER
+   612→      ══════════════════════════════════════════════════════════════════════ */}
+   613→      <Card className="glass-card rounded-xl overflow-hidden">
+   614→        <div className={cn(
+   615→          'relative p-6',
+   616→          isLive && 'bg-gradient-to-r from-red-500/5 via-background to-red-500/5',
+   617→          isFinished && 'bg-gradient-to-b from-muted/20 to-transparent',
+   618→        )}>
+   619→          {/* ── Status Badge ──────────────────────────────────────────────── */}
+   620→          <div className="flex items-center justify-center mb-4">
+   621→            <Badge
+   622→              variant="outline"
+   623→              className={cn(
+   624→                'h-7 rounded-lg px-3 text-xs font-bold tracking-wider',
+   625→                statusConfig.className,
+   626→              )}
+   627→            >
+   628→              {statusConfig.showPulse && (
+   629→                <span className="relative flex size-2 mr-2">
+   630→                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+   631→                  <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+   632→                </span>
+   633→              )}
+   634→              {statusConfig.label}
+   635→            </Badge>
+   636→            {isLive && match.simulationMinute != null && match.simulationMinute > 0 && (
+   637→              <Badge
+   638→                variant="outline"
+   639→                className="ml-2 h-7 rounded-lg px-3 text-xs font-bold bg-red-500/10 text-red-300 border-red-500/20"
+   640→              >
+   641→                ⏱ {match.simulationMinute}&apos;
+   642→              </Badge>
+   643→            )}
+   644→          </div>
+   645→
+   646→          {/* ── Teams + Score ──────────────────────────────────────────────── */}
+   647→          <div className="flex items-center justify-between gap-4">
+   648→            {/* Home Team */}
+   649→            <div className="flex-1 flex flex-col items-center text-center min-w-0">
+   650→              {/* Team Logo Circle */}
+   651→              <div
+   652→                className="size-14 sm:size-16 rounded-full flex items-center justify-center border-2 border-white/10 mb-2 shadow-lg"
+   653→                style={{
+   654→                  backgroundColor: homeTeam?.primaryColor || '#00e676',
+   655→                  boxShadow: `0 0 20px ${(homeTeam?.primaryColor || '#00e676')}33`,
+   656→                }}
+   657→              >
+   658→                <span className="text-sm sm:text-base font-black text-white drop-shadow-md">
+   659→                  {homeTeam?.code || 'HOM'}
+   660→                </span>
+   661→              </div>
+   662→              <h2 className="text-sm sm:text-base font-bold truncate max-w-full">{homeTeam?.name || 'Home'}</h2>
+   663→              {homeTeam?.eloRating && (
+   664→                <span className="text-[10px] text-muted-foreground mt-0.5">
+   665→                  ELO {Math.round(homeTeam.eloRating)}
+   666→                </span>
+   667→              )}
+   668→            </div>
+   669→
+   670→            {/* Score / VS */}
+   671→            <div className="shrink-0 flex flex-col items-center">
+   672→              {isUpcoming ? (
+   673→                <div className="flex flex-col items-center">
+   674→                  <span className="text-2xl sm:text-3xl font-black text-muted-foreground/30">VS</span>
+   675→                  {match.date && (
+   676→                    <span className="text-[10px] text-muted-foreground mt-1">
+   677→                      {new Date(match.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+   678→                    </span>
+   679→                  )}
+   680→                  {match.date && (
+   681→                    <span className="text-[10px] text-muted-foreground">
+   682→                      {new Date(match.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+   683→                    </span>
+   684→                  )}
+   685→                </div>
+   686→              ) : (
+   687→                <div className="flex items-center gap-3">
+   688→                  <span className={cn(
+   689→                    'text-3xl sm:text-4xl font-black tabular-nums',
+   690→                    (match.homeScore ?? 0) > (match.awayScore ?? 0) && isFinished && 'text-primary',
+   691→                  )}>
+   692→                    {match.homeScore}
+   693→                  </span>
+   694→                  <span className="text-lg text-muted-foreground font-light">-</span>
+   695→                  <span className={cn(
+   696→                    'text-3xl sm:text-4xl font-black tabular-nums',
+   697→                    (match.awayScore ?? 0) > (match.homeScore ?? 0) && isFinished && 'text-primary',
+   698→                  )}>
+   699→                    {match.awayScore}
+   700→                  </span>
+   701→                </div>
+   702→              )}
+   703→
+   704→              {/* xG Below Score */}
+   705→              {(isLive || isFinished) && (match.homeXg > 0 || match.awayXg > 0) && (
+   706→                <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground tabular-nums">
+   707→                  <span>xG {match.homeXg.toFixed(1)}</span>
+   708→                  <span className="text-muted-foreground/30">|</span>
+   709→                  <span>xG {match.awayXg.toFixed(1)}</span>
+   710→                </div>
+   711→              )}
+   712→            </div>
+   713→
+   714→            {/* Away Team */}
+   715→            <div className="flex-1 flex flex-col items-center text-center min-w-0">
+   716→              <div
+   717→                className="size-14 sm:size-16 rounded-full flex items-center justify-center border-2 border-white/10 mb-2 shadow-lg"
+   718→                style={{
+   719→                  backgroundColor: awayTeam?.primaryColor || '#00b4d8',
+   720→                  boxShadow: `0 0 20px ${(awayTeam?.primaryColor || '#00b4d8')}33`,
+   721→                }}
+   722→              >
+   723→                <span className="text-sm sm:text-base font-black text-white drop-shadow-md">
+   724→                  {awayTeam?.code || 'AWY'}
+   725→                </span>
+   726→              </div>
+   727→              <h2 className="text-sm sm:text-base font-bold truncate max-w-full">{awayTeam?.name || 'Away'}</h2>
+   728→              {awayTeam?.eloRating && (
+   729→                <span className="text-[10px] text-muted-foreground mt-0.5">
+   730→                  ELO {Math.round(awayTeam.eloRating)}
+   731→                </span>
+   732→              )}
+   733→            </div>
+   734→          </div>
+   735→
+   736→          {/* ── Match Meta Info ───────────────────────────────────────────── */}
+   737→          <div className="flex items-center justify-center gap-4 mt-4 flex-wrap text-[11px] text-muted-foreground">
+   738→            {match.competition && (
+   739→              <div className="flex items-center gap-1">
+   740→                <Trophy className="size-3" />
+   741→                <span>{match.competition}</span>
+   742→              </div>
+   743→            )}
+   744→            {match.stage && (
+   745→              <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] bg-muted/50">
+   746→                {match.stage}
+   747→              </Badge>
+   748→            )}
+   749→            {match.group && (
+   750→              <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] bg-muted/50">
+   751→                Group {match.group}
+   752→              </Badge>
+   753→            )}
+   754→          </div>
+   755→
+   756→          {/* ── Venue / Weather / Attendance ──────────────────────────────── */}
+   757→          <div className="flex items-center justify-center gap-4 mt-3 flex-wrap text-[11px] text-muted-foreground">
+   758→            {match.venue && (
+   759→              <div className="flex items-center gap-1">
+   760→                <MapPin className="size-3" />
+   761→                <span>{match.venue}</span>
+   762→              </div>
+   763→            )}
+   764→            {match.weather && (
+   765→              <div className="flex items-center gap-1">
+   766→                {getWeatherIcon(match.weather)}
+   767→                <span className="capitalize">{match.weather}</span>
+   768→              </div>
+   769→            )}
+   770→            {match.temperature != null && (
+   771→              <div className="flex items-center gap-1">
+   772→                <Thermometer className="size-3" />
+   773→                <span>{Math.round(match.temperature)}°C</span>
+   774→              </div>
+   775→            )}
+   776→            {match.attendance && match.attendance > 0 && (
+   777→              <div className="flex items-center gap-1">
+   778→                <Users className="size-3" />
+   779→                <span>{match.attendance.toLocaleString()}</span>
+   780→              </div>
+   781→            )}
+   782→            {match.date && (
+   783→              <div className="flex items-center gap-1">
+   784→                <Clock className="size-3" />
+   785→                <span>{new Date(match.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+   786→              </div>
+   787→            )}
+   788→          </div>
+   789→
+   790→          {/* ── ELO Difference ───────────────────────────────────────────── */}
+   791→          {(match.homeEloBefore || match.awayEloBefore || homeTeam?.eloRating || awayTeam?.eloRating) && (
+   792→            <div className="flex items-center justify-center mt-3">
+   793→              <div className="flex items-center gap-2 bg-muted/30 rounded-full px-3 py-1">
+   794→                <Zap className="size-3 text-primary" />
+   795→                <span className="text-[10px] font-medium text-muted-foreground">
+   796→                  ELO Diff:
+   797→                </span>
+   798→                <span className={cn(
+   799→                  'text-[10px] font-bold',
+   800→                  (match.homeEloBefore ?? homeTeam?.eloRating ?? 1500) > (match.awayEloBefore ?? awayTeam?.eloRating ?? 1500)
+   801→                    ? 'text-primary'
+   802→                    : 'text-destructive',
+   803→                )}>
+   804→                  {Math.abs(
+   805→                    ((match.homeEloBefore ?? homeTeam?.eloRating ?? 1500) - (match.awayEloBefore ?? awayTeam?.eloRating ?? 1500)),
+   806→                  ).toFixed(0)}
+   807→                </span>
+   808→                <span className="text-[10px] text-muted-foreground">
+   809→                  in favor of{' '}
+   810→                  {(match.homeEloBefore ?? homeTeam?.eloRating ?? 1500) >= (match.awayEloBefore ?? awayTeam?.eloRating ?? 1500)
+   811→                    ? homeTeam?.code || 'Home'
+   812→                    : awayTeam?.code || 'Away'}
+   813→                </span>
+   814→              </div>
+   815→            </div>
+   816→          )}
+   817→        </div>
+   818→      </Card>
+   819→
+   820→      {/* ══════════════════════════════════════════════════════════════════════
+   821→          TABS: Statistics | Events | Predictions | AI Analysis
+   822→      ══════════════════════════════════════════════════════════════════════ */}
+   823→      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+   824→        <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
+   825→          <TabsTrigger value="statistics" className="flex-1 h-8 text-xs font-semibold rounded-md gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary">
+   826→            <Activity className="size-3.5" />
+   827→            Statistics
+   828→          </TabsTrigger>
+   829→          <TabsTrigger value="events" className="flex-1 h-8 text-xs font-semibold rounded-md gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary">
+   830→            <CircleDot className="size-3.5" />
+   831→            Events
+   832→          </TabsTrigger>
+   833→          <TabsTrigger value="predictions" className="flex-1 h-8 text-xs font-semibold rounded-md gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary">
+   834→            <Target className="size-3.5" />
+   835→            Predictions
+   836→          </TabsTrigger>
+   837→          <TabsTrigger value="ai" className="flex-1 h-8 text-xs font-semibold rounded-md gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary">
+   838→            <Brain className="size-3.5" />
+   839→            AI Analysis
+   840→          </TabsTrigger>
+   841→        </TabsList>
+   842→
+   843→        {/* ────────────────────────────────────────────────────────────────
+   844→            STATISTICS TAB
+   845→        ──────────────────────────────────────────────────────────────── */}
+   846→        <TabsContent value="statistics" className="mt-4 space-y-4">
+   847→          {isUpcoming ? (
+   848→            <Card className="glass-card rounded-xl">
+   849→              <CardContent className="p-8 text-center">
+   850→                <Clock className="size-10 text-muted-foreground/30 mx-auto mb-3" />
+   851→                <h3 className="text-sm font-semibold text-foreground mb-1">Match Not Started</h3>
+   852→                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+   853→                  Statistics will be available once the match begins. Check the Predictions tab for pre-match analysis.
+   854→                </p>
+   855→              </CardContent>
+   856→            </Card>
+   857→          ) : (
+   858→            <Card className="glass-card rounded-xl">
+   859→              <CardHeader className="pb-2">
+   860→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   861→                  <Activity className="size-4 text-primary" />
+   862→                  Match Statistics
+   863→                </CardTitle>
+   864→              </CardHeader>
+   865→              <CardContent className="space-y-4">
+   866→                {/* Possession */}
+   867→                <StatBarRow
+   868→                  label="Possession"
+   869→                  homeValue={match.possessionHome ?? 50}
+   870→                  awayValue={match.possessionAway ?? 50}
+   871→                  suffix="%"
+   872→                  decimals={0}
+   873→                />
+   874→
+   875→                <Separator className="opacity-20" />
+   876→
+   877→                {/* Shots */}
+   878→                <StatBarRow
+   879→                  label="Shots"
+   880→                  homeValue={match.shotsHome ?? 0}
+   881→                  awayValue={match.shotsAway ?? 0}
+   882→                />
+   883→
+   884→                <Separator className="opacity-20" />
+   885→
+   886→                {/* Shots on Target */}
+   887→                <StatBarRow
+   888→                  label="Shots on Target"
+   889→                  homeValue={match.shotsOnTargetHome ?? 0}
+   890→                  awayValue={match.shotsOnTargetAway ?? 0}
+   891→                />
+   892→
+   893→                <Separator className="opacity-20" />
+   894→
+   895→                {/* Corners */}
+   896→                <StatBarRow
+   897→                  label="Corners"
+   898→                  homeValue={match.cornersHome ?? 0}
+   899→                  awayValue={match.cornersAway ?? 0}
+   900→                />
+   901→
+   902→                <Separator className="opacity-20" />
+   903→
+   904→                {/* Fouls */}
+   905→                <StatBarRow
+   906→                  label="Fouls"
+   907→                  homeValue={match.foulsHome ?? 0}
+   908→                  awayValue={match.foulsAway ?? 0}
+   909→                  homeColor="oklch(0.65 0.22 25)"
+   910→                  awayColor="oklch(0.65 0.22 25)"
+   911→                />
+   912→
+   913→                <Separator className="opacity-20" />
+   914→
+   915→                {/* Expected Goals */}
+   916→                <StatBarRow
+   917→                  label="Expected Goals (xG)"
+   918→                  homeValue={match.homeXg ?? 0}
+   919→                  awayValue={match.awayXg ?? 0}
+   920→                  suffix=""
+   921→                  decimals={2}
+   922→                />
+   923→              </CardContent>
+   924→            </Card>
+   925→          )}
+   926→
+   927→          {/* ── xG Timeline Chart ──────────────────────────────────────── */}
+   928→          {xgChartData.length > 1 && (
+   929→            <Card className="glass-card rounded-xl">
+   930→              <CardHeader className="pb-2">
+   931→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   932→                  <TrendingUp className="size-4 text-primary" />
+   933→                  xG Timeline
+   934→                </CardTitle>
+   935→              </CardHeader>
+   936→              <CardContent>
+   937→                <div className="w-full h-48">
+   938→                  <ResponsiveContainer width="100%" height="100%">
+   939→                    <BarChart data={xgChartData} barGap={0} barCategoryGap="20%">
+   940→                      <XAxis
+   941→                        dataKey="minute"
+   942→                        tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }}
+   943→                        axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+   944→                        tickLine={false}
+   945→                      />
+   946→                      <YAxis
+   947→                        tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }}
+   948→                        axisLine={false}
+   949→                        tickLine={false}
+   950→                        width={30}
+   951→                      />
+   952→                      <RTooltip
+   953→                        contentStyle={{
+   954→                          backgroundColor: 'oklch(0.1 0.015 260)',
+   955→                          border: '1px solid oklch(0.25 0.03 260)',
+   956→                          borderRadius: '8px',
+   957→                          fontSize: '11px',
+   958→                          color: 'oklch(0.95 0 0)',
+   959→                        }}
+   960→                      />
+   961→                      <Bar dataKey="Home xG" fill="oklch(0.72 0.19 163)" radius={[2, 2, 0, 0]} />
+   962→                      <Bar dataKey="Away xG" fill="oklch(0.68 0.15 230)" radius={[2, 2, 0, 0]} />
+   963→                    </BarChart>
+   964→                  </ResponsiveContainer>
+   965→                </div>
+   966→              </CardContent>
+   967→            </Card>
+   968→          )}
+   969→        </TabsContent>
+   970→
+   971→        {/* ────────────────────────────────────────────────────────────────
+   972→            EVENTS TAB
+   973→        ──────────────────────────────────────────────────────────────── */}
+   974→        <TabsContent value="events" className="mt-4">
+   975→          {isUpcoming ? (
+   976→            <Card className="glass-card rounded-xl">
+   977→              <CardContent className="p-8 text-center">
+   978→                <Clock className="size-10 text-muted-foreground/30 mx-auto mb-3" />
+   979→                <h3 className="text-sm font-semibold text-foreground mb-1">No Events Yet</h3>
+   980→                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+   981→                  Match events will appear here in real-time once the match kicks off.
+   982→                </p>
+   983→              </CardContent>
+   984→            </Card>
+   985→          ) : !match.events || match.events.length === 0 ? (
+   986→            <Card className="glass-card rounded-xl">
+   987→              <CardContent className="p-8 text-center">
+   988→                <CircleDot className="size-10 text-muted-foreground/30 mx-auto mb-3" />
+   989→                <h3 className="text-sm font-semibold text-foreground mb-1">No Events Recorded</h3>
+   990→                <p className="text-xs text-muted-foreground">
+   991→                  No match events have been recorded for this match.
+   992→                </p>
+   993→              </CardContent>
+   994→            </Card>
+   995→          ) : (
+   996→            <Card className="glass-card rounded-xl">
+   997→              <CardHeader className="pb-2">
+   998→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   999→                  <CircleDot className="size-4 text-primary" />
+  1000→                  Match Events
+  1001→                  <Badge variant="secondary" className="ml-auto h-5 rounded-md px-1.5 text-[10px] bg-muted/50">
+  1002→                    {match.events.length}
+  1003→                  </Badge>
+  1004→                </CardTitle>
+  1005→              </CardHeader>
+  1006→              <CardContent>
+  1007→                <div className="relative max-h-[500px] overflow-y-auto pr-2 space-y-0">
+  1008→                  {/* Timeline line */}
+  1009→                  <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border/50" />
+  1010→
+  1011→                  {match.events.map((event, idx) => {
+  1012→                    const isGoal = event.type === 'goal' || event.type === 'penalty' || event.type === 'own_goal'
+  1013→                    const isHome = event.team === 'home'
+  1014→
+  1015→                    return (
+  1016→                      <div
+  1017→                        key={event.id || idx}
+  1018→                        className={cn(
+  1019→                          'relative flex gap-3 py-2.5 animate-fade-in-up',
+  1020→                          isGoal && 'animate-goal-flash',
+  1021→                        )}
+  1022→                        style={{ animationDelay: `${idx * 30}ms` }}
+  1023→                      >
+  1024→                        {/* Timeline dot */}
+  1025→                        <div className="relative shrink-0 mt-0.5">
+  1026→                          <div
+  1027→                            className={cn(
+  1028→                              'size-[30px] rounded-full flex items-center justify-center text-sm border-2',
+  1029→                              isGoal
+  1030→                                ? 'bg-primary/20 border-primary/40 shadow-sm shadow-primary/20'
+  1031→                                : isHome
+  1032→                                  ? 'bg-muted/50 border-border'
+  1033→                                  : 'bg-muted/50 border-border',
+  1034→                            )}
+  1035→                          >
+  1036→                            {getEventIcon(event.type)}
+  1037→                          </div>
+  1038→                        </div>
+  1039→
+  1040→                        {/* Event content */}
+  1041→                        <div className={cn(
+  1042→                          'flex-1 min-w-0 rounded-lg p-2.5',
+  1043→                          isGoal
+  1044→                            ? 'bg-primary/5 border border-primary/10'
+  1045→                            : 'bg-muted/20',
+  1046→                        )}>
+  1047→                          <div className="flex items-center gap-2 mb-0.5">
+  1048→                            <span className={cn(
+  1049→                              'text-xs font-bold tabular-nums',
+  1050→                              isGoal ? 'text-primary' : 'text-muted-foreground',
+  1051→                            )}>
+  1052→                              {event.minute}&apos;
+  1053→                            </span>
+  1054→                            <Badge
+  1055→                              variant="outline"
+  1056→                              className={cn(
+  1057→                                'h-4 rounded px-1 text-[9px] font-medium',
+  1058→                                isHome
+  1059→                                  ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+  1060→                                  : 'border-sky-500/30 text-sky-400 bg-sky-500/10',
+  1061→                              )}
+  1062→                            >
+  1063→                              {isHome ? homeTeam?.code || 'HOM' : awayTeam?.code || 'AWY'}
+  1064→                            </Badge>
+  1065→                            <span className={cn(
+  1066→                              'text-[10px] font-semibold uppercase tracking-wider',
+  1067→                              isGoal ? 'text-primary' : 'text-muted-foreground',
+  1068→                            )}>
+  1069→                              {getEventLabel(event.type)}
+  1070→                            </span>
+  1071→                          </div>
+  1072→                          <p className="text-xs text-foreground font-medium truncate">
+  1073→                            {event.playerName}
+  1074→                          </p>
+  1075→                          {event.description && (
+  1076→                            <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">
+  1077→                              {event.description}
+  1078→                            </p>
+  1079→                          )}
+  1080→                        </div>
+  1081→                      </div>
+  1082→                    )
+  1083→                  })}
+  1084→                </div>
+  1085→              </CardContent>
+  1086→            </Card>
+  1087→          )}
+  1088→        </TabsContent>
+  1089→
+  1090→        {/* ────────────────────────────────────────────────────────────────
+  1091→            PREDICTIONS TAB
+  1092→        ──────────────────────────────────────────────────────────────── */}
+  1093→        <TabsContent value="predictions" className="mt-4 space-y-4">
+  1094→          {/* ── ELO-Based Win Probabilities ────────────────────────────── */}
+  1095→          <Card className="glass-card rounded-xl">
+  1096→            <CardHeader className="pb-2">
+  1097→              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+  1098→                <Zap className="size-4 text-primary" />
+  1099→                ELO-Based Probabilities
+  1100→              </CardTitle>
+  1101→            </CardHeader>
+  1102→            <CardContent className="space-y-4">
+  1103→              {/* Probability Bars */}
+  1104→              <div className="space-y-3">
+  1105→                <div>
+  1106→                  <div className="flex items-center justify-between text-xs mb-1">
+  1107→                    <div className="flex items-center gap-1.5">
+  1108→                      <span
+  1109→                        className="size-2.5 rounded-full"
+  1110→                        style={{ backgroundColor: homeTeam?.primaryColor || '#00e676' }}
+  1111→                      />
+  1112→                      <span className="font-semibold">{homeTeam?.name || 'Home'}</span>
+  1113→                    </div>
+  1114→                    <span className="font-bold tabular-nums">{homeWinProb.toFixed(1)}%</span>
+  1115→                  </div>
+  1116→                  <Progress value={homeWinProb} className="h-2.5" />
+  1117→                </div>
+  1118→
+  1119→                <div>
+  1120→                  <div className="flex items-center justify-between text-xs mb-1">
+  1121→                    <span className="font-semibold text-muted-foreground">Draw</span>
+  1122→                    <span className="font-bold tabular-nums">{drawProb.toFixed(1)}%</span>
+  1123→                  </div>
+  1124→                  <Progress value={drawProb} className="h-2.5" />
+  1125→                </div>
+  1126→
+  1127→                <div>
+  1128→                  <div className="flex items-center justify-between text-xs mb-1">
+  1129→                    <div className="flex items-center gap-1.5">
+  1130→                      <span
+  1131→                        className="size-2.5 rounded-full"
+  1132→                        style={{ backgroundColor: awayTeam?.primaryColor || '#00b4d8' }}
+  1133→                      />
+  1134→                      <span className="font-semibold">{awayTeam?.name || 'Away'}</span>
+  1135→                    </div>
+  1136→                    <span className="font-bold tabular-nums">{awayWinProb.toFixed(1)}%</span>
+  1137→                  </div>
+  1138→                  <Progress value={awayWinProb} className="h-2.5" />
+  1139→                </div>
+  1140→              </div>
+  1141→
+  1142→              {/* ELO Values */}
+  1143→              <div className="flex items-center justify-between bg-muted/30 rounded-lg p-3">
+  1144→                <div className="flex items-center gap-2">
+  1145→                  <Zap className="size-3 text-primary" />
+  1146→                  <span className="text-[10px] text-muted-foreground font-medium">ELO Before Match</span>
+  1147→                </div>
+  1148→                <div className="flex items-center gap-3 text-xs font-semibold tabular-nums">
+  1149→                  <span className="text-primary">{Math.round(match.homeEloBefore ?? homeTeam?.eloRating ?? 1500)}</span>
+  1150→                  <span className="text-muted-foreground">vs</span>
+  1151→                  <span className="text-foreground">{Math.round(match.awayEloBefore ?? awayTeam?.eloRating ?? 1500)}</span>
+  1152→                </div>
+  1153→              </div>
+  1154→            </CardContent>
+  1155→          </Card>
+  1156→
+  1157→          {/* ── Community Vote Results ─────────────────────────────────── */}
+  1158→          <Card className="glass-card rounded-xl">
+  1159→            <CardHeader className="pb-2">
+  1160→              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+  1161→                <Users className="size-4 text-primary" />
+  1162→                Community Votes
+  1163→                <Badge variant="secondary" className="ml-auto h-5 rounded-md px-1.5 text-[10px] bg-muted/50">
+  1164→                  {totalVotes} votes
+  1165→                </Badge>
+  1166→              </CardTitle>
+  1167→            </CardHeader>
+  1168→            <CardContent>
+  1169→              {totalVotes === 0 ? (
+  1170→                <div className="text-center py-4">
+  1171→                  <p className="text-xs text-muted-foreground">No votes yet. Be the first to predict!</p>
+  1172→                </div>
+  1173→              ) : (
+  1174→                <div className="space-y-3">
+  1175→                  {/* Vote distribution bars */}
+  1176→                  {[
+  1177→                    { label: homeTeam?.name || 'Home', value: match.voteDistribution?.home ?? 0, color: homeTeam?.primaryColor || '#00e676', choice: 'home' },
+  1178→                    { label: 'Draw', value: match.voteDistribution?.draw ?? 0, color: '#ffd700', choice: 'draw' },
+  1179→                    { label: awayTeam?.name || 'Away', value: match.voteDistribution?.away ?? 0, color: awayTeam?.primaryColor || '#00b4d8', choice: 'away' },
+  1180→                  ].map((item) => {
+  1181→                    const pct = totalVotes > 0 ? (item.value / totalVotes) * 100 : 0
+  1182→                    const isSelected = userVote?.choice === item.choice
+  1183→
+  1184→                    return (
+  1185→                      <div key={item.choice} className="space-y-1">
+  1186→                        <div className="flex items-center justify-between text-xs">
+  1187→                          <div className="flex items-center gap-1.5">
+  1188→                            <span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
+  1189→                            <span className={cn('font-medium', isSelected && 'text-primary font-semibold')}>
+  1190→                              {item.label}
+  1191→                              {isSelected && (
+  1192→                                <CheckCircle2 className="inline size-3 ml-1 text-primary" />
+  1193→                              )}
+  1194→                            </span>
+  1195→                          </div>
+  1196→                          <span className="font-semibold tabular-nums">
+  1197→                            {pct.toFixed(0)}% ({item.value})
+  1198→                          </span>
+  1199→                        </div>
+  1200→                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+  1201→                          <div
+  1202→                            className="h-full rounded-full transition-all duration-700 ease-out"
+  1203→                            style={{
+  1204→                              width: `${pct}%`,
+  1205→                              backgroundColor: item.color,
+  1206→                              opacity: isSelected ? 1 : 0.6,
+  1207→                            }}
+  1208→                          />
+  1209→                        </div>
+  1210→                      </div>
+  1211→                    )
+  1212→                  })}
+  1213→                </div>
+  1214→              )}
+  1215→            </CardContent>
+  1216→          </Card>
+  1217→
+  1218→          {/* ── User's Prediction ─────────────────────────────────────── */}
+  1219→          {userPrediction && (
+  1220→            <Card className={cn(
+  1221→              'glass-card rounded-xl',
+  1222→              predictionResult === 'correct' && 'border-emerald-500/30',
+  1223→              predictionResult === 'incorrect' && 'border-red-500/30',
+  1224→            )}>
+  1225→              <CardHeader className="pb-2">
+  1226→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+  1227→                  <TrendingUp className="size-4 text-primary" />
+  1228→                  Your Prediction
+  1229→                  {predictionResult && (
+  1230→                    <Badge
+  1231→                      variant="outline"
+  1232→                      className={cn(
+  1233→                        'ml-auto h-5 rounded-md px-1.5 text-[10px] font-bold',
+  1234→                        predictionResult === 'correct'
+  1235→                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+  1236→                          : 'bg-red-500/15 text-red-400 border-red-500/30',
+  1237→                      )}
+  1238→                    >
+  1239→                      {predictionResult === 'correct' ? (
+  1240→                        <><CheckCircle2 className="size-3 mr-1" /> Correct</>
+  1241→                      ) : (
+  1242→                        <><XCircle className="size-3 mr-1" /> Incorrect</>
+  1243→                      )}
+  1244→                    </Badge>
+  1245→                  )}
+  1246→                </CardTitle>
+  1247→              </CardHeader>
+  1248→              <CardContent>
+  1249→                <div className="flex items-center justify-between">
+  1250→                  <div className="flex items-center gap-3">
+  1251→                    <div className="flex items-center gap-1.5">
+  1252→                      <span
+  1253→                        className="size-2.5 rounded-full"
+  1254→                        style={{ backgroundColor: homeTeam?.primaryColor || '#00e676' }}
+  1255→                      />
+  1256→                      <span className="text-sm font-bold tabular-nums">{userPrediction.predictedHomeGoals}</span>
+  1257→                    </div>
+  1258→                    <span className="text-xs text-muted-foreground">-</span>
+  1259→                    <div className="flex items-center gap-1.5">
+  1260→                      <span className="text-sm font-bold tabular-nums">{userPrediction.predictedAwayGoals}</span>
+  1261→                      <span
+  1262→                        className="size-2.5 rounded-full"
+  1263→                        style={{ backgroundColor: awayTeam?.primaryColor || '#00b4d8' }}
+  1264→                      />
+  1265→                    </div>
+  1266→                  </div>
+  1267→                  <div className="flex items-center gap-2">
+  1268→                    <Badge
+  1269→                      variant="outline"
+  1270→                      className="h-5 rounded-md px-1.5 text-[10px] font-medium bg-muted/50"
+  1271→                    >
+  1272→                      {userPrediction.predictedOutcome === 'home'
+  1273→                        ? homeTeam?.name || 'Home Win'
+  1274→                        : userPrediction.predictedOutcome === 'draw'
+  1275→                          ? 'Draw'
+  1276→                          : awayTeam?.name || 'Away Win'}
+  1277→                    </Badge>
+  1278→                    <Badge
+  1279→                      variant="outline"
+  1280→                      className="h-5 rounded-md px-1.5 text-[10px] font-medium bg-muted/50"
+  1281→                    >
+  1282→                      {userPrediction.confidence}% conf.
+  1283→                    </Badge>
+  1284→                  </div>
+  1285→                </div>
+  1286→              </CardContent>
+  1287→            </Card>
+  1288→          )}
+  1289→
+  1290→          {/* ── Quick Vote Buttons (upcoming matches) ─────────────────── */}
+  1291→          {isUpcoming && user && (
+  1292→            <Card className="glass-card rounded-xl">
+  1293→              <CardHeader className="pb-2">
+  1294→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+  1295→                  <Vote className="size-4 text-primary" />
+  1296→                  Quick Vote
+  1297→                </CardTitle>
+  1298→              </CardHeader>
+  1299→              <CardContent>
+  1300→                <div className="grid grid-cols-3 gap-2">
+  1301→                  {[
+  1302→                    { choice: 'home' as const, label: homeTeam?.name || 'Home', color: homeTeam?.primaryColor || '#00e676', code: homeTeam?.code || 'HOM' },
+  1303→                    { choice: 'draw' as const, label: 'Draw', color: '#ffd700', code: '=' },
+  1304→                    { choice: 'away' as const, label: awayTeam?.name || 'Away', color: awayTeam?.primaryColor || '#00b4d8', code: awayTeam?.code || 'AWY' },
+  1305→                  ].map((item) => (
+  1306→                    <Button
+  1307→                      key={item.choice}
+  1308→                      variant="outline"
+  1309→                      className={cn(
+  1310→                        'h-12 flex-col gap-1 rounded-lg border text-xs font-semibold transition-all',
+  1311→                        userVote?.choice === item.choice
+  1312→                          ? 'border-primary/50 bg-primary/10 text-primary'
+  1313→                          : 'border-border bg-muted/30 hover:bg-muted/50 hover:border-primary/20',
+  1314→                      )}
+  1315→                      onClick={() => handleVote(item.choice)}
+  1316→                      disabled={voting}
+  1317→                    >
+  1318→                      <span
+  1319→                        className="size-5 rounded-full flex items-center justify-center text-[8px] font-black text-white"
+  1320→                        style={{ backgroundColor: item.color }}
+  1321→                      >
+  1322→                        {item.code}
+  1323→                      </span>
+  1324→                      <span className="truncate max-w-full">{item.label}</span>
+  1325→                    </Button>
+  1326→                  ))}
+  1327→                </div>
+  1328→                {voting && (
+  1329→                  <div className="flex items-center justify-center mt-3">
+  1330→                    <Loader2 className="size-3.5 animate-spin text-primary mr-2" />
+  1331→                    <span className="text-[10px] text-muted-foreground">Recording vote...</span>
+  1332→                  </div>
+  1333→                )}
+  1334→              </CardContent>
+  1335→            </Card>
+  1336→          )}
+  1337→
+  1338→          {/* ── Top Predictions ───────────────────────────────────────── */}
+  1339→          {match.predictions && match.predictions.length > 0 && (
+  1340→            <Card className="glass-card rounded-xl">
+  1341→              <CardHeader className="pb-2">
+  1342→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+  1343→                  <Flame className="size-4 text-primary" />
+  1344→                  Community Predictions
+  1345→                  <Badge variant="secondary" className="ml-auto h-5 rounded-md px-1.5 text-[10px] bg-muted/50">
+  1346→                    {match.predictions.length}
+  1347→                  </Badge>
+  1348→                </CardTitle>
+  1349→              </CardHeader>
+  1350→              <CardContent>
+  1351→                <div className="space-y-2 max-h-64 overflow-y-auto">
+  1352→                  {match.predictions.slice(0, 10).map((pred) => (
+  1353→                    <div
+  1354→                      key={pred.id}
+  1355→                      className="flex items-center gap-2 p-2 rounded-lg bg-muted/20"
+  1356→                    >
+  1357→                      <div className="flex-1 min-w-0">
+  1358→                        <div className="flex items-center gap-1.5">
+  1359→                          <span className="text-xs font-semibold truncate">
+  1360→                            {pred.user?.displayName || pred.user?.name || 'User'}
+  1361→                          </span>
+  1362→                          {pred.isCorrect !== null && (
+  1363→                            pred.isCorrect
+  1364→                              ? <CheckCircle2 className="size-3 text-emerald-400 shrink-0" />
+  1365→                              : <XCircle className="size-3 text-red-400 shrink-0" />
+  1366→                          )}
+  1367→                        </div>
+  1368→                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+  1369→                          <span className="tabular-nums">{pred.predictedHomeGoals}-{pred.predictedAwayGoals}</span>
+  1370→                          <span className="text-muted-foreground/30">•</span>
+  1371→                          <span>{pred.predictedOutcome}</span>
+  1372→                          <span className="text-muted-foreground/30">•</span>
+  1373→                          <span>{pred.confidence}%</span>
+  1374→                          {pred.points > 0 && (
+  1375→                            <>
+  1376→                              <span className="text-muted-foreground/30">•</span>
+  1377→                              <span className="text-emerald-400 font-medium">+{pred.points} pts</span>
+  1378→                            </>
+  1379→                          )}
+  1380→                        </div>
+  1381→                      </div>
+  1382→                      <Badge
+  1383→                        variant="outline"
+  1384→                        className="shrink-0 h-5 rounded-md px-1.5 text-[9px] font-medium bg-muted/50"
+  1385→                      >
+  1386→                        {pred.model}
+  1387→                      </Badge>
+  1388→                    </div>
+  1389→                  ))}
+  1390→                </div>
+  1391→              </CardContent>
+  1392→            </Card>
+  1393→          )}
+  1394→        </TabsContent>
+  1395→
+  1396→        {/* ────────────────────────────────────────────────────────────────
+  1397→            AI ANALYSIS TAB
+  1398→        ──────────────────────────────────────────────────────────────── */}
+  1399→        <TabsContent value="ai" className="mt-4">
+  1400→          <Card className="glass-card rounded-xl">
+  1401→            <CardHeader className="pb-2">
+  1402→              <div className="flex items-center justify-between">
+  1403→                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+  1404→                  <Sparkles className="size-4 text-primary" />
+  1405→                  AI Tactical Summary
+  1406→                </CardTitle>
+  1407→                {!aiAnalysis && !aiLoading && (
+  1408→                  <Button
+  1409→                    variant="outline"
+  1410→                    size="sm"
+  1411→                    className="h-7 gap-1.5 text-[10px] border-primary/30 text-primary hover:bg-primary/10"
+  1412→                    onClick={fetchAiAnalysis}
+  1413→                    disabled={!token}
+  1414→                  >
+  1415→                    <Sparkles className="size-3" />
+  1416→                    Generate Analysis
+  1417→                  </Button>
+  1418→                )}
+  1419→              </div>
+  1420→            </CardHeader>
+  1421→            <CardContent>
+  1422→              {/* Not logged in */}
+  1423→              {!token && !aiAnalysis && (
+  1424→                <div className="text-center py-6">
+  1425→                  <MessageSquare className="size-8 text-muted-foreground/30 mx-auto mb-2" />
+  1426→                  <p className="text-xs text-muted-foreground">
+  1427→                    Sign in to get AI-powered tactical analysis for this match.
+  1428→                  </p>
+  1429→                </div>
+  1430→              )}
+  1431→
+  1432→              {/* Loading */}
+  1433→              {aiLoading && (
+  1434→                <div className="flex flex-col items-center py-8 gap-3">
+  1435→                  <div className="relative">
+  1436→                    <Sparkles className="size-8 text-primary animate-pulse" />
+  1437→                    <span className="absolute -top-1 -right-1 flex size-3">
+  1438→                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-75" />
+  1439→                      <span className="relative inline-flex size-3 rounded-full bg-primary" />
+  1440→                    </span>
+  1441→                  </div>
+  1442→                  <div className="text-center">
+  1443→                    <p className="text-sm font-semibold text-primary">Analyzing Match...</p>
+  1444→                    <p className="text-[10px] text-muted-foreground mt-0.5">
+  1445→                      AI is studying tactics, form, and key matchups
+  1446→                    </p>
+  1447→                  </div>
+  1448→                  <div className="flex gap-1 mt-1">
+  1449→                    {[0, 1, 2].map((i) => (
+  1450→                      <div
+  1451→                        key={i}
+  1452→                        className="size-1.5 rounded-full bg-primary animate-pulse"
+  1453→                        style={{ animationDelay: `${i * 200}ms` }}
+  1454→                      />
+  1455→                    ))}
+  1456→                  </div>
+  1457→                </div>
+  1458→              )}
+  1459→
+  1460→              {/* Error */}
+  1461→              {aiError && (
+  1462→                <div className="text-center py-6">
+  1463→                  <AlertCircle className="size-8 text-destructive/50 mx-auto mb-2" />
+  1464→                  <p className="text-xs text-muted-foreground mb-3">{aiError}</p>
+  1465→                  <Button
+  1466→                    variant="outline"
+  1467→                    size="sm"
+  1468→                    className="h-7 text-[10px] border-border"
+  1469→                    onClick={fetchAiAnalysis}
+  1470→                  >
+  1471→                    Retry
+  1472→                  </Button>
+  1473→                </div>
+  1474→              )}
+  1475→
+  1476→              {/* Analysis Content */}
+  1477→              {aiAnalysis && (
+  1478→                <div className="prose prose-invert prose-sm max-w-none">
+  1479→                  {/* Render markdown-like content */}
+  1480→                  <div className="space-y-3">
+  1481→                    {aiAnalysis.split('\n').map((line, idx) => {
+  1482→                      const trimmed = line.trim()
+  1483→                      if (!trimmed) return <div key={idx} className="h-2" />
+  1484→
+  1485→                      // Headers
+  1486→                      if (trimmed.startsWith('## ')) {
+  1487→                        return (
+  1488→                          <h3 key={idx} className="text-sm font-bold text-primary flex items-center gap-2 mt-4 first:mt-0">
+  1489→                            <Sparkles className="size-3" />
+  1490→                            {trimmed.slice(3)}
+  1491→                          </h3>
+  1492→                        )
+  1493→                      }
+  1494→                      if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+  1495→                        return (
+  1496→                          <p key={idx} className="text-xs font-semibold text-foreground">
+  1497→                            {trimmed.slice(2, -2)}
+  1498→                          </p>
+  1499→                        )
+  1500→                      }
+  1501→
+  1502→                      // Bullet points
+  1503→                      if (trimmed.startsWith('- ') || trimmed.startsWith('-')) {
+  1504→                        return (
+  1505→                          <div key={idx} className="flex gap-2 items-start">
+  1506→                            <ChevronDown className="size-3 text-primary mt-0.5 rotate-[-90deg] shrink-0" />
+  1507→                            <p className="text-xs text-muted-foreground leading-relaxed">
+  1508→                              {renderFormattedText(trimmed.slice(2))}
+  1509→                            </p>
+  1510→                          </div>
+  1511→                        )
+  1512→                      }
+  1513→
+  1514→                      // Inline bold text
+  1515→                      return (
+  1516→                        <p key={idx} className="text-xs text-muted-foreground leading-relaxed">
+  1517→                          {renderFormattedText(trimmed)}
+  1518→                        </p>
+  1519→                      )
+  1520→                    })}
+  1521→                  </div>
+  1522→
+  1523→                  {/* Regenerate button */}
+  1524→                  <div className="mt-4 pt-3 border-t border-border/30">
+  1525→                    <Button
+  1526→                      variant="ghost"
+  1527→                      size="sm"
+  1528→                      className="h-7 gap-1.5 text-[10px] text-muted-foreground hover:text-primary"
+  1529→                      onClick={fetchAiAnalysis}
+  1530→                      disabled={aiLoading}
+  1531→                    >
+  1532→                      <Sparkles className="size-3" />
+  1533→                      Regenerate Analysis
+  1534→                    </Button>
+  1535→                  </div>
+  1536→                </div>
+  1537→              )}
+  1538→            </CardContent>
+  1539→          </Card>
+  1540→        </TabsContent>
+  1541→      </Tabs>
+  1542→    </div>
+  1543→  )
+  1544→}
+  1545→
+  1546→// ── Helper: Compute ELO-based probability ────────────────────────────────────
+  1547→
+  1548→function computeEloProb(homeElo: number, awayElo: number, outcome: 'home' | 'draw' | 'away'): number {
+  1549→  const expectedHome = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400))
+  1550→  const homeProb = expectedHome
+  1551→  const awayProb = 1 - expectedHome
+  1552→  const drawProb = (1 - Math.abs(homeProb - awayProb)) * 0.3
+  1553→
+  1554→  const total = homeProb + drawProb + awayProb
+  1555→  if (outcome === 'home') return Math.round((homeProb / total) * 1000) / 10
+  1556→  if (outcome === 'away') return Math.round((awayProb / total) * 1000) / 10
+  1557→  return Math.round((drawProb / total) * 1000) / 10
+  1558→}
+  1559→
+  1560→// ── Helper: Render formatted text (inline bold) ──────────────────────────────
+  1561→
+  1562→function renderFormattedText(text: string): React.ReactNode {
+  1563→  // Split by **bold** patterns
+  1564→  const parts = text.split(/\*\*(.*?)\*\*/g)
+  1565→  return parts.map((part, idx) =>
+  1566→    idx % 2 === 1 ? (
+  1567→      <span key={idx} className="font-semibold text-foreground">
+  1568→        {part}
+  1569→      </span>
+  1570→    ) : (
+  1571→      <span key={idx}>{part}</span>
+  1572→    ),
+  1573→  )
+  1574→}
+  1575→

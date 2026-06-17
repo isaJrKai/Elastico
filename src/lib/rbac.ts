@@ -1,0 +1,22 @@
+// ELASTICO — Role-Based Access Control utilities
+import { NextResponse } from 'next/server'
+import jwt from 'jsonwebtoken'
+
+const JWT_SECRET = process.env.JWT_SECRET || 'elastico_jwt_secret_key_2026_production'
+
+export async function requireAdmin(request: Request): Promise<{ authorized: true; userId: string } | NextResponse> {
+  try {
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    const token = authHeader.slice(7)
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string; role: string; plan: string }
+    if (decoded.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+    return { authorized: true, userId: decoded.userId }
+  } catch {
+    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+  }
+}

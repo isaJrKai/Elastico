@@ -1,0 +1,781 @@
+     1→import React, { useState, useEffect, useRef } from "react";
+     2→import * as d3 from "d3";
+     3→import { Sparkles, Users, RefreshCw, Zap, Sliders, Info, Shield, HelpCircle, Activity } from "lucide-react";
+     4→import { Match, LineupPlayer } from "../types";
+     5→import { triggerHaptic } from "../utils/haptics";
+     6→
+     7→interface TacticalInsightProps {
+     8→  match: Match;
+     9→}
+    10→
+    11→interface PlayerNode extends d3.SimulationNodeDatum {
+    12→  name: string;
+    13→  role: string;
+    14→  posName: string;
+    15→  rating: number;
+    16→  initialX: number;
+    17→  initialY: number;
+    18→  color: string;
+    19→  isHome: boolean;
+    20→}
+    21→
+    22→interface PassLink extends d3.SimulationLinkDatum<PlayerNode> {
+    23→  source: string | PlayerNode;
+    24→  target: string | PlayerNode;
+    25→  weight: number;
+    26→}
+    27→
+    28→// Fallback rosters if not defined
+    29→const defaultTeamRosters: Record<string, { starters: { name: string; role: string; posName: string; rating: number; x: number; y: number }[] }> = {
+    30→  Brazil: {
+    31→    starters: [
+    32→      { name: "Alisson", role: "GK", posName: "GK", rating: 89, x: 50, y: 88 },
+    33→      { name: "Danilo", role: "DEF", posName: "RB", rating: 81, x: 80, y: 72 },
+    34→      { name: "Marquinhos", role: "DEF", posName: "CB", rating: 87, x: 62, y: 72 },
+    35→      { name: "Gabriel", role: "DEF", posName: "CB", rating: 86, x: 38, y: 72 },
+    36→      { name: "Arana", role: "DEF", posName: "LB", rating: 80, x: 20, y: 72 },
+    37→      { name: "Casemiro", role: "MID", posName: "DM", rating: 84, x: 50, y: 55 },
+    38→      { name: "Guimaraes", role: "MID", posName: "CM", rating: 85, x: 32, y: 48 },
+    39→      { name: "Paqueta", role: "MID", posName: "AM", rating: 83, x: 68, y: 48 },
+    40→      { name: "Rodrygo", role: "FWD", posName: "RW", rating: 86, x: 78, y: 25 },
+    41→      { name: "Richarlison", role: "FWD", posName: "ST", rating: 82, x: 50, y: 18 },
+    42→      { name: "Vinicius Jr", role: "FWD", posName: "LW", rating: 90, x: 22, y: 25 },
+    43→    ]
+    44→  },
+    45→  Germany: {
+    46→    starters: [
+    47→      { name: "ter Stegen", role: "GK", posName: "GK", rating: 89, x: 50, y: 88 },
+    48→      { name: "Kimmich", role: "DEF", posName: "RB", rating: 86, x: 80, y: 72 },
+    49→      { name: "Rudiger", role: "DEF", posName: "CB", rating: 88, x: 62, y: 72 },
+    50→      { name: "Tah", role: "DEF", posName: "CB", rating: 84, x: 38, y: 72 },
+    51→      { name: "Mittelstadt", role: "DEF", posName: "LB", rating: 81, x: 20, y: 72 },
+    52→      { name: "Andrich", role: "MID", posName: "CM", rating: 82, x: 35, y: 56 },
+    53→      { name: "Kroos", role: "MID", posName: "CM", rating: 87, x: 65, y: 56 },
+    54→      { name: "Gundogan", role: "MID", posName: "AM", rating: 85, x: 50, y: 38 },
+    55→      { name: "Sane", role: "FWD", posName: "RW", rating: 84, x: 78, y: 32 },
+    56→      { name: "Musiala", role: "FWD", posName: "LW", rating: 88, x: 22, y: 32 },
+    57→      { name: "Fullkrug", role: "FWD", posName: "ST", rating: 82, x: 50, y: 16 },
+    58→    ]
+    59→  },
+    60→  Argentina: {
+    61→    starters: [
+    62→      { name: "E. Martinez", role: "GK", posName: "GK", rating: 88, x: 50, y: 88 },
+    63→      { name: "Molina", role: "DEF", posName: "RB", rating: 82, x: 80, y: 72 },
+    64→      { name: "Romero", role: "DEF", posName: "CB", rating: 87, x: 62, y: 72 },
+    65→      { name: "Otamendi", role: "DEF", posName: "CB", rating: 83, x: 38, y: 72 },
+    66→      { name: "Tagliafico", role: "DEF", posName: "LB", rating: 81, x: 20, y: 72 },
+    67→      { name: "Fernandez", role: "MID", posName: "DM", rating: 84, x: 50, y: 55 },
+    68→      { name: "De Paul", role: "MID", posName: "CM", rating: 84, x: 68, y: 48 },
+    69→      { name: "Mac Allister", role: "MID", posName: "CM", rating: 86, x: 32, y: 48 },
+    70→      { name: "Messi", role: "FWD", posName: "RW", rating: 92, x: 78, y: 25 },
+    71→      { name: "Alvarez", role: "FWD", posName: "ST", rating: 85, x: 50, y: 18 },
+    72→      { name: "Gonzalez", role: "FWD", posName: "LW", rating: 80, x: 22, y: 25 },
+    73→    ]
+    74→  },
+    75→  France: {
+    76→    starters: [
+    77→      { name: "Maignan", role: "GK", posName: "GK", rating: 87, x: 50, y: 88 },
+    78→      { name: "Kounde", role: "DEF", posName: "RB", rating: 84, x: 80, y: 72 },
+    79→      { name: "Saliba", role: "DEF", posName: "CB", rating: 88, x: 62, y: 72 },
+    80→      { name: "Upamecano", role: "DEF", posName: "CB", rating: 83, x: 38, y: 72 },
+    81→      { name: "Hernandez", role: "DEF", posName: "LB", rating: 85, x: 20, y: 72 },
+    82→      { name: "Tchouameni", role: "MID", posName: "DM", rating: 84, x: 50, y: 55 },
+    83→      { name: "Griezmann", role: "MID", posName: "AM", rating: 86, x: 50, y: 38 },
+    84→      { name: "Rabiot", role: "MID", posName: "CM", rating: 82, x: 28, y: 48 },
+    85→      { name: "Dembele", role: "FWD", posName: "RW", rating: 84, x: 78, y: 25 },
+    86→      { name: "Mbappe", role: "FWD", posName: "LW", rating: 91, x: 22, y: 22 },
+    87→      { name: "Thuram", role: "FWD", posName: "ST", rating: 81, x: 50, y: 16 },
+    88→    ]
+    89→  }
+    90→};
+    91→
+    92→const defaultList = [
+    93→  { name: "Striker 1", role: "FWD", posName: "ST", rating: 84, x: 50, y: 18 },
+    94→  { name: "Winger Left", role: "FWD", posName: "LW", rating: 82, x: 20, y: 25 },
+    95→  { name: "Winger Right", role: "FWD", posName: "RW", rating: 83, x: 80, y: 25 },
+    96→  { name: "Midfielder Cent", role: "MID", posName: "CM", rating: 85, x: 50, y: 45 },
+    97→  { name: "Midfielder Left", role: "MID", posName: "LM", rating: 81, x: 25, y: 48 },
+    98→  { name: "Midfielder Right", role: "MID", posName: "RM", rating: 82, x: 75, y: 48 },
+    99→  { name: "Center Back L", role: "DEF", posName: "CB", rating: 85, x: 35, y: 72 },
+   100→  { name: "Center Back R", role: "DEF", posName: "CB", rating: 84, x: 65, y: 72 },
+   101→  { name: "Fullback Left", role: "DEF", posName: "LB", rating: 80, x: 15, y: 68 },
+   102→  { name: "Fullback Right", role: "DEF", posName: "RB", rating: 81, x: 85, y: 68 },
+   103→  { name: "Goal Keeper", role: "GK", posName: "GK", rating: 86, x: 50, y: 88 },
+   104→];
+   105→
+   106→export default function TacticalInsight({ match }: TacticalInsightProps) {
+   107→  const [activeTab, setActiveTab] = useState<"network" | "heatmap">("network");
+   108→  const [selectedTeam, setSelectedTeam] = useState<"home" | "away">("home");
+   109→  
+   110→  // Controls / Modifiers
+   111→  const [passingStyle, setPassingStyle] = useState<"possession" | "direct" | "counter">("possession");
+   112→  const [tempo, setTempo] = useState<number>(65); // Speed multiplier
+   113→  const [heatmapType, setHeatmapType] = useState<"touches" | "shots" | "defends">("touches");
+   114→  
+   115→  // Focus state
+   116→  const [selectedPlayer, setSelectedPlayer] = useState<PlayerNode | null>(null);
+   117→  const [isD3Simulating, setIsD3Simulating] = useState(true);
+   118→
+   119→  // References
+   120→  const d3ContainerRef = useRef<SVGSVGElement | null>(null);
+   121→
+   122→  const getTeamRoster = (teamName: string, isHome: boolean, color: string): PlayerNode[] => {
+   123→    const list = defaultTeamRosters[teamName]?.starters || defaultList;
+   124→    return list.map((p, idx) => ({
+   125→      name: p.name,
+   126→      role: p.role,
+   127→      posName: p.posName,
+   128→      rating: p.rating,
+   129→      initialX: p.x,
+   130→      initialY: p.y,
+   131→      color,
+   132→      isHome,
+   133→    }));
+   134→  };
+   135→
+   136→  const getRosters = () => {
+   137→    const hColor = match.home_jersey_color || "#10b981";
+   138→    const aColor = match.away_jersey_color || "#14b8a6";
+   139→    const homePlayers = getTeamRoster(match.home_team, true, hColor);
+   140→    const awayPlayers = getTeamRoster(match.away_team, false, aColor);
+   141→    return { homePlayers, awayPlayers };
+   142→  };
+   143→
+   144→  // Generate mock passing lines based on positions and rating synergy
+   145→  const generatePassLinks = (nodes: PlayerNode[]): PassLink[] => {
+   146→    const links: PassLink[] = [];
+   147→    // Only connect logical neighbors or key patterns to avoid excessive clutter
+   148→    for (let i = 0; i < nodes.length; i++) {
+   149→      for (let j = i + 1; j < nodes.length; j++) {
+   150→        const p1 = nodes[i];
+   151→        const p2 = nodes[j];
+   152→
+   153→        // GK mostly passes only to DEF or DMs
+   154→        if (p1.role === "GK" && p2.role === "FWD") continue;
+   155→        if (p2.role === "GK" && p1.role === "FWD") continue;
+   156→
+   157→        const distance = Math.sqrt(
+   158→          Math.pow(p1.initialX - p2.initialX, 2) + Math.pow(p1.initialY - p2.initialY, 2)
+   159→        );
+   160→
+   161→        // Standard proximity link or playmaking connection
+   162→        if (distance < 45) {
+   163→          // Calculate weight
+   164→          let baseWeight = (p1.rating + p2.rating) / 40;
+   165→          if (passingStyle === "possession") {
+   166→            baseWeight *= 1.4;
+   167→          } else if (passingStyle === "direct" && (p1.role === "MID" || p1.role === "DEF") && p2.role === "FWD") {
+   168→            baseWeight *= 1.8; // Boost direct passes
+   169→          } else if (passingStyle === "counter" && distance > 30) {
+   170→            baseWeight *= 1.3;
+   171→          }
+   172→
+   173→          // Add a simple deterministic variation
+   174→          const hashId = (p1.name.length * p2.name.length) % 5;
+   175→          const weight = Math.max(1.5, baseWeight + hashId - (distance / 15));
+   176→
+   177→          links.push({
+   178→            source: p1.name,
+   179→            target: p2.name,
+   180→            weight: parseFloat(weight.toFixed(1)),
+   181→          });
+   182→        }
+   183→      }
+   184→    }
+   185→    return links;
+   186→  };
+   187→
+   188→  // Complement Poisson parameters
+   189→  // Returns tactical multipliers that visualizes alignment to expected goals
+   190→  const getPoissonInfluence = () => {
+   191→    const isTargetHome = selectedTeam === "home";
+   192→    const baseMu = isTargetHome ? (match.mu_home || 1.35) : (match.mu_away || 1.15);
+   193→    
+   194→    // Calculate passing index score
+   195→    let passVolumeMultiplier = 1.0;
+   196→    let attackRatio = 0.5;
+   197→
+   198→    if (passingStyle === "possession") {
+   199→      passVolumeMultiplier = 1.25;
+   200→      attackRatio = 0.45;
+   201→    } else if (passingStyle === "direct") {
+   202→      passVolumeMultiplier = 0.9;
+   203→      attackRatio = 0.70;
+   204→    } else if (passingStyle === "counter") {
+   205→      passVolumeMultiplier = 1.1;
+   206→      attackRatio = 0.60;
+   207→    }
+   208→
+   209→    const tempoFactor = 0.8 + (tempo / 150);
+   210→    const resultPoissonGoals = baseMu * passVolumeMultiplier * tempoFactor;
+   211→    const completenessRatio = Math.min(99, Math.round(70 + (tempo / 5) * passVolumeMultiplier));
+   212→
+   213→    return {
+   214→      compliedGoals: resultPoissonGoals.toFixed(2),
+   215→      completenessRatio,
+   216→      possessionPct: passingStyle === "possession" ? 58 : passingStyle === "counter" ? 44 : 49,
+   217→      directnessIndex: passingStyle === "direct" ? "HI-THRUST" : "ORGANIZED",
+   218→    };
+   219→  };
+   220→
+   221→  // Main D3 lifecycle renderer
+   222→  useEffect(() => {
+   223→    if (!d3ContainerRef.current) return;
+   224→
+   225→    // Clear previous elements
+   226→    d3.select(d3ContainerRef.current).selectAll("*").remove();
+   227→
+   228→    const svg = d3.select(d3ContainerRef.current);
+   229→    const width = 400;
+   230→    const height = 500;
+   231→
+   232→    // Responsive attributes
+   233→    svg
+   234→      .attr("viewBox", `0 0 ${width} ${height}`)
+   235→      .attr("width", "100%")
+   236→      .attr("height", "100%");
+   237→
+   238→    // Fetch players
+   239→    const { homePlayers, awayPlayers } = getRosters();
+   240→    const currTeamPlayers = selectedTeam === "home" ? homePlayers : awayPlayers;
+   241→    
+   242→    // Map initial positions onto actual coordinates
+   243→    const nodes: PlayerNode[] = currTeamPlayers.map(p => ({
+   244→      ...p,
+   245→      x: (p.initialX / 100) * width,
+   246→      y: (p.initialY / 100) * height,
+   247→    }));
+   248→
+   249→    if (activeTab === "network") {
+   250→      // 1. RENDER PASSING NETWORK
+   251→      const links = generatePassLinks(nodes);
+   252→
+   253→      // Link definitions
+   254→      const linkGroup = svg.append("g").attr("class", "links-group");
+   255→      const nodeGroup = svg.append("g").attr("class", "nodes-group");
+   256→
+   257→      // Draw links
+   258→      const linkElements = linkGroup
+   259→        .selectAll("line")
+   260→        .data(links)
+   261→        .enter()
+   262→        .append("line")
+   263→        .attr("stroke", selectedTeam === "home" ? "#10b981" : "#14b8a6")
+   264→        .attr("stroke-opacity", (d) => {
+   265→          if (selectedPlayer) {
+   266→            const isRelated = d.source === selectedPlayer.name || d.target === selectedPlayer.name;
+   267→            return isRelated ? 0.85 : 0.08;
+   268→          }
+   269→          return 0.35;
+   270→        })
+   271→        .attr("stroke-width", (d) => Math.max(1, d.weight * 0.95))
+   272→        .attr("class", "transition-all duration-300");
+   273→
+   274→      // Draw node g wrappers
+   275→      const nodeElements = nodeGroup
+   276→        .selectAll("g")
+   277→        .data(nodes)
+   278→        .enter()
+   279→        .append("g")
+   280→        .attr("class", "cursor-pointer group")
+   281→        .on("click", (event, d) => {
+   282→          triggerHaptic("light");
+   283→          setSelectedPlayer(d === selectedPlayer ? null : d);
+   284→        });
+   285→
+   286→      // Nodes glows
+   287→      nodeElements
+   288→        .append("circle")
+   289→        .attr("r", (d) => (selectedPlayer?.name === d.name ? 16 : 11))
+   290→        .attr("fill", "#090d16")
+   291→        .attr("stroke", (d) => d.color)
+   292→        .attr("stroke-width", (d) => (selectedPlayer?.name === d.name ? 3 : 1.5))
+   293→        .attr("class", "transition-all duration-300 shadow-xl");
+   294→
+   295→      // Inner glowing core
+   296→      nodeElements
+   297→        .append("circle")
+   298→        .attr("r", 3)
+   299→        .attr("fill", (d) => d.color)
+   300→        .attr("opacity", 0.7);
+   301→
+   302→      // Player names inside network
+   303→      nodeElements
+   304→        .append("text")
+   305→        .text((d) => `${d.posName} ${d.name.split(" ").pop()}`)
+   306→        .attr("dx", 0)
+   307→        .attr("dy", (d) => (selectedPlayer?.name === d.name ? -22 : -15))
+   308→        .attr("text-anchor", "middle")
+   309→        .attr("font-size", "7.5px")
+   310→        .attr("font-family", "monospace")
+   311→        .attr("fill", (d) => (selectedPlayer?.name === d.name ? "#ffffff" : "#64748b"))
+   312→        .attr("font-weight", (d) => (selectedPlayer?.name === d.name ? "bold" : "normal"));
+   313→
+   314→      // Set force-directed simulation
+   315→      if (isD3Simulating) {
+   316→        const simulation = d3
+   317→          .forceSimulation<PlayerNode>(nodes)
+   318→          .force("link", d3.forceLink<PlayerNode, PassLink>(links).id((d) => d.name).distance(75))
+   319→          .force("charge", d3.forceManyBody().strength(-220))
+   320→          .force("center", d3.forceCenter(width / 2, height / 2))
+   321→          .force("collide", d3.forceCollide(25));
+   322→
+   323→        // Let simulation tick
+   324→        simulation.on("tick", () => {
+   325→          linkElements
+   326→            .attr("x1", (d) => (d.source as PlayerNode).x ?? 0)
+   327→            .attr("y1", (d) => (d.source as PlayerNode).y ?? 0)
+   328→            .attr("x2", (d) => (d.target as PlayerNode).x ?? 0)
+   329→            .attr("y2", (d) => (d.target as PlayerNode).y ?? 0);
+   330→
+   331→          nodeElements.attr("transform", (d) => `translate(${d.x ?? 0}, ${d.y ?? 0})`);
+   332→        });
+   333→
+   334→        // Drag node interactions
+   335→        nodeElements.call(
+   336→          d3.drag<SVGGElement, PlayerNode>()
+   337→            .on("start", (event, d) => {
+   338→              if (!event.active) simulation.alphaTarget(0.2).restart();
+   339→              d.fx = d.x;
+   340→              d.fy = d.y;
+   341→            })
+   342→            .on("drag", (event, d) => {
+   343→              d.fx = event.x;
+   344→              d.fy = event.y;
+   345→            })
+   346→            .on("end", (event, d) => {
+   347→              if (!event.active) simulation.alphaTarget(0);
+   348→              d.fx = null;
+   349→              d.fy = null;
+   350→            })
+   351→        );
+   352→      } else {
+   353→        // Direct tactical projection view without simulation
+   354→        nodeElements.attr("transform", (d) => `translate(${d.x}, ${d.y})`);
+   355→        linkElements
+   356→          .attr("x1", (d) => {
+   357→            const srcNode = nodes.find(n => n.name === d.source);
+   358→            return srcNode ? srcNode.x ?? 0 : 0;
+   359→          })
+   360→          .attr("y1", (d) => {
+   361→            const srcNode = nodes.find(n => n.name === d.source);
+   362→            return srcNode ? srcNode.y ?? 0 : 0;
+   363→          })
+   364→          .attr("x2", (d) => {
+   365→            const targetNode = nodes.find(n => n.name === (d.target as any).name || n.name === d.target);
+   366→            return targetNode ? targetNode.x ?? 0 : 0;
+   367→          })
+   368→          .attr("y2", (d) => {
+   369→            const targetNode = nodes.find(n => n.name === (d.target as any).name || n.name === d.target);
+   370→            return targetNode ? targetNode.y ?? 0 : 0;
+   371→          });
+   372→      }
+   373→
+   374→    } else {
+   375→      // 2. RENDER SPATIAL HEATMAP USING D3 GRID INJECTIONS
+   376→      const heatmapGroup = svg.append("g").attr("class", "heatmap-group");
+   377→      
+   378→      // Determine hot spots coordinates depending on the selected heatmapType
+   379→      const totalPoints = 90;
+   380→      const points: { cx: number; cy: number; weight: number }[] = [];
+   381→
+   382→      nodes.forEach((pl) => {
+   383→        // Generate coordinates around player base
+   384→        const count = heatmapType === "touches" ? 8 : heatmapType === "shots" && pl.role === "FWD" ? 12 : 5;
+   385→        const spread = heatmapType === "touches" ? 45 : heatmapType === "shots" ? 30 : 60;
+   386→
+   387→        for (let idx = 0; idx < count; idx++) {
+   388→          const angle = (idx / count) * Math.PI * 2;
+   389→          // Displace forward depending on role
+   390→          const offsetForward = pl.role === "FWD" ? -25 : pl.role === "DEF" ? 15 : 0;
+   391→          const r = Math.random() * spread;
+   392→          const cx = pl.x + Math.cos(angle) * r;
+   393→          const cy = pl.y + Math.sin(angle) * r + offsetForward;
+   394→
+   395→          // Constraints to stay inside field boundaries
+   396→          const finalX = Math.max(15, Math.min(width - 15, cx));
+   397→          const finalY = Math.max(15, Math.min(height - 15, cy));
+   398→
+   399→          // Base factor based on stats
+   400→          let w = pl.rating / 100;
+   401→          if (heatmapType === "shots" && pl.role !== "FWD") w *= 0.15;
+   402→          if (heatmapType === "defends" && pl.role !== "DEF") w *= 0.35;
+   403→
+   404→          points.push({ cx: finalX, cy: finalY, weight: w });
+   405→        }
+   406→      });
+   407→
+   408→      // Define radial color gradients
+   409→      const defs = svg.append("defs");
+   410→      const grad = defs
+   411→        .append("radialGradient")
+   412→        .attr("id", "heat-radial")
+   413→        .attr("cx", "50%")
+   414→        .attr("cy", "50%")
+   415→        .attr("r", "50%");
+   416→
+   417→      const teamColor = selectedTeam === "home" ? "#10b981" : "#14b8a6";
+   418→
+   419→      grad.append("stop").attr("offset", "0%").attr("stop-color", teamColor).attr("stop-opacity", 0.45);
+   420→      grad.append("stop").attr("offset", "100%").attr("stop-color", teamColor).attr("stop-opacity", 0.0);
+   421→
+   422→      // Render glowing soft heat points
+   423→      heatmapGroup
+   424→        .selectAll("circle")
+   425→        .data(points)
+   426→        .enter()
+   427→        .append("circle")
+   428→        .attr("cx", (d) => d.cx)
+   429→        .attr("cy", (d) => d.cy)
+   430→        .attr("r", (d) => Math.max(20, d.weight * 52))
+   431→        .attr("fill", "url(#heat-radial)")
+   432→        .attr("class", "animate-pulse transition-all duration-[3000ms]")
+   433→        .attr("opacity", 0.8);
+   434→
+   435→      // Render smaller dense hot-point anchors
+   436→      heatmapGroup
+   437→        .selectAll(".core-point")
+   438→        .data(points.filter((_, i) => i % 3 === 0))
+   439→        .enter()
+   440→        .append("circle")
+   441→        .attr("class", "core-point")
+   442→        .attr("cx", (d) => d.cx)
+   443→        .attr("cy", (d) => d.cy)
+   444→        .attr("r", 1.5)
+   445→        .attr("fill", teamColor)
+   446→        .attr("opacity", 0.25);
+   447→        
+   448→      // Overlay player tags lightly in heatmap
+   449→      const pinsGroup = svg.append("g").attr("class", "pins-group");
+   450→      pinsGroup
+   451→        .selectAll("g")
+   452→        .data(nodes)
+   453→        .enter()
+   454→        .append("g")
+   455→        .attr("transform", (d) => `translate(${d.x}, ${d.y})`)
+   456→        .append("text")
+   457→        .text((d) => d.posName)
+   458→        .attr("dy", 3)
+   459→        .attr("text-anchor", "middle")
+   460→        .attr("font-size", "7px")
+   461→        .attr("font-family", "monospace")
+   462→        .attr("fill", "#94a3b8")
+   463→        .attr("opacity", 0.5)
+   464→        .attr("font-weight", "black");
+   465→    }
+   466→
+   467→  }, [activeTab, selectedTeam, passingStyle, tempo, heatmapType, isD3Simulating, match]);
+   468→
+   469→  const pInfluence = getPoissonInfluence();
+   470→
+   471→  return (
+   472→    <div className="bg-slate-900 border border-slate-850 p-5 rounded-2xl space-y-5" id="tactical-d3-insight-card">
+   473→      {/* Header controls */}
+   474→      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/60 pb-4">
+   475→        <div className="flex items-center gap-2.5">
+   476→          <Activity className="w-5 h-5 text-emerald-400 animate-pulse" />
+   477→          <div>
+   478→            <h4 className="text-[10.5px] font-black uppercase text-slate-200 tracking-wider font-mono">
+   479→              Tactical Network & Deep Analysis
+   480→            </h4>
+   481→            <p className="text-[9px] text-slate-500 font-sans">
+   482→              Dynamic physical modeling using D3 spatial vectors & head-to-head metrics
+   483→            </p>
+   484→          </div>
+   485→        </div>
+   486→
+   487→        {/* Tab switch */}
+   488→        <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 border border-slate-850 rounded-xl max-w-[200px] shrink-0">
+   489→          <button
+   490→            onClick={() => {
+   491→              triggerHaptic("light");
+   492→              setActiveTab("network");
+   493→              setSelectedPlayer(null);
+   494→            }}
+   495→            className={`py-1 rounded-[7px] text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+   496→              activeTab === "network"
+   497→                ? "bg-slate-900 border border-slate-800 text-emerald-400 font-extrabold shadow-sm"
+   498→                : "text-slate-500 hover:text-slate-200"
+   499→            }`}
+   500→          >
+   501→            🕸️ Network
+   502→          </button>
+   503→          <button
+   504→            onClick={() => {
+   505→              triggerHaptic("light");
+   506→              setActiveTab("heatmap");
+   507→              setSelectedPlayer(null);
+   508→            }}
+   509→            className={`py-1 rounded-[7px] text-[8.5px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+   510→              activeTab === "heatmap"
+   511→                ? "bg-slate-900 border border-slate-800 text-teal-400 font-extrabold shadow-sm"
+   512→                : "text-slate-500 hover:text-slate-200"
+   513→            }`}
+   514→          >
+   515→            🔥 Heatmap
+   516→          </button>
+   517→        </div>
+   518→      </div>
+   519→
+   520→      {/* Main Grid: D3 Pitch Board on left, controls & Poisson metrics on right */}
+   521→      <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+   522→        
+   523→        {/* Pitch canvas (MD cols 7) */}
+   524→        <div className="md:col-span-7 flex flex-col items-center justify-center bg-slate-950 rounded-2xl border border-slate-850 p-4 relative overflow-hidden h-[380px] sm:h-[450px]">
+   525→          
+   526→          {/* Subtle field markings watermark backdrop */}
+   527→          <div className="absolute inset-4 border border-dashed border-slate-850/45 pointer-events-none rounded-lg flex flex-col justify-between">
+   528→            <div className="w-full border-b border-slate-850/45 h-1/2 relative">
+   529→              {/* Half center circle */}
+   530→              <div className="absolute bottom-[-25px] left-1/2 -translate-x-1/2 w-[50px] h-[50px] rounded-full border border-slate-850/45" />
+   531→              {/* Penalty Box Up */}
+   532→              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[45px] border-b border-x border-slate-850/45" />
+   533→            </div>
+   534→            <div className="w-full relative h-1/2">
+   535→              {/* Penalty Box Down */}
+   536→              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[120px] h-[45px] border-t border-x border-slate-850/45" />
+   537→            </div>
+   538→          </div>
+   539→
+   540→          <svg 
+   541→            ref={d3ContainerRef} 
+   542→            className="w-full h-full relative z-10 select-none"
+   543→          />
+   544→
+   545→          {/* Overlay hints inside canvas screen */}
+   546→          <div className="absolute bottom-3 right-3 bg-slate-950/70 border border-slate-850/60 rounded-lg px-2 py-1 text-[7.5px] font-mono text-slate-500 z-25 flex items-center gap-1">
+   547→            <Info className="w-3 h-3 text-slate-500 shrink-0" />
+   548→            <span>
+   549→              {activeTab === "network" ? "Drag nodes or click player to highlight" : "D3 Kernel Density view active"}
+   550→            </span>
+   551→          </div>
+   552→        </div>
+   553→
+   554→        {/* Dashboard variables card (MD cols 5) */}
+   555→        <div className="md:col-span-5 flex flex-col justify-between space-y-4 text-left">
+   556→          
+   557→          {/* Section 1: Team switch */}
+   558→          <div className="space-y-2">
+   559→            <div className="flex items-center justify-between">
+   560→              <span className="text-[8.5px] font-mono text-slate-500 uppercase tracking-widest leading-none">
+   561→                Select Focused Roster
+   562→              </span>
+   563→              <span className="text-[8px] px-1.5 py-0.2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-md font-mono font-black animate-pulse">
+   564→                D3 ENGINE
+   565→              </span>
+   566→            </div>
+   567→
+   568→            <div className="flex gap-2">
+   569→              <button
+   570→                onClick={() => {
+   571→                  triggerHaptic("light");
+   572→                  setSelectedTeam("home");
+   573→                  setSelectedPlayer(null);
+   574→                }}
+   575→                className={`flex-1 py-2 text-center rounded-xl text-[10.5px] uppercase font-bold border transition cursor-pointer ${
+   576→                  selectedTeam === "home"
+   577→                    ? "bg-slate-850 border-emerald-500/30 text-emerald-400 font-extrabold shadow-sm"
+   578→                    : "bg-slate-950 border-slate-850 text-slate-400 hover:text-slate-200"
+   579→                }`}
+   580→              >
+   581→                🏠 {match.home_team}
+   582→              </button>
+   583→              <button
+   584→                onClick={() => {
+   585→                  triggerHaptic("light");
+   586→                  setSelectedTeam("away");
+   587→                  setSelectedPlayer(null);
+   588→                }}
+   589→                className={`flex-1 py-2 text-center rounded-xl text-[10.5px] uppercase font-bold border transition cursor-pointer ${
+   590→                  selectedTeam === "away"
+   591→                    ? "bg-slate-850 border-teal-500/30 text-teal-400 font-extrabold shadow-sm"
+   592→                    : "bg-slate-950 border-slate-850 text-slate-400 hover:text-slate-200"
+   593→                }`}
+   594→              >
+   595→                🚀 {match.away_team}
+   596→              </button>
+   597→            </div>
+   598→          </div>
+   599→
+   600→          {/* Section 2: Tab based parameter adjustments */}
+   601→          <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl space-y-4 flex-1">
+   602→            <div className="flex items-center gap-1.5 text-slate-300 font-mono text-[9.5px] font-black uppercase tracking-wider border-b border-slate-900 pb-2">
+   603→              <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+   604→              <span>Tactical Configurations</span>
+   605→            </div>
+   606→
+   607→            {activeTab === "network" ? (
+   608→              // NETWORK CONFS
+   609→              <div className="space-y-3.5">
+   610→                <div className="space-y-1.5">
+   611→                  <span className="text-[8px] font-mono text-slate-500 uppercase">Passing Layout Format</span>
+   612→                  <div className="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded-lg border border-slate-850/60">
+   613→                    {(["possession", "direct", "counter"] as const).map((style) => (
+   614→                      <button
+   615→                        key={style}
+   616→                        onClick={() => {
+   617→                          triggerHaptic("light");
+   618→                          setPassingStyle(style);
+   619→                        }}
+   620→                        className={`py-1 rounded text-[8px] font-bold uppercase cursor-pointer transition ${
+   621→                          passingStyle === style
+   622→                            ? "bg-slate-800 text-emerald-400 shadow-sm"
+   623→                            : "text-slate-500 hover:text-slate-350"
+   624→                        }`}
+   625→                      >
+   626→                        {style}
+   627→                      </button>
+   628→                    ))}
+   629→                  </div>
+   630→                </div>
+   631→
+   632→                <div className="space-y-1.5">
+   633→                  <div className="flex justify-between text-[8px] font-mono text-slate-500">
+   634→                    <span>BUILD PASSING SPEED</span>
+   635→                    <span className="text-emerald-400 font-bold">{tempo}%</span>
+   636→                  </div>
+   637→                  <input
+   638→                    type="range"
+   639→                    min="30"
+   640→                    max="99"
+   641→                    value={tempo}
+   642→                    onChange={(e) => setTempo(Number(e.target.value))}
+   643→                    className="w-full accent-emerald-500 bg-slate-900 rounded-lg cursor-pointer h-1"
+   644→                  />
+   645→                </div>
+   646→
+   647→                <div className="flex items-center justify-between pt-1 border-t border-slate-900">
+   648→                  <span className="text-[8.5px] font-mono text-slate-400">D3 Force-Directed Simulation</span>
+   649→                  <button
+   650→                    onClick={() => {
+   651→                      triggerHaptic("light");
+   652→                      setIsD3Simulating(!isD3Simulating);
+   653→                    }}
+   654→                    className={`px-2.5 py-1 rounded text-[8px] font-extrabold uppercase font-mono tracking-wider border transition ${
+   655→                      isD3Simulating 
+   656→                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+   657→                        : "bg-slate-900 border-slate-800 text-slate-400"
+   658→                    }`}
+   659→                  >
+   660→                    {isD3Simulating ? "⚡ LIVE FORCES" : "📐 STATIC POSITION"}
+   661→                  </button>
+   662→                </div>
+   663→              </div>
+   664→            ) : (
+   665→              // HEATMAP CONFS
+   666→              <div className="space-y-3.5">
+   667→                <div className="space-y-1.5">
+   668→                  <span className="text-[8px] font-mono text-slate-500 uppercase">Heat Density Event focus</span>
+   669→                  <div className="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded-lg border border-slate-850/60">
+   670→                    {(["touches", "shots", "defends"] as const).map((ht) => (
+   671→                      <button
+   672→                        key={ht}
+   673→                        onClick={() => {
+   674→                          triggerHaptic("light");
+   675→                          setHeatmapType(ht);
+   676→                        }}
+   677→                        className={`py-1 rounded text-[8px] font-bold uppercase cursor-pointer transition ${
+   678→                          heatmapType === ht
+   679→                            ? "bg-slate-800 text-teal-400 shadow-sm"
+   680→                            : "text-slate-500 hover:text-slate-350"
+   681→                        }`}
+   682→                      >
+   683→                        📬 {ht}
+   684→                      </button>
+   685→                    ))}
+   686→                  </div>
+   687→                </div>
+   688→
+   689→                <div className="bg-slate-900/50 p-2.5 border border-slate-850 rounded-xl space-y-1">
+   690→                  <span className="text-[8px] font-mono text-slate-400 font-extrabold uppercase tracking-widest block text-teal-400">
+   691→                    D3 Heatmap interpolation
+   692→                  </span>
+   693→                  <p className="text-[8px] text-slate-500 leading-normal">
+   694→                    This spatial system maps the relative event density of {selectedTeam === "home" ? match.home_team : match.away_team} across coordinate buckets. Ideal for pinpointing positioning asymmetry!
+   695→                  </p>
+   696→                </div>
+   697→              </div>
+   698→            )}
+   699→
+   700→            {/* Selected Player profile focus inside the chart panel */}
+   701→            {selectedPlayer && (
+   702→              <div className="bg-slate-900 border border-slate-800 p-3 rounded-lg flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+   703→                <div className="space-y-0.5">
+   704→                  <span className="text-[7px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded font-black uppercase block w-max">
+   705→                    ACTIVE NODE STATS
+   706→                  </span>
+   707→                  <p className="text-[11px] font-extrabold text-slate-100 font-sans tracking-tight">
+   708→                    {selectedPlayer.name} ({selectedPlayer.posName})
+   709→                  </p>
+   710→                  <p className="text-[8.5px] text-slate-400 font-mono">
+   711→                    Rating OVR: <span className="text-slate-200 font-extrabold">{selectedPlayer.rating}</span> • Key Pass Ratio: {(((selectedPlayer.rating - 50) * 1.5) + (tempo / 10)).toFixed(0)}%
+   712→                  </p>
+   713→                </div>
+   714→                <button
+   715→                  onClick={() => setSelectedPlayer(null)}
+   716→                  className="text-[9px] font-mono text-slate-500 hover:text-slate-300 font-bold uppercase bg-slate-950 px-2 py-0.5 rounded cursor-pointer"
+   717→                >
+   718→                  Clear
+   719→                </button>
+   720→              </div>
+   721→            )}
+   722→          </div>
+   723→
+   724→          {/* Section 3: POISSON CORRELATOR complementary stats */}
+   725→          <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl space-y-3.5">
+   726→            <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+   727→              <span className="text-[8.5px] font-mono text-slate-400 uppercase tracking-widest">
+   728→                ⚽ Poisson Math Correlator
+   729→              </span>
+   730→              <span className="text-[7px] font-mono text-slate-500">
+   731→                BASED ON MOVEMENT DATA
+   732→              </span>
+   733→            </div>
+   734→
+   735→            <div className="grid grid-cols-2 gap-4">
+   736→              <div className="space-y-0.5">
+   737→                <span className="text-[7.5px] font-mono text-slate-500 uppercase block tracking-wider">
+   738→                  Poisson Expected Intensity (xG)
+   739→                </span>
+   740→                <span className="text-[15px] font-mono font-black text-emerald-400 flex items-center gap-1">
+   741→                  <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
+   742→                  {pInfluence.compliedGoals}
+   743→                </span>
+   744→              </div>
+   745→
+   746→              <div className="space-y-0.5">
+   747→                <span className="text-[7.5px] font-mono text-slate-500 uppercase block tracking-wider">
+   748→                  Attack Sequence Pace
+   749→                </span>
+   750→                <span className="text-[11px] font-mono font-black text-slate-300 uppercase">
+   751→                  {pInfluence.directnessIndex}
+   752→                </span>
+   753→              </div>
+   754→            </div>
+   755→
+   756→            {/* Progress bar visualizing tactical synergy */}
+   757→            <div className="space-y-1">
+   758→              <div className="flex justify-between text-[8px] font-mono text-slate-500">
+   759→                <span>TACTICAL COMPLETION RATIO</span>
+   760→                <span>{pInfluence.completenessRatio}%</span>
+   761→              </div>
+   762→              <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-850/50">
+   763→                <div 
+   764→                  className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-300"
+   765→                  style={{ width: `${pInfluence.completenessRatio}%` }}
+   766→                />
+   767→              </div>
+   768→            </div>
+   769→
+   770→            <p className="text-[7px] text-slate-650 font-mono text-left leading-normal">
+   771→              *Poisson correlator measures tactical speed, team connectivity (nodes completeness) and movement hot spots mapping directly to simulated attacking ratios (λ / μ parameters).
+   772→            </p>
+   773→          </div>
+   774→
+   775→        </div>
+   776→
+   777→      </div>
+   778→    </div>
+   779→  );
+   780→}
+   781→

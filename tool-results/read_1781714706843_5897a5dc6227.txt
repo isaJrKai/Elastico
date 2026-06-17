@@ -1,0 +1,975 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react'
+     4→import { useElasticoStore, type Team } from '@/store/use-elastico-store'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Label } from '@/components/ui/label'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Switch } from '@/components/ui/switch'
+    11→import { Separator } from '@/components/ui/separator'
+    12→import { Badge } from '@/components/ui/badge'
+    13→import {
+    14→  Select,
+    15→  SelectContent,
+    16→  SelectItem,
+    17→  SelectTrigger,
+    18→  SelectValue,
+    19→} from '@/components/ui/select'
+    20→import {
+    21→  Dialog,
+    22→  DialogContent,
+    23→  DialogHeader,
+    24→  DialogTitle,
+    25→  DialogDescription,
+    26→} from '@/components/ui/dialog'
+    27→import {
+    28→  AlertDialog,
+    29→  AlertDialogAction,
+    30→  AlertDialogCancel,
+    31→  AlertDialogContent,
+    32→  AlertDialogDescription,
+    33→  AlertDialogFooter,
+    34→  AlertDialogHeader,
+    35→  AlertDialogTitle,
+    36→  AlertDialogTrigger,
+    37→} from '@/components/ui/alert-dialog'
+    38→import { useTheme } from 'next-themes'
+    39→import { toast } from '@/hooks/use-toast'
+    40→import {
+    41→  Settings,
+    42→  User,
+    43→  Palette,
+    44→  Bell,
+    45→  Shield,
+    46→  Heart,
+    47→  Keyboard,
+    48→  Save,
+    49→  Download,
+    50→  Trash2,
+    51→  Moon,
+    52→  Sun,
+    53→  PanelLeftClose,
+    54→  PanelLeft,
+    55→  Minimize2,
+    56→  Maximize2,
+    57→  Search,
+    58→  LayoutDashboard,
+    59→  Swords,
+    60→  MessageSquare,
+    61→  Newspaper,
+    62→  Trophy,
+    63→  Target,
+    64→  Star,
+    65→  Plus,
+    66→  X,
+    67→  Check,
+    68→  Monitor,
+    69→  Smartphone,
+    70→  Globe,
+    71→} from 'lucide-react'
+    72→import { cn } from '@/lib/utils'
+    73→
+    74→// ── Timezones ─────────────────────────────────────────────────────────────────
+    75→
+    76→const timezones = [
+    77→  'UTC',
+    78→  'America/New_York',
+    79→  'America/Chicago',
+    80→  'America/Denver',
+    81→  'America/Los_Angeles',
+    82→  'America/Sao_Paulo',
+    83→  'Europe/London',
+    84→  'Europe/Paris',
+    85→  'Europe/Berlin',
+    86→  'Europe/Madrid',
+    87→  'Europe/Rome',
+    88→  'Europe/Istanbul',
+    89→  'Asia/Dubai',
+    90→  'Asia/Kolkata',
+    91→  'Asia/Shanghai',
+    92→  'Asia/Tokyo',
+    93→  'Asia/Seoul',
+    94→  'Australia/Sydney',
+    95→]
+    96→
+    97→// ── Languages ─────────────────────────────────────────────────────────────────
+    98→
+    99→const languages = [
+   100→  { value: 'en', label: 'English' },
+   101→  { value: 'es', label: 'Español' },
+   102→  { value: 'pt', label: 'Português' },
+   103→  { value: 'fr', label: 'Français' },
+   104→  { value: 'de', label: 'Deutsch' },
+   105→  { value: 'ar', label: 'العربية' },
+   106→  { value: 'zh', label: '中文' },
+   107→  { value: 'ja', label: '日本語' },
+   108→  { value: 'ko', label: '한국어' },
+   109→]
+   110→
+   111→// ── Keyboard Shortcuts ────────────────────────────────────────────────────────
+   112→
+   113→const keyboardShortcuts = [
+   114→  { keys: '⌘K', description: 'Search / Command Palette', icon: Search },
+   115→  { keys: '⌘D', description: 'Dashboard', icon: LayoutDashboard },
+   116→  { keys: '⌘M', description: 'Live Matches', icon: Swords },
+   117→  { keys: '⌘C', description: 'AI Chat', icon: MessageSquare },
+   118→  { keys: '⌘N', description: 'News Feed', icon: Newspaper },
+   119→  { keys: '⌘T', description: 'Tournament', icon: Trophy },
+   120→  { keys: '⌘P', description: 'Predictions', icon: Target },
+   121→  { keys: '⌘S', description: 'Settings', icon: Settings },
+   122→  { keys: '⌘B', description: 'Toggle Sidebar', icon: PanelLeftClose },
+   123→  { keys: '⌘/', description: 'Show Shortcuts', icon: Keyboard },
+   124→]
+   125→
+   126→// ── Section Header ────────────────────────────────────────────────────────────
+   127→
+   128→function SectionHeader({
+   129→  icon: Icon,
+   130→  title,
+   131→  description,
+   132→}: {
+   133→  icon: React.ElementType
+   134→  title: string
+   135→  description?: string
+   136→}) {
+   137→  return (
+   138→    <div className="mb-4 flex items-center gap-3">
+   139→      <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
+   140→        <Icon className="size-4.5 text-primary" />
+   141→      </div>
+   142→      <div>
+   143→        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+   144→        {description && (
+   145→          <p className="text-xs text-muted-foreground">{description}</p>
+   146→        )}
+   147→      </div>
+   148→    </div>
+   149→  )
+   150→}
+   151→
+   152→// ── Settings View Component ───────────────────────────────────────────────────
+   153→
+   154→export function SettingsView() {
+   155→  const { user, setSidebarOpen, sidebarOpen } = useElasticoStore()
+   156→  const { theme, setTheme } = useTheme()
+   157→
+   158→  // ── Profile State ─────────────────────────────────────────────────────────
+   159→  const [displayName, setDisplayName] = useState(user?.displayName || user?.name || '')
+   160→  const [bio, setBio] = useState('')
+   161→  const [location, setLocation] = useState('')
+   162→  const [timezone, setTimezone] = useState('UTC')
+   163→  const [language, setLanguage] = useState('en')
+   164→
+   165→  // ── Appearance State ──────────────────────────────────────────────────────
+   166→  const [compactMode, setCompactMode] = useState(false)
+   167→
+   168→  // ── Notification State ────────────────────────────────────────────────────
+   169→  const [notifications, setNotifications] = useState({
+   170→    goals: true,
+   171→    cards: true,
+   172→    kickoff: true,
+   173→    predictionResults: true,
+   174→    system: false,
+   175→    news: true,
+   176→    sound: true,
+   177→    push: false,
+   178→  })
+   179→
+   180→  // ── Security State ────────────────────────────────────────────────────────
+   181→  const [currentPassword, setCurrentPassword] = useState('')
+   182→  const [newPassword, setNewPassword] = useState('')
+   183→  const [confirmPassword, setConfirmPassword] = useState('')
+   184→  const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.twoFactorEnabled || false)
+   185→
+   186→  // ── Favorite Teams ────────────────────────────────────────────────────────
+   187→  const [favoriteTeams, setFavoriteTeams] = useState<string[]>(() => {
+   188→    try {
+   189→      return user?.favoriteTeams ? JSON.parse(user.favoriteTeams) : []
+   190→    } catch {
+   191→      return []
+   192→    }
+   193→  })
+   194→  const [availableTeams, setAvailableTeams] = useState<Team[]>([])
+   195→  const [teamsLoading, setTeamsLoading] = useState(false)
+   196→  const [teamSearch, setTeamSearch] = useState('')
+   197→
+   198→  // ── Fetch Teams ───────────────────────────────────────────────────────────
+   199→
+   200→  useEffect(() => {
+   201→    const fetchTeams = async () => {
+   202→      setTeamsLoading(true)
+   203→      try {
+   204→        const res = await fetch('/api/teams')
+   205→        if (res.ok) {
+   206→          const data = await res.json()
+   207→          setAvailableTeams(data.teams || [])
+   208→        }
+   209→      } catch {
+   210→        // Silent error
+   211→      } finally {
+   212→        setTeamsLoading(false)
+   213→      }
+   214→    }
+   215→    fetchTeams()
+   216→  }, [])
+   217→
+   218→  // ── Save Profile ─────────────────────────────────────────────────────────
+   219→
+   220→  const handleSaveProfile = useCallback(() => {
+   221→    toast({
+   222→      title: 'Profile saved',
+   223→      description: 'Your profile has been updated successfully.',
+   224→    })
+   225→  }, [])
+   226→
+   227→  // ── Change Password ───────────────────────────────────────────────────────
+   228→
+   229→  const handleChangePassword = useCallback(() => {
+   230→    if (!currentPassword || !newPassword || !confirmPassword) {
+   231→      toast({
+   232→        title: 'Error',
+   233→        description: 'Please fill in all password fields.',
+   234→        variant: 'destructive',
+   235→      })
+   236→      return
+   237→    }
+   238→    if (newPassword !== confirmPassword) {
+   239→      toast({
+   240→        title: 'Error',
+   241→        description: 'New passwords do not match.',
+   242→        variant: 'destructive',
+   243→      })
+   244→      return
+   245→    }
+   246→    if (newPassword.length < 8) {
+   247→      toast({
+   248→        title: 'Error',
+   249→        description: 'Password must be at least 8 characters.',
+   250→        variant: 'destructive',
+   251→      })
+   252→      return
+   253→    }
+   254→
+   255→    toast({
+   256→      title: 'Password updated',
+   257→      description: 'Your password has been changed successfully.',
+   258→    })
+   259→    setCurrentPassword('')
+   260→    setNewPassword('')
+   261→    setConfirmPassword('')
+   262→  }, [currentPassword, newPassword, confirmPassword])
+   263→
+   264→  // ── Toggle Favorite Team ──────────────────────────────────────────────────
+   265→
+   266→  const toggleFavoriteTeam = useCallback((teamId: string) => {
+   267→    setFavoriteTeams((prev) =>
+   268→      prev.includes(teamId)
+   269→        ? prev.filter((id) => id !== teamId)
+   270→        : [...prev, teamId],
+   271→    )
+   272→  }, [])
+   273→
+   274→  // ── Export Data ───────────────────────────────────────────────────────────
+   275→
+   276→  const handleExportData = useCallback(() => {
+   277→    const data = {
+   278→      user,
+   279→      favoriteTeams,
+   280→      exportedAt: new Date().toISOString(),
+   281→    }
+   282→    const blob = new Blob([JSON.stringify(data, null, 2)], {
+   283→      type: 'application/json',
+   284→    })
+   285→    const url = URL.createObjectURL(blob)
+   286→    const a = document.createElement('a')
+   287→    a.href = url
+   288→    a.download = 'elastico-data-export.json'
+   289→    a.click()
+   290→    URL.revokeObjectURL(url)
+   291→
+   292→    toast({
+   293→      title: 'Data exported',
+   294→      description: 'Your data has been downloaded.',
+   295→    })
+   296→  }, [user, favoriteTeams])
+   297→
+   298→  // ── Delete Account ────────────────────────────────────────────────────────
+   299→
+   300→  const handleDeleteAccount = useCallback(() => {
+   301→    toast({
+   302→      title: 'Account deletion requested',
+   303→      description: 'This is a demo — your account was not deleted.',
+   304→    })
+   305→  }, [])
+   306→
+   307→  // ── Filter Teams for Search ───────────────────────────────────────────────
+   308→
+   309→  const filteredTeams = availableTeams.filter((team) =>
+   310→    team.name.toLowerCase().includes(teamSearch.toLowerCase()),
+   311→  )
+   312→
+   313→  return (
+   314→    <div className="flex h-full flex-col gap-6 overflow-y-auto pb-8">
+   315→      {/* ── Page Header ──────────────────────────────────────────────────────── */}
+   316→      <div className="flex items-center gap-3">
+   317→        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/15">
+   318→          <Settings className="size-5 text-primary" />
+   319→        </div>
+   320→        <div>
+   321→          <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+   322→          <p className="text-xs text-muted-foreground">
+   323→            Manage your account and preferences
+   324→          </p>
+   325→        </div>
+   326→      </div>
+   327→
+   328→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   329→      {/* ── 1. Profile Section ───────────────────────────────────────────────── */}
+   330→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   331→      <Card className="glass-card border-border">
+   332→        <CardHeader className="pb-4">
+   333→          <SectionHeader
+   334→            icon={User}
+   335→            title="Profile"
+   336→            description="Update your personal information"
+   337→          />
+   338→        </CardHeader>
+   339→        <CardContent className="space-y-4">
+   340→          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+   341→            {/* Display Name */}
+   342→            <div className="space-y-2">
+   343→              <Label htmlFor="displayName" className="text-xs text-muted-foreground">
+   344→                Display Name
+   345→              </Label>
+   346→              <Input
+   347→                id="displayName"
+   348→                value={displayName}
+   349→                onChange={(e) => setDisplayName(e.target.value)}
+   350→                placeholder="Enter display name"
+   351→                className="h-9 border-border bg-secondary/50 text-sm"
+   352→              />
+   353→            </div>
+   354→
+   355→            {/* Location */}
+   356→            <div className="space-y-2">
+   357→              <Label htmlFor="location" className="text-xs text-muted-foreground">
+   358→                Location
+   359→              </Label>
+   360→              <Input
+   361→                id="location"
+   362→                value={location}
+   363→                onChange={(e) => setLocation(e.target.value)}
+   364→                placeholder="City, Country"
+   365→                className="h-9 border-border bg-secondary/50 text-sm"
+   366→              />
+   367→            </div>
+   368→
+   369→            {/* Timezone */}
+   370→            <div className="space-y-2">
+   371→              <Label className="text-xs text-muted-foreground">Timezone</Label>
+   372→              <Select value={timezone} onValueChange={setTimezone}>
+   373→                <SelectTrigger className="h-9 border-border bg-secondary/50 text-sm">
+   374→                  <SelectValue />
+   375→                </SelectTrigger>
+   376→                <SelectContent>
+   377→                  {timezones.map((tz) => (
+   378→                    <SelectItem key={tz} value={tz} className="text-sm">
+   379→                      {tz}
+   380→                    </SelectItem>
+   381→                  ))}
+   382→                </SelectContent>
+   383→              </Select>
+   384→            </div>
+   385→
+   386→            {/* Language */}
+   387→            <div className="space-y-2">
+   388→              <Label className="text-xs text-muted-foreground">Language</Label>
+   389→              <Select value={language} onValueChange={setLanguage}>
+   390→                <SelectTrigger className="h-9 border-border bg-secondary/50 text-sm">
+   391→                  <SelectValue />
+   392→                </SelectTrigger>
+   393→                <SelectContent>
+   394→                  {languages.map((lang) => (
+   395→                    <SelectItem key={lang.value} value={lang.value} className="text-sm">
+   396→                      {lang.label}
+   397→                    </SelectItem>
+   398→                  ))}
+   399→                </SelectContent>
+   400→              </Select>
+   401→            </div>
+   402→          </div>
+   403→
+   404→          {/* Bio */}
+   405→          <div className="space-y-2">
+   406→            <Label htmlFor="bio" className="text-xs text-muted-foreground">
+   407→              Bio
+   408→            </Label>
+   409→            <Textarea
+   410→              id="bio"
+   411→              value={bio}
+   412→              onChange={(e) => setBio(e.target.value)}
+   413→              placeholder="Tell us about yourself..."
+   414→              rows={3}
+   415→              className="border-border bg-secondary/50 text-sm resize-none"
+   416→            />
+   417→          </div>
+   418→
+   419→          <div className="flex justify-end">
+   420→            <Button
+   421→              onClick={handleSaveProfile}
+   422→              className="h-9 bg-primary text-primary-foreground hover:bg-primary/90 text-sm"
+   423→            >
+   424→              <Save className="mr-2 size-4" />
+   425→              Save Profile
+   426→            </Button>
+   427→          </div>
+   428→        </CardContent>
+   429→      </Card>
+   430→
+   431→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   432→      {/* ── 2. Appearance Section ────────────────────────────────────────────── */}
+   433→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   434→      <Card className="glass-card border-border">
+   435→        <CardHeader className="pb-4">
+   436→          <SectionHeader
+   437→            icon={Palette}
+   438→            title="Appearance"
+   439→            description="Customize how ELASTICO looks"
+   440→          />
+   441→        </CardHeader>
+   442→        <CardContent className="space-y-4">
+   443→          {/* Theme Toggle */}
+   444→          <div className="flex items-center justify-between">
+   445→            <div className="flex items-center gap-3">
+   446→              {theme === 'dark' ? (
+   447→                <Moon className="size-4 text-primary" />
+   448→              ) : (
+   449→                <Sun className="size-4 text-primary" />
+   450→              )}
+   451→              <div>
+   452→                <p className="text-sm font-medium text-foreground">Theme</p>
+   453→                <p className="text-xs text-muted-foreground">
+   454→                  Toggle between dark and light mode
+   455→                </p>
+   456→              </div>
+   457→            </div>
+   458→            <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 p-1">
+   459→              <button
+   460→                onClick={() => setTheme('dark')}
+   461→                className={cn(
+   462→                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+   463→                  theme === 'dark'
+   464→                    ? 'bg-primary text-primary-foreground shadow-sm'
+   465→                    : 'text-muted-foreground hover:text-foreground',
+   466→                )}
+   467→              >
+   468→                <Moon className="size-3.5" />
+   469→                Dark
+   470→              </button>
+   471→              <button
+   472→                onClick={() => setTheme('light')}
+   473→                className={cn(
+   474→                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+   475→                  theme === 'light'
+   476→                    ? 'bg-primary text-primary-foreground shadow-sm'
+   477→                    : 'text-muted-foreground hover:text-foreground',
+   478→                )}
+   479→              >
+   480→                <Sun className="size-3.5" />
+   481→                Light
+   482→              </button>
+   483→            </div>
+   484→          </div>
+   485→
+   486→          <Separator className="opacity-50" />
+   487→
+   488→          {/* Sidebar Collapsed Toggle */}
+   489→          <div className="flex items-center justify-between">
+   490→            <div className="flex items-center gap-3">
+   491→              {sidebarOpen ? (
+   492→                <PanelLeft className="size-4 text-primary" />
+   493→              ) : (
+   494→                <PanelLeftClose className="size-4 text-primary" />
+   495→              )}
+   496→              <div>
+   497→                <p className="text-sm font-medium text-foreground">Sidebar</p>
+   498→                <p className="text-xs text-muted-foreground">
+   499→                  Show or collapse the navigation sidebar
+   500→                </p>
+   501→              </div>
+   502→            </div>
+   503→            <Switch
+   504→              checked={sidebarOpen}
+   505→              onCheckedChange={setSidebarOpen}
+   506→            />
+   507→          </div>
+   508→
+   509→          <Separator className="opacity-50" />
+   510→
+   511→          {/* Compact Mode Toggle */}
+   512→          <div className="flex items-center justify-between">
+   513→            <div className="flex items-center gap-3">
+   514→              {compactMode ? (
+   515→                <Minimize2 className="size-4 text-primary" />
+   516→              ) : (
+   517→                <Maximize2 className="size-4 text-primary" />
+   518→              )}
+   519→              <div>
+   520→                <p className="text-sm font-medium text-foreground">Compact Mode</p>
+   521→                <p className="text-xs text-muted-foreground">
+   522→                  Reduce spacing and card sizes
+   523→                </p>
+   524→              </div>
+   525→            </div>
+   526→            <Switch
+   527→              checked={compactMode}
+   528→              onCheckedChange={setCompactMode}
+   529→            />
+   530→          </div>
+   531→        </CardContent>
+   532→      </Card>
+   533→
+   534→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   535→      {/* ── 3. Notifications Section ─────────────────────────────────────────── */}
+   536→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   537→      <Card className="glass-card border-border">
+   538→        <CardHeader className="pb-4">
+   539→          <SectionHeader
+   540→            icon={Bell}
+   541→            title="Notifications"
+   542→            description="Choose what you want to be notified about"
+   543→          />
+   544→        </CardHeader>
+   545→        <CardContent className="space-y-3">
+   546→          {[
+   547→            {
+   548→              key: 'goals' as const,
+   549→              label: 'Goals',
+   550→              desc: 'Get notified when a goal is scored in a match you follow',
+   551→            },
+   552→            {
+   553→              key: 'cards' as const,
+   554→              label: 'Cards',
+   555→              desc: 'Yellow and red card notifications',
+   556→            },
+   557→            {
+   558→              key: 'kickoff' as const,
+   559→              label: 'Kickoff',
+   560→              desc: 'Match start reminders',
+   561→            },
+   562→            {
+   563→              key: 'predictionResults' as const,
+   564→              label: 'Prediction Results',
+   565→              desc: 'When your predictions are evaluated',
+   566→            },
+   567→            {
+   568→              key: 'system' as const,
+   569→              label: 'System',
+   570→              desc: 'Platform updates and announcements',
+   571→            },
+   572→            {
+   573→              key: 'news' as const,
+   574→              label: 'News',
+   575→              desc: 'Breaking football news',
+   576→            },
+   577→          ].map((item) => (
+   578→            <div key={item.key} className="flex items-center justify-between py-1">
+   579→              <div>
+   580→                <p className="text-sm font-medium text-foreground">{item.label}</p>
+   581→                <p className="text-xs text-muted-foreground">{item.desc}</p>
+   582→              </div>
+   583→              <Switch
+   584→                checked={notifications[item.key]}
+   585→                onCheckedChange={(checked) =>
+   586→                  setNotifications((prev) => ({ ...prev, [item.key]: checked }))
+   587→                }
+   588→              />
+   589→            </div>
+   590→          ))}
+   591→
+   592→          <Separator className="my-2 opacity-50" />
+   593→
+   594→          {/* Sound Toggle */}
+   595→          <div className="flex items-center justify-between py-1">
+   596→            <div>
+   597→              <p className="text-sm font-medium text-foreground">Sound</p>
+   598→              <p className="text-xs text-muted-foreground">
+   599→                Play sounds for notifications
+   600→              </p>
+   601→            </div>
+   602→            <Switch
+   603→              checked={notifications.sound}
+   604→              onCheckedChange={(checked) =>
+   605→                setNotifications((prev) => ({ ...prev, sound: checked }))
+   606→              }
+   607→            />
+   608→          </div>
+   609→
+   610→          {/* Push Notification Toggle */}
+   611→          <div className="flex items-center justify-between py-1">
+   612→            <div>
+   613→              <p className="text-sm font-medium text-foreground">
+   614→                Push Notifications
+   615→              </p>
+   616→              <p className="text-xs text-muted-foreground">
+   617→                Receive push notifications in your browser
+   618→              </p>
+   619→            </div>
+   620→            <Switch
+   621→              checked={notifications.push}
+   622→              onCheckedChange={(checked) =>
+   623→                setNotifications((prev) => ({ ...prev, push: checked }))
+   624→              }
+   625→            />
+   626→          </div>
+   627→        </CardContent>
+   628→      </Card>
+   629→
+   630→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   631→      {/* ── 4. Privacy & Security Section ────────────────────────────────────── */}
+   632→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   633→      <Card className="glass-card border-border">
+   634→        <CardHeader className="pb-4">
+   635→          <SectionHeader
+   636→            icon={Shield}
+   637→            title="Privacy & Security"
+   638→            description="Manage your account security settings"
+   639→          />
+   640→        </CardHeader>
+   641→        <CardContent className="space-y-6">
+   642→          {/* Change Password */}
+   643→          <div className="space-y-3">
+   644→            <p className="text-sm font-medium text-foreground">Change Password</p>
+   645→            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+   646→              <div className="space-y-1.5">
+   647→                <Label htmlFor="currentPw" className="text-xs text-muted-foreground">
+   648→                  Current Password
+   649→                </Label>
+   650→                <Input
+   651→                  id="currentPw"
+   652→                  type="password"
+   653→                  value={currentPassword}
+   654→                  onChange={(e) => setCurrentPassword(e.target.value)}
+   655→                  placeholder="••••••••"
+   656→                  className="h-9 border-border bg-secondary/50 text-sm"
+   657→                />
+   658→              </div>
+   659→              <div className="space-y-1.5">
+   660→                <Label htmlFor="newPw" className="text-xs text-muted-foreground">
+   661→                  New Password
+   662→                </Label>
+   663→                <Input
+   664→                  id="newPw"
+   665→                  type="password"
+   666→                  value={newPassword}
+   667→                  onChange={(e) => setNewPassword(e.target.value)}
+   668→                  placeholder="••••••••"
+   669→                  className="h-9 border-border bg-secondary/50 text-sm"
+   670→                />
+   671→              </div>
+   672→              <div className="space-y-1.5">
+   673→                <Label htmlFor="confirmPw" className="text-xs text-muted-foreground">
+   674→                  Confirm Password
+   675→                </Label>
+   676→                <Input
+   677→                  id="confirmPw"
+   678→                  type="password"
+   679→                  value={confirmPassword}
+   680→                  onChange={(e) => setConfirmPassword(e.target.value)}
+   681→                  placeholder="••••••••"
+   682→                  className="h-9 border-border bg-secondary/50 text-sm"
+   683→                />
+   684→              </div>
+   685→            </div>
+   686→            <div className="flex justify-end">
+   687→              <Button
+   688→                onClick={handleChangePassword}
+   689→                variant="outline"
+   690→                className="h-8 border-border text-xs text-muted-foreground hover:text-foreground"
+   691→              >
+   692→                Update Password
+   693→              </Button>
+   694→            </div>
+   695→          </div>
+   696→
+   697→          <Separator className="opacity-50" />
+   698→
+   699→          {/* Two-Factor Authentication */}
+   700→          <div className="flex items-center justify-between">
+   701→            <div>
+   702→              <p className="text-sm font-medium text-foreground">
+   703→                Two-Factor Authentication
+   704→              </p>
+   705→              <p className="text-xs text-muted-foreground">
+   706→                Add an extra layer of security to your account
+   707→              </p>
+   708→            </div>
+   709→            <Switch
+   710→              checked={twoFactorEnabled}
+   711→              onCheckedChange={setTwoFactorEnabled}
+   712→            />
+   713→          </div>
+   714→
+   715→          <Separator className="opacity-50" />
+   716→
+   717→          {/* Active Sessions */}
+   718→          <div className="space-y-3">
+   719→            <p className="text-sm font-medium text-foreground">Active Sessions</p>
+   720→            <div className="space-y-2">
+   721→              {[
+   722→                {
+   723→                  device: 'Chrome on macOS',
+   724→                  icon: Monitor,
+   725→                  location: 'San Francisco, US',
+   726→                  current: true,
+   727→                },
+   728→                {
+   729→                  device: 'Safari on iPhone',
+   730→                  icon: Smartphone,
+   731→                  location: 'San Francisco, US',
+   732→                  current: false,
+   733→                },
+   734→              ].map((session, i) => (
+   735→                <div
+   736→                  key={i}
+   737→                  className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-3 py-2.5"
+   738→                >
+   739→                  <div className="flex items-center gap-3">
+   740→                    <session.icon className="size-4 text-muted-foreground" />
+   741→                    <div>
+   742→                      <div className="flex items-center gap-2">
+   743→                        <p className="text-xs font-medium text-foreground">
+   744→                          {session.device}
+   745→                        </p>
+   746→                        {session.current && (
+   747→                          <Badge className="h-4 bg-primary/15 px-1.5 text-[9px] font-semibold text-primary border-primary/30">
+   748→                            Current
+   749→                          </Badge>
+   750→                        )}
+   751→                      </div>
+   752→                      <p className="text-[10px] text-muted-foreground">
+   753→                        {session.location} · Active now
+   754→                      </p>
+   755→                    </div>
+   756→                  </div>
+   757→                  {!session.current && (
+   758→                    <Button
+   759→                      variant="ghost"
+   760→                      size="sm"
+   761→                      className="h-7 text-[10px] text-muted-foreground hover:text-destructive"
+   762→                    >
+   763→                      Revoke
+   764→                    </Button>
+   765→                  )}
+   766→                </div>
+   767→              ))}
+   768→            </div>
+   769→          </div>
+   770→
+   771→          <Separator className="opacity-50" />
+   772→
+   773→          {/* Data Export & Delete */}
+   774→          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   775→            <div>
+   776→              <p className="text-sm font-medium text-foreground">Data & Account</p>
+   777→              <p className="text-xs text-muted-foreground">
+   778→                Export your data or delete your account
+   779→              </p>
+   780→            </div>
+   781→            <div className="flex items-center gap-2">
+   782→              <Button
+   783→                variant="outline"
+   784→                onClick={handleExportData}
+   785→                className="h-9 border-border text-xs text-muted-foreground hover:text-foreground"
+   786→              >
+   787→                <Download className="mr-2 size-3.5" />
+   788→                Export Data
+   789→              </Button>
+   790→
+   791→              <AlertDialog>
+   792→                <AlertDialogTrigger asChild>
+   793→                  <Button
+   794→                    variant="destructive"
+   795→                    className="h-9 text-xs"
+   796→                  >
+   797→                    <Trash2 className="mr-2 size-3.5" />
+   798→                    Delete Account
+   799→                  </Button>
+   800→                </AlertDialogTrigger>
+   801→                <AlertDialogContent className="glass-card border-border">
+   802→                  <AlertDialogHeader>
+   803→                    <AlertDialogTitle className="text-foreground">
+   804→                      Are you sure?
+   805→                    </AlertDialogTitle>
+   806→                    <AlertDialogDescription>
+   807→                      This action cannot be undone. All your data including
+   808→                      predictions, favorites, and profile information will be
+   809→                      permanently deleted.
+   810→                    </AlertDialogDescription>
+   811→                  </AlertDialogHeader>
+   812→                  <AlertDialogFooter>
+   813→                    <AlertDialogCancel className="border-border bg-secondary text-muted-foreground hover:text-foreground">
+   814→                      Cancel
+   815→                    </AlertDialogCancel>
+   816→                    <AlertDialogAction
+   817→                      onClick={handleDeleteAccount}
+   818→                      className="bg-destructive text-white hover:bg-destructive/90"
+   819→                    >
+   820→                      Delete Account
+   821→                    </AlertDialogAction>
+   822→                  </AlertDialogFooter>
+   823→                </AlertDialogContent>
+   824→              </AlertDialog>
+   825→            </div>
+   826→          </div>
+   827→        </CardContent>
+   828→      </Card>
+   829→
+   830→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   831→      {/* ── 5. Favorite Teams Section ────────────────────────────────────────── */}
+   832→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   833→      <Card className="glass-card border-border">
+   834→        <CardHeader className="pb-4">
+   835→          <SectionHeader
+   836→            icon={Heart}
+   837→            title="Favorite Teams"
+   838→            description="Select teams you want to follow"
+   839→          />
+   840→        </CardHeader>
+   841→        <CardContent className="space-y-4">
+   842→          {/* Current Favorites */}
+   843→          {favoriteTeams.length > 0 && (
+   844→            <div className="space-y-2">
+   845→              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+   846→                Your Favorites
+   847→              </p>
+   848→              <div className="flex flex-wrap gap-2">
+   849→                {favoriteTeams.map((teamId) => {
+   850→                  const team = availableTeams.find((t) => t.id === teamId)
+   851→                  return (
+   852→                    <Badge
+   853→                      key={teamId}
+   854→                      className="flex items-center gap-1.5 h-7 px-3 bg-primary/10 text-primary border-primary/30 cursor-pointer hover:bg-primary/20 transition-colors"
+   855→                      onClick={() => toggleFavoriteTeam(teamId)}
+   856→                    >
+   857→                      <Star className="size-3 fill-primary text-primary" />
+   858→                      {team?.name || 'Unknown Team'}
+   859→                      <X className="size-3 opacity-60" />
+   860→                    </Badge>
+   861→                  )
+   862→                })}
+   863→              </div>
+   864→            </div>
+   865→          )}
+   866→
+   867→          <Separator className="opacity-50" />
+   868→
+   869→          {/* Team Search */}
+   870→          <div className="space-y-2">
+   871→            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+   872→              Add Teams
+   873→            </p>
+   874→            <Input
+   875→              value={teamSearch}
+   876→              onChange={(e) => setTeamSearch(e.target.value)}
+   877→              placeholder="Search for a team..."
+   878→              className="h-9 border-border bg-secondary/50 text-sm placeholder:text-muted-foreground/60"
+   879→            />
+   880→          </div>
+   881→
+   882→          {/* Team Grid */}
+   883→          <div className="max-h-64 overflow-y-auto rounded-lg border border-border/50">
+   884→            {teamsLoading ? (
+   885→              <div className="grid grid-cols-1 gap-1 p-2 sm:grid-cols-2">
+   886→                {Array.from({ length: 6 }).map((_, i) => (
+   887→                  <div
+   888→                    key={i}
+   889→                    className="h-10 animate-pulse rounded-md bg-secondary/50"
+   890→                  />
+   891→                ))}
+   892→              </div>
+   893→            ) : filteredTeams.length === 0 ? (
+   894→              <div className="flex items-center justify-center py-8">
+   895→                <p className="text-xs text-muted-foreground">No teams found</p>
+   896→              </div>
+   897→            ) : (
+   898→              <div className="grid grid-cols-1 gap-1 p-2 sm:grid-cols-2">
+   899→                {filteredTeams.map((team) => {
+   900→                  const isFav = favoriteTeams.includes(team.id)
+   901→                  return (
+   902→                    <button
+   903→                      key={team.id}
+   904→                      onClick={() => toggleFavoriteTeam(team.id)}
+   905→                      className={cn(
+   906→                        'flex items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs transition-all',
+   907→                        isFav
+   908→                          ? 'bg-primary/10 text-primary border border-primary/30'
+   909→                          : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground border border-transparent',
+   910→                      )}
+   911→                    >
+   912→                      <div className="flex items-center gap-2 min-w-0">
+   913→                        <div
+   914→                          className="size-5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+   915→                          style={{ backgroundColor: team.primaryColor }}
+   916→                        >
+   917→                          {team.code.slice(0, 2)}
+   918→                        </div>
+   919→                        <span className="truncate">{team.name}</span>
+   920→                      </div>
+   921→                      <div className="flex items-center gap-1.5 shrink-0">
+   922→                        <span className="text-[10px] opacity-60">
+   923→                          ELO {team.eloRating}
+   924→                        </span>
+   925→                        {isFav && (
+   926→                          <Check className="size-3.5 text-primary" />
+   927→                        )}
+   928→                        {!isFav && (
+   929→                          <Plus className="size-3.5 opacity-40" />
+   930→                        )}
+   931→                      </div>
+   932→                    </button>
+   933→                  )
+   934→                })}
+   935→              </div>
+   936→            )}
+   937→          </div>
+   938→        </CardContent>
+   939→      </Card>
+   940→
+   941→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   942→      {/* ── 6. Keyboard Shortcuts Section ────────────────────────────────────── */}
+   943→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   944→      <Card className="glass-card border-border">
+   945→        <CardHeader className="pb-4">
+   946→          <SectionHeader
+   947→            icon={Keyboard}
+   948→            title="Keyboard Shortcuts"
+   949→            description="Navigate faster with keyboard shortcuts"
+   950→          />
+   951→        </CardHeader>
+   952→        <CardContent>
+   953→          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+   954→            {keyboardShortcuts.map((shortcut) => (
+   955→              <div
+   956→                key={shortcut.keys}
+   957→                className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/50"
+   958→              >
+   959→                <div className="flex items-center gap-2.5">
+   960→                  <shortcut.icon className="size-4 text-muted-foreground" />
+   961→                  <span className="text-xs text-muted-foreground">
+   962→                    {shortcut.description}
+   963→                  </span>
+   964→                </div>
+   965→                <kbd className="rounded-md border border-border bg-secondary px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+   966→                  {shortcut.keys}
+   967→                </kbd>
+   968→              </div>
+   969→            ))}
+   970→          </div>
+   971→        </CardContent>
+   972→      </Card>
+   973→    </div>
+   974→  )
+   975→}

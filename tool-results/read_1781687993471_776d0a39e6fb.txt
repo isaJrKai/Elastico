@@ -1,0 +1,2002 @@
+     1→import React, { useState, useEffect } from "react";
+     2→import { jsPDF } from "jspdf";
+     3→import { 
+     4→  Play, Zap, RefreshCw, Layers, Calendar, MapPin, Award, 
+     5→  Timer, Volume2, ShieldAlert, CheckCircle, Info, Radio, 
+     6→  HelpCircle, Sparkles, TrendingUp, ChevronRight, BarChart2,
+     7→  Bell, BellOff, VolumeX, Trash2, Activity, ChevronDown, ChevronUp,
+     8→  Users, ArrowLeftRight, Search, AlertCircle, Scale
+     9→} from "lucide-react";
+    10→import { 
+    11→  ResponsiveContainer, LineChart, Line, XAxis, YAxis, 
+    12→  CartesianGrid, Tooltip, Legend, BarChart, Bar,
+    13→  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
+    14→} from "recharts";
+    15→import { Match, MatchEvent, User, LineupPlayer } from "../types";
+    16→import ChatPanel from "./ChatPanel";
+    17→import TacticalInsight from "./TacticalInsight";
+    18→import NotificationSettings, { NotificationSettingsConfig } from "./NotificationSettings";
+    19→import { useHalftimeMonitor } from "../hooks/useHalftimeMonitor";
+    20→import { triggerHaptic } from "../utils/haptics";
+    21→import LiveScoreboard from "./LiveScoreboard";
+    22→import TournamentBracket from "./TournamentBracket";
+    23→import PredictionCard from "./PredictionCard";
+    24→import TeamIntelligence from "./TeamIntelligence";
+    25→import GoldenBootLeaderboard from "./GoldenBootLeaderboard";
+    26→import PersonalizedDashboard from "./PersonalizedDashboard";
+    27→import PredictorsLeaderboard from "./PredictorsLeaderboard";
+    28→
+    29→interface DashboardViewProps {
+    30→  user: User;
+    31→  authToken: string;
+    32→  onOpenUpgrade: () => void;
+    33→  onProfileUpdated?: (u: User) => void;
+    34→  matches: Match[];
+    35→  onRefreshMatches: () => void;
+    36→  selectedMatch: Match | null;
+    37→  onSelectMatch: (m: Match) => void;
+    38→}
+    39→
+    40→interface SportArticle {
+    41→  id: string;
+    42→  source: string;
+    43→  title: string;
+    44→  summary: string;
+    45→  url: string;
+    46→  time: string;
+    47→  thumbnail: string;
+    48→  category: "Local" | "Global" | "Transfer" | "Tactics";
+    49→  region?: string;
+    50→  flag?: string;
+    51→}
+    52→
+    53→const newsArticles: SportArticle[] = [
+    54→  {
+    55→    id: "nbs-1",
+    56→    source: "NBS Sport",
+    57→    title: "Uganda Cranes Intensify Tactical Drills Ahead of High-Stakes African Qualifiers",
+    58→    summary: "National coach introduces critical transition game-plans to master defensive structure against elite international high-press.",
+    59→    url: "https://nbssport.co.ug/",
+    60→    time: "4m ago",
+    61→    thumbnail: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=300&auto=format&fit=crop",
+    62→    category: "Local",
+    63→  },
+    64→  {
+    65→    id: "nbs-2",
+    66→    source: "NBS Sport",
+    67→    title: "National Basketball League: City Oilers Register Explosive Victory",
+    68→    summary: "Commanding screen rotations and offensive transitions secure a vital win for the local basketball division leaders.",
+    69→    url: "https://nbssport.co.ug/",
+    70→    time: "2h ago",
+    71→    thumbnail: "https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=300&auto=format&fit=crop",
+    72→    category: "Local",
+    73→  },
+    74→  {
+    75→    id: "nbs-3",
+    76→    source: "NBS Sport",
+    77→    title: "NSSF KAVC International: Volleyball Clubs Sync Tactical Roations",
+    78→    summary: "Ugandan teams lock down defensive defense formations to counter incoming regional Eastern African volleyball squads.",
+    79→    url: "https://nbssport.co.ug/",
+    80→    time: "5h ago",
+    81→    thumbnail: "https://images.unsplash.com/photo-1547347298-4074fc308ac9?q=80&w=300&auto=format&fit=crop",
+    82→    category: "Local",
+    83→  },
+    84→  {
+    85→    id: "espn-1",
+    86→    source: "ESPN",
+    87→    title: "World Cup Tactical Preview: Poisson Models Pinpoint Midfield Overloads",
+    88→    summary: "Advanced sports forecasts examine ELO progress ratios, showcasing clash predictions against standard physical models.",
+    89→    url: "https://www.espn.com/soccer/",
+    90→    time: "15m ago",
+    91→    thumbnail: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=300&auto=format&fit=crop",
+    92→    category: "Global",
+    93→  },
+    94→  {
+    95→    id: "bbc-1",
+    96→    source: "BBC Sport",
+    97→    title: "Slick Transfer Market: Power Clubs Unleash Massive Swaps",
+    98→    summary: "Top scouts trigger high-stakes negotiations as star performers dominate key defensive matrices.",
+    99→    url: "https://www.bbc.com/sport/football",
+   100→    time: "45m ago",
+   101→    thumbnail: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?q=80&w=300&auto=format&fit=crop",
+   102→    category: "Transfer",
+   103→  },
+   104→  {
+   105→    id: "sky-1",
+   106→    source: "Sky Sports",
+   107→    title: "The Genius of Zonal Pressing: Dissecting Positional Football Formations",
+   108→    summary: "Pundits analyze half-space overloads, modern counter-pressing styles, and inverted fullback utility.",
+   109→    url: "https://www.skysports.com/football",
+   110→    time: "1h ago",
+   111→    thumbnail: "https://images.unsplash.com/photo-1518063319789-7217e6706b04?q=80&w=300&auto=format&fit=crop",
+   112→    category: "Tactics",
+   113→  },
+   114→];
+   115→
+   116→const playersByTeam: Record<string, string[]> = {
+   117→  Brazil: ["Alisson", "Marquinhos", "Casemiro", "Vinicius Jr", "Rodrygo"],
+   118→  Germany: ["ter Stegen", "Rudiger", "Gundogan", "Musiala", "Fullkrug"],
+   119→  Argentina: ["E. Martinez", "Romero", "Mac Allister", "Messi", "Alvarez"],
+   120→  France: ["Maignan", "Saliba", "Tchouameni", "Mbappe", "Griezmann"],
+   121→  England: ["Pickford", "Stones", "Rice", "Bellingham", "Kane"],
+   122→  Spain: ["Simon", "Laporte", "Rodri", "Yamal", "Morata"],
+   123→  Portugal: ["Costa", "Dias", "Fernandes", "Leao", "Ronaldo"],
+   124→  Netherlands: ["Verbruggen", "van Dijk", "de Jong", "Gakpo", "Depay"],
+   125→};
+   126→
+   127→
+   128→
+   129→const defaultRosters: Record<string, { starters: Omit<LineupPlayer, "id">[]; subs: Omit<LineupPlayer, "id">[] }> = {
+   130→  Brazil: {
+   131→    starters: [
+   132→      { name: "Alisson", role: "GK", posName: "GK", rating: 89, x: 50, y: 88, goals: 0, assists: 1, tackles: 42 },
+   133→      { name: "Danilo", role: "DEF", posName: "RB", rating: 81, x: 85, y: 72, goals: 1, assists: 4, tackles: 52 },
+   134→      { name: "Marquinhos", role: "DEF", posName: "CB", rating: 87, x: 62, y: 72, goals: 2, assists: 1, tackles: 68 },
+   135→      { name: "Gabriel", role: "DEF", posName: "CB", rating: 86, x: 38, y: 72, goals: 3, assists: 0, tackles: 74 },
+   136→      { name: "Arana", role: "DEF", posName: "LB", rating: 80, x: 15, y: 72, goals: 0, assists: 3, tackles: 48 },
+   137→      { name: "Casemiro", role: "MID", posName: "DM", rating: 84, x: 50, y: 52, goals: 4, assists: 3, tackles: 74 },
+   138→      { name: "Guimaraes", role: "MID", posName: "CM", rating: 85, x: 28, y: 48, goals: 3, assists: 5, tackles: 62 },
+   139→      { name: "Paqueta", role: "MID", posName: "AM", rating: 83, x: 72, y: 48, goals: 5, assists: 6, tackles: 40 },
+   140→      { name: "Rodrygo", role: "FWD", posName: "RW", rating: 86, x: 80, y: 22, goals: 13, assists: 8, tackles: 18 },
+   141→      { name: "Richarlison", role: "FWD", posName: "ST", rating: 82, x: 50, y: 18, goals: 11, assists: 2, tackles: 12 },
+   142→      { name: "Vinicius Jr", role: "FWD", posName: "LW", rating: 90, x: 20, y: 22, goals: 18, assists: 11, tackles: 21 },
+   143→    ],
+   144→    subs: [
+   145→      { name: "Ederson", role: "GK", posName: "GK", rating: 88, x: 0, y: 0, goals: 0, assists: 0, tackles: 10 },
+   146→      { name: "Militao", role: "DEF", posName: "CB", rating: 85, x: 0, y: 0, goals: 2, assists: 1, tackles: 58 },
+   147→      { name: "Joao Gomes", role: "MID", posName: "CM", rating: 80, x: 0, y: 0, goals: 1, assists: 2, tackles: 50 },
+   148→      { name: "Martinelli", role: "FWD", posName: "LW", rating: 84, x: 0, y: 0, goals: 6, assists: 4, tackles: 15 },
+   149→      { name: "Endrick", role: "FWD", posName: "ST", rating: 81, x: 0, y: 0, goals: 4, assists: 1, tackles: 8 },
+   150→    ]
+   151→  },
+   152→  Germany: {
+   153→    starters: [
+   154→      { name: "ter Stegen", role: "GK", posName: "GK", rating: 89, x: 50, y: 88, goals: 0, assists: 0, tackles: 38 },
+   155→      { name: "Kimmich", role: "DEF", posName: "RB", rating: 86, x: 85, y: 72, goals: 2, assists: 8, tackles: 65 },
+   156→      { name: "Rudiger", role: "DEF", posName: "CB", rating: 88, x: 62, y: 72, goals: 1, assists: 1, tackles: 72 },
+   157→      { name: "Tah", role: "DEF", posName: "CB", rating: 84, x: 38, y: 72, goals: 1, assists: 0, tackles: 64 },
+   158→      { name: "Mittelstadt", role: "DEF", posName: "LB", rating: 81, x: 15, y: 72, goals: 1, assists: 3, tackles: 50 },
+   159→      { name: "Andrich", role: "MID", posName: "CM", rating: 82, x: 35, y: 56, goals: 2, assists: 1, tackles: 78 },
+   160→      { name: "Kroos", role: "MID", posName: "CM", rating: 87, x: 65, y: 56, goals: 3, assists: 12, tackles: 46 },
+   161→      { name: "Gundogan", role: "MID", posName: "AM", rating: 85, x: 50, y: 38, goals: 6, assists: 9, tackles: 48 },
+   162→      { name: "Sane", role: "FWD", posName: "RW", rating: 84, x: 80, y: 32, goals: 8, assists: 7, tackles: 14 },
+   163→      { name: "Musiala", role: "FWD", posName: "LW", rating: 88, x: 20, y: 32, goals: 12, assists: 10, tackles: 25 },
+   164→      { name: "Fullkrug", role: "FWD", posName: "ST", rating: 82, x: 50, y: 16, goals: 15, assists: 4, tackles: 10 },
+   165→    ],
+   166→    subs: [
+   167→      { name: "Neuer", role: "GK", posName: "GK", rating: 86, x: 0, y: 0, goals: 0, assists: 0, tackles: 12 },
+   168→      { name: "Schlotterbeck", role: "DEF", posName: "CB", rating: 83, x: 0, y: 0, goals: 1, assists: 1, tackles: 52 },
+   169→      { name: "Gross", role: "MID", posName: "CM", rating: 81, x: 0, y: 0, goals: 2, assists: 3, tackles: 40 },
+   170→      { name: "Wirtz", role: "MID", posName: "AM", rating: 87, x: 0, y: 0, goals: 11, assists: 11, tackles: 22 },
+   171→      { name: "Havertz", role: "FWD", posName: "ST", rating: 84, x: 0, y: 0, goals: 12, assists: 6, tackles: 18 },
+   172→    ]
+   173→  },
+   174→  Argentina: {
+   175→    starters: [
+   176→      { name: "E. Martinez", role: "GK", posName: "GK", rating: 88, x: 50, y: 88, goals: 0, assists: 0, tackles: 45 },
+   177→      { name: "Molina", role: "DEF", posName: "RB", rating: 82, x: 85, y: 72, goals: 1, assists: 3, tackles: 50 },
+   178→      { name: "Romero", role: "DEF", posName: "CB", rating: 87, x: 62, y: 72, goals: 2, assists: 0, tackles: 80 },
+   179→      { name: "Otamendi", role: "DEF", posName: "CB", rating: 83, x: 38, y: 72, goals: 4, assists: 1, tackles: 62 },
+   180→      { name: "Tagliafico", role: "DEF", posName: "LB", rating: 81, x: 15, y: 72, goals: 1, assists: 2, tackles: 56 },
+   181→      { name: "Fernandez", role: "MID", posName: "DM", rating: 84, x: 50, y: 52, goals: 3, assists: 4, tackles: 68 },
+   182→      { name: "De Paul", role: "MID", posName: "CM", rating: 84, x: 72, y: 48, goals: 2, assists: 5, tackles: 85 },
+   183→      { name: "Mac Allister", role: "MID", posName: "CM", rating: 86, x: 28, y: 48, goals: 5, assists: 7, tackles: 56 },
+   184→      { name: "Messi", role: "FWD", posName: "RW", rating: 92, x: 80, y: 22, goals: 22, assists: 16, tackles: 12 },
+   185→      { name: "Alvarez", role: "FWD", posName: "ST", rating: 85, x: 50, y: 18, goals: 14, assists: 6, tackles: 34 },
+   186→      { name: "Gonzalez", role: "FWD", posName: "LW", rating: 80, x: 20, y: 22, goals: 4, assists: 3, tackles: 28 },
+   187→    ],
+   188→    subs: [
+   189→      { name: "Rulli", role: "GK", posName: "GK", rating: 80, x: 0, y: 0, goals: 0, assists: 0, tackles: 8 },
+   190→      { name: "Lisandro Martinez", role: "DEF", posName: "CB", rating: 84, x: 0, y: 0, goals: 1, assists: 1, tackles: 60 },
+   191→      { name: "Paredes", role: "MID", posName: "CM", rating: 81, x: 0, y: 0, goals: 2, assists: 2, tackles: 45 },
+   192→      { name: "Di Maria", role: "FWD", posName: "RW", rating: 83, x: 0, y: 0, goals: 8, assists: 9, tackles: 15 },
+   193→      { name: "Lautaro Martinez", role: "FWD", posName: "ST", rating: 87, x: 0, y: 0, goals: 16, assists: 3, tackles: 11 },
+   194→    ]
+   195→  },
+   196→  France: {
+   197→    starters: [
+   198→      { name: "Maignan", role: "GK", posName: "GK", rating: 87, x: 50, y: 88, goals: 0, assists: 0, tackles: 40 },
+   199→      { name: "Kounde", role: "DEF", posName: "RB", rating: 84, x: 85, y: 72, goals: 1, assists: 3, tackles: 55 },
+   200→      { name: "Saliba", role: "DEF", posName: "CB", rating: 88, x: 62, y: 72, goals: 1, assists: 1, tackles: 75 },
+   201→      { name: "Upamecano", role: "DEF", posName: "CB", rating: 83, x: 38, y: 72, goals: 1, assists: 0, tackles: 60 },
+   202→      { name: "Hernandez", role: "DEF", posName: "LB", rating: 85, x: 15, y: 72, goals: 3, assists: 6, tackles: 58 },
+   203→      { name: "Tchouameni", role: "MID", posName: "CM", rating: 85, x: 35, y: 56, goals: 3, assists: 2, tackles: 70 },
+   204→      { name: "Rabiot", role: "MID", posName: "CM", rating: 83, x: 65, y: 56, goals: 4, assists: 3, tackles: 52 },
+   205→      { name: "Griezmann", role: "MID", posName: "AM", rating: 86, x: 50, y: 38, goals: 11, assists: 14, tackles: 45 },
+   206→      { name: "Dembele", role: "FWD", posName: "RW", rating: 84, x: 80, y: 32, goals: 6, assists: 10, tackles: 15 },
+   207→      { name: "Mbappe", role: "FWD", posName: "LW", rating: 91, x: 20, y: 32, goals: 28, assists: 9, tackles: 8 },
+   208→      { name: "Thuram", role: "FWD", posName: "ST", rating: 82, x: 50, y: 16, goals: 10, assists: 5, tackles: 14 },
+   209→    ],
+   210→    subs: [
+   211→      { name: "Samba", role: "GK", posName: "GK", rating: 80, x: 0, y: 0, goals: 0, assists: 0, tackles: 5 },
+   212→      { name: "Konate", role: "DEF", posName: "CB", rating: 83, x: 0, y: 0, goals: 1, assists: 0, tackles: 54 },
+   213→      { name: "Camavinga", role: "MID", posName: "CM", rating: 84, x: 0, y: 0, goals: 2, assists: 4, tackles: 64 },
+   214→      { name: "Coman", role: "FWD", posName: "RW", rating: 81, x: 0, y: 0, goals: 4, assists: 5, tackles: 12 },
+   215→      { name: "Giroud", role: "FWD", posName: "ST", rating: 80, x: 0, y: 0, goals: 8, assists: 2, tackles: 6 },
+   216→    ]
+   217→  },
+   218→  England: {
+   219→    starters: [
+   220→      { name: "Pickford", role: "GK", posName: "GK", rating: 84, x: 50, y: 88, goals: 0, assists: 0, tackles: 35 },
+   221→      { name: "Walker", role: "DEF", posName: "RB", rating: 85, x: 85, y: 72, goals: 0, assists: 3, tackles: 62 },
+   222→      { name: "Stones", role: "DEF", posName: "CB", rating: 86, x: 62, y: 72, goals: 2, assists: 2, tackles: 58 },
+   223→      { name: "Guehi", role: "DEF", posName: "CB", rating: 82, x: 38, y: 72, goals: 0, assists: 1, tackles: 55 },
+   224→      { name: "Trippier", role: "DEF", posName: "LB", rating: 81, x: 15, y: 72, goals: 1, assists: 5, tackles: 46 },
+   225→      { name: "Rice", role: "MID", posName: "CM", rating: 87, x: 35, y: 56, goals: 5, assists: 6, tackles: 82 },
+   226→      { name: "Mainoo", role: "MID", posName: "CM", rating: 80, x: 65, y: 56, goals: 1, assists: 2, tackles: 44 },
+   227→      { name: "Bellingham", role: "MID", posName: "AM", rating: 89, x: 50, y: 38, goals: 16, assists: 10, tackles: 52 },
+   228→      { name: "Saka", role: "FWD", posName: "RW", rating: 87, x: 80, y: 32, goals: 14, assists: 9, tackles: 20 },
+   229→      { name: "Foden", role: "FWD", posName: "LW", rating: 88, x: 20, y: 32, goals: 15, assists: 11, tackles: 18 },
+   230→      { name: "Kane", role: "FWD", posName: "ST", rating: 90, x: 50, y: 16, goals: 26, assists: 8, tackles: 15 },
+   231→    ],
+   232→    subs: [
+   233→      { name: "Ramsdale", role: "GK", posName: "GK", rating: 81, x: 0, y: 0, goals: 0, assists: 0, tackles: 6 },
+   234→      { name: "Konsa", role: "DEF", posName: "CB", rating: 80, x: 0, y: 0, goals: 0, assists: 0, tackles: 42 },
+   235→      { name: "Gallagher", role: "MID", posName: "CM", rating: 81, x: 0, y: 0, goals: 3, assists: 1, tackles: 56 },
+   236→      { name: "Palmer", role: "FWD", posName: "LW", rating: 86, x: 0, y: 0, goals: 18, assists: 11, tackles: 24 },
+   237→      { name: "Watkins", role: "FWD", posName: "ST", rating: 83, x: 0, y: 0, goals: 14, assists: 5, tackles: 10 },
+   238→    ]
+   239→  },
+   240→  Spain: {
+   241→    starters: [
+   242→      { name: "Simon", role: "GK", posName: "GK", rating: 85, x: 50, y: 88, goals: 0, assists: 0, tackles: 36 },
+   243→      { name: "Carvajal", role: "DEF", posName: "RB", rating: 86, x: 85, y: 72, goals: 2, assists: 5, tackles: 70 },
+   244→      { name: "Le Normand", role: "DEF", posName: "CB", rating: 82, x: 62, y: 72, goals: 1, assists: 0, tackles: 58 },
+   245→      { name: "Laporte", role: "DEF", posName: "CB", rating: 84, x: 38, y: 72, goals: 2, assists: 1, tackles: 64 },
+   246→      { name: "Cucurella", role: "DEF", posName: "LB", rating: 82, x: 15, y: 72, goals: 0, assists: 4, tackles: 66 },
+   247→      { name: "Rodri", role: "MID", posName: "DM", rating: 90, x: 50, y: 52, goals: 7, assists: 8, tackles: 86 },
+   248→      { name: "Ruiz", role: "MID", posName: "CM", rating: 83, x: 28, y: 48, goals: 4, assists: 4, tackles: 50 },
+   249→      { name: "Olmo", role: "MID", posName: "AM", rating: 85, x: 72, y: 48, goals: 8, assists: 6, tackles: 38 },
+   250→      { name: "Yamal", role: "FWD", posName: "RW", rating: 87, x: 80, y: 22, goals: 9, assists: 12, tackles: 22 },
+   251→      { name: "Morata", role: "FWD", posName: "ST", rating: 83, x: 50, y: 18, goals: 12, assists: 4, tackles: 18 },
+   252→      { name: "Williams", role: "FWD", posName: "LW", rating: 86, x: 20, y: 22, goals: 10, assists: 8, tackles: 30 },
+   253→    ],
+   254→    subs: [
+   255→      { name: "Raya", role: "GK", posName: "GK", rating: 83, x: 0, y: 0, goals: 0, assists: 0, tackles: 7 },
+   256→      { name: "Vivian", role: "DEF", posName: "CB", rating: 80, x: 0, y: 0, goals: 0, assists: 0, tackles: 46 },
+   257→      { name: "Zubimendi", role: "MID", posName: "CM", rating: 84, x: 0, y: 0, goals: 2, assists: 1, tackles: 62 },
+   258→      { name: "Pedri", role: "MID", posName: "AM", rating: 86, x: 0, y: 0, goals: 5, assists: 8, tackles: 34 },
+   259→      { name: "Oyarzabal", role: "FWD", posName: "ST", rating: 82, x: 0, y: 0, goals: 9, assists: 3, tackles: 14 },
+   260→    ]
+   261→  },
+   262→  Portugal: {
+   263→    starters: [
+   264→      { name: "Costa", role: "GK", posName: "GK", rating: 85, x: 50, y: 88, goals: 0, assists: 0, tackles: 39 },
+   265→      { name: "Cancelo", role: "DEF", posName: "RB", rating: 84, x: 85, y: 72, goals: 3, assists: 6, tackles: 52 },
+   266→      { name: "Dias", role: "DEF", posName: "CB", rating: 89, x: 62, y: 72, goals: 1, assists: 1, tackles: 70 },
+   267→      { name: "Pepe", role: "DEF", posName: "CB", rating: 82, x: 38, y: 72, goals: 1, assists: 0, tackles: 60 },
+   268→      { name: "Mendes", role: "DEF", posName: "LB", rating: 83, x: 15, y: 72, goals: 2, assists: 4, tackles: 48 },
+   269→      { name: "Joao Neves", role: "MID", posName: "CM", rating: 81, x: 35, y: 56, goals: 1, assists: 3, tackles: 58 },
+   270→      { name: "Vitinha", role: "MID", posName: "CM", rating: 85, x: 65, y: 56, goals: 3, assists: 5, tackles: 54 },
+   271→      { name: "Fernandes", role: "MID", posName: "AM", rating: 87, x: 50, y: 38, goals: 10, assists: 15, tackles: 46 },
+   272→      { name: "Bernardo Silva", role: "FWD", posName: "RW", rating: 87, x: 80, y: 32, goals: 8, assists: 9, tackles: 32 },
+   273→      { name: "Leao", role: "FWD", posName: "LW", rating: 86, x: 20, y: 32, goals: 9, assists: 7, tackles: 12 },
+   274→      { name: "Ronaldo", role: "FWD", posName: "ST", rating: 88, x: 50, y: 16, goals: 20, assists: 3, tackles: 6 },
+   275→    ],
+   276→    subs: [
+   277→      { name: "Jose Sa", role: "GK", posName: "GK", rating: 79, x: 0, y: 0, goals: 0, assists: 0, tackles: 4 },
+   278→      { name: "Inacio", role: "DEF", posName: "CB", rating: 82, x: 0, y: 0, goals: 1, assists: 1, tackles: 48 },
+   279→      { name: "Palhinha", role: "MID", posName: "CM", rating: 84, x: 0, y: 0, goals: 2, assists: 1, tackles: 76 },
+   280→      { name: "Jota", role: "FWD", posName: "LW", rating: 84, x: 0, y: 0, goals: 10, assists: 4, tackles: 18 },
+   281→      { name: "Ramos", role: "FWD", posName: "ST", rating: 81, x: 0, y: 0, goals: 7, assists: 2, tackles: 10 },
+   282→    ]
+   283→  },
+   284→  Netherlands: {
+   285→    starters: [
+   286→      { name: "Verbruggen", role: "GK", posName: "GK", rating: 82, x: 50, y: 88, goals: 0, assists: 0, tackles: 32 },
+   287→      { name: "de Vrij", role: "DEF", posName: "CB", rating: 83, x: 75, y: 75, goals: 1, assists: 0, tackles: 58 },
+   288→      { name: "van Dijk", role: "DEF", posName: "CB", rating: 88, x: 50, y: 75, goals: 3, assists: 2, tackles: 68 },
+   289→      { name: "Ake", role: "DEF", posName: "CB", rating: 84, x: 25, y: 75, goals: 2, assists: 1, tackles: 62 },
+   290→      { name: "Dumfries", role: "MID", posName: "RM", rating: 83, x: 88, y: 52, goals: 3, assists: 7, tackles: 56 },
+   291→      { name: "Reijnders", role: "MID", posName: "CM", rating: 82, x: 62, y: 52, goals: 4, assists: 4, tackles: 44 },
+   292→      { name: "Schouten", role: "MID", posName: "CM", rating: 81, x: 38, y: 52, goals: 1, assists: 2, tackles: 60 },
+   293→      { name: "Simons", role: "MID", posName: "LM", rating: 85, x: 12, y: 52, goals: 6, assists: 10, tackles: 32 },
+   294→      { name: "Frimpong", role: "FWD", posName: "RW", rating: 84, x: 80, y: 26, goals: 8, assists: 8, tackles: 42 },
+   295→      { name: "Depay", role: "FWD", posName: "ST", rating: 83, x: 50, y: 18, goals: 12, assists: 7, tackles: 14 },
+   296→      { name: "Gakpo", role: "FWD", posName: "LW", rating: 84, x: 20, y: 26, goals: 10, assists: 6, tackles: 22 },
+   297→    ],
+   298→    subs: [
+   299→      { name: "Flekken", role: "GK", posName: "GK", rating: 80, x: 0, y: 0, goals: 0, assists: 0, tackles: 5 },
+   300→      { name: "de Ligt", role: "DEF", posName: "CB", rating: 83, x: 0, y: 0, goals: 1, assists: 1, tackles: 50 },
+   301→      { name: "de Jong", role: "MID", posName: "CM", rating: 86, x: 0, y: 0, goals: 4, assists: 6, tackles: 54 },
+   302→      { name: "Malen", role: "FWD", posName: "LW", rating: 82, x: 0, y: 0, goals: 7, assists: 5, tackles: 15 },
+   303→      { name: "Weghorst", role: "FWD", posName: "ST", rating: 79, x: 0, y: 0, goals: 9, assists: 1, tackles: 8 },
+   304→    ]
+   305→  }
+   306→};
+   307→
+   308→const getInitialLineupAndSubs = (teamName: string, side: "home" | "away"): { starters: LineupPlayer[]; subs: LineupPlayer[] } => {
+   309→  const normalized = teamName || "Brazil";
+   310→  const matchedKey = Object.keys(defaultRosters).find(
+   311→    k => k.toLowerCase() === normalized.toLowerCase()
+   312→  ) || "Brazil";
+   313→  
+   314→  const data = defaultRosters[matchedKey];
+   315→  
+   316→  const starters = data.starters.map((p, idx) => ({
+   317→    ...p,
+   318→    id: `${side}-starter-${idx}`
+   319→  }));
+   320→
+   321→  const subs = data.subs.map((p, idx) => ({
+   322→    ...p,
+   323→    id: `${side}-sub-${idx}`
+   324→  }));
+   325→
+   326→  return { starters, subs };
+   327→};
+   328→
+   329→const getTeamColors = (teamName: string) => {
+   330→  const name = teamName ? teamName.toLowerCase() : "";
+   331→  if (name.includes("brazil")) {
+   332→    return {
+   333→      primary: "#22c55e", 
+   334→      secondary: "#eab308", 
+   335→      gradient: "from-yellow-400/20 to-green-500/20",
+   336→      borderHover: "hover:border-yellow-400 hover:shadow-[0_0_20px_rgba(234,179,8,0.25)]",
+   337→      glowBg: "rgba(234,179,8,0.06)",
+   338→      glowColor: "rgba(234,179,8,0.3)"
+   339→    };
+   340→  }
+   341→  if (name.includes("germany")) {
+   342→    return {
+   343→      primary: "#ffffff", 
+   344→      secondary: "#000000", 
+   345→      gradient: "from-slate-100/10 to-rose-600/15",
+   346→      borderHover: "hover:border-slate-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.2)]",
+   347→      glowBg: "rgba(255,255,255,0.04)",
+   348→      glowColor: "rgba(255,255,255,0.25)"
+   349→    };
+   350→  }
+   351→  if (name.includes("argentina")) {
+   352→    return {
+   353→      primary: "#38bdf8", 
+   354→      secondary: "#ffffff", 
+   355→      gradient: "from-sky-400/25 to-slate-100/10",
+   356→      borderHover: "hover:border-sky-400 hover:shadow-[0_0_20px_rgba(56,189,248,0.3)]",
+   357→      glowBg: "rgba(56,189,248,0.06)",
+   358→      glowColor: "rgba(56,189,248,0.3)"
+   359→    };
+   360→  }
+   361→  if (name.includes("france")) {
+   362→    return {
+   363→      primary: "#2563eb", 
+   364→      secondary: "#ef4444", 
+   365→      gradient: "from-blue-600/20 to-rose-600/15",
+   366→      borderHover: "hover:border-blue-500 hover:shadow-[0_0_20px_rgba(37,99,235,0.25)]",
+   367→      glowBg: "rgba(37,99,235,0.06)",
+   368→      glowColor: "rgba(37,99,235,0.25)"
+   369→    };
+   370→  }
+   371→  if (name.includes("england")) {
+   372→    return {
+   373→      primary: "#ffffff", 
+   374→      secondary: "#1e3a8a", 
+   375→      gradient: "from-slate-100/10 to-blue-900/20",
+   376→      borderHover: "hover:border-blue-400 hover:shadow-[0_0_20px_rgba(255,255,255,0.25)]",
+   377→      glowBg: "rgba(255,255,255,0.04)",
+   378→      glowColor: "rgba(255,255,255,0.2)"
+   379→    };
+   380→  }
+   381→  if (name.includes("spain")) {
+   382→    return {
+   383→      primary: "#dc2626", 
+   384→      secondary: "#facc15", 
+   385→      gradient: "from-rose-600/20 to-yellow-500/15",
+   386→      borderHover: "hover:border-rose-500 hover:shadow-[0_0_20px_rgba(239,68,68,0.25)]",
+   387→      glowBg: "rgba(239,68,68,0.06)",
+   388→      glowColor: "rgba(239,68,68,0.3)"
+   389→    };
+   390→  }
+   391→  if (name.includes("portugal")) {
+   392→    return {
+   393→      primary: "#b91c1c", 
+   394→      secondary: "#15803d", 
+   395→      gradient: "from-red-600/25 to-emerald-600/15",
+   396→      borderHover: "hover:border-red-500 hover:shadow-[0_0_20px_rgba(185,28,28,0.3)]",
+   397→      glowBg: "rgba(185,28,28,0.06)",
+   398→      glowColor: "rgba(185,28,28,0.3)"
+   399→    };
+   400→  }
+   401→  if (name.includes("netherlands")) {
+   402→    return {
+   403→      primary: "#f97316", 
+   404→      secondary: "#ffffff", 
+   405→      gradient: "from-orange-500/25 to-slate-100/10",
+   406→      borderHover: "hover:border-orange-500 hover:shadow-[0_0_20px_rgba(249,115,22,0.3)]",
+   407→      glowBg: "rgba(249,115,22,0.06)",
+   408→      glowColor: "rgba(249,115,22,0.3)"
+   409→    };
+   410→  }
+   411→  return {
+   412→    primary: "#10b981", 
+   413→    secondary: "#14b8a6", 
+   414→    gradient: "from-emerald-500/10 to-teal-500/10",
+   415→    borderHover: "hover:border-emerald-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.25)]",
+   416→    glowBg: "rgba(16,185,129,0.04)",
+   417→    glowColor: "rgba(16,185,129,0.2)"
+   418→  };
+   419→};
+   420→
+   421→const getPlayerStatsMap = (teamName: string, playerName: string) => {
+   422→  const stats: Record<string, { attacking: number; defending: number; playmaking: number; retention: number; physical: number; workrate: number; goals: number; assists: number; tackles: number }> = {
+   423→    // Brazil
+   424→    "Alisson": { attacking: 5, defending: 95, playmaking: 45, retention: 30, physical: 85, workrate: 75, goals: 0, assists: 1, tackles: 42 },
+   425→    "Marquinhos": { attacking: 40, defending: 92, playmaking: 65, retention: 55, physical: 88, workrate: 80, goals: 2, assists: 1, tackles: 68 },
+   426→    "Casemiro": { attacking: 60, defending: 88, playmaking: 70, retention: 62, physical: 90, workrate: 85, goals: 4, assists: 3, tackles: 74 },
+   427→    "Vinicius Jr": { attacking: 95, defending: 35, playmaking: 85, retention: 96, physical: 78, workrate: 82, goals: 18, assists: 11, tackles: 21 },
+   428→    "Rodrygo": { attacking: 88, defending: 38, playmaking: 82, retention: 90, physical: 72, workrate: 84, goals: 13, assists: 8, tackles: 18 },
+   429→    // Germany
+   430→    "ter Stegen": { attacking: 8, defending: 92, playmaking: 55, retention: 35, physical: 80, workrate: 70, goals: 0, assists: 0, tackles: 38 },
+   431→    "Rudiger": { attacking: 45, defending: 94, playmaking: 60, retention: 50, physical: 95, workrate: 88, goals: 1, assists: 1, tackles: 72 },
+   432→    "Gundogan": { attacking: 78, defending: 65, playmaking: 92, retention: 84, physical: 70, workrate: 86, goals: 6, assists: 9, tackles: 48 },
+   433→    "Musiala": { attacking: 86, defending: 40, playmaking: 88, retention: 98, physical: 68, workrate: 82, goals: 12, assists: 10, tackles: 25 },
+   434→    "Fullkrug": { attacking: 90, defending: 25, playmaking: 60, retention: 70, physical: 92, workrate: 80, goals: 15, assists: 4, tackles: 10 },
+   435→    // Argentina
+   436→    "E. Martinez": { attacking: 5, defending: 96, playmaking: 40, retention: 25, physical: 90, workrate: 85, goals: 0, assists: 0, tackles: 45 },
+   437→    "Romero": { attacking: 42, defending: 93, playmaking: 58, retention: 52, physical: 94, workrate: 90, goals: 2, assists: 0, tackles: 80 },
+   438→    "Mac Allister": { attacking: 75, defending: 72, playmaking: 86, retention: 82, physical: 78, workrate: 88, goals: 5, assists: 7, tackles: 56 },
+   439→    "Messi": { attacking: 98, defending: 20, playmaking: 99, retention: 95, physical: 60, workrate: 65, goals: 22, assists: 16, tackles: 12 },
+   440→    "Alvarez": { attacking: 85, defending: 55, playmaking: 78, retention: 80, physical: 76, workrate: 95, goals: 14, assists: 6, tackles: 34 },
+   441→    // France
+   442→    "Maignan": { attacking: 10, defending: 94, playmaking: 52, retention: 32, physical: 86, workrate: 78, goals: 0, assists: 0, tackles: 40 },
+   443→    "Saliba": { attacking: 35, defending: 95, playmaking: 68, retention: 60, physical: 90, workrate: 85, goals: 1, assists: 1, tackles: 75 },
+   444→    "Tchouameni": { attacking: 62, defending: 86, playmaking: 75, retention: 74, physical: 88, workrate: 86, goals: 3, assists: 2, tackles: 70 },
+   445→    "Mbappe": { attacking: 99, defending: 22, playmaking: 84, retention: 97, physical: 80, workrate: 72, goals: 28, assists: 9, tackles: 8 },
+   446→    "Griezmann": { attacking: 84, defending: 62, playmaking: 94, retention: 86, physical: 74, workrate: 96, goals: 11, assists: 14, tackles: 45 },
+   447→    // England
+   448→    "Pickford": { attacking: 12, defending: 91, playmaking: 62, retention: 28, physical: 82, workrate: 80, goals: 0, assists: 0, tackles: 35 },
+   449→    "Stones": { attacking: 45, defending: 90, playmaking: 78, retention: 76, physical: 84, workrate: 82, goals: 2, assists: 2, tackles: 58 },
+   450→    "Rice": { attacking: 68, defending: 91, playmaking: 80, retention: 78, physical: 91, workrate: 94, goals: 5, assists: 6, tackles: 82 },
+   451→    "Bellingham": { attacking: 91, defending: 70, playmaking: 88, retention: 89, physical: 86, workrate: 92, goals: 16, assists: 10, tackles: 52 },
+   452→    "Kane": { attacking: 96, defending: 45, playmaking: 85, retention: 78, physical: 85, workrate: 84, goals: 26, assists: 8, tackles: 15 },
+   453→    // Spain
+   454→    "Simon": { attacking: 6, defending: 93, playmaking: 50, retention: 30, physical: 82, workrate: 72, goals: 0, assists: 0, tackles: 36 },
+   455→    "Laporte": { attacking: 38, defending: 91, playmaking: 64, retention: 58, physical: 87, workrate: 80, goals: 2, assists: 1, tackles: 64 },
+   456→    "Rodri": { attacking: 74, defending: 93, playmaking: 90, retention: 85, physical: 92, workrate: 91, goals: 7, assists: 8, tackles: 86 },
+   457→    "Yamal": { attacking: 89, defending: 42, playmaking: 91, retention: 97, physical: 65, workrate: 80, goals: 9, assists: 12, tackles: 22 },
+   458→    "Morata": { attacking: 84, defending: 48, playmaking: 65, retention: 72, physical: 82, workrate: 88, goals: 12, assists: 4, tackles: 18 },
+   459→    // Portugal
+   460→    "Costa": { attacking: 8, defending: 94, playmaking: 48, retention: 32, physical: 84, workrate: 74, goals: 0, assists: 0, tackles: 39 },
+   461→    "Dias": { attacking: 32, defending: 94, playmaking: 62, retention: 56, physical: 91, workrate: 85, goals: 1, assists: 1, tackles: 70 },
+   462→    "Fernandes": { attacking: 85, defending: 58, playmaking: 96, retention: 82, physical: 72, workrate: 95, goals: 10, assists: 15, tackles: 46 },
+   463→    "Leao": { attacking: 87, defending: 30, playmaking: 80, retention: 95, physical: 83, workrate: 75, goals: 9, assists: 7, tackles: 12 },
+   464→    "Ronaldo": { attacking: 94, defending: 15, playmaking: 74, retention: 80, physical: 88, workrate: 78, goals: 20, assists: 3, tackles: 6 },
+   465→    // Netherlands
+   466→    "Verbruggen": { attacking: 5, defending: 90, playmaking: 48, retention: 28, physical: 80, workrate: 72, goals: 0, assists: 0, tackles: 32 },
+   467→    "van Dijk": { attacking: 48, defending: 96, playmaking: 66, retention: 62, physical: 96, workrate: 84, goals: 3, assists: 2, tackles: 68 },
+   468→    "de Jong": { attacking: 70, defending: 76, playmaking: 91, retention: 94, physical: 78, workrate: 86, goals: 4, assists: 6, tackles: 54 },
+   469→    "Gakpo": { attacking: 86, defending: 42, playmaking: 82, retention: 88, physical: 80, workrate: 85, goals: 10, assists: 6, tackles: 22 },
+   470→    "Depay": { attacking: 85, defending: 32, playmaking: 84, retention: 86, physical: 76, workrate: 78, goals: 12, assists: 7, tackles: 14 }
+   471→  };
+   472→  const defaultStats = { attacking: 60, defending: 60, playmaking: 60, retention: 60, physical: 60, workrate: 60, goals: 2, assists: 2, tackles: 20 };
+   473→  return stats[playerName] || defaultStats;
+   474→};
+   475→
+   476→interface CredibilityAlert {
+   477→  id: string;
+   478→  source: string;
+   479→  raw_text: string;
+   480→  credibility_rating: "Highly Credible" | "Suspicious / Unverified" | "Discredited Rumor";
+   481→  credibility_score: number;
+   482→  gemini_rationale: string;
+   483→  estimated_impact: string;
+   484→  created_at: string;
+   485→}
+   486→
+   487→export default function DashboardView({
+   488→  user,
+   489→  authToken,
+   490→  onOpenUpgrade,
+   491→  onProfileUpdated,
+   492→  matches,
+   493→  onRefreshMatches,
+   494→  selectedMatch,
+   495→  onSelectMatch,
+   496→}: DashboardViewProps) {
+   497→  const [filter, setFilter] = useState<"all" | "scheduled" | "live" | "finished">("all");
+   498→  const [matchDetails, setMatchDetails] = useState<{ match: Match; events: MatchEvent[] } | null>(null);
+   499→  const [simulating, setSimulating] = useState(false);
+   500→  const [pollingLive, setPollingLive] = useState(false);
+   501→  const [compareMode, setCompareMode] = useState(false);
+   502→  const [compareMatchIds, setCompareMatchIds] = useState<number[]>([]);
+   503→  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+   504→  const [selectedIntelTeam, setSelectedIntelTeam] = useState<string | null>(null);
+   505→  const [externalPrompt, setExternalPrompt] = useState<string | null>(null);
+   506→  const [dashboardCenterTab, setDashboardCenterTab] = useState<"overview" | "bracket" | "scorers" | "predictors">("overview");
+   507→
+   508→  const handleToggleCompare = (mId: number) => {
+   509→    setCompareMatchIds((prev) => {
+   510→      if (prev.includes(mId)) {
+   511→        return prev.filter((id) => id !== mId);
+   512→      }
+   513→      if (prev.length >= 2) {
+   514→        return [prev[1], mId]; // replace oldest
+   515→      }
+   516→      return [...prev, mId];
+   517→    });
+   518→  };
+   519→
+   520→  // Triggers client-side PDF generation of currently selected match analytics reports
+   521→  const exportMatchPdf = () => {
+   522→    if (!matchDetails) return;
+   523→    const m = matchDetails.match;
+   524→    const events = matchDetails.events;
+   525→
+   526→    const doc = new jsPDF();
+   527→
+   528→    // Slate header background banner
+   529→    doc.setFillColor(15, 23, 42);
+   530→    doc.rect(0, 0, 210, 42, "F");
+   531→
+   532→    // Title and Metadata Header
+   533→    doc.setTextColor(16, 185, 129); // emerald green
+   534→    doc.setFont("Helvetica", "bold");
+   535→    doc.setFontSize(22);
+   536→    doc.text("KICKIQ FORECAST ANALYTICS", 14, 18);
+   537→
+   538→    doc.setTextColor(148, 163, 184); // slate gray
+   539→    doc.setFont("Helvetica", "normal");
+   540→    doc.setFontSize(9);
+   541→    doc.text(`Generated: ${new Date().toLocaleString()} | Powered by Poisson Predictive Algorithms`, 14, 25);
+   542→
+   543→    doc.setTextColor(255, 255, 255);
+   544→    doc.setFontSize(13);
+   545→    doc.setFont("Helvetica", "bold");
+   546→    doc.text(`Match Profile: ${m.home_team} vs ${m.away_team}`, 14, 34);
+   547→
+   548→    let y = 52;
+   549→
+   550→    // SECTION 1: Fixture Setup Details
+   551→    doc.setTextColor(15, 23, 42);
+   552→    doc.setFontSize(11);
+   553→    doc.setFont("Helvetica", "bold");
+   554→    doc.text("1. GENERAL MATCH SPECIFICATIONS", 14, y);
+   555→    doc.setDrawColor(226, 232, 240); // slate-200 border
+   556→    doc.line(14, y + 2, 196, y + 2);
+   557→
+   558→    y += 10;
+   559→    doc.setFont("Helvetica", "normal");
+   560→    doc.setFontSize(10);
+   561→    doc.setTextColor(71, 85, 105);
+   562→    
+   563→    doc.text(`Active Status: ${m.status.toUpperCase()}`, 14, y);
+   564→    doc.text(`Stadium Arena: ${m.stadium}`, 75, y);
+   565→    doc.text(`Competition Stage: ${m.stage}`, 140, y);
+   566→
+   567→    y += 6;
+   568→    doc.text(`Scheduled Date: ${m.date}`, 14, y);
+   569→    doc.text(`Game Minute: ${m.status === "finished" ? "Full Time" : m.simulation_minute + "'"}`, 75, y);
+   570→    doc.text(`Current Score: ${m.home_score} - ${m.away_score}`, 140, y);
+   571→
+   572→    // SECTION 2: Algorithmic Expectations
+   573→    y += 14;
+   574→    doc.setFont("Helvetica", "bold");
+   575→    doc.setFontSize(11);
+   576→    doc.setTextColor(15, 23, 42);
+   577→    doc.text("2. POISSON EXPECTATION MODEL MATRIX", 14, y);
+   578→    doc.line(14, y + 2, 196, y + 2);
+   579→
+   580→    y += 10;
+   581→    doc.setFont("Helvetica", "normal");
+   582→    doc.setFontSize(10);
+   583→    doc.setTextColor(71, 85, 105);
+   584→
+   585→    doc.text(`${m.home_team} ELO Rating: ${m.home_elo} PTS`, 14, y);
+   586→    doc.text(`Home Goal Expectancy (Lambda): ${m.mu_home || 1.35} expected goals`, 90, y);
+   587→
+   588→    y += 6;
+   589→    doc.text(`${m.away_team} ELO Rating: ${m.away_elo} PTS`, 14, y);
+   590→    doc.text(`Away Goal Expectancy (Mu): ${m.mu_away || 1.15} expected goals`, 90, y);
+   591→
+   592→    y += 8;
+   593→    const probHome = m.win_probability?.home ? (m.win_probability.home * 100).toFixed(1) : "45.0";
+   594→    const probDraw = m.win_probability?.draw ? (m.win_probability.draw * 100).toFixed(1) : "25.0";
+   595→    const probAway = m.win_probability?.away ? (m.win_probability.away * 100).toFixed(1) : "30.0";
+   596→
+   597→    doc.setFont("Helvetica", "bold");
+   598→    doc.text("Algorithmic Advantage Probability Distribution:", 14, y);
+   599→    y += 6;
+   600→    doc.setFont("Helvetica", "normal");
+   601→    doc.text(`- Home Victory Probability: ${probHome}%`, 18, y);
+   602→    doc.text(`- Expected Draw Probability: ${probDraw}%`, 80, y);
+   603→    doc.text(`- Away Victory Probability: ${probAway}%`, 140, y);
+   604→
+   605→    // SECTION 3: AI Halftime Analytics
+   606→    if (m.halftime_custom_analysis) {
+   607→      y += 15;
+   608→      doc.setFont("Helvetica", "bold");
+   609→      doc.setFontSize(11);
+   610→      doc.setTextColor(15, 23, 42);
+   611→      doc.text("3. AI DEEP ANALYTICAL INSIGHTS", 14, y);
+   612→      doc.line(14, y + 2, 196, y + 2);
+   613→
+   614→      y += 10;
+   615→      doc.setFont("Helvetica", "normal");
+   616→      doc.setFontSize(9);
+   617→      doc.setTextColor(51, 65, 85);
+   618→      
+   619→      const splitAnalysis = doc.splitTextToSize(m.halftime_custom_analysis, 180);
+   620→      doc.text(splitAnalysis, 14, y);
+   621→      y += (splitAnalysis.length * 4.5);
+   622→    } else {
+   623→      y += 4;
+   624→    }
+   625→
+   626→    // SECTION 4: Events Registry Log
+   627→    y += 14;
+   628→    if (y > 240) {
+   629→      doc.addPage();
+   630→      y = 20;
+   631→    }
+   632→
+   633→    doc.setFont("Helvetica", "bold");
+   634→    doc.setFontSize(11);
+   635→    doc.setTextColor(15, 23, 42);
+   636→    doc.text("4. FIELD ACTION EVENTS LOG", 14, y);
+   637→    doc.line(14, y + 2, 196, y + 2);
+   638→
+   639→    y += 10;
+   640→    doc.setFont("Helvetica", "normal");
+   641→    doc.setFontSize(9.5);
+   642→    doc.setTextColor(71, 85, 105);
+   643→
+   644→    if (events && events.length > 0) {
+   645→      events.slice(0, 8).forEach((ev) => {
+   646→        if (y > 265) {
+   647→          doc.addPage();
+   648→          y = 20;
+   649→        }
+   650→        const squadActor = ev.team_id === m.home_team_id ? m.home_team : ev.team_id === m.away_team_id ? m.away_team : "REGISTRY";
+   651→        doc.setFont("Helvetica", "bold");
+   652→        doc.text(`[${ev.minute}'] ${ev.event_type.toUpperCase()} - ${ev.player_name || ""} (${squadActor})`, 14, y);
+   653→        y += 4.5;
+   654→        doc.setFont("Helvetica", "normal");
+   655→        doc.setFontSize(8.5);
+   656→        doc.setTextColor(100, 116, 139);
+   657→        doc.text(`      Note: ${ev.description}`, 14, y);
+   658→        doc.setFontSize(9.5);
+   659→        doc.setTextColor(71, 85, 105);
+   660→        y += 5.5;
+   661→      });
+   662→    } else {
+   663→      doc.text("No significant field events registered during this analytical window.", 14, y);
+   664→      y += 10;
+   665→    }
+   666→
+   667→    // Report Footer
+   668→    if (y > 260) {
+   669→      doc.addPage();
+   670→      y = 20;
+   671→    } else {
+   672→      y += 12;
+   673→    }
+   674→
+   675→    doc.setFont("Helvetica", "italic");
+   676→    doc.setFontSize(8);
+   677→    doc.setTextColor(148, 163, 184);
+   678→    doc.text("DISCLAIMER: KICKIQ represents an advanced simulation model based on standard Poisson matrices and historical ELO records.", 14, y);
+   679→    y += 4;
+   680→    doc.text("All probabilities are simulated and calculated for entertainment and analytical research purposes.", 14, y);
+   681→
+   682→    doc.save(`KICKIQ-Match-Report-${m.home_team}-vs-${m.away_team}.pdf`);
+   683→  };
+   684→  
+   685→  // Custom interactive state items
+   686→  const [alerts, setAlerts] = useState<CredibilityAlert[]>([]);
+   687→  const [fetchingAlert, setFetchingAlert] = useState(false);
+   688→  const [votedChoice, setVotedChoice] = useState<"home" | "draw" | "away" | null>(null);
+   689→  const [meetingsLimit, setMeetingsLimit] = useState<number>(6);
+   690→  const [h2hGraphTab, setH2hGraphTab] = useState<"performance" | "elo">("elo");
+   691→  const [submittingVote, setSubmittingVote] = useState(false);
+   692→  const [submittingHT, setSubmittingHT] = useState(false);
+   693→  const [crowdVolume, setCrowdVolume] = useState<number>(30); // Cinematic ambient feedback slider
+   694→  const [soundMode, setSoundMode] = useState<"anticipation" | "analysis" | "crowd">("anticipation");
+   695→  const [predictiveTab, setPredictiveTab] = useState<"outcomes" | "elo">("outcomes");
+   696→
+   697→  const getPredictiveTrendData = () => {
+   698→    if (!matchDetails) return [];
+   699→    const m = matchDetails.match;
+   700→    const hTeam = m.home_team;
+   701→    const aTeam = m.away_team;
+   702→    const muH = m.mu_home || 1.35;
+   703→    const muA = m.mu_away || 1.15;
+   704→
+   705→    return [1, 2, 3, 4, 5].map((step) => {
+   706→      // Create some variance based on team name, ELO, and step
+   707→      const hSeed = hTeam.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) + step;
+   708→      const aSeed = aTeam.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) + step;
+   709→      
+   710→      const hEloTarget = m.home_elo;
+   711→      const aEloTarget = m.away_elo;
+   712→      
+   713→      // Interpolate towards target ELO
+   714→      const hElo = Math.round(hEloTarget - (5 - step) * 12 + (hSeed % 16));
+   715→      const aElo = Math.round(aEloTarget - (5 - step) * 10 + (aSeed % 16));
+   716→
+   717→      // Interpolate goal expectancy rate
+   718→      const stepMuH = Math.max(0.6, muH - (5 - step) * 0.08 + (hSeed % 8) * 0.01);
+   719→      const stepMuA = Math.max(0.6, muA - (5 - step) * 0.06 + (aSeed % 8) * 0.01);
+   720→
+   721→      // Poisson probability of scoring >= 2 goals: 1 - P(0) - P(1) = 1 - e^-mu * (1 + mu)
+   722→      const hPoissonWinProb = Math.min(95, Math.round((1 - Math.exp(-stepMuH) * (1 + stepMuH)) * 100));
+   723→      const aPoissonWinProb = Math.min(95, Math.round((1 - Math.exp(-stepMuA) * (1 + stepMuA)) * 100));
+   724→
+   725→      const labels = [
+   726→        "Sim Match 1",
+   727→        "Sim Match 2",
+   728→        "Sim Match 3",
+   729→        "Sim Match 4",
+   730→        "Forecasted Map"
+   731→      ];
+   732→
+   733→      return {
+   734→        stepLabel: labels[step - 1],
+   735→        homeElo: hElo,
+   736→        awayElo: aElo,
+   737→        homePoissonWinProb: hPoissonWinProb,
+   738→        awayPoissonWinProb: aPoissonWinProb,
+   739→      };
+   740→    });
+   741→  };
+   742→
+   743→  const getRivalryIntensityData = () => {
+   744→    if (!matchDetails?.match) return [];
+   745→    const m = matchDetails.match;
+   746→    const hElo = m.home_elo;
+   747→    const aElo = m.away_elo;
+   748→    const muH = m.mu_home || 1.35;
+   749→    const muA = m.mu_away || 1.15;
+   750→
+   751→    const homeSeed = m.home_team.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+   752→    const awaySeed = m.away_team.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+   753→
+   754→    const attackingHome = Math.min(95, Math.round((muH / 2.8) * 100));
+   755→    const attackingAway = Math.min(95, Math.round((muA / 2.8) * 100));
+   756→
+   757→    const defensiveHome = Math.min(95, Math.max(45, Math.round((hElo / 2000) * 105)));
+   758→    const defensiveAway = Math.min(95, Math.max(45, Math.round((aElo / 2000) * 105)));
+   759→
+   760→    const midfieldHome = Math.min(95, Math.max(40, Math.round(50 + (hElo - aElo) / 8)));
+   761→    const midfieldAway = Math.min(95, Math.max(40, Math.round(50 + (aElo - hElo) / 8)));
+   762→
+   763→    const agilityHome = 60 + (homeSeed % 35);
+   764→    const agilityAway = 60 + (awaySeed % 35);
+   765→
+   766→    const physicalHome = 50 + ((homeSeed * 3) % 45);
+   767→    const physicalAway = 50 + ((awaySeed * 3) % 45);
+   768→
+   769→    const diff = Math.abs(hElo - aElo);
+   770→    const volatility = Math.min(100, Math.max(25, Math.round(100 - diff / 3.5)));
+   771→
+   772→    return [
+   773→      { metric: "Attacking Pressure", [m.home_team]: attackingHome, [m.away_team]: attackingAway, fullMark: 100 },
+   774→      { metric: "Defensive Block", [m.home_team]: defensiveHome, [m.away_team]: defensiveAway, fullMark: 100 },
+   775→      { metric: "Midfield Control", [m.home_team]: midfieldHome, [m.away_team]: midfieldAway, fullMark: 100 },
+   776→      { metric: "Tactical Execution", [m.home_team]: agilityHome, [m.away_team]: agilityAway, fullMark: 100 },
+   777→      { metric: "Physical Durability", [m.home_team]: physicalHome, [m.away_team]: physicalAway, fullMark: 100 },
+   778→      { metric: "Clash Volatility", [m.home_team]: volatility, [m.away_team]: volatility, fullMark: 100 },
+   779→    ];
+   780→  };
+   781→
+   782→  // Custom Halftime predictive analysis state
+   783→  const [showHalftimePromptInvite, setShowHalftimePromptInvite] = useState(false);
+   784→  const [halftimeCustomPrompt, setHalftimeCustomPrompt] = useState("");
+   785→  const [analyzingHalftime, setAnalyzingHalftime] = useState(false);
+   786→  const [halftimeCustomAnalysisResult, setHalftimeCustomAnalysisResult] = useState<string | null>(null);
+   787→
+   788→  // Key Player Comparison and Poisson Predictive States
+   789→  const [homePlayer, setHomePlayer] = useState<string>("");
+   790→  const [awayPlayer, setAwayPlayer] = useState<string>("");
+   791→  const [poissonHomeAttack, setPoissonHomeAttack] = useState<number>(1.0);
+   792→  const [poissonAwayAttack, setPoissonAwayAttack] = useState<number>(1.0);
+   793→
+   794→  // Tactical Lineup Visualizer States
+   795→  const [activeLineupHome, setActiveLineupHome] = useState<LineupPlayer[]>([]);
+   796→  const [activeSubsHome, setActiveSubsHome] = useState<LineupPlayer[]>([]);
+   797→  const [activeLineupAway, setActiveLineupAway] = useState<LineupPlayer[]>([]);
+   798→  const [activeSubsAway, setActiveSubsAway] = useState<LineupPlayer[]>([]);
+   799→  const [selectedPitchPlayer, setSelectedPitchPlayer] = useState<LineupPlayer | null>(null);
+   800→  const [pitchTeamToggle, setPitchTeamToggle] = useState<"home" | "away">("home");
+   801→
+   802→  // Real-Time Banned Player & Sidebar News States
+   803→  const [activeSidebarTab, setActiveSidebarTab] = useState<"fixtures" | "news" | "alerts">("fixtures");
+   804→  const [processedEventIds, setProcessedEventIds] = useState<number[]>([]);
+   805→  const [banReplacements, setBanReplacements] = useState<Record<string, string>>({});
+   806→  const [newsSearch, setNewsSearch] = useState("");
+   807→  const [selectedNewsSource, setSelectedNewsSource] = useState<string>("All Feeds");
+   808→  
+   809→  // Real-time Soccer News Feed States and dynamic two-minute update engine
+   810→  const [newsList, setNewsList] = useState<SportArticle[]>(newsArticles);
+   811→  const [isTikTokScrollMode, setIsTikTokScrollMode] = useState<boolean>(() => {
+   812→    const saved = sessionStorage.getItem("kickiq_tiktok_scroll");
+   813→    return saved ? saved === "true" : true; // default to true
+   814→  });
+   815→  const [isAutoscrolling, setIsAutoscrolling] = useState<boolean>(true);
+   816→  const [tiktokCurrentIndex, setTiktokCurrentIndex] = useState<number>(0);
+   817→  const [likedNewsIds, setLikedNewsIds] = useState<string[]>([]);
+   818→
+   819→  // Fetch real-time news from our API
+   820→  const fetchSoccerNews = async () => {
+   821→    try {
+   822→      const res = await fetch("/api/soccer-news");
+   823→      const data = await res.json();
+   824→      if (res.ok && data.success && data.news) {
+   825→        setNewsList(data.news);
+   826→      }
+   827→    } catch (err) {
+   828→      console.warn("[news-feed] Failed to fetch live soccer news", err);
+   829→    }
+   830→  };
+   831→
+   832→  useEffect(() => {
+   833→    fetchSoccerNews();
+   834→    // Refresh after every two minutes
+   835→    const interval = setInterval(fetchSoccerNews, 120000);
+   836→    return () => clearInterval(interval);
+   837→  }, []);
+   838→
+   839→  // Autoplay TikTok cards index shift
+   840→  useEffect(() => {
+   841→    if (!isTikTokScrollMode || !isAutoscrolling || newsList.length === 0) return;
+   842→    const scrollInterval = setInterval(() => {
+   843→      setTiktokCurrentIndex((prev) => (prev + 1) % newsList.length);
+   844→    }, 6000); // Cycle every 6 seconds for high comfort reading
+   845→    return () => clearInterval(scrollInterval);
+   846→  }, [isTikTokScrollMode, isAutoscrolling, newsList.length]);
+   847→
+   848→  // Filter red carded players in current active match events
+   849→  const liveBannedPlayers = React.useMemo(() => {
+   850→    if (!matchDetails?.events) return [];
+   851→    const redCards = matchDetails.events.filter(ev => ev.event_type === "red_card");
+   852→    return redCards.map(ev => ({
+   853→      name: ev.player_name || "",
+   854→      minute: ev.minute,
+   855→      team_id: ev.team_id,
+   856→      player_name: ev.player_name || ""
+   857→    }));
+   858→  }, [matchDetails?.events]);
+   859→
+   860→  useEffect(() => {
+   861→    if (matchDetails?.match) {
+   862→      const homeTeamName = matchDetails.match.home_team;
+   863→      const awayTeamName = matchDetails.match.away_team;
+   864→      const homeList = playersByTeam[homeTeamName] || [];
+   865→      const awayList = playersByTeam[awayTeamName] || [];
+   866→      setHomePlayer(homeList[3] || homeList[0] || "");
+   867→      setAwayPlayer(awayList[3] || awayList[0] || "");
+   868→      setPoissonHomeAttack(1.0);
+   869→      setPoissonAwayAttack(1.0);
+   870→
+   871→      // Initialize tactical lineups
+   872→      const hData = getInitialLineupAndSubs(homeTeamName, "home");
+   873→      const aData = getInitialLineupAndSubs(awayTeamName, "away");
+   874→      setActiveLineupHome(hData.starters);
+   875→      setActiveSubsHome(hData.subs);
+   876→      setActiveLineupAway(aData.starters);
+   877→      setActiveSubsAway(aData.subs);
+   878→      setSelectedPitchPlayer(null);
+   879→      setPitchTeamToggle("home");
+   880→      setBanReplacements({});
+   881→    }
+   882→  }, [matchDetails?.match?.id]);
+   883→
+   884→  // Instantiates our custom hook which listens to halftime pauses
+   885→  useHalftimeMonitor(matchDetails?.match || null, (matchId) => {
+   886→    setShowHalftimePromptInvite(true);
+   887→    setHalftimeCustomPrompt(`Based on ${matchDetails?.match.home_team} vs ${matchDetails?.match.away_team} scores (${matchDetails?.match.home_score}-${matchDetails?.match.away_score}), will we see a second-half defensive tactical block or aggressive long-range shootouts?`);
+   888→    setHalftimeCustomAnalysisResult(null);
+   889→  });
+   890→
+   891→  const handleSubstitution = (starterId: string, subId: string) => {
+   892→    const starters = pitchTeamToggle === "home" ? activeLineupHome : activeLineupAway;
+   893→    const subs = pitchTeamToggle === "home" ? activeSubsHome : activeSubsAway;
+   894→
+   895→    const starterIndex = starters.findIndex(p => p.id === starterId);
+   896→    const subIndex = subs.findIndex(p => p.id === subId);
+   897→
+   898→    if (starterIndex !== -1 && subIndex !== -1) {
+   899→      const starter = starters[starterIndex];
+   900→      const sub = subs[subIndex];
+   901→
+   902→      const updatedStarters = [...starters];
+   903→      const updatedSubs = [...subs];
+   904→
+   905→      const originalX = starter.x;
+   906→      const originalY = starter.y;
+   907→
+   908→      updatedStarters[starterIndex] = {
+   909→        ...sub,
+   910→        x: originalX,
+   911→        y: originalY,
+   912→        id: `${pitchTeamToggle}-starter-${Date.now()}`
+   913→      };
+   914→
+   915→      updatedSubs[subIndex] = {
+   916→        ...starter,
+   917→        x: 0,
+   918→        y: 0,
+   919→        id: `${pitchTeamToggle}-sub-${Date.now()}`
+   920→      };
+   921→
+   922→      // Register live banned player replacements
+   923→      const isStarterBanned = liveBannedPlayers.some(
+   924→        (bp) => bp.player_name.toLowerCase() === starter.name.toLowerCase()
+   925→      );
+   926→      if (isStarterBanned) {
+   927→        setBanReplacements(prev => ({
+   928→          ...prev,
+   929→          [starter.name]: sub.name
+   930→        }));
+   931→
+   932→        setNotificationHistory(prev => [
+   933→          {
+   934→            id: `ban-replaced-${Date.now()}`,
+   935→            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+   936→            type: "follow",
+   937→            title: "Disciplinary Fix Active",
+   938→            body: `🔴 Banned Player ${starter.name} successfully replaced by sub ${sub.name} on the field!`
+   939→          },
+   940→          ...prev
+   941→        ]);
+   942→      }
+   943→
+   944→      if (pitchTeamToggle === "home") {
+   945→        setActiveLineupHome(updatedStarters);
+   946→        setActiveSubsHome(updatedSubs);
+   947→      } else {
+   948→        setActiveLineupAway(updatedStarters);
+   949→        setActiveSubsAway(updatedSubs);
+   950→      }
+   951→
+   952→      setSelectedPitchPlayer(updatedStarters[starterIndex]);
+   953→    }
+   954→  };
+   955→
+   956→  // Followed matches state, sync to/from localStorage
+   957→  const [followedMatchIds, setFollowedMatchIds] = useState<number[]>(() => {
+   958→    try {
+   959→      const stored = localStorage.getItem("followed_matches");
+   960→      return stored ? JSON.parse(stored) : [];
+   961→    } catch {
+   962→      return [];
+   963→    }
+   964→  });
+   965→
+   966→  // Track live feed section expansion view
+   967→  const [liveFeedExpanded, setLiveFeedExpanded] = useState<boolean>(true);
+   968→  const [muteSound, setMuteSound] = useState<boolean>(() => {
+   969→    try {
+   970→      const stored = localStorage.getItem("kickiq_mute_sound");
+   971→      return stored === "true";
+   972→    } catch {
+   973→      return false;
+   974→    }
+   975→  });
+   976→
+   977→  // Notification history feed State
+   978→  interface LiveFeedEvent {
+   979→    id: string;
+   980→    timestamp: string;
+   981→    type: "live" | "system" | "follow";
+   982→    title: string;
+   983→    body: string;
+   984→    matchId?: number;
+   985→  }
+   986→
+   987→  const [notificationHistory, setNotificationHistory] = useState<LiveFeedEvent[]>(() => {
+   988→    try {
+   989→      const stored = localStorage.getItem("kickiq_notif_history");
+   990→      return stored ? JSON.parse(stored) : [
+   991→        {
+   992→          id: "welcome-system",
+   993→          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+   994→          type: "system",
+   995→          title: "Alert Center Initialized",
+   996→          body: "Bell-follow a fixture to log real-time Poisson interval transitions.",
+   997→        }
+   998→      ];
+   999→    } catch {
+  1000→      return [];
+  1001→    }
+  1002→  });
+  1003→
+  1004→  // Sync feed & sound to localStorage
+  1005→  useEffect(() => {
+  1006→    localStorage.setItem("kickiq_notif_history", JSON.stringify(notificationHistory));
+  1007→  }, [notificationHistory]);
+  1008→
+  1009→  useEffect(() => {
+  1010→    localStorage.setItem("kickiq_mute_sound", String(muteSound));
+  1011→  }, [muteSound]);
+  1012→
+  1013→  const addFeedEvent = (type: "live" | "system" | "follow", title: string, body: string, matchId?: number) => {
+  1014→    const newEvent: LiveFeedEvent = {
+  1015→      id: `${Date.now()}-${Math.random()}`,
+  1016→      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  1017→      type,
+  1018→      title,
+  1019→      body,
+  1020→      matchId,
+  1021→    };
+  1022→    setNotificationHistory((prev) => [newEvent, ...prev].slice(0, 40));
+  1023→  };
+  1024→
+  1025→  const handleToggleFollow = (matchId: number) => {
+  1026→    const matchObj = matches.find((m) => m.id === matchId);
+  1027→    const mName = matchObj ? `${matchObj.home_team} vs ${matchObj.away_team}` : `Match #${matchId}`;
+  1028→
+  1029→    setFollowedMatchIds((prev) => {
+  1030→      let updated;
+  1031→      if (prev.includes(matchId)) {
+  1032→        updated = prev.filter((id) => id !== matchId);
+  1033→        addFeedEvent("follow", "Unfollowed Fixture", `Stopped monitoring live ticker feed for ${mName}.`);
+  1034→      } else {
+  1035→        updated = [...prev, matchId];
+  1036→        addFeedEvent("follow", "Followed Fixture", `Active notification listener bound to telemetry for ${mName}.`);
+  1037→        
+  1038→        // Request Web notifications permission when they follow
+  1039→        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+  1040→          Notification.requestPermission();
+  1041→        }
+  1042→      }
+  1043→      localStorage.setItem("followed_matches", JSON.stringify(updated));
+  1044→      return updated;
+  1045→    });
+  1046→  };
+  1047→
+  1048→  const handleTriggerTestAlert = () => {
+  1049→    const testTitle = "🚨 TEST KICKIQ LIVE SIGNAL";
+  1050→    const testBody = "Demo alert: Match status telemetry successfully parsed by background workers.";
+  1051→    addFeedEvent("system", "Test Alert Fired", "User initiated push alert diagnostics successfully.");
+  1052→
+  1053→    setLiveTriggers((prev) => [
+  1054→      ...prev,
+  1055→      {
+  1056→        id: -99 - Math.random() - prev.length,
+  1057→        home_team: "GERMANY",
+  1058→        away_team: "SCOTLAND",
+  1059→        time: new Date().toLocaleTimeString(),
+  1060→      }
+  1061→    ]);
+  1062→
+  1063→    if (!muteSound) {
+  1064→      try {
+  1065→        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  1066→        const oscillator = audioCtx.createOscillator();
+  1067→        const gainNode = audioCtx.createGain();
+  1068→        oscillator.connect(gainNode);
+  1069→        gainNode.connect(audioCtx.destination);
+  1070→        oscillator.type = "sine";
+  1071→        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // high ping
+  1072→        gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+  1073→        oscillator.start();
+  1074→        oscillator.stop(audioCtx.currentTime + 0.15);
+  1075→      } catch (e) {
+  1076→        console.warn("Audio Context init disabled or restricted", e);
+  1077→      }
+  1078→    }
+  1079→
+  1080→    if (typeof window !== "undefined" && "Notification" in window) {
+  1081→      if (Notification.permission === "granted") {
+  1082→        try {
+  1083→          new Notification(testTitle, {
+  1084→            body: testBody,
+  1085→            icon: "/favicon.ico",
+  1086→          });
+  1087→        } catch (e) {
+  1088→          console.warn("Notification system iframe restrictions sandbox warning", e);
+  1089→        }
+  1090→      } else if (Notification.permission !== "denied") {
+  1091→        Notification.requestPermission();
+  1092→      }
+  1093→    }
+  1094→  };
+  1095→
+  1096→  // Followed Match state triggers
+  1097→  const [liveTriggers, setLiveTriggers] = useState<{ id: number; home_team: string; away_team: string; time: string }[]>([]);
+  1098→  const [previousStates, setPreviousStates] = useState<Record<number, "scheduled" | "live" | "finished">>(() => {
+  1099→    const initial: Record<number, "scheduled" | "live" | "finished"> = {};
+  1100→    matches.forEach((m) => {
+  1101→      initial[m.id] = m.status;
+  1102→    });
+  1103→    return initial;
+  1104→  });
+  1105→
+  1106→  // Track state transitions to Trigger Alerts!
+  1107→  useEffect(() => {
+  1108→    const nextStates = { ...previousStates };
+  1109→    const newTriggers: typeof liveTriggers = [];
+  1110→
+  1111→    matches.forEach((m) => {
+  1112→      const prevStatus = previousStates[m.id];
+  1113→      const currentStatus = m.status;
+  1114→
+  1115→      if (prevStatus === undefined) {
+  1116→        nextStates[m.id] = currentStatus;
+  1117→      } else if (prevStatus !== currentStatus) {
+  1118→        nextStates[m.id] = currentStatus;
+  1119→
+  1120→        if (followedMatchIds.includes(m.id)) {
+  1121→          if (currentStatus === "live" && prevStatus !== "live") {
+  1122→            newTriggers.push({
+  1123→              id: m.id,
+  1124→              home_team: m.home_team,
+  1125→              away_team: m.away_team,
+  1126→              time: new Date().toLocaleTimeString(),
+  1127→            });
+  1128→            addFeedEvent(
+  1129→              "live",
+  1130→              "Fixture Transition: Live!",
+  1131→              `${m.home_team} vs ${m.away_team} has kicked off! Poisson simulation clocks are ticking.`,
+  1132→              m.id
+  1133→            );
+  1134→          } else if (currentStatus === "finished" && prevStatus !== "finished") {
+  1135→            addFeedEvent(
+  1136→              "system",
+  1137→              "Fixture Final Whistle",
+  1138→              `${m.home_team} vs ${m.away_team} has finished! ELO outputs have updated.`,
+  1139→              m.id
+  1140→            );
+  1141→          }
+  1142→        }
+  1143→      }
+  1144→    });
+  1145→
+  1146→    setPreviousStates(nextStates);
+  1147→
+  1148→    if (newTriggers.length > 0) {
+  1149→      setLiveTriggers((prev) => [...prev, ...newTriggers]);
+  1150→
+  1151→      if (!muteSound) {
+  1152→        try {
+  1153→          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  1154→          const oscillator = audioCtx.createOscillator();
+  1155→          const gainNode = audioCtx.createGain();
+  1156→          oscillator.connect(gainNode);
+  1157→          gainNode.connect(audioCtx.destination);
+  1158→          oscillator.type = "sine";
+  1159→          oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 chord note
+  1160→          gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+  1161→          oscillator.start();
+  1162→          oscillator.stop(audioCtx.currentTime + 0.25);
+  1163→        } catch (e) {
+  1164→          console.warn(e);
+  1165→        }
+  1166→      }
+  1167→
+  1168→      newTriggers.forEach((trig) => {
+  1169→        if (typeof window !== "undefined" && "Notification" in window) {
+  1170→          if (Notification.permission === "granted") {
+  1171→            try {
+  1172→              new Notification(`⚽ KICKIQ LIVE Alert!`, {
+  1173→                body: `${trig.home_team} vs ${trig.away_team} is now LIVE!`,
+  1174→                icon: "/favicon.ico",
+  1175→              });
+  1176→            } catch (e) {
+  1177→              console.warn("Notification system iframe restrictions sandbox warning", e);
+  1178→            }
+  1179→          } else if (Notification.permission !== "denied") {
+  1180→            Notification.requestPermission();
+  1181→          }
+  1182→        }
+  1183→      });
+  1184→    }
+  1185→  }, [matches, followedMatchIds, muteSound]);
+  1186→
+  1187→  // General fixtures catalog background polling interval (every 7 seconds) to catch transitions
+  1188→  useEffect(() => {
+  1189→    const interval = setInterval(() => {
+  1190→      onRefreshMatches();
+  1191→    }, 7000);
+  1192→    return () => clearInterval(interval);
+  1193→  }, [onRefreshMatches]);
+  1194→
+  1195→  // Sync selected match details
+  1196→  useEffect(() => {
+  1197→    if (selectedMatch) {
+  1198→      setProcessedEventIds([]);
+  1199→      loadDetailedMatch(selectedMatch.id);
+  1200→      // Retrieve initial mock alerts or clear
+  1201→      setAlerts([]);
+  1202→    } else {
+  1203→      setMatchDetails(null);
+  1204→    }
+  1205→  }, [selectedMatch?.id, matches]);
+  1206→
+  1207→  // Set up live simulation polling effects
+  1208→  useEffect(() => {
+  1209→    let pollingInterval: NodeJS.Timeout | null = null;
+  1210→
+  1211→    if (selectedMatch && selectedMatch.status === "live") {
+  1212→      setPollingLive(true);
+  1213→      pollingInterval = setInterval(() => {
+  1214→        loadDetailedMatch(selectedMatch.id);
+  1215→        onRefreshMatches(); // Keeps main listing score synced in real-time
+  1216→      }, 2500);
+  1217→    } else {
+  1218→      setPollingLive(false);
+  1219→    }
+  1220→
+  1221→    return () => {
+  1222→      if (pollingInterval) clearInterval(pollingInterval);
+  1223→    };
+  1224→  }, [selectedMatch?.id, selectedMatch?.status]);
+  1225→
+  1226→  const loadDetailedMatch = async (id: number) => {
+  1227→    try {
+  1228→      const res = await fetch(`/matches/${id}`, {
+  1229→        headers: { "Authorization": `Bearer ${authToken}` },
+  1230→      });
+  1231→      const data = await res.json();
+  1232→      if (res.ok) {
+  1233→        setMatchDetails(data);
+  1234→        
+  1235→        // Sync voter preference locally to reflect backend db state
+  1236→        if (data.match.voted_users && data.match.voted_users[String(user.id)]) {
+  1237→          setVotedChoice(data.match.voted_users[String(user.id)]);
+  1238→        } else {
+  1239→          setVotedChoice(null);
+  1240→        }
+  1241→
+  1242→        // Process Match Events for alert dispatches
+  1243→        if (data.events && Array.isArray(data.events)) {
+  1244→          setProcessedEventIds((prev) => {
+  1245→            // First load or empty: pre-fill so we don't spam historical states on load
+  1246→            if (prev.length === 0) {
+  1247→              return data.events.map((e: any) => e.id);
+  1248→            }
+  1249→
+  1250→            const unresolved = data.events.filter((e: any) => !prev.includes(e.id));
+  1251→            if (unresolved.length > 0) {
+  1252→              try {
+  1253→                const cfgStr = localStorage.getItem("kickiq_notif_config");
+  1254→                const config = cfgStr ? JSON.parse(cfgStr) : null;
+  1255→                const isPremium = user.plan === "pro" || user.plan === "elite";
+  1256→
+  1257→                if (isPremium && config) {
+  1258→                  unresolved.forEach((ev: any) => {
+  1259→                    const homeTeam = data.match.home_team;
+  1260→                    const awayTeam = data.match.away_team;
+  1261→                    
+  1262→                    // Match squad filters (empty filters means ALL squads)
+  1263→                    const matchesTeamFilter = config.favoriteTeams.length === 0 ||
+  1264→                      config.favoriteTeams.includes(homeTeam) ||
+  1265→                      config.favoriteTeams.includes(awayTeam);
+  1266→
+  1267→                    if (matchesTeamFilter) {
+  1268→                      let shouldTrigger = false;
+  1269→                      let title = "";
+  1270→
+  1271→                      if (ev.event_type === "goal" && config.goals) {
+  1272→                        shouldTrigger = true;
+  1273→                        title = `⚽ GOAL! ${ev.player_name || "Team Score"} in ${ev.minute}'`;
+  1274→                      } else if (ev.event_type === "red_card" && config.redCards) {
+  1275→                        shouldTrigger = true;
+  1276→                        title = `🟥 RED CARD! Dismissal at ${ev.minute}'`;
+  1277→                      } else if (ev.event_type === "substitution" && config.subs) {
+  1278→                        shouldTrigger = true;
+  1279→                        title = `🔄 SUBSTITUTION in ${ev.minute}'`;
+  1280→                      }
+  1281→
+  1282→                      if (shouldTrigger) {
+  1283→                        // 1. Add to ticker feed
+  1284→                        addFeedEvent("live", title, ev.description, data.match.id);
+  1285→
+  1286→                        // 2. Trigger browser native notification
+  1287→                        if (config.browserPush && typeof window !== "undefined" && "Notification" in window) {
+  1288→                          if (Notification.permission === "granted") {
+  1289→                            try {
+  1290→                              new Notification(title, {
+  1291→                                body: ev.description,
+  1292→                                icon: "/favicon.ico"
+  1293→                              });
+  1294→                            } catch (err) {
+  1295→                              console.warn("Iframe notification error", err);
+  1296→                            }
+  1297→                          }
+  1298→                        }
+  1299→
+  1300→                        // 3. Audio chordclaxons
+  1301→                        if (config.soundChime && !muteSound) {
+  1302→                          try {
+  1303→                            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  1304→                            const osc = audioCtx.createOscillator();
+  1305→                            const gainNode = audioCtx.createGain();
+  1306→                            osc.connect(gainNode);
+  1307→                            gainNode.connect(audioCtx.destination);
+  1308→                            osc.type = "sine";
+  1309→                            osc.frequency.setValueAtTime(ev.event_type === "red_card" ? 330 : 523.25, audioCtx.currentTime);
+  1310→                            gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+  1311→                            osc.start();
+  1312→                            osc.stop(audioCtx.currentTime + 0.35);
+  1313→                          } catch (audioErr) {
+  1314→                            console.warn("Audio Context init block", audioErr);
+  1315→                          }
+  1316→                        }
+  1317→                      }
+  1318→                    }
+  1319→                  });
+  1320→                }
+  1321→              } catch (cfgErr) {
+  1322→                console.error("Failed telemetry config processing", cfgErr);
+  1323→              }
+  1324→
+  1325→              return [...prev, ...unresolved.map((e: any) => e.id)];
+  1326→            }
+  1327→            return prev;
+  1328→          });
+  1329→        }
+  1330→      }
+  1331→    } catch (e) {
+  1332→      console.error("Match detail loading issue", e);
+  1333→    }
+  1334→  };
+  1335→
+  1336→  const checkPlanSimPermission = (): boolean => {
+  1337→    if (user.plan === "free" && user.free_match_used) {
+  1338→      alert("Recruit plan limits: You have exhausted your 1-simulation quota. Please upgrade your plan in the pricing deck to unlock infinite forecasts!");
+  1339→      onOpenUpgrade();
+  1340→      return false;
+  1341→    }
+  1342→    return true;
+  1343→  };
+  1344→
+  1345→  const handleStartSimulation = async (type: "quick" | "ticking") => {
+  1346→    if (!selectedMatch) return;
+  1347→    if (!checkPlanSimPermission()) return;
+  1348→
+  1349→    setSimulating(true);
+  1350→    try {
+  1351→      const endpoint = type === "quick" ? `/simulation/quick/${selectedMatch.id}` : `/simulation/start/${selectedMatch.id}`;
+  1352→      const res = await fetch(endpoint, {
+  1353→        method: "POST",
+  1354→        headers: {
+  1355→          "Content-Type": "application/json",
+  1356→          "Authorization": `Bearer ${authToken}`,
+  1357→        },
+  1358→      });
+  1359→
+  1360→      const data = await res.json();
+  1361→      if (!res.ok) throw new Error(data.error || "Simulation error");
+  1362→
+  1363→      onRefreshMatches();
+  1364→      loadDetailedMatch(selectedMatch.id);
+  1365→    } catch (err: any) {
+  1366→      alert(`Simulation failed: ${err.message}`);
+  1367→    } finally {
+  1368→      setSimulating(false);
+  1369→    }
+  1370→  };
+  1371→
+  1372→  // Lock user's pre-match vote
+  1373→  const handleCastVote = async (choice: "home" | "draw" | "away") => {
+  1374→    if (!selectedMatch || !matchDetails) return;
+  1375→    setSubmittingVote(true);
+  1376→    try {
+  1377→      const res = await fetch(`/matches/${selectedMatch.id}/vote`, {
+  1378→        method: "POST",
+  1379→        headers: {
+  1380→          "Content-Type": "application/json",
+  1381→          "Authorization": `Bearer ${authToken}`,
+  1382→        },
+  1383→        body: JSON.stringify({ vote: choice }),
+  1384→      });
+  1385→      const data = await res.json();
+  1386→      if (res.ok) {
+  1387→        setVotedChoice(choice);
+  1388→        loadDetailedMatch(selectedMatch.id);
+  1389→      } else {
+  1390→        alert(data.error || "Failed to catalog prediction");
+  1391→      }
+  1392→    } catch (e) {
+  1393→      console.error("Voting issue", e);
+  1394→    } finally {
+  1395→      setSubmittingVote(false);
+  1396→    }
+  1397→  };
+  1398→
+  1399→  // Lock user's halftime prediction
+  1400→  const handleLockHalftimeForecast = async (option: "over15" | "homeScoreNext" | "awayScoreNext" | "under15") => {
+  1401→    if (!selectedMatch || !matchDetails) return;
+  1402→    setSubmittingHT(true);
+  1403→    try {
+  1404→      const res = await fetch(`/matches/${selectedMatch.id}/halftime-prediction`, {
+  1405→        method: "POST",
+  1406→        headers: {
+  1407→          "Content-Type": "application/json",
+  1408→          "Authorization": `Bearer ${authToken}`,
+  1409→        },
+  1410→        body: JSON.stringify({ prediction: option }),
+  1411→      });
+  1412→      const data = await res.json();
+  1413→      if (res.ok) {
+  1414→        loadDetailedMatch(selectedMatch.id);
+  1415→        onRefreshMatches();
+  1416→      } else {
+  1417→        alert(data.error || "Halftime commitment sequence aborted");
+  1418→      }
+  1419→    } catch (e) {
+  1420→      console.error("Halftime forecasting issue", e);
+  1421→    } finally {
+  1422→      setSubmittingHT(false);
+  1423→    }
+  1424→  };
+  1425→
+  1426→  // Ask Gemini Custom Halftime Predictive analysis
+  1427→  const handleGenerateCustomAnalysis = async () => {
+  1428→    if (!selectedMatch || !halftimeCustomPrompt.trim()) return;
+  1429→    setAnalyzingHalftime(true);
+  1430→    try {
+  1431→      const res = await fetch(`/matches/${selectedMatch.id}/halftime-custom-analysis`, {
+  1432→        method: "POST",
+  1433→        headers: {
+  1434→          "Content-Type": "application/json",
+  1435→          "Authorization": `Bearer ${authToken}`,
+  1436→        },
+  1437→        body: JSON.stringify({ prompt: halftimeCustomPrompt }),
+  1438→      });
+  1439→      const data = await res.json();
+  1440→      if (res.ok) {
+  1441→        setHalftimeCustomAnalysisResult(data.analysis);
+  1442→        loadDetailedMatch(selectedMatch.id);
+  1443→        onRefreshMatches();
+  1444→      } else {
+  1445→        alert(data.error || "Failed to generate custom predictive analysis");
+  1446→      }
+  1447→    } catch (e) {
+  1448→      console.error("Halftime custom analysis issue", e);
+  1449→    } finally {
+  1450→      setAnalyzingHalftime(false);
+  1451→    }
+  1452→  };
+  1453→
+  1454→  // Call Gemini analyzed open source change bulletin
+  1455→  const handleListenToOpenSources = async () => {
+  1456→    if (!selectedMatch || !matchDetails) return;
+  1457→    setFetchingAlert(true);
+  1458→    try {
+  1459→      const res = await fetch(`/matches/${selectedMatch.id}/alerts/generate`, {
+  1460→        method: "POST",
+  1461→        headers: {
+  1462→          "Content-Type": "application/json",
+  1463→          "Authorization": `Bearer ${authToken}`,
+  1464→        }
+  1465→      });
+  1466→      const data = await res.json();
+  1467→      if (res.ok && data.alert) {
+  1468→        setAlerts((prev) => [data.alert, ...prev].slice(0, 5)); // Keep latest 5 alerts
+  1469→      }
+  1470→    } catch (e) {
+  1471→      console.error("Alert generation issue", e);
+  1472→    } finally {
+  1473→      setFetchingAlert(false);
+  1474→    }
+  1475→  };
+  1476→
+  1477→  const activeMatches = matches.filter((m) => {
+  1478→    if (filter === "all") return true;
+  1479→    return m.status === filter;
+  1480→  });
+  1481→
+  1482→  const getFlagEmoji = (teamName: string): string => {
+  1483→    const flags: Record<string, string> = {
+  1484→      "USA": "🇺🇸", "Mexico": "🇲🇽", "Canada": "🇨🇦", "Argentina": "🇦🇷", "Brazil": "🇧🇷", "France": "🇫🇷",
+  1485→      "England": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Spain": "🇪🇸", "Germany": "🇩🇪", "Portugal": "🇵🇹", "Nigeria": "🇳🇬", "Japan": "🇯🇵",
+  1486→      "Morocco": "🇲🇦", "Croatia": "🇭🇷", "Senegal": "🇸🇳", "South Korea": "🇰🇷", "Netherlands": "🇳🇱"
+  1487→    };
+  1488→    return flags[teamName] || "⚽";
+  1489→  };
+  1490→
+  1491→  // Filter trend meeting matches (2, 3, 4, 5, or 6 past matches)
+  1492→  const getHistoricalClashesTrends = () => {
+  1493→    if (!matchDetails || !matchDetails.match.historical_clashes) return [];
+  1494→    return matchDetails.match.historical_clashes.slice(0, meetingsLimit);
+  1495→  };
+  1496→
+  1497→  const getPoissonProbabilities = () => {
+  1498→    if (!matchDetails?.match) return { homeWin: 33, draw: 33, awayWin: 34, expectedGoalsHome: 1.2, expectedGoalsAway: 1.2, likelyScores: [] };
+  1499→
+  1500→    const baseHome = matchDetails.match.mu_home || 1.35;
+  1501→    const baseAway = matchDetails.match.mu_away || 1.15;
+  1502→
+  1503→    const lambda = baseHome * poissonHomeAttack;
+  1504→    const mu = baseAway * poissonAwayAttack;
+  1505→
+  1506→    const factorial = (n: number): number => {
+  1507→      if (n <= 1) return 1;
+  1508→      let res = 1;
+  1509→      for (let i = 2; i <= n; i++) res *= i;
+  1510→      return res;
+  1511→    };
+  1512→    
+  1513→    const poissonProb = (k: number, mean: number): number => {
+  1514→      return (Math.exp(-mean) * Math.pow(mean, k)) / factorial(k);
+  1515→    };
+  1516→
+  1517→    let homeWin = 0;
+  1518→    let draw = 0;
+  1519→    let awayWin = 0;
+  1520→    
+  1521→    const scoreGrid: { score: string; prob: number }[] = [];
+  1522→
+  1523→    for (let h = 0; h <= 6; h++) {
+  1524→      const hP = poissonProb(h, lambda);
+  1525→      for (let a = 0; a <= 6; a++) {
+  1526→        const aP = poissonProb(a, mu);
+  1527→        const p = hP * aP;
+  1528→        
+  1529→        if (h > a) homeWin += p;
+  1530→        else if (h === a) draw += p;
+  1531→        else awayWin += p;
+  1532→
+  1533→        if (h <= 3 && a <= 3) {
+  1534→          scoreGrid.push({ score: `${h}-${a}`, prob: p });
+  1535→        }
+  1536→      }
+  1537→    }
+  1538→
+  1539→    const total = homeWin + draw + awayWin;
+  1540→    const homeWinPercent = total > 0 ? (homeWin / total) * 100 : 33.3;
+  1541→    const drawPercent = total > 0 ? (draw / total) * 100 : 33.3;
+  1542→    const awayWinPercent = total > 0 ? (awayWin / total) * 100 : 33.4;
+  1543→
+  1544→    const likelyScores = scoreGrid
+  1545→      .sort((s1, s2) => s2.prob - s1.prob)
+  1546→      .slice(0, 4)
+  1547→      .map(s => ({
+  1548→        score: s.score,
+  1549→        percentage: s.prob * 100
+  1550→      }));
+  1551→
+  1552→    return {
+  1553→      homeWin: homeWinPercent,
+  1554→      draw: drawPercent,
+  1555→      awayWin: awayWinPercent,
+  1556→      expectedGoalsHome: lambda,
+  1557→      expectedGoalsAway: mu,
+  1558→      likelyScores
+  1559→    };
+  1560→  };
+  1561→
+  1562→  const getRadarChartData = (homePlayerName: string, awayPlayerName: string) => {
+  1563→    if (!matchDetails?.match) return [];
+  1564→    const homeStats = getPlayerStatsMap(matchDetails.match.home_team, homePlayerName);
+  1565→    const awayStats = getPlayerStatsMap(matchDetails.match.away_team, awayPlayerName);
+  1566→    
+  1567→    return [
+  1568→      { subject: "Attacking Strength", A: homeStats.attacking, B: awayStats.attacking, fullMark: 100 },
+  1569→      { subject: "Defensive Rigor", A: homeStats.defending, B: awayStats.defending, fullMark: 100 },
+  1570→      { subject: "Playmaking Vision", A: homeStats.playmaking, B: awayStats.playmaking, fullMark: 100 },
+  1571→      { subject: "Ball Retention", A: homeStats.retention, B: awayStats.retention, fullMark: 100 },
+  1572→      { subject: "Physical Dominance", A: homeStats.physical, B: awayStats.physical, fullMark: 100 },
+  1573→      { subject: "Tactical Workrate", A: homeStats.workrate, B: awayStats.workrate, fullMark: 100 }
+  1574→    ];
+  1575→  };
+  1576→
+  1577→  const getProjectedPlayerPerformance = () => {
+  1578→    if (!matchDetails?.match) return [];
+  1579→    
+  1580→    const m = matchDetails.match;
+  1581→    const poissonData = getPoissonProbabilities();
+  1582→    
+  1583→    const homeTeamName = m.home_team;
+  1584→    const awayTeamName = m.away_team;
+  1585→    
+  1586→    const homeRoster = defaultRosters[homeTeamName]?.starters || [];
+  1587→    const awayRoster = defaultRosters[awayTeamName]?.starters || [];
+  1588→    
+  1589→    const homeList = homeRoster.length > 0 
+  1590→      ? homeRoster.map(p => ({ ...p, isHome: true, teamName: homeTeamName, color: m.home_jersey_color || "#10b981" }))
+  1591→      : (playersByTeam[homeTeamName] || []).map((name, idx) => ({
+  1592→          name,
+  1593→          role: idx === 0 ? "GK" : idx === 1 ? "DEF" : idx === 2 ? "MID" : ("FWD" as const),
+  1594→          rating: 80 + (idx * 3),
+  1595→          isHome: true,
+  1596→          teamName: homeTeamName,
+  1597→          color: m.home_jersey_color || "#10b981"
+  1598→        }));
+  1599→
+  1600→    const awayList = awayRoster.length > 0
+  1601→      ? awayRoster.map(p => ({ ...p, isHome: false, teamName: awayTeamName, color: m.away_jersey_color || "#14b8a6" }))
+  1602→      : (playersByTeam[awayTeamName] || []).map((name, idx) => ({
+  1603→          name,
+  1604→          role: idx === 0 ? "GK" : idx === 1 ? "DEF" : idx === 2 ? "MID" : ("FWD" as const),
+  1605→          rating: 80 + (idx * 3),
+  1606→          isHome: false,
+  1607→          teamName: awayTeamName,
+  1608→          color: m.away_jersey_color || "#14b8a6"
+  1609→        }));
+  1610→
+  1611→    const allPlayersInput = [...homeList, ...awayList];
+  1612→    
+  1613→    const muH = poissonData.expectedGoalsHome;
+  1614→    const muA = poissonData.expectedGoalsAway;
+  1615→    
+  1616→    const hWinProb = poissonData.homeWin / 100;
+  1617→    const aWinProb = poissonData.awayWin / 100;
+  1618→
+  1619→    const ratedPlayers = allPlayersInput.map(player => {
+  1620→      let roleWeightOff = 0.1;
+  1621→      let roleWeightDef = 0.1;
+  1622→      
+  1623→      switch (player.role) {
+  1624→        case "FWD":
+  1625→          roleWeightOff = 0.95;
+  1626→          roleWeightDef = 0.05;
+  1627→          break;
+  1628→        case "MID":
+  1629→          roleWeightOff = 0.65;
+  1630→          roleWeightDef = 0.35;
+  1631→          break;
+  1632→        case "DEF":
+  1633→          roleWeightOff = 0.15;
+  1634→          roleWeightDef = 0.85;
+  1635→          break;
+  1636→        case "GK":
+  1637→          roleWeightOff = 0.02;
+  1638→          roleWeightDef = 0.98;
+  1639→          break;
+  1640→      }
+  1641→      
+  1642→      let score = 0;
+  1643→      const teamMu = player.isHome ? muH : muA;
+  1644→      const oppMu = player.isHome ? muA : muH;
+  1645→      const teamWinMultiplier = player.isHome ? hWinProb : aWinProb;
+  1646→      
+  1647→      const offContribution = player.rating * roleWeightOff * teamMu * 2.0;
+  1648→      const defContribution = player.rating * roleWeightDef * Math.max(0.1, 3.5 - oppMu) * 1.5;
+  1649→      
+  1650→      score = (offContribution + defContribution) * (0.5 + teamWinMultiplier);
+  1651→      const nameHash = player.name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  1652→      score += (nameHash % 5) * 1.2;
+  1653→      
+  1654→      return {
+  1655→        name: player.name,
+  1656→        role: player.role,
+  1657→        rating: player.rating,
+  1658→        isHome: player.isHome,
+  1659→        teamName: player.teamName,
+  1660→        color: player.color,
+  1661→        calculatedScore: score,
+  1662→        projectedContribution: (roleWeightOff * teamMu).toFixed(2),
+  1663→      };
+  1664→    });
+  1665→    
+  1666→    const sumScores = ratedPlayers.reduce((acc, p) => acc + p.calculatedScore, 0) || 1;
+  1667→    
+  1668→    const normalized = ratedPlayers.map(p => ({
+  1669→      ...p,
+  1670→      probability: Math.min(95, Math.max(2, Math.round((p.calculatedScore / sumScores) * 100)))
+  1671→    }));
+  1672→    
+  1673→    return normalized.sort((a, b) => b.probability - a.probability).slice(0, 3);
+  1674→  };
+  1675→
+  1676→  // Calculate detailed mock stats on finish state
+  1677→  const getMatchDebriefStats = () => {
+  1678→    if (!matchDetails) return { possession: { home: 50, away: 50 }, shots: { home: 0, away: 0 }, passes: { home: 80, away: 80 } };
+  1679→    const m = matchDetails.match;
+  1680→    const diffElo = m.home_elo - m.away_elo;
+  1681→    
+  1682→    // Possession centered around ELO bias
+  1683→    const homePoss = Math.min(65, Math.max(35, Math.round(50 + diffElo / 15)));
+  1684→    const awayPoss = 100 - homePoss;
+  1685→
+  1686→    // Shots proportional to mu values plus scorelines
+  1687→    const homeShots = Math.round(m.mu_home * 4 + m.home_score * 2 + Math.random() * 3);
+  1688→    const awayShots = Math.round(m.mu_away * 4 + m.away_score * 2 + Math.random() * 3);
+  1689→
+  1690→    const homePasses = Math.min(94, Math.max(76, 85 + Math.round(diffElo / 60)));
+  1691→    const awayPasses = Math.min(94, Math.max(76, 85 - Math.round(diffElo / 60)));
+  1692→
+  1693→    return {
+  1694→      possession: { home: homePoss, away: awayPoss },
+  1695→      shots: { home: homeShots, away: awayShots },
+  1696→      passes: { home: homePasses, away: awayPasses }
+  1697→    };
+  1698→  };
+  1699→
+  1700→  const debriefStats = getMatchDebriefStats();
+  1701→
+  1702→  return (
+  1703→    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-[82vh] relative select-none">
+  1704→      
+  1705→      {/* FLOATING HALFTIME AI TACTICAL PROMPT NOTIFICATION TOAST */}
+  1706→      {showHalftimePromptInvite && matchDetails?.match && (
+  1707→        <div id="halftime-banner" className="fixed bottom-6 right-6 z-50 max-w-sm bg-slate-900 border border-emerald-500/40 p-5 rounded-2xl shadow-3xl text-left animate-in fade-in slide-in-from-bottom-5 duration-300">
+  1708→          <div className="flex items-center justify-between mb-3">
+  1709→            <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-md flex items-center gap-1.5 animate-pulse">
+  1710→              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+  1711→              Intelligence Intercept
+  1712→            </span>
+  1713→            <button 
+  1714→              onClick={() => setShowHalftimePromptInvite(false)} 
+  1715→              className="text-xs text-slate-400 hover:text-slate-100 cursor-pointer"
+  1716→            >
+  1717→              ✕
+  1718→            </button>
+  1719→          </div>
+  1720→          <h4 className="text-xs font-black text-slate-200 uppercase tracking-wide">
+  1721→            🚨 HALFTIME CRITICAL DESPATCH
+  1722→          </h4>
+  1723→          <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+  1724→            The referee has whistled for halftime in <strong>{matchDetails.match.home_team} vs {matchDetails.match.away_team}</strong>! 
+  1725→            Submit a custom tactical prediction instruction to Gemini to forecast the second half dynamic!
+  1726→          </p>
+  1727→          <div className="mt-4 flex gap-2">
+  1728→            <button
+  1729→              onClick={() => {
+  1730→                setShowHalftimePromptInvite(false);
+  1731→                const el = document.getElementById("halftime-custom-prompt-container");
+  1732→                if (el) el.scrollIntoView({ behavior: "smooth" });
+  1733→              }}
+  1734→              className="py-1 px-3 bg-emerald-550 hover:bg-emerald-450 text-slate-950 font-bold text-[10px] uppercase rounded-lg transition-all cursor-pointer"
+  1735→            >
+  1736→              Configure Prompt
+  1737→            </button>
+  1738→            <button
+  1739→              onClick={() => setShowHalftimePromptInvite(false)}
+  1740→              className="py-1 px-3 bg-slate-800 hover:bg-slate-750 text-slate-350 text-[10px] font-bold uppercase rounded-lg transition-all cursor-pointer"
+  1741→            >
+  1742→              Dismiss
+  1743→            </button>
+  1744→          </div>
+  1745→        </div>
+  1746→      )}
+  1747→
+  1748→      {/* FLOATING LIVE MATCH FOLLOW BANNER NOTIFICATION TOAST */}
+  1749→      {liveTriggers.length > 0 && (
+  1750→        <div id="follow-toast-container" className="fixed bottom-6 left-6 z-50 flex flex-col gap-3 max-w-sm pointer-events-auto">
+  1751→          {liveTriggers.map((trig) => (
+  1752→            <div 
+  1753→              key={trig.id} 
+  1754→              className="bg-slate-950 border-2 border-emerald-500 p-5 rounded-2xl shadow-3xl text-left animate-in fade-in slide-in-from-left-5 duration-300 relative overflow-hidden"
+  1755→            >
+  1756→              <div className="absolute inset-0 z-0 opacity-10 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.3)_0,transparent_100%)] pointer-events-none animate-pulse" />
+  1757→              
+  1758→              <div className="flex items-center justify-between mb-2 relative z-10">
+  1759→                <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 rounded-md flex items-center gap-1.5">
+  1760→                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+  1761→                  SYSTEM DESPATCH: GOING LIVE
+  1762→                </span>
+  1763→                <button 
+  1764→                  type="button"
+  1765→                  onClick={() => setLiveTriggers((prev) => prev.filter((t) => t.id !== trig.id))} 
+  1766→                  className="text-xs text-slate-400 hover:text-slate-100 cursor-pointer"
+  1767→                >
+  1768→                  ✕
+  1769→                </button>
+  1770→              </div>
+  1771→              
+  1772→              <div className="space-y-1 relative z-10">
+  1773→                <h4 className="text-xs font-black text-rose-400 uppercase tracking-wide flex items-center gap-1">
+  1774→                  🚨 MATCH NOW ONLINE • {trig.time}
+  1775→                </h4>
+  1776→                <p className="text-[11px] text-slate-200 leading-relaxed font-sans mt-1">
+  1777→                  Your followed fixture <strong className="text-emerald-400 font-extrabold uppercase">{trig.home_team} vs {trig.away_team}</strong> has shifted to <strong className="text-emerald-400">LIVE</strong> state! 
+  1778→                  Poisson parameters and Gemini tactical analytics are now active!
+  1779→                </p>
+  1780→              </div>
+  1781→              
+  1782→              <div className="mt-4 flex gap-2 relative z-10">
+  1783→                <button
+  1784→                  type="button"
+  1785→                  onClick={() => {
+  1786→                    const matchObj = matches.find((m) => m.id === trig.id);
+  1787→                    if (matchObj) {
+  1788→                      onSelectMatch(matchObj);
+  1789→                    }
+  1790→                    setLiveTriggers((prev) => prev.filter((t) => t.id !== trig.id));
+  1791→                  }}
+  1792→                  className="py-1 px-3 bg-emerald-500 hover:bg-emerald-450 text-slate-950 font-black text-[10px] uppercase rounded-lg transition-all cursor-pointer flex items-center gap-1"
+  1793→                >
+  1794→                  <Play className="w-3 h-3 fill-slate-950" /> Join Arena
+  1795→                </button>
+  1796→                <button
+  1797→                  type="button"
+  1798→                  onClick={() => setLiveTriggers((prev) => prev.filter((t) => t.id !== trig.id))}
+  1799→                  className="py-1 px-3 bg-slate-900 border border-slate-805 hover:bg-slate-800 text-slate-400 text-[10px] font-bold uppercase rounded-lg transition-all cursor-pointer"
+  1800→                >
+  1801→                  Acknowledge
+  1802→                </button>
+  1803→              </div>
+  1804→            </div>
+  1805→          ))}
+  1806→        </div>
+  1807→      )}
+  1808→      
+  1809→      {/* COLUMN 1: Sidebar Dashboard Desk */}
+  1810→      <div className="lg:col-span-1 space-y-4 flex flex-col max-h-[82vh] overflow-hidden text-left">
+  1811→        
+  1812→        {/* CHIC SIDEBAR TAB SELECTOR */}
+  1813→        <div className="p-1 border border-slate-900 rounded-2xl shrink-0 flex items-center bg-slate-950">
+  1814→          <button
+  1815→            onClick={() => setActiveSidebarTab("fixtures")}
+  1816→            className={`flex-1 py-1.5 text-center text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
+  1817→              activeSidebarTab === "fixtures"
+  1818→                ? "bg-gradient-to-r from-emerald-500/10 to-teal-500/10 text-emerald-400 border border-emerald-500/20 shadow-md"
+  1819→                : "text-slate-500 hover:text-slate-350 border border-transparent"
+  1820→            }`}
+  1821→          >
+  1822→            <Calendar className="w-3.5 h-3.5" />
+  1823→            Fixtures
+  1824→          </button>
+  1825→          <button
+  1826→            onClick={() => setActiveSidebarTab("news")}
+  1827→            className={`flex-1 py-1.5 text-center text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 relative ${
+  1828→              activeSidebarTab === "news"
+  1829→                ? "bg-gradient-to-r from-emerald-500/10 to-teal-500/10 text-emerald-400 border border-emerald-500/20 shadow-md"
+  1830→                : "text-slate-500 hover:text-slate-350 border border-transparent"
+  1831→            }`}
+  1832→          >
+  1833→            <Radio className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+  1834→            News
+  1835→            <span className="absolute top-1 right-1.5 w-1.2 h-1.2 rounded-full bg-rose-500 border border-slate-950 animate-ping" />
+  1836→          </button>
+  1837→          <button
+  1838→            onClick={() => setActiveSidebarTab("alerts")}
+  1839→            className={`flex-1 py-1.5 text-center text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
+  1840→              activeSidebarTab === "alerts"
+  1841→                ? "bg-gradient-to-r from-emerald-500/10 to-teal-500/10 text-emerald-400 border border-emerald-500/20 shadow-md"
+  1842→                : "text-slate-500 hover:text-slate-350 border border-transparent"
+  1843→            }`}
+  1844→          >
+  1845→            <Bell className="w-3.5 h-3.5" />
+  1846→            Alarms
+  1847→          </button>
+  1848→        </div>
+  1849→
+  1850→        {activeSidebarTab === "fixtures" ? (
+  1851→          <>
+  1852→            <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl flex flex-col gap-3 shrink-0 backdrop-blur-md shadow-2xl relative">
+  1853→              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
+  1854→              <div className="flex items-center justify-between">
+  1855→                <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 font-mono flex items-center gap-1.5">
+  1856→                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+  1857→                  Fixtures Deck
+  1858→                </h3>
+  1859→                <button
+  1860→                  onClick={onRefreshMatches}
+  1861→                  title="Refresh indices"
+  1862→                  className="p-1.5 text-slate-400 hover:text-emerald-400 bg-slate-950/60 border border-slate-850 rounded-lg hover:scale-105 active:scale-95 transition cursor-pointer"
+  1863→                >
+  1864→                  <RefreshCw className="w-3.5 h-3.5" />
+  1865→                </button>
+  1866→              </div>
+  1867→
+  1868→              {/* Filter switches */}
+  1869→              <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 border border-slate-850 rounded-xl">
+  1870→                {[
+  1871→                  { id: "all" as const, name: "All Matches" },
+  1872→                  { id: "live" as const, name: "🔴 Live Track" },
+  1873→                  { id: "scheduled" as const, name: "Scheduled" },
+  1874→                  { id: "finished" as const, name: "Finished" },
+  1875→                ].map((bt) => (
+  1876→                  <button
+  1877→                    key={bt.id}
+  1878→                    onClick={() => {
+  1879→                      triggerHaptic("light");
+  1880→                      setFilter(bt.id);
+  1881→                    }}
+  1882→                    className={`py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+  1883→                      filter === bt.id 
+  1884→                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md font-extrabold" 
+  1885→                        : "text-slate-500 hover:text-slate-350 border border-transparent"
+  1886→                    }`}
+  1887→                  >
+  1888→                    {bt.name}
+  1889→                  </button>
+  1890→                ))}
+  1891→              </div>
+  1892→
+  1893→              {/* Compare Mode Toggler */}
+  1894→              <button
+  1895→                onClick={() => {
+  1896→                  triggerHaptic("medium");
+  1897→                  setCompareMode(!compareMode);
+  1898→                  if (!compareMode) {
+  1899→                    setCompareMatchIds([]);
+  1900→                  }
+  1901→                }}
+  1902→                className={`w-full py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border cursor-pointer flex items-center justify-center gap-2 ${
+  1903→                  compareMode
+  1904→                    ? "bg-teal-500/15 text-teal-350 border-teal-500/40 shadow-[0_0_12px_rgba(20,184,166,0.15)] animate-pulse"
+  1905→                    : "bg-slate-950 border-slate-850 hover:border-slate-700 text-slate-400 hover:text-slate-200"
+  1906→                }`}
+  1907→                id="matches-comparison-mode-btn"
+  1908→              >
+  1909→                <Scale className="w-3.5 h-3.5 text-teal-400" />
+  1910→                {compareMode ? "Comparing Mode Active" : "⚖️ Compare Matches"}
+  1911→              </button>
+  1912→            </div>
+  1913→
+  1914→            {/* Dynamic Matches List Scroll View */}
+  1915→            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+  1916→              {activeMatches.map((m) => {
+  1917→                const isSelected = selectedMatch?.id === m.id;
+  1918→                const isLive = m.status === "live";
+  1919→                const isFinished = m.status === "finished";
+  1920→                const isCompared = compareMatchIds.includes(m.id);
+  1921→
+  1922→                return (
+  1923→                  <div
+  1924→                    key={m.id}
+  1925→                    onClick={() => {
+  1926→                      triggerHaptic("light");
+  1927→                      if (compareMode) {
+  1928→                        handleToggleCompare(m.id);
+  1929→                      } else {
+  1930→                        onSelectMatch(m);
+  1931→                      }
+  1932→                    }}
+  1933→                    style={{
+  1934→                      "--home-jersey": m.home_jersey_color || "#10b981",
+  1935→                      "--away-jersey": m.away_jersey_color || "#14b8a6",
+  1936→                      borderColor: isSelected && !compareMode ? "var(--home-jersey)" : undefined,
+  1937→                      boxShadow: isSelected && !compareMode ? "0 0 15px -3px var(--home-jersey)" : undefined,
+  1938→                    } as React.CSSProperties}
+  1939→                    className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[150px] group ${
+  1940→                      compareMode
+  1941→                        ? isCompared
+  1942→                          ? "border-teal-500 bg-teal-950/10 shadow-[0_0_15px_-3px_rgba(20,184,166,0.2)] ring-1 ring-teal-500/20"
+  1943→                          : "border-slate-850/80 bg-slate-900/10 hover:border-slate-700 opacity-60"
+  1944→                        : isSelected
+  1945→                        ? "bg-slate-950/20 ring-1 ring-white/10"
+  1946→                        : "border-slate-850 bg-slate-900/35 hover:border-slate-700 hover:bg-slate-900/60"
+  1947→                    }`}
+  1948→                  >
+  1949→                    {/* Visual Glass Edge Glow on Select */}
+  1950→                    {isSelected && !compareMode && (
+  1951→                      <div className="absolute top-0 left-0 w-[4px] h-full bg-[var(--home-jersey)] transition-all" />
+  1952→                    )}
+  1953→                    {isCompared && compareMode && (
+  1954→                      <div className="absolute top-0 left-0 w-[4px] h-full bg-teal-400 animate-pulse" />
+  1955→                    )}
+  1956→
+  1957→                    {/* Stage metadata */}
+  1958→                    <div className="flex items-center justify-between text-[8px] text-slate-500 mb-2 font-mono font-bold uppercase tracking-widest">
+  1959→                      <div className="flex items-center gap-2">
+  1960→                        <button
+  1961→                          type="button"
+  1962→                          onClick={(e) => {
+  1963→                            e.stopPropagation();
+  1964→                            handleToggleFollow(m.id);
+  1965→                          }}
+  1966→                          className={`p-1 rounded-md border transition-all cursor-pointer ${
+  1967→                            followedMatchIds.includes(m.id)
+  1968→                              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.2)] animate-pulse"
+  1969→                              : "bg-slate-950/80 border-slate-850 text-slate-550 hover:text-slate-300 hover:border-slate-700"
+  1970→                          }`}
+  1971→                          title={followedMatchIds.includes(m.id) ? "Unfollow match alerts" : "Follow match for push status notifications"}
+  1972→                        >
+  1973→                          <Bell className={`w-3 h-3 ${followedMatchIds.includes(m.id) ? "fill-emerald-400/25" : ""}`} />
+  1974→                        </button>
+  1975→                        {compareMode ? (
+  1976→                          <span className={`px-2 py-0.5 rounded text-[8px] font-mono font-black uppercase tracking-wider ${
+  1977→                            isCompared 
+  1978→                              ? "bg-teal-500 text-slate-950 font-black" 
+  1979→                              : "bg-slate-900/50 text-slate-550 border border-slate-850"
+  1980→                          }`}>
+  1981→                            {isCompared ? `MATCHED #${compareMatchIds.indexOf(m.id) + 1}` : "Compare [ ]"}
+  1982→                          </span>
+  1983→                        ) : (
+  1984→                          <span className="flex items-center gap-1">
+  1985→                            <Layers className="w-3 h-3 text-emerald-500/60" />
+  1986→                            {m.stage}
+  1987→                          </span>
+  1988→                        )}
+  1989→                      </div>
+  1990→                      {isLive && (
+  1991→                        <span className="px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/25 text-rose-455 font-extrabold flex items-center gap-1 animate-pulse">
+  1992→                          <Timer className="w-2.5 h-2.5 animate-spin" />
+  1993→                          LIVE {m.simulation_minute}'
+  1994→                        </span>
+  1995→                      )}
+  1996→                      {isFinished && (
+  1997→                        <span className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-slate-450">
+  1998→                          FINISHED
+  1999→                        </span>
+  2000→                      )}
+
+[showing lines 1-2000 of 5102; use offset=2001 with limit to continue reading]
