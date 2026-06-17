@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const where: Record<string, unknown> = {}
     if (teamId) where.teamId = teamId
     if (position) where.position = position
-    if (search) where.name = { contains: search }
+    if (search) where.name = { contains: search, mode: 'insensitive' }
 
     const orderBy: Record<string, string> = {}
     if (sortBy === 'name') orderBy.name = 'asc'

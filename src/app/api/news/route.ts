@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {}
     if (category) where.category = category
-    if (search) where.title = { contains: search }
+    if (search) where.title = { contains: search, mode: 'insensitive' }
 
     const [newsItems, total] = await Promise.all([
       db.newsItem.findMany({

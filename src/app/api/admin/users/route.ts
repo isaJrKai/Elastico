@@ -21,9 +21,9 @@ export async function GET(req: NextRequest) {
     const where: Record<string, unknown> = {}
     if (search) {
       where.OR = [
-        { email: { contains: search } },
-        { name: { contains: search } },
-        { displayName: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { displayName: { contains: search, mode: 'insensitive' } },
       ]
     }
     if (plan) where.plan = plan

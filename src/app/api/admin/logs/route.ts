@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {}
     if (method) where.method = method
-    if (path) where.path = { contains: path }
+    if (path) where.path = { contains: path, mode: 'insensitive' }
     if (statusCode) where.statusCode = statusCode
     if (hasError) where.error = { not: null }
 

@@ -19,9 +19,9 @@ export async function GET(req: NextRequest) {
     if (group) where.group = group
     if (search) {
       where.OR = [
-        { homeTeam: { name: { contains: search } } },
-        { awayTeam: { name: { contains: search } } },
-        { venue: { contains: search } },
+        { homeTeam: { name: { contains: search, mode: 'insensitive' } } },
+        { awayTeam: { name: { contains: search, mode: 'insensitive' } } },
+        { venue: { contains: search, mode: 'insensitive' } },
       ]
     }
 

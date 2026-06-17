@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import crypto from 'crypto'
+import bcrypt from 'bcryptjs'
 
 const db = new PrismaClient()
 
@@ -54,7 +54,7 @@ async function main() {
   console.log('Seeding ELASTICO database...')
 
   // Create admin user (password: admin123)
-  const passwordHash = crypto.createHash('sha256').update('admin123').digest('hex')
+  const passwordHash = await bcrypt.hash('admin123', 10)
   const admin = await db.user.upsert({
     where: { email: 'admin@elastico.app' },
     update: {},
@@ -72,7 +72,7 @@ async function main() {
   console.log(`  Admin user created: admin@elastico.app`)
 
   // Create demo user (password: demo123)
-  const demoHash = crypto.createHash('sha256').update('demo123').digest('hex')
+  const demoHash = await bcrypt.hash('demo123', 10)
   const demo = await db.user.upsert({
     where: { email: 'demo@elastico.app' },
     update: {},
