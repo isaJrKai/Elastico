@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'elastico_jwt_secret_key_2026_production'
+const JWT_SECRET = process.env.JWT_SECRET || ''
 
 export async function requireAdmin(request: Request): Promise<{ authorized: true; userId: string } | NextResponse> {
   try {
@@ -14,6 +14,11 @@ export async function requireAdmin(request: Request): Promise<{ authorized: true
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string; role: string; plan: string }
     if (decoded.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+    const { db } = await import('@/lib/db')
+    const user = await db.user.findUnique({ where: { id: decoded.userId } })
+    if (!user || !user.isActive || user.isBanned) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
     return { authorized: true, userId: decoded.userId }
   } catch {

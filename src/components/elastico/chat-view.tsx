@@ -312,12 +312,20 @@ export function ChatView() {
       })
       .join('\n\n')
 
-    navigator.clipboard.writeText(text).then(() => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        toast({
+          title: 'Copied to clipboard',
+          description: 'Chat exported successfully.',
+        })
+      })
+    } else {
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
       toast({
         title: 'Copied to clipboard',
         description: 'Chat exported successfully.',
       })
-    })
+    }
   }, [chatMessages])
 
   // ── Suggestion Click ─────────────────────────────────────────────────────

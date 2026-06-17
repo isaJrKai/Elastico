@@ -227,7 +227,11 @@ export function SocialView() {
 
   const handleShare = (item: typeof MOCK_FEED[0]) => {
     const text = `${item.userName}: "${item.comment.substring(0, 100)}..." — ELASTICO`
-    navigator.clipboard.writeText(text)
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+    } else {
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+    }
     toast.success('Copied to clipboard!')
   }
 

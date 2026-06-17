@@ -78,8 +78,8 @@ const PRESSING_HEATMAP = [
 
 const XG_TIMELINE = Array.from({ length: 90 }, (_, i) => ({
   minute: i + 1,
-  home: Math.min(2.8, 0.05 * (i + 1) + Math.random() * 0.3 - 0.15 + (i > 60 ? 0.3 : 0)),
-  away: Math.min(1.6, 0.03 * (i + 1) + Math.random() * 0.25 - 0.1 + (i > 75 ? 0.2 : 0)),
+  home: Math.min(2.8, 0.05 * (i + 1) + ((i * 7 + 3) % 10) / 30 - 0.15 + (i > 60 ? 0.3 : 0)),
+  away: Math.min(1.6, 0.03 * (i + 1) + ((i * 11 + 5) % 10) / 40 - 0.1 + (i > 75 ? 0.2 : 0)),
 }))
 
 const SHOT_MAP = [
@@ -108,7 +108,7 @@ const PASS_NETWORK = [
 
 const MOMENTUM_DATA = Array.from({ length: 90 }, (_, i) => ({
   minute: i + 1,
-  momentum: 50 + Math.sin(i / 10) * 20 + Math.random() * 10 - 5,
+  momentum: 50 + Math.sin(i / 10) * 20 + ((i * 13 + 7) % 10) - 5,
 }))
 
 const ZONE_CONTROL = [

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useRef } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Toaster } from '@/components/ui/sonner'
 import { Sidebar } from '@/components/elastico/sidebar'
@@ -27,6 +27,7 @@ import { SocialView } from '@/components/elastico/social-view'
 import PredictionEngineView from '@/components/elastico/prediction-engine-view'
 import SystemMonitorView from '@/components/elastico/system-monitor-view'
 import { OfflineIndicator } from '@/components/elastico/offline-indicator'
+import { ErrorBoundary } from '@/components/elastico/error-boundary'
 
 function SetupView({ onReady }: { onReady: () => void }) {
   const [status, setStatus] = useState<string>('checking')
@@ -70,10 +71,11 @@ function SetupView({ onReady }: { onReady: () => void }) {
     }
   }
 
+  const checkAndSetupRef = useRef(checkAndSetup)
+  checkAndSetupRef.current = checkAndSetup
   useEffect(() => {
-    checkAndSetup()
-    // Poll every 5s if we need a database (user might add one)
-    const interval = setInterval(checkAndSetup, 5000)
+    checkAndSetupRef.current()
+    const interval = setInterval(() => checkAndSetupRef.current(), 5000)
     return () => clearInterval(interval)
   }, [])
 
@@ -269,7 +271,7 @@ export default function Home() {
       <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'md:ml-[240px]' : 'md:ml-[64px]'}`}>
         <Header />
         <main className="flex-1 p-4 md:p-6 overflow-auto">
-          {renderView()}
+          <ErrorBoundary>{renderView()}</ErrorBoundary>
         </main>
         <footer className="border-t border-border/30 px-6 py-3 flex items-center justify-between text-xs text-muted-foreground">
           <span>© 2026 ELASTICO — AI-Powered Analytics Platform</span>

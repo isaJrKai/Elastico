@@ -52,7 +52,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     message:
       'Erling Haaland scored in the 67th minute for Man City vs Arsenal. xG: 0.42 — a clinical finish.',
     isRead: false,
-    createdAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+    createdAt: '2026-06-18T05:30:00.000Z',
   },
   {
     id: 'mock-2',
@@ -61,7 +61,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     message:
       'Rodri received a straight red card in the 34th minute (Man City vs Arsenal). Man City now down to 10 men.',
     isRead: false,
-    createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
+    createdAt: '2026-06-18T05:07:00.000Z',
   },
   {
     id: 'mock-3',
@@ -70,7 +70,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     message:
       'Your prediction was correct! Liverpool 2-1 Chelsea. Your accuracy is now 78% this month.',
     isRead: false,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    createdAt: '2026-06-18T03:40:00.000Z',
   },
   {
     id: 'mock-4',
@@ -79,7 +79,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     message:
       'The Dixon-Coles simulation model is now available for Pro and Elite subscribers. Upgrade to unlock advanced match predictions.',
     isRead: true,
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    createdAt: '2026-06-18T00:40:00.000Z',
   },
   {
     id: 'mock-5',
@@ -88,7 +88,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     message:
       'Kylian Mbappé completed his hat-trick in the 82nd minute for Real Madrid vs Barcelona. xG: 1.12 across 3 shots.',
     isRead: true,
-    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+    createdAt: '2026-06-17T21:30:00.000Z',
   },
   {
     id: 'mock-6',
@@ -97,7 +97,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     message:
       'Your tracked player Bruno Fernandes (Man Utd) has 4 yellow cards this season — 1 away from a suspension.',
     isRead: false,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    createdAt: '2026-06-17T05:30:00.000Z',
   },
   {
     id: 'mock-7',
@@ -106,7 +106,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     message:
       'Bayern Munich vs Dortmund kicks off in 2 hours. Submit your prediction now and earn accuracy points.',
     isRead: true,
-    createdAt: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
+    createdAt: '2026-06-16T23:30:00.000Z',
   },
   {
     id: 'mock-8',
@@ -115,7 +115,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
     message:
       'You moved up 5 spots to #12 on the global leaderboard this week. Keep predicting to climb higher!',
     isRead: false,
-    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    createdAt: '2026-06-16T05:30:00.000Z',
   },
 ]
 

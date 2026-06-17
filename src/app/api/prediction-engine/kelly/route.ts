@@ -8,7 +8,7 @@ import { calculateKelly, calculatePortfolioAllocation, type KellyResult, type Po
 export async function POST(request: Request) {
   try {
     const auth = await authenticateRequest(request)
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (auth instanceof Response) return auth
 
     const body = await request.json()
     const mode = body.mode || 'single'

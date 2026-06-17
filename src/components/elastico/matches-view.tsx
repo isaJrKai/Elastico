@@ -214,7 +214,7 @@ function MatchCard({ match }: { match: Match }) {
           {match.status === 'finished' && (
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
               <Users className="size-3" />
-              <span>{(Math.floor(Math.random() * 40000) + 20000).toLocaleString()} attendance</span>
+              <span>35,421 attendance</span>
               <span className="text-muted-foreground/50">·</span>
               <TrendingUp className="size-3 text-primary" />
               <span>ELO diff: {eloDiff > 0 ? '+' : ''}{eloDiff}</span>

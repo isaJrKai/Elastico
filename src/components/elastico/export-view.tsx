@@ -174,13 +174,21 @@ export function ExportView() {
 
   const handleShareReport = useCallback((record: ExportRecord) => {
     const link = `${window.location.origin}/shared/report/${record.id}`
-    navigator.clipboard.writeText(link)
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(link)
+    } else {
+      const ta = document.createElement('textarea'); ta.value = link; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+    }
     toast.success('Shareable link copied to clipboard!')
   }, [])
 
   const handleCopyEndpoint = useCallback((path: string) => {
     const fullUrl = `${window.location.origin}${path}`
-    navigator.clipboard.writeText(fullUrl)
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(fullUrl)
+    } else {
+      const ta = document.createElement('textarea'); ta.value = fullUrl; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+    }
     toast.success('API endpoint URL copied!')
   }, [])
 

@@ -22,7 +22,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const auth = await authenticateRequest(request)
-    if (!auth || auth.user?.role !== 'admin') {
+    if (auth instanceof Response) return auth; if (auth.user?.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
