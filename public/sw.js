@@ -14,7 +14,7 @@
  * through the compressed-data-stream module on the server side.
  */
 
-const CACHE_VERSION = 'elastico-v1'
+const CACHE_VERSION = 'elastico-v2'
 const SHELL_CACHE = `${CACHE_VERSION}-shell`
 const DATA_CACHE = `${CACHE_VERSION}-data`
 const STATIC_CACHE = `${CACHE_VERSION}-static`
