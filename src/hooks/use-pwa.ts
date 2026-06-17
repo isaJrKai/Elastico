@@ -88,48 +88,11 @@ export function usePWA() {
   }, [])
 
   // ── Register Service Worker ─────────────────────────────────────────────
+  // DISABLED: Service worker registration is temporarily disabled to resolve
+  // cache-related client-side errors. The old broken SW is auto-unregistered
+  // via layout.tsx <script> tag. Re-enable once SW is stable.
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) {
-      console.log('[PWA] Service Worker not supported')
-      return
-    }
-
-    setState((s) => ({ ...s, swStatus: 'registering' }))
-
-    navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
-      .then((registration) => {
-        console.log('[PWA] Service Worker registered:', registration.scope)
-
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing
-          if (!newWorker) return
-          console.log('[PWA] New Service Worker found, installing...')
-        })
-
-        if (navigator.serviceWorker.controller) {
-          setState((s) => ({ ...s, swStatus: 'active', isRegistered: true }))
-        }
-
-        // When the SW becomes active
-        if (registration.active) {
-          setState((s) => ({ ...s, swStatus: 'active', isRegistered: true }))
-        }
-      })
-      .catch((error) => {
-        console.error('[PWA] Service Worker registration failed:', error)
-        setState((s) => ({ ...s, swStatus: 'error' }))
-      })
-
-    // Listen for controller change (new SW took over)
-    const handleControllerChange = () => {
-      setState((s) => ({ ...s, swStatus: 'active', isRegistered: true }))
-    }
-    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
-
-    return () => {
-      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
-    }
+    console.log('[PWA] Service Worker registration disabled (cache fix)')
   }, [])
 
   // ── Actions ─────────────────────────────────────────────────────────────
