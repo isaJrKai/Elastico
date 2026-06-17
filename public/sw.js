@@ -14,22 +14,21 @@
  * through the compressed-data-stream module on the server side.
  */
 
-const CACHE_VERSION = 'elastico-v2'
-const SHELL_CACHE = `${CACHE_VERSION}-shell`
-const DATA_CACHE = `${CACHE_VERSION}-data`
-const STATIC_CACHE = `${CACHE_VERSION}-static`
-const ICON_CACHE = `${CACHE_VERSION}-icons`
+const CACHE_VERSION = 'elastico-v3'
+const SHELL_CACHE = CACHE_VERSION + '-shell'
+const DATA_CACHE = CACHE_VERSION + '-data'
+const STATIC_CACHE = CACHE_VERSION + '-static'
+const ICON_CACHE = CACHE_VERSION + '-icons'
 
 // ── Install: Pre-cache the app shell ─────────────────────────────────────────
-self.addEventListener('install', (event: ExtendableEvent) => {
+self.addEventListener('install', function (event) {
   console.log('[ELASTICO SW] Installing — pre-caching app shell...')
 
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => {
-      // Cache the main page and critical routes
+    caches.open(SHELL_CACHE).then(function (cache) {
       return cache.addAll([
         '/',
-      ]).then(() => {
+      ]).then(function () {
         console.log('[ELASTICO SW] App shell cached — app now works offline')
         return self.skipWaiting()
       })
@@ -38,27 +37,29 @@ self.addEventListener('install', (event: ExtendableEvent) => {
 })
 
 // ── Activate: Clean old caches ───────────────────────────────────────────────
-self.addEventListener('activate', (event: ExtendableEvent) => {
+self.addEventListener('activate', function (event) {
   console.log('[ELASTICO SW] Activating — cleaning old caches...')
 
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(function (cacheNames) {
       return Promise.all(
         cacheNames
-          .filter((name) => name.startsWith('elastico-') && name !== CACHE_VERSION && !name.includes(CACHE_VERSION))
-          .map((name) => {
-            console.log(`[ELASTICO SW] Deleting old cache: ${name}`)
+          .filter(function (name) {
+            return name.startsWith('elastico-') && !name.includes(CACHE_VERSION)
+          })
+          .map(function (name) {
+            console.log('[ELASTICO SW] Deleting old cache: ' + name)
             return caches.delete(name)
           })
       )
-    }).then(() => self.clients.claim())
+    }).then(function () { return self.clients.claim() })
   )
 })
 
 // ── Fetch: Route-based caching strategy ──────────────────────────────────────
-self.addEventListener('fetch', (event: FetchEvent) => {
-  const { request } = event
-  const url = new URL(request.url)
+self.addEventListener('fetch', function (event) {
+  var request = event.request
+  var url = new URL(request.url)
 
   // Skip non-GET requests
   if (request.method !== 'GET') return
@@ -69,17 +70,17 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   // ── Static Assets (_next/static/*) — Cache-First ────────────────────────
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
-      caches.open(STATIC_CACHE).then((cache) =>
-        cache.match(request).then((cached) => {
+      caches.open(STATIC_CACHE).then(function (cache) {
+        return cache.match(request).then(function (cached) {
           if (cached) return cached
-          return fetch(request).then((response) => {
+          return fetch(request).then(function (response) {
             if (response.ok) {
               cache.put(request, response.clone())
             }
             return response
           })
         })
-      )
+      })
     )
     return
   }
@@ -90,17 +91,17 @@ self.addEventListener('fetch', (event: FetchEvent) => {
       url.pathname === '/logo.svg' ||
       url.pathname === '/robots.txt') {
     event.respondWith(
-      caches.open(ICON_CACHE).then((cache) =>
-        cache.match(request).then((cached) => {
+      caches.open(ICON_CACHE).then(function (cache) {
+        return cache.match(request).then(function (cached) {
           if (cached) return cached
-          return fetch(request).then((response) => {
+          return fetch(request).then(function (response) {
             if (response.ok) {
               cache.put(request, response.clone())
             }
             return response
           })
         })
-      )
+      })
     )
     return
   }
@@ -115,46 +116,44 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 
     event.respondWith(
       fetch(request)
-        .then((response) => {
+        .then(function (response) {
           if (response.ok) {
-            const clone = response.clone()
-            caches.open(DATA_CACHE).then((cache) => {
+            var clone = response.clone()
+            caches.open(DATA_CACHE).then(function (cache) {
               cache.put(request, clone)
             })
           }
           return response
         })
-        .catch(() => {
-          // Offline fallback: serve stale cache data (max 10 min old)
-          return caches.open(DATA_CACHE).then((cache) => cache.match(request))
+        .catch(function () {
+          return caches.open(DATA_CACHE).then(function (cache) {
+            return cache.match(request)
+          })
         })
     )
     return
   }
 
-  // ── Navigation (HTML pages) — Cache-First for SPA ───────────────────────
+  // ── Navigation (HTML pages) — Network-First for SPA ───────────────────────
   if (request.mode === 'navigate' || url.pathname === '/') {
     event.respondWith(
-      caches.open(SHELL_CACHE).then((cache) =>
-        cache.match(request).then((cached) => {
-          // Always try network first for navigation, fall back to cache
+      caches.open(SHELL_CACHE).then(function (cache) {
+        return cache.match(request).then(function (cached) {
           return fetch(request)
-            .then((response) => {
+            .then(function (response) {
               if (response.ok) {
                 cache.put(request, response.clone())
               }
               return response
             })
-            .catch(() => {
-              // Offline: serve cached shell
+            .catch(function () {
               if (cached) return cached
-              // Last resort: serve a minimal offline page
               return new Response(offlineHTML(), {
                 headers: { 'Content-Type': 'text/html; charset=utf-8' },
               })
             })
         })
-      )
+      })
     )
     return
   }
@@ -162,64 +161,68 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   // ── Everything else — Network-First with cache fallback ─────────────────
   event.respondWith(
     fetch(request)
-      .then((response) => {
+      .then(function (response) {
         if (response.ok) {
-          const clone = response.clone()
-          caches.open(SHELL_CACHE).then((cache) => cache.put(request, clone))
+          var clone = response.clone()
+          caches.open(SHELL_CACHE).then(function (cache) {
+            cache.put(request, clone)
+          })
         }
         return response
       })
-      .catch(() => caches.match(request))
+      .catch(function () {
+        return caches.match(request)
+      })
   )
 })
 
 // ── Offline Fallback HTML ─────────────────────────────────────────────────────
-function offlineHTML(): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#0a0a0a">
-  <title>ELASTICO — Offline</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a0a; color: #fff;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 100vh; padding: 20px; text-align: center;
-    }
-    .e { font-size: 72px; font-weight: bold; color: #00e676; margin-bottom: 16px; }
-    h1 { font-size: 24px; color: #00e676; margin-bottom: 8px; }
-    p { color: #888; font-size: 14px; line-height: 1.6; max-width: 320px; }
-    button {
-      margin-top: 24px; padding: 12px 32px;
-      background: #00e676; color: #000; border: none;
-      border-radius: 8px; font-size: 16px; font-weight: 600;
-      cursor: pointer;
-    }
-    button:active { opacity: 0.8; }
-  </style>
-</head>
-<body>
-  <div>
-    <div class="e">E</div>
-    <h1>You're Offline</h1>
-    <p>ELASTICO is using cached data. Check your connection for live updates.</p>
-    <button onclick="window.location.reload()">Try Again</button>
-  </div>
-</body>
-</html>`
+function offlineHTML() {
+  return '<!DOCTYPE html>\n' +
+    '<html lang="en">\n' +
+    '<head>\n' +
+    '  <meta charset="utf-8">\n' +
+    '  <meta name="viewport" content="width=device-width,initial-scale=1">\n' +
+    '  <meta name="theme-color" content="#0a0a0a">\n' +
+    '  <title>ELASTICO — Offline</title>\n' +
+    '  <style>\n' +
+    '    * { margin: 0; padding: 0; box-sizing: border-box; }\n' +
+    '    body {\n' +
+    '      font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', sans-serif;\n' +
+    '      background: #0a0a0a; color: #fff;\n' +
+    '      display: flex; align-items: center; justify-content: center;\n' +
+    '      min-height: 100vh; padding: 20px; text-align: center;\n' +
+    '    }\n' +
+    '    .e { font-size: 72px; font-weight: bold; color: #00e676; margin-bottom: 16px; }\n' +
+    '    h1 { font-size: 24px; color: #00e676; margin-bottom: 8px; }\n' +
+    '    p { color: #888; font-size: 14px; line-height: 1.6; max-width: 320px; }\n' +
+    '    button {\n' +
+    '      margin-top: 24px; padding: 12px 32px;\n' +
+    '      background: #00e676; color: #000; border: none;\n' +
+    '      border-radius: 8px; font-size: 16px; font-weight: 600;\n' +
+    '      cursor: pointer;\n' +
+    '    }\n' +
+    '    button:active { opacity: 0.8; }\n' +
+    '  </style>\n' +
+    '</head>\n' +
+    '<body>\n' +
+    '  <div>\n' +
+    '    <div class="e">E</div>\n' +
+    '    <h1>You\'re Offline</h1>\n' +
+    '    <p>ELASTICO is using cached data. Check your connection for live updates.</p>\n' +
+    '    <button onclick="window.location.reload()">Try Again</button>\n' +
+    '  </div>\n' +
+    '</body>\n' +
+    '</html>'
 }
 
 // ── Message Handler (for cache invalidation from main thread) ─────────────────
-self.addEventListener('message', (event: ExtendableMessageEvent) => {
+self.addEventListener('message', function (event) {
   if (event.data && event.data.type === 'CLEAR_CACHE') {
     console.log('[ELASTICO SW] Clearing all caches...')
-    caches.keys().then((names) =>
-      Promise.all(names.map((n) => caches.delete(n)))
-    ).then(() => {
+    caches.keys().then(function (names) {
+      return Promise.all(names.map(function (n) { return caches.delete(n) }))
+    }).then(function () {
       console.log('[ELASTICO SW] All caches cleared')
       if (event.ports && event.ports[0]) {
         event.ports[0].postMessage({ type: 'CACHE_CLEARED' })
@@ -231,5 +234,3 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
     self.skipWaiting()
   }
 })
-
-export {}
