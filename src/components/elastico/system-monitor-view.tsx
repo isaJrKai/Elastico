@@ -184,7 +184,9 @@ function CircGauge({ value, max = 100, size = 120, label, strokeColor }: {
 // ── Non-Admin View: System Status Tab ────────────────────────────────────────
 
 function NonAdminSystemStatus() {
-  const lastChecked = new Date().toISOString().replace('T', ' ').slice(0, 16) + '00'
+  const [now, setNow] = useState('2026-06-18 05:30:00')
+  useEffect(() => { setNow(new Date().toISOString().replace('T', ' ').slice(0, 16) + '00') }, [])
+  const lastChecked = now
 
   const statusCards = [
     {

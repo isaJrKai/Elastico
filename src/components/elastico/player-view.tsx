@@ -740,7 +740,7 @@ export function PlayerView() {
             <CardContent>
               <div className="space-y-3">
                 {players.slice(0, 10).map(p => {
-                  const startPct = 50 + Math.round(Math.random() * 40)
+                  const startPct = 75
                   const subPct = 100 - startPct
                   return (
                     <div key={p.id} className="space-y-1">

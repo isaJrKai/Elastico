@@ -87,8 +87,8 @@ export function CompareView() {
       const month = `M${i + 1}`
       return {
         month,
-        home: (homeTeam?.eloRating || 1500) + (Math.sin(i / 3) * 30) + (Math.random() - 0.5) * 20,
-        away: (awayTeam?.eloRating || 1500) + (Math.cos(i / 3) * 25) + (Math.random() - 0.5) * 20,
+        home: (homeTeam?.eloRating || 1500) + (Math.sin(i / 3) * 30) + ((i * 7 % 10) - 5) * 2,
+        away: (awayTeam?.eloRating || 1500) + (Math.cos(i / 3) * 25) + ((i * 7 % 10) - 5) * 2,
       }
     })
   }, [homeTeam, awayTeam])
@@ -100,10 +100,10 @@ export function CompareView() {
   // Scoring trends
   const scoringTrends = useMemo(() => Array.from({ length: 6 }, (_, i) => ({
     match: `M${i + 1}`,
-    homeScored: Math.round(Math.random() * 3),
-    homeConceded: Math.round(Math.random() * 2),
-    awayScored: Math.round(Math.random() * 3),
-    awayConceded: Math.round(Math.random() * 2),
+    homeScored: [1, 2, 0, 3, 1, 2][i] || 0,
+    homeConceded: [0, 1, 1, 0, 2, 1][i] || 0,
+    awayScored: [2, 1, 0, 1, 3, 0][i] || 0,
+    awayConceded: [1, 0, 2, 1, 1, 0][i] || 0,
   })), [])
 
   // Stat comparisons

@@ -92,10 +92,10 @@ function getMockShots(events: MatchEvent[], homeXg: number, awayXg: number) {
   const homeGoals = events.filter(e => e.type === 'goal' && e.team === 'home')
   const awayGoals = events.filter(e => e.type === 'goal' && e.team === 'away')
   for (let i = 0; i < Math.ceil(homeXg * 3); i++) {
-    shots.push({ x: 15 + Math.random() * 30, y: 10 + Math.random() * 80, team: 'home', goal: i < homeGoals.length })
+    shots.push({ x: 15 + (i * 17 % 30), y: 10 + (i * 23 % 80), team: 'home', goal: i < homeGoals.length })
   }
   for (let i = 0; i < Math.ceil(awayXg * 3); i++) {
-    shots.push({ x: 55 + Math.random() * 30, y: 10 + Math.random() * 80, team: 'away', goal: i < awayGoals.length })
+    shots.push({ x: 55 + (i * 17 % 30), y: 10 + (i * 23 % 80), team: 'away', goal: i < awayGoals.length })
   }
   return shots
 }

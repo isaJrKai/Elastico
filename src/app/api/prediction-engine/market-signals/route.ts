@@ -8,7 +8,7 @@ import { analyzeMarketSignals, type MarketSignal } from '@/lib/prediction-engine
 export async function POST(request: Request) {
   try {
     const auth = await authenticateRequest(request)
-    if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (auth instanceof Response) return auth
 
     const body = await request.json()
     const { openingOdds, currentOdds, matchId, homeTeam, awayTeam } = body
