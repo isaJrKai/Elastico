@@ -1,0 +1,701 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+     4→import { useElasticoStore, type Match, type Team, type NewsItem } from '@/store/use-elastico-store'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Progress } from '@/components/ui/progress'
+     9→import { Skeleton } from '@/components/ui/skeleton'
+    10→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+    11→import {
+    12→  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
+    13→  ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, LineChart, Line,
+    14→} from 'recharts'
+    15→import {
+    16→  TrendingUp, Target, Zap, Activity, Users, Trophy, Swords, Clock,
+    17→  ArrowRight, Star, Flame, Brain, BarChart3, Network, Gamepad2,
+    18→  CalendarDays, MapPin, Cloud, Thermometer, Newspaper, MessageSquare,
+    19→  ChevronRight, Sparkles, Eye, Wind, Droplets, Shield, Award,
+    20→} from 'lucide-react'
+    21→import { cn } from '@/lib/utils'
+    22→
+    23→// ═══════════════════════════════════════════════════════════════════════════════
+    24→// TYPES & MOCK DATA
+    25→// ═══════════════════════════════════════════════════════════════════════════════
+    26→
+    27→interface TickerMatch {
+    28→  id: string; homeCode: string; awayCode: string; homeColor: string; awayColor: string
+    29→  homeScore: number; awayScore: number; status: string; minute?: number
+    30→}
+    31→
+    32→const MOCK_TICKER: TickerMatch[] = [
+    33→  { id: '1', homeCode: 'BRA', awayCode: 'GER', homeColor: '#009c3b', awayColor: '#000000', homeScore: 2, awayScore: 1, status: 'finished' },
+    34→  { id: '2', homeCode: 'ARG', awayCode: 'FRA', homeColor: '#75aadb', awayColor: '#002395', homeScore: 3, awayScore: 3, status: 'live', minute: 78 },
+    35→  { id: '3', homeCode: 'ESP', awayCode: 'ENG', homeColor: '#c60b1e', awayColor: '#cf081f', homeScore: 1, awayScore: 0, status: 'finished' },
+    36→  { id: '4', homeCode: 'POR', awayCode: 'NED', homeColor: '#006600', awayColor: '#ff6600', homeScore: 0, awayScore: 0, status: 'upcoming' },
+    37→  { id: '5', homeCode: 'ITA', awayCode: 'JPN', homeColor: '#008c45', awayColor: '#bc002d', homeScore: 2, awayScore: 2, status: 'finished' },
+    38→]
+    39→
+    40→const MOCK_TOP_PERFORMERS = [
+    41→  { name: 'Kylian Mbappé', code: 'FRA', rating: 8.7, goals: 3, assists: 2, position: 'FW' },
+    42→  { name: 'Jude Bellingham', code: 'ENG', rating: 8.4, goals: 2, assists: 3, position: 'MF' },
+    43→  { name: 'Vinícius Jr', code: 'BRA', rating: 8.2, goals: 2, assists: 1, position: 'FW' },
+    44→]
+    45→
+    46→const MOCK_COMMUNITY_PIES = [
+    47→  { name: 'Home', value: 45, fill: '#00e676' },
+    48→  { name: 'Draw', value: 25, fill: '#ffd700' },
+    49→  { name: 'Away', value: 30, fill: '#ff4757' },
+    50→]
+    51→
+    52→const MOCK_ELO_TEAMS = [
+    53→  { name: 'Brazil', code: 'BRA', elo: 2085, change: +12 },
+    54→  { name: 'Argentina', code: 'ARG', elo: 2071, change: +8 },
+    55→  { name: 'France', code: 'FRA', elo: 2058, change: -3 },
+    56→  { name: 'Spain', code: 'ESP', elo: 2042, change: +5 },
+    57→  { name: 'England', code: 'ENG', elo: 2035, change: -1 },
+    58→]
+    59→
+    60→const MOCK_RECENT_ACTIVITY = [
+    61→  { match: 'BRA vs GER', prediction: 'Home Win', result: 'W' as const, points: 10 },
+    62→  { match: 'ESP vs ENG', prediction: 'Home Win', result: 'W' as const, points: 10 },
+    63→  { match: 'ITA vs JPN', prediction: 'Home Win', result: 'D' as const, points: 3 },
+    64→  { match: 'POR vs NED', prediction: 'Draw', result: 'P' as const, points: 0 },
+    65→  { match: 'ARG vs FRA', prediction: 'Away Win', result: 'P' as const, points: 0 },
+    66→]
+    67→
+    68→const MOCK_XG_DATA = [
+    69→  { match: 'BRA-GER', xg: 2.4, goals: 2 },
+    70→  { match: 'ARG-FRA', xg: 1.8, goals: 3 },
+    71→  { match: 'ESP-ENG', xg: 1.2, goals: 1 },
+    72→  { match: 'ITA-JPN', xg: 2.1, goals: 2 },
+    73→  { match: 'POR-NED', xg: 1.5, goals: 0 },
+    74→]
+    75→
+    76→const MOCK_FORM_TABLE = [
+    77→  { pos: 1, team: 'BRA', code: 'BRA', color: '#009c3b', p: 3, w: 3, d: 0, l: 0, gd: +5, pts: 9, form: 'WWW' },
+    78→  { pos: 2, team: 'ARG', code: 'ARG', color: '#75aadb', p: 3, w: 2, d: 1, l: 0, gd: +3, pts: 7, form: 'WDW' },
+    79→  { pos: 3, team: 'FRA', code: 'FRA', color: '#002395', p: 3, w: 1, d: 2, l: 0, gd: +2, pts: 5, form: 'DWD' },
+    80→  { pos: 4, team: 'GER', code: 'GER', color: '#000000', p: 3, w: 0, d: 1, l: 2, gd: -3, pts: 1, form: 'LDL' },
+    81→]
+    82→
+    83→const MOCK_NEWS = [
+    84→  { title: 'Mbappé scores hat-trick in group stage', category: 'Performance', time: '2h ago' },
+    85→  { title: 'VAR controversy in Spain vs England match', category: 'Controversy', time: '4h ago' },
+    86→  { title: 'Brazil secures top spot in Group A', category: 'Tournament', time: '6h ago' },
+    87→]
+    88→
+    89→const MOCK_WEATHER = [
+    90→  { match: 'POR vs NED', condition: 'Partly Cloudy', temp: 22, wind: 12, humidity: 65 },
+    91→  { match: 'JPN vs KOR', condition: 'Sunny', temp: 28, wind: 8, humidity: 45 },
+    92→]
+    93→
+    94→// ═══════════════════════════════════════════════════════════════════════════════
+    95→// DASHBOARD VIEW
+    96→// ═══════════════════════════════════════════════════════════════════════════════
+    97→
+    98→export default function DashboardView() {
+    99→  const user = useElasticoStore(s => s.user)
+   100→  const matches = useElasticoStore(s => s.matches)
+   101→  const teams = useElasticoStore(s => s.teams)
+   102→  const news = useElasticoStore(s => s.news)
+   103→  const setView = useElasticoStore(s => s.setView)
+   104→  const selectMatch = useElasticoStore(s => s.selectMatch)
+   105→  const tickerRef = useRef<HTMLDivElement>(null)
+   106→
+   107→  // ── Derived data ─────────────────────────────────────────────────────────
+   108→  const liveMatches = useMemo(() => matches.filter((m) => m.status === 'live' || m.status === 'halftime'), [matches])
+   109→  const upcomingMatches = useMemo(() => matches.filter((m) => m.status === 'upcoming').slice(0, 5), [matches])
+   110→  const finishedMatches = useMemo(() => matches.filter((m) => m.status === 'finished').slice(0, 5), [matches])
+   111→  const nextMatch = upcomingMatches[0] || null
+   112→
+   113→  const accuracy = user?.predictionAccuracy ?? 0
+   114→  const streak = user?.predictionStreak ?? 0
+   115→  const bestStreak = user?.bestStreak ?? 0
+   116→
+   117→  const nextMatchProbs = useMemo(() => {
+   118→    if (!nextMatch) return { home: 40, draw: 28, away: 32 }
+   119→    return {
+   120→      home: nextMatch.homeWinProb ?? 40,
+   121→      draw: nextMatch.drawProb ?? 28,
+   122→      away: nextMatch.awayWinProb ?? 32,
+   123→    }
+   124→  }, [nextMatch])
+   125→
+   126→  // Build ticker items from real + mock data
+   127→  const tickerItems: TickerMatch[] = useMemo(() => {
+   128→    const real = matches.slice(0, 5).map((m) => ({
+   129→      id: m.id,
+   130→      homeCode: m.homeTeam?.code ?? '???',
+   131→      awayCode: m.awayTeam?.code ?? '???',
+   132→      homeColor: m.homeTeam?.primaryColor ?? '#555',
+   133→      awayColor: m.awayTeam?.primaryColor ?? '#555',
+   134→      homeScore: m.homeScore,
+   135→      awayScore: m.awayScore,
+   136→      status: m.status,
+   137→    }))
+   138→    return real.length > 0 ? real : MOCK_TICKER
+   139→  }, [matches])
+   140→
+   141→  // xG chart data
+   142→  const xgChartData = useMemo(() => {
+   143→    const real = finishedMatches.slice(0, 5).map((m) => ({
+   144→      match: `${m.homeTeam?.code ?? '?'}-${m.awayTeam?.code ?? '?'}`,
+   145→      xg: (m.homeXg + m.awayXg).toFixed(1),
+   146→      goals: m.homeScore + m.awayScore,
+   147→    }))
+   148→    return real.length > 0 ? real : MOCK_XG_DATA
+   149→  }, [finishedMatches])
+   150→
+   151→  // News data
+   152→  const newsItems = useMemo(() => {
+   153→    if (news.length > 0) {
+   154→      return news.slice(0, 3).map((n) => ({
+   155→        title: n.title,
+   156→        category: n.category,
+   157→        time: n.publishedAt ? new Date(n.publishedAt).toLocaleDateString() : 'Recent',
+   158→      }))
+   159→    }
+   160→    return MOCK_NEWS
+   161→  }, [news])
+   162→
+   163→  // ── Handlers ─────────────────────────────────────────────────────────────
+   164→  const handleQuickPredict = useCallback((choice: 'home' | 'draw' | 'away') => {
+   165→    if (!nextMatch) return
+   166→    fetch('/api/predictions', {
+   167→      method: 'POST',
+   168→      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${store.token}` },
+   169→      body: JSON.stringify({
+   170→        matchId: nextMatch.id,
+   171→        predictedOutcome: choice === 'home' ? 'home_win' : choice === 'draw' ? 'draw' : 'away_win',
+   172→        confidence: 75,
+   173→      }),
+   174→    }).then(() => {
+   175→      store.fetchMatches()
+   176→    }).catch(() => {})
+   177→  }, [nextMatch, store])
+   178→
+   179→  // ═══════════════════════════════════════════════════════════════════════════
+   180→  return (
+   181→    <TooltipProvider>
+   182→      <div className="space-y-5 animate-fade-in-up">
+   183→        {/* ═══════════════════════════════════════════════════════════════════
+   184→            1. LIVE SCORE TICKER
+   185→            ═══════════════════════════════════════════════════════════════════ */}
+   186→        <div className="glass-card-premium rounded-xl overflow-hidden">
+   187→          <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-red-500/5">
+   188→            <span className="relative flex size-2">
+   189→              <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+   190→              <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+   191→            </span>
+   192→            <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Live Scores</span>
+   193→          </div>
+   194→          <div ref={tickerRef} className="overflow-hidden">
+   195→            <div
+   196→              className="flex gap-6 py-3 px-4"
+   197→              style={{ animation: 'ticker-scroll 30s linear infinite', width: 'max-content' }}
+   198→            >
+   199→              {[...tickerItems, ...tickerItems].map((m, i) => (
+   200→                <div key={`${m.id}-${i}`} className="flex items-center gap-3 shrink-0">
+   201→                  <div className="flex items-center gap-2">
+   202→                    <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.homeColor }} />
+   203→                    <span className="text-xs font-semibold">{m.homeCode}</span>
+   204→                  </div>
+   205→                  <div className="flex items-center gap-1.5">
+   206→                    <span className="text-sm font-bold tabular-nums">{m.homeScore}</span>
+   207→                    <span className="text-xs text-muted-foreground">-</span>
+   208→                    <span className="text-sm font-bold tabular-nums">{m.awayScore}</span>
+   209→                  </div>
+   210→                  <div className="flex items-center gap-2">
+   211→                    <span className="text-xs font-semibold">{m.awayCode}</span>
+   212→                    <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.awayColor }} />
+   213→                  </div>
+   214→                  {m.status === 'live' && (
+   215→                    <Badge variant="outline" className="h-4 px-1.5 text-[9px] bg-red-500/15 text-red-400 border-red-500/30">
+   216→                      <span className="pulse-live inline-block size-1.5 rounded-full bg-red-500 mr-1" />
+   217→                      LIVE
+   218→                    </Badge>
+   219→                  )}
+   220→                  {m.status === 'finished' && (
+   221→                    <Badge variant="outline" className="h-4 px-1.5 text-[9px] text-emerald-400 border-emerald-500/30">FT</Badge>
+   222→                  )}
+   223→                  <span className="text-border/50">|</span>
+   224→                </div>
+   225→              ))}
+   226→            </div>
+   227→          </div>
+   228→        </div>
+   229→
+   230→        {/* ═══════════════════════════════════════════════════════════════════
+   231→            MAIN GRID
+   232→            ═══════════════════════════════════════════════════════════════════ */}
+   233→        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+   234→
+   235→          {/* ─── LEFT COLUMN ─── */}
+   236→          <div className="lg:col-span-2 space-y-5">
+   237→
+   238→            {/* 2. QUICK PREDICT WIDGET + 5. MATCH PROBABILITIES */}
+   239→            {nextMatch && (
+   240→              <Card className="glass-card-premium card-hover-lift rounded-xl">
+   241→                <CardHeader className="pb-3">
+   242→                  <div className="flex items-center justify-between">
+   243→                    <CardTitle className="text-base font-bold flex items-center gap-2">
+   244→                      <Zap className="size-4 text-primary" />
+   245→                      Next Match Prediction
+   246→                    </CardTitle>
+   247→                    <Badge variant="outline" className="text-[10px] border-primary/30 text-primary badge-glow">
+   248→                      Quick Predict
+   249→                    </Badge>
+   250→                  </div>
+   251→                </CardHeader>
+   252→                <CardContent className="space-y-4">
+   253→                  <div className="flex items-center justify-between">
+   254→                    <div className="flex items-center gap-3">
+   255→                      <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.homeTeam?.primaryColor ?? '#555' }} />
+   256→                      <div>
+   257→                        <p className="font-semibold text-sm">{nextMatch.homeTeam?.name ?? 'TBD'}</p>
+   258→                        <p className="text-[10px] text-muted-foreground">ELO {nextMatch.homeEloBefore ?? '—'}</p>
+   259→                      </div>
+   260→                    </div>
+   261→                    <div className="text-center">
+   262→                      <p className="text-2xl font-black text-muted-foreground">VS</p>
+   263→                      <p className="text-[10px] text-muted-foreground">{nextMatch.venue ?? 'TBD'}</p>
+   264→                    </div>
+   265→                    <div className="flex items-center gap-3">
+   266→                      <div className="text-right">
+   267→                        <p className="font-semibold text-sm">{nextMatch.awayTeam?.name ?? 'TBD'}</p>
+   268→                        <p className="text-[10px] text-muted-foreground">ELO {nextMatch.awayEloBefore ?? '—'}</p>
+   269→                      </div>
+   270→                      <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.awayTeam?.primaryColor ?? '#555' }} />
+   271→                    </div>
+   272→                  </div>
+   273→
+   274→                  {/* Probability bars */}
+   275→                  <div className="space-y-2">
+   276→                    <div className="flex items-center gap-2">
+   277→                      <span className="text-[10px] w-8 text-emerald-400 font-medium">Home</span>
+   278→                      <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   279→                        <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-1000" style={{ width: `${nextMatchProbs.home}%` }} />
+   280→                      </div>
+   281→                      <span className="text-[11px] font-bold tabular-nums w-10 text-right">{nextMatchProbs.home}%</span>
+   282→                    </div>
+   283→                    <div className="flex items-center gap-2">
+   284→                      <span className="text-[10px] w-8 text-amber-400 font-medium">Draw</span>
+   285→                      <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   286→                        <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-1000" style={{ width: `${nextMatchProbs.draw}%` }} />
+   287→                      </div>
+   288→                      <span className="text-[11px] font-bold tabular-nums w-10 text-right">{nextMatchProbs.draw}%</span>
+   289→                    </div>
+   290→                    <div className="flex items-center gap-2">
+   291→                      <span className="text-[10px] w-8 text-red-400 font-medium">Away</span>
+   292→                      <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   293→                        <div className="h-full rounded-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-1000" style={{ width: `${nextMatchProbs.away}%` }} />
+   294→                      </div>
+   295→                      <span className="text-[11px] font-bold tabular-nums w-10 text-right">{nextMatchProbs.away}%</span>
+   296→                    </div>
+   297→                  </div>
+   298→
+   299→                  {/* Predict buttons */}
+   300→                  <div className="grid grid-cols-3 gap-2">
+   301→                    <Button
+   302→                      size="sm"
+   303→                      variant="outline"
+   304→                      className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs font-semibold"
+   305→                      onClick={() => handleQuickPredict('home')}
+   306→                    >
+   307→                      Home Win
+   308→                    </Button>
+   309→                    <Button
+   310→                      size="sm"
+   311→                      variant="outline"
+   312→                      className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 text-xs font-semibold"
+   313→                      onClick={() => handleQuickPredict('draw')}
+   314→                    >
+   315→                      Draw
+   316→                    </Button>
+   317→                    <Button
+   318→                      size="sm"
+   319→                      variant="outline"
+   320→                      className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 text-xs font-semibold"
+   321→                      onClick={() => handleQuickPredict('away')}
+   322→                    >
+   323→                      Away Win
+   324→                    </Button>
+   325→                  </div>
+   326→                </CardContent>
+   327→              </Card>
+   328→            )}
+   329→
+   330→            {/* 8. RECENT ACTIVITY */}
+   331→            <Card className="glass-card-premium rounded-xl">
+   332→              <CardHeader className="pb-3">
+   333→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   334→                  <Clock className="size-4 text-primary" />
+   335→                  Recent Predictions
+   336→                </CardTitle>
+   337→              </CardHeader>
+   338→              <CardContent>
+   339→                <div className="space-y-2">
+   340→                  {MOCK_RECENT_ACTIVITY.map((a, i) => (
+   341→                    <div key={i} className="flex items-center justify-between py-2 border-b border-border/20 last:border-0">
+   342→                      <div className="flex items-center gap-3">
+   343→                        <div className={cn(
+   344→                          'flex size-6 items-center justify-center rounded-full text-[10px] font-bold',
+   345→                          a.result === 'W' ? 'bg-emerald-500/20 text-emerald-400' :
+   346→                          a.result === 'D' ? 'bg-amber-500/20 text-amber-400' :
+   347→                          'bg-red-500/20 text-red-400'
+   348→                        )}>
+   349→                          {a.result}
+   350→                        </div>
+   351→                        <div>
+   352→                          <p className="text-xs font-medium">{a.match}</p>
+   353→                          <p className="text-[10px] text-muted-foreground">{a.prediction}</p>
+   354→                        </div>
+   355→                      </div>
+   356→                      <span className="text-xs font-bold tabular-nums">+{a.points} pts</span>
+   357→                    </div>
+   358→                  ))}
+   359→                </div>
+   360→              </CardContent>
+   361→            </Card>
+   362→
+   363→            {/* 9. xG vs ACTUAL GOALS CHART */}
+   364→            <Card className="glass-card-premium rounded-xl">
+   365→              <CardHeader className="pb-3">
+   366→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   367→                  <Target className="size-4 text-cyan-400" />
+   368→                  xG vs Actual Goals
+   369→                </CardTitle>
+   370→              </CardHeader>
+   371→              <CardContent>
+   372→                <ResponsiveContainer width="100%" height={180}>
+   373→                  <BarChart data={xgChartData} barGap={4}>
+   374→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+   375→                    <XAxis dataKey="match" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+   376→                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+   377→                    <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+   378→                    <Bar dataKey="xg" fill="#00b4d8" name="xG" radius={[4, 4, 0, 0]} />
+   379→                    <Bar dataKey="goals" fill="#00e676" name="Goals" radius={[4, 4, 0, 0]} />
+   380→                  </BarChart>
+   381→                </ResponsiveContainer>
+   382→              </CardContent>
+   383→            </Card>
+   384→
+   385→            {/* 10. FORM TABLE */}
+   386→            <Card className="glass-card-premium rounded-xl">
+   387→              <CardHeader className="pb-3">
+   388→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   389→                  <Trophy className="size-4 text-amber-400" />
+   390→                  Mini League Table
+   391→                </CardTitle>
+   392→              </CardHeader>
+   393→              <CardContent>
+   394→                <div className="overflow-x-auto">
+   395→                  <table className="w-full text-xs">
+   396→                    <thead>
+   397→                      <tr className="border-b border-border/30 text-muted-foreground">
+   398→                        <th className="py-2 text-left w-6">#</th>
+   399→                        <th className="py-2 text-left">Team</th>
+   400→                        <th className="py-2 text-center">P</th>
+   401→                        <th className="py-2 text-center">W</th>
+   402→                        <th className="py-2 text-center">D</th>
+   403→                        <th className="py-2 text-center">L</th>
+   404→                        <th className="py-2 text-center">GD</th>
+   405→                        <th className="py-2 text-center font-bold">Pts</th>
+   406→                        <th className="py-2 text-center">Form</th>
+   407→                      </tr>
+   408→                    </thead>
+   409→                    <tbody>
+   410→                      {MOCK_FORM_TABLE.map((row) => (
+   411→                        <tr key={row.code} className={cn('border-b border-border/10', row.pos <= 2 && 'bg-primary/5')}>
+   412→                          <td className="py-2 font-bold">
+   413→                            {row.pos <= 2 ? (
+   414→                              <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary/20 text-primary text-[10px]">{row.pos}</span>
+   415→                            ) : row.pos}
+   416→                          </td>
+   417→                          <td className="py-2">
+   418→                            <div className="flex items-center gap-2">
+   419→                              <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: row.color }} />
+   420→                              <span className="font-medium">{row.code}</span>
+   421→                            </div>
+   422→                          </td>
+   423→                          <td className="py-2 text-center text-muted-foreground">{row.p}</td>
+   424→                          <td className="py-2 text-center text-emerald-400">{row.w}</td>
+   425→                          <td className="py-2 text-center text-amber-400">{row.d}</td>
+   426→                          <td className="py-2 text-center text-red-400">{row.l}</td>
+   427→                          <td className="py-2 text-center font-medium">{row.gd > 0 ? '+' : ''}{row.gd}</td>
+   428→                          <td className="py-2 text-center font-bold text-primary">{row.pts}</td>
+   429→                          <td className="py-2">
+   430→                            <div className="flex gap-0.5 justify-center">
+   431→                              {row.form.split('').map((f, fi) => (
+   432→                                <span key={fi} className={cn('inline-flex size-4 items-center justify-center rounded text-[9px] font-bold', f === 'W' ? 'bg-emerald-500/20 text-emerald-400' : f === 'D' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400')}>
+   433→                                  {f}
+   434→                                </span>
+   435→                              ))}
+   436→                            </div>
+   437→                          </td>
+   438→                        </tr>
+   439→                      ))}
+   440→                    </tbody>
+   441→                  </table>
+   442→                </div>
+   443→              </CardContent>
+   444→            </Card>
+   445→          </div>
+   446→
+   447→          {/* ─── RIGHT COLUMN ─── */}
+   448→          <div className="space-y-5">
+   449→
+   450→            {/* 3. PREDICTION ACCURACY RING */}
+   451→            <Card className="glass-card-premium rounded-xl">
+   452→              <CardHeader className="pb-3">
+   453→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   454→                  <Target className="size-4 text-primary" />
+   455→                  Accuracy
+   456→                </CardTitle>
+   457→              </CardHeader>
+   458→              <CardContent className="flex flex-col items-center">
+   459→                <div className="relative size-32">
+   460→                  <svg className="size-full -rotate-90" viewBox="0 0 120 120">
+   461→                    <circle cx="60" cy="60" r="50" fill="none" stroke="oklch(0.15 0.02 260)" strokeWidth="10" />
+   462→                    <circle
+   463→                      cx="60" cy="60" r="50" fill="none"
+   464→                      stroke="url(#accuracyGrad)" strokeWidth="10"
+   465→                      strokeLinecap="round"
+   466→                      strokeDasharray={`${accuracy * 3.14} 314`}
+   467→                      className="transition-all duration-1000"
+   468→                    />
+   469→                    <defs>
+   470→                      <linearGradient id="accuracyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+   471→                        <stop offset="0%" stopColor="#00e676" />
+   472→                        <stop offset="100%" stopColor="#00bfa5" />
+   473→                      </linearGradient>
+   474→                    </defs>
+   475→                  </svg>
+   476→                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+   477→                    <span className="text-3xl font-black text-primary">{accuracy}%</span>
+   478→                    <span className="text-[10px] text-muted-foreground">Accuracy</span>
+   479→                  </div>
+   480→                </div>
+   481→                <div className="mt-3 flex gap-4 text-center text-xs">
+   482→                  <div>
+   483→                    <p className="font-bold text-foreground">{user?.totalPredictions ?? 0}</p>
+   484→                    <p className="text-muted-foreground">Total</p>
+   485→                  </div>
+   486→                  <div>
+   487→                    <p className="font-bold text-emerald-400">{user?.correctPredictions ?? 0}</p>
+   488→                    <p className="text-muted-foreground">Correct</p>
+   489→                  </div>
+   490→                </div>
+   491→              </CardContent>
+   492→            </Card>
+   493→
+   494→            {/* 4. TOP PERFORMERS */}
+   495→            <Card className="glass-card-premium rounded-xl">
+   496→              <CardHeader className="pb-3">
+   497→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   498→                  <Star className="size-4 text-amber-400" />
+   499→                  Top Performers
+   500→                </CardTitle>
+   501→              </CardHeader>
+   502→              <CardContent className="space-y-3">
+   503→                {MOCK_TOP_PERFORMERS.map((p, i) => (
+   504→                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
+   505→                    <div className="flex size-8 items-center justify-center rounded-full bg-amber-500/15 text-amber-400 text-xs font-bold">
+   506→                      #{i + 1}
+   507→                    </div>
+   508→                    <div className="flex-1 min-w-0">
+   509→                      <p className="text-xs font-semibold truncate">{p.name}</p>
+   510→                      <p className="text-[10px] text-muted-foreground">{p.code} · {p.position}</p>
+   511→                    </div>
+   512→                    <div className="text-right">
+   513→                      <p className="text-sm font-bold text-primary">{p.rating}</p>
+   514→                      <p className="text-[10px] text-muted-foreground">{p.goals}G {p.assists}A</p>
+   515→                    </div>
+   516→                  </div>
+   517→                ))}
+   518→              </CardContent>
+   519→            </Card>
+   520→
+   521→            {/* 6. COMMUNITY PREDICTIONS PIE */}
+   522→            <Card className="glass-card-premium rounded-xl">
+   523→              <CardHeader className="pb-3">
+   524→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   525→                  <Users className="size-4 text-cyan-400" />
+   526→                  Community Predictions
+   527→                </CardTitle>
+   528→              </CardHeader>
+   529→              <CardContent>
+   530→                <ResponsiveContainer width="100%" height={160}>
+   531→                  <PieChart>
+   532→                    <Pie data={MOCK_COMMUNITY_PIES} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={3} dataKey="value" stroke="none">
+   533→                      {MOCK_COMMUNITY_PIES.map((entry, index) => (
+   534→                        <Cell key={`cell-${index}`} fill={entry.fill} />
+   535→                      ))}
+   536→                    </Pie>
+   537→                    <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+   538→                  </PieChart>
+   539→                </ResponsiveContainer>
+   540→                <div className="flex justify-center gap-4 mt-1">
+   541→                  {MOCK_COMMUNITY_PIES.map((p) => (
+   542→                    <div key={p.name} className="flex items-center gap-1.5 text-[10px]">
+   543→                      <div className="size-2 rounded-full" style={{ backgroundColor: p.fill }} />
+   544→                      <span className="text-muted-foreground">{p.name}</span>
+   545→                      <span className="font-bold">{p.value}%</span>
+   546→                    </div>
+   547→                  ))}
+   548→                </div>
+   549→              </CardContent>
+   550→            </Card>
+   551→
+   552→            {/* 7. ELO RANKINGS */}
+   553→            <Card className="glass-card-premium rounded-xl">
+   554→              <CardHeader className="pb-3">
+   555→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   556→                  <TrendingUp className="size-4 text-primary" />
+   557→                  ELO Rankings
+   558→                </CardTitle>
+   559→              </CardHeader>
+   560→              <CardContent className="space-y-2">
+   561→                {MOCK_ELO_TEAMS.map((t, i) => (
+   562→                  <div key={t.code} className="flex items-center justify-between py-1.5 border-b border-border/10 last:border-0">
+   563→                    <div className="flex items-center gap-2">
+   564→                      <span className="text-[10px] w-4 text-muted-foreground font-bold">{i + 1}</span>
+   565→                      <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: teams.find((tm) => tm.code === t.code)?.primaryColor ?? '#555' }} />
+   566→                      <span className="text-xs font-medium">{t.code}</span>
+   567→                    </div>
+   568→                    <div className="flex items-center gap-2">
+   569→                      <span className="text-xs font-bold tabular-nums">{t.elo}</span>
+   570→                      <span className={cn('text-[10px] font-bold', t.change > 0 ? 'text-emerald-400' : t.change < 0 ? 'text-red-400' : 'text-muted-foreground')}>
+   571→                        {t.change > 0 ? '▲' : t.change < 0 ? '▼' : '—'}{Math.abs(t.change)}
+   572→                      </span>
+   573→                    </div>
+   574→                  </div>
+   575→                ))}
+   576→              </CardContent>
+   577→            </Card>
+   578→
+   579→            {/* 11. WEATHER IMPACT */}
+   580→            <Card className="glass-card-premium rounded-xl">
+   581→              <CardHeader className="pb-3">
+   582→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   583→                  <Cloud className="size-4 text-sky-400" />
+   584→                  Weather Impact
+   585→                </CardTitle>
+   586→              </CardHeader>
+   587→              <CardContent className="space-y-3">
+   588→                {MOCK_WEATHER.map((w, i) => (
+   589→                  <div key={i} className="p-2.5 rounded-lg bg-muted/20 space-y-2">
+   590→                    <p className="text-xs font-semibold">{w.match}</p>
+   591→                    <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
+   592→                      <span className="flex items-center gap-1">
+   593→                        <Thermometer className="size-3" /> {w.temp}°C
+   594→                      </span>
+   595→                      <span className="flex items-center gap-1">
+   596→                        <Wind className="size-3" /> {w.wind} km/h
+   597→                      </span>
+   598→                      <span className="flex items-center gap-1">
+   599→                        <Droplets className="size-3" /> {w.humidity}%
+   600→                      </span>
+   601→                    </div>
+   602→                    <p className="text-[10px] text-sky-400 font-medium">{w.condition}</p>
+   603→                  </div>
+   604→                ))}
+   605→              </CardContent>
+   606→            </Card>
+   607→
+   608→            {/* 12. TRENDING NEWS */}
+   609→            <Card className="glass-card-premium rounded-xl">
+   610→              <CardHeader className="pb-3">
+   611→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   612→                  <Newspaper className="size-4 text-amber-400" />
+   613→                  Trending News
+   614→                </CardTitle>
+   615→              </CardHeader>
+   616→              <CardContent className="space-y-2.5">
+   617→                {newsItems.map((n, i) => (
+   618→                  <div key={i} className="flex items-start gap-2.5 group cursor-pointer">
+   619→                    <Badge variant="outline" className="shrink-0 mt-0.5 text-[9px] border-amber-500/30 text-amber-400">
+   620→                      {n.category}
+   621→                    </Badge>
+   622→                    <div className="min-w-0">
+   623→                      <p className="text-xs font-medium leading-tight group-hover:text-primary transition-colors line-clamp-2">{n.title}</p>
+   624→                      <p className="text-[10px] text-muted-foreground mt-0.5">{n.time}</p>
+   625→                    </div>
+   626→                  </div>
+   627→                ))}
+   628→              </CardContent>
+   629→            </Card>
+   630→
+   631→            {/* 13. STREAK COUNTER */}
+   632→            <Card className="glass-card-premium rounded-xl ring-glow-emerald">
+   633→              <CardContent className="flex items-center gap-4 p-4">
+   634→                <div className="flex size-12 items-center justify-center rounded-xl bg-orange-500/15">
+   635→                  <span className="text-2xl streak-fire">🔥</span>
+   636→                </div>
+   637→                <div>
+   638→                  <p className="text-2xl font-black text-primary">{streak}</p>
+   639→                  <p className="text-[10px] text-muted-foreground">Current Streak</p>
+   640→                </div>
+   641→                <div className="ml-auto text-right">
+   642→                  <p className="text-sm font-bold text-amber-400">Best: {bestStreak}</p>
+   643→                  <p className="text-[10px] text-muted-foreground">All Time</p>
+   644→                </div>
+   645→              </CardContent>
+   646→            </Card>
+   647→
+   648→            {/* 14. QUICK ACTIONS */}
+   649→            <div className="grid grid-cols-3 gap-2">
+   650→              <Button
+   651→                variant="outline"
+   652→                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+   653→                onClick={() => setView('matches')}
+   654→              >
+   655→                <Swords className="size-4 text-primary" />
+   656→                <span>Matches</span>
+   657→              </Button>
+   658→              <Button
+   659→                variant="outline"
+   660→                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+   661→                onClick={() => setView('ai-chat')}
+   662→              >
+   663→                <MessageSquare className="size-4 text-cyan-400" />
+   664→                <span>AI Chat</span>
+   665→              </Button>
+   666→              <Button
+   667→                variant="outline"
+   668→                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+   669→                onClick={() => setView('predictions')}
+   670→              >
+   671→                <Target className="size-4 text-amber-400" />
+   672→                <span>Predict</span>
+   673→              </Button>
+   674→            </div>
+   675→
+   676→            {/* 15. PERSONALIZED INSIGHT */}
+   677→            <Card className="glass-card-premium rounded-xl border-primary/20">
+   678→              <CardContent className="p-4">
+   679→                <div className="flex items-start gap-3">
+   680→                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+   681→                    <Sparkles className="size-4 text-primary" />
+   682→                  </div>
+   683→                  <div>
+   684→                    <p className="text-xs font-bold text-primary mb-1">AI Insight</p>
+   685→                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+   686→                      {accuracy > 70
+   687→                        ? "You're on fire! Your prediction accuracy is above 70%. Focus on underdog matches where the community leans heavily toward favorites — you have an edge in spotting upsets."
+   688→                        : accuracy > 50
+   689→                        ? "Good progress! Try analyzing xG differentials before predicting draws — matches where both teams have similar xG often end in draws."
+   690→                        : "Tip: Start by predicting matches with the highest ELO differentials. Favorites with a 150+ ELO advantage win 72% of the time."}
+   691→                    </p>
+   692→                  </div>
+   693→                </div>
+   694→              </CardContent>
+   695→            </Card>
+   696→          </div>
+   697→        </div>
+   698→      </div>
+   699→    </TooltipProvider>
+   700→  )
+   701→}
