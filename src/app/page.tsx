@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Toaster } from '@/components/ui/sonner'
 import { Sidebar } from '@/components/elastico/sidebar'
@@ -28,7 +28,111 @@ import PredictionEngineView from '@/components/elastico/prediction-engine-view'
 import SystemMonitorView from '@/components/elastico/system-monitor-view'
 import { OfflineIndicator } from '@/components/elastico/offline-indicator'
 
+function SetupView({ onReady }: { onReady: () => void }) {
+  const [status, setStatus] = useState<string>('checking')
+  const [message, setMessage] = useState('')
+  const [settingUp, setSettingUp] = useState(false)
+
+  const checkAndSetup = async () => {
+    try {
+      const res = await fetch('/api/setup')
+      const data = await res.json()
+
+      if (data.status === 'ready') {
+        onReady()
+        return
+      }
+
+      if (data.status === 'needs_setup' || data.status === 'needs_seed') {
+        setMessage('Creating tables and seeding data...')
+        setSettingUp(true)
+        try {
+          const setupRes = await fetch('/api/setup', { method: 'POST' })
+          const setupData = await setupRes.json()
+          if (setupData.status === 'success' || setupData.status === 'already_seeded') {
+            onReady()
+            return
+          }
+          setMessage(setupData.message || 'Setup failed')
+          setStatus('error')
+        } catch {
+          setMessage('Failed to run setup')
+          setStatus('error')
+        }
+        return
+      }
+
+      setStatus(data.status)
+      setMessage(data.message)
+    } catch {
+      setStatus('error')
+      setMessage('Cannot reach server')
+    }
+  }
+
+  useEffect(() => {
+    checkAndSetup()
+    // Poll every 5s if we need a database (user might add one)
+    const interval = setInterval(checkAndSetup, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const isNeedsDatabase = status === 'needs_database'
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <div className="text-center mb-8">
+          <div className="text-4xl font-black tracking-tighter text-white mb-2">ELASTICO</div>
+          <p className="text-sm text-zinc-500">AI-Powered Football Analytics</p>
+        </div>
+
+        <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-8 backdrop-blur-xl">
+          {isNeedsDatabase ? (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
+              </div>
+              <h2 className="text-lg font-semibold text-white text-center mb-2">Database Not Connected</h2>
+              <p className="text-sm text-zinc-400 text-center mb-6">
+                Go to your Vercel project → <strong className="text-zinc-200">Storage</strong> → <strong className="text-zinc-200">Create Database</strong> → <strong className="text-zinc-200">Postgres (Neon)</strong>
+              </p>
+              <div className="bg-zinc-800/50 rounded-xl p-4 text-xs text-zinc-400 space-y-1">
+                <p>1. Open Vercel → elastico → <strong className="text-zinc-300">Storage</strong></p>
+                <p>2. Click <strong className="text-zinc-300">Create Database</strong></p>
+                <p>3. Select <strong className="text-zinc-300">Postgres (Neon)</strong></p>
+                <p>4. Click <strong className="text-zinc-300">Create</strong></p>
+                <p className="text-emerald-400 pt-1">← This page will auto-detect and set up everything</p>
+              </div>
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                Waiting for database connection...
+              </div>
+            </>
+          ) : settingUp || status === 'checking' ? (
+            <div className="text-center py-8">
+              <div className="w-12 h-12 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-sm text-zinc-300">{message || 'Checking database...'}</p>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-sm text-red-400">{message}</p>
+              <button
+                onClick={checkAndSetup}
+                className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Home() {
+  const [dbReady, setDbReady] = useState(true) // assume ready, check on mount
   const isAuthenticated = useElasticoStore(s => s.isAuthenticated)
   const currentView = useElasticoStore(s => s.currentView)
   const sidebarOpen = useElasticoStore(s => s.sidebarOpen)
@@ -100,6 +204,26 @@ export default function Home() {
     const interval = setInterval(() => { fetchMatches() }, 30000)
     return () => clearInterval(interval)
   }, [isAuthenticated, fetchMatches])
+
+  // Check database on mount (production only)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') return
+    fetch('/api/setup')
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'ready') {
+          setDbReady(true)
+        } else {
+          setDbReady(false)
+        }
+      })
+      .catch(() => setDbReady(true)) // if setup endpoint fails, assume local dev
+  }, [])
+
+  // Show setup view if DB not ready
+  if (!dbReady) {
+    return <SetupView onReady={() => setDbReady(true)} />
+  }
 
   // Not authenticated - show login
   if (!isAuthenticated) {
