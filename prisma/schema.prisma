@@ -1,0 +1,336 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String?
+  name          String?
+  displayName   String?
+  avatarUrl     String?
+  phone         String?
+  role          String   @default("user") // user, pro, admin
+  plan          String   @default("free") // free, pro, elite
+  isActive      Boolean  @default(true)
+  isBanned      Boolean  @default(false)
+  banReason     String?
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret   String?
+  whatsappLink  String?
+  telegramLink  String?
+  bio           String?
+  location      String?
+  timezone      String   @default("UTC")
+  locale        String   @default("en")
+  provider      String?  // google, email, sms
+  providerId    String?
+  predictionAccuracy Float @default(0)
+  predictionStreak  Int  @default(0)
+  bestStreak    Int     @default(0)
+  totalPredictions Int  @default(0)
+  correctPredictions Int @default(0)
+  freeMatchesUsed   Int @default(0)
+  achievements  String  @default("[]") // JSON array
+  favoriteTeams String  @default("[]") // JSON array
+  pinnedWidgets String  @default("[]") // JSON array
+  notificationPrefs String @default("{}") // JSON
+  lastLoginAt   DateTime?
+  loginCount    Int      @default(0)
+  failedLogins  Int      @default(0)
+  lockedUntil   DateTime?
+  sessionId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  predictions   Prediction[]
+  votes         Vote[]
+  bookmarks     Bookmark[]
+  activities    Activity[]
+  sessions      Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique // BRA, GER, etc
+  logo        String?
+  primaryColor String  @default("#00e676")
+  secondaryColor String @default("#ffffff")
+  eloRating   Float    @default(1500)
+  eloHistory  String   @default("[]") // JSON: [{date, rating}]
+  form        String   @default("[]") // JSON: [W,D,L,W,W]
+  wins        Int      @default(0)
+  draws       Int      @default(0)
+  losses      Int      @default(0)
+  goalsFor    Int      @default(0)
+  goalsAgainst Int     @default(0)
+  group       String?
+  rank        Int?
+  coachName   String?
+  style       String?  // attacking, defensive, balanced
+  xgPerGame   Float    @default(1.2)
+  xgaPerGame  Float    @default(1.0)
+  possession  Float    @default(50)
+  passAccuracy Float   @default(80)
+  pressIntensity Float  @default(50)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+  players     Player[]
+
+  @@index([eloRating])
+  @@index([group])
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  name        String
+  number      Int
+  position    String   // GK, DEF, MID, FWD
+  teamId      String
+  goals       Int      @default(0)
+  assists     Int      @default(0)
+  yellowCards Int      @default(0)
+  redCards    Int      @default(0)
+  appearances Int      @default(0)
+  minutesPlayed Int    @default(0)
+  rating      Float    @default(6.5)
+  marketValue Float?
+  age         Int?
+  nationality String?
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([goals])
+}
+
+model Match {
+  id              String   @id @default(cuid())
+  homeTeamId      String
+  awayTeamId      String
+  homeTeam        Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam        Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  competition     String   @default("World Cup 2026")
+  stage           String   @default("Group Stage") // Group Stage, R16, QF, SF, Final
+  group           String?
+  matchday        Int?
+  date            DateTime?
+  status          String   @default("upcoming") // upcoming, live, halftime, finished, postponed
+  homeScore       Int      @default(0)
+  awayScore       Int      @default(0)
+  homeXg          Float    @default(0)
+  awayXg          Float    @default(0)
+  possessionHome  Float    @default(50)
+  possessionAway  Float    @default(50)
+  shotsHome       Int      @default(0)
+  shotsAway       Int      @default(0)
+  shotsOnTargetHome Int   @default(0)
+  shotsOnTargetAway Int   @default(0)
+  cornersHome     Int      @default(0)
+  cornersAway     Int      @default(0)
+  foulsHome       Int      @default(0)
+  foulsAway       Int      @default(0)
+  offsidesHome    Int      @default(0)
+  offsidesAway    Int      @default(0)
+  attendance      Int?
+  venue           String?
+  weather         String?  // sunny, rainy, cloudy, hot, cold
+  temperature     Float?
+  homeWinProb     Float?
+  drawProb        Float?
+  awayWinProb     Float?
+  overUnderProb   String?  // JSON
+  homeEloBefore   Float?
+  awayEloBefore   Float?
+  eloPrediction   String?  // JSON
+  poissonMatrix   String?  // JSON
+  dixonColes      String?  // JSON
+  monteCarlo      String?  // JSON
+  isSimulated     Boolean  @default(false)
+  simulationMinute Int     @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  events      MatchEvent[]
+  predictions Prediction[]
+  votes       Vote[]
+  bookmarks   Bookmark[]
+
+  @@index([status])
+  @@index([date])
+  @@index([stage])
+}
+
+model MatchEvent {
+  id        String   @id @default(cuid())
+  matchId   String
+  minute    Int
+  type      String   // goal, yellow_card, red_card, substitution, penalty, own_goal, var_review
+  team      String   // home, away
+  playerId  String?
+  playerName String
+  description String?
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+  @@index([type])
+}
+
+model Prediction {
+  id        String   @id @default(cuid())
+  userId    String
+  matchId   String
+  predictedHomeGoals Int
+  predictedAwayGoals Int
+  predictedOutcome   String // home, draw, away
+  confidence    Float
+  model         String   @default("elo") // elo, poisson, dixon_coles, monte_carlo, user
+  isCorrect     Boolean?
+  points        Int      @default(0)
+  createdAt     DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match        Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
+  @@index([userId])
+  @@index([matchId])
+}
+
+model Vote {
+  id        String   @id @default(cuid())
+  userId    String
+  matchId   String
+  choice    String   // home, draw, away
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
+  @@index([matchId])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  matchId   String
+  note      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
+}
+
+model NewsItem {
+  id          String   @id @default(cuid())
+  title       String
+  summary     String?
+  content     String?
+  source      String?
+  category    String   @default("general") // transfer, injury, tactical, match, rumor
+  imageUrl    String?
+  isBreaking  Boolean  @default(false)
+  sentiment   String?  // positive, negative, neutral
+  relatedTeams String? @default("[]") // JSON
+  readCount   Int      @default(0)
+  bookmarked  String?  @default("[]") // JSON user IDs
+  reactions   String   @default("{}") // JSON {like: N, fire: N, think: N}
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // login, prediction, vote, bookmark, achievement, subscription_change
+  metadata  String?  // JSON
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model ApiLog {
+  id        String   @id @default(cuid())
+  method    String
+  path      String
+  statusCode Int
+  userId    String?
+  ipAddress String?
+  userAgent String?
+  duration  Int      @default(0) // ms
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([method])
+  @@index([path])
+  @@index([statusCode])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  type  String @default("string") // string, number, boolean, json
+  updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  type      String   @default("info") // info, warning, success, maintenance
+  isActive  Boolean  @default(true)
+  targetRole String @default("all") // all, user, pro, elite, admin
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+}
+
+model FeatureFlag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isEnabled Boolean  @default(false)
+  description String?
+  rollout   Float    @default(100) // percentage 0-100
+  targetRoles String @default("[]") // JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // goal, card, kickoff, prediction_result, system, achievement
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}

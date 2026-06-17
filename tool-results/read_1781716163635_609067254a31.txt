@@ -1,0 +1,583 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { useElasticoStore } from '@/store/use-elastico-store'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Skeleton } from '@/components/ui/skeleton'
+     9→import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→import {
+    12→  Table,
+    13→  TableBody,
+    14→  TableCell,
+    15→  TableHead,
+    16→  TableHeader,
+    17→  TableRow,
+    18→} from '@/components/ui/table'
+    19→import {
+    20→  Trophy,
+    21→  Medal,
+    22→  Target,
+    23→  Crown,
+    24→  TrendingUp,
+    25→  Star,
+    26→  Flame,
+    27→  ArrowUp,
+    28→  Rocket,
+    29→  Zap,
+    30→} from 'lucide-react'
+    31→
+    32→// ── Types ──────────────────────────────────────────────────────────────────────
+    33→
+    34→interface PredictorEntry {
+    35→  rank: number
+    36→  id: string
+    37→  name: string | null
+    38→  displayName: string | null
+    39→  avatarUrl: string | null
+    40→  plan: string
+    41→  predictionAccuracy: number
+    42→  predictionStreak: number
+    43→  bestStreak: number
+    44→  totalPredictions: number
+    45→  correctPredictions: number
+    46→}
+    47→
+    48→interface GoldenBootEntry {
+    49→  rank: number
+    50→  id: string
+    51→  name: string
+    52→  number: number
+    53→  position: string
+    54→  goals: number
+    55→  assists: number
+    56→  team: {
+    57→    id: string
+    58→    name: string
+    59→    code: string
+    60→    logo: string | null
+    61→    primaryColor: string
+    62→  } | null
+    63→}
+    64→
+    65→// ── Plan Badge Config ──────────────────────────────────────────────────────────
+    66→
+    67→const planBadgeConfig: Record<string, string> = {
+    68→  free: 'bg-muted text-muted-foreground border-border',
+    69→  pro: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    70→  elite: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+    71→}
+    72→
+    73→// ── Helper: get initials ──────────────────────────────────────────────────────
+    74→
+    75→function getInitials(name: string): string {
+    76→  const parts = name.trim().split(/\s+/)
+    77→  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+    78→  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    79→}
+    80→
+    81→// ── Helper: motivational message ───────────────────────────────────────────────
+    82→
+    83→function getMotivationalMessage(rank: number, total: number): { icon: React.ElementType; text: string; color: string } {
+    84→  const pct = total > 0 ? rank / total : 1
+    85→  if (rank <= 3) return { icon: Crown, text: 'You\'re among the elite! Keep dominating!', color: 'text-amber-400' }
+    86→  if (rank <= 10) return { icon: Trophy, text: 'Top 10 territory — push for the podium!', color: 'text-emerald-400' }
+    87→  if (pct <= 0.25) return { icon: TrendingUp, text: 'Great position! A few correct predictions could vault you up.', color: 'text-primary' }
+    88→  if (pct <= 0.5) return { icon: Flame, text: 'Solid mid-table. Build a streak to climb!', color: 'text-orange-400' }
+    89→  if (pct <= 0.75) return { icon: Target, text: 'Room to grow. Focus on high-confidence picks.', color: 'text-cyan-400' }
+    90→  return { icon: Rocket, text: 'Every prediction counts. Start your climb today!', color: 'text-muted-foreground' }
+    91→}
+    92→
+    93→// ── Rank Badge ─────────────────────────────────────────────────────────────────
+    94→
+    95→function RankBadge({ rank }: { rank: number }) {
+    96→  if (rank === 1) {
+    97→    return (
+    98→      <span className="inline-flex size-7 items-center justify-center rounded-full bg-amber-500/20 border border-amber-500/40">
+    99→        <span className="text-sm">🥇</span>
+   100→      </span>
+   101→    )
+   102→  }
+   103→  if (rank === 2) {
+   104→    return (
+   105→      <span className="inline-flex size-7 items-center justify-center rounded-full bg-slate-300/20 border border-slate-300/40">
+   106→        <span className="text-sm">🥈</span>
+   107→      </span>
+   108→    )
+   109→  }
+   110→  if (rank === 3) {
+   111→    return (
+   112→      <span className="inline-flex size-7 items-center justify-center rounded-full bg-amber-700/20 border border-amber-700/40">
+   113→        <span className="text-sm">🥉</span>
+   114→      </span>
+   115→    )
+   116→  }
+   117→  return (
+   118→    <span className="inline-flex size-7 items-center justify-center rounded-full text-xs font-bold text-muted-foreground">
+   119→      {rank}
+   120→    </span>
+   121→  )
+   122→}
+   123→
+   124→// ═══════════════════════════════════════════════════════════════════════════════
+   125→// LEADERBOARD VIEW
+   126→// ═══════════════════════════════════════════════════════════════════════════════
+   127→
+   128→export default function LeaderboardView() {
+   129→  const { user } = useElasticoStore()
+   130→
+   131→  // ── State ─────────────────────────────────────────────────────────────────
+   132→
+   133→  const [predictors, setPredictors] = useState<PredictorEntry[]>([])
+   134→  const [goldenBoot, setGoldenBoot] = useState<GoldenBootEntry[]>([])
+   135→  const [loading, setLoading] = useState(true)
+   136→  const [activeTab, setActiveTab] = useState('predictors')
+   137→
+   138→  // ── Data Fetching ──────────────────────────────────────────────────────────
+   139→
+   140→  const fetchPredictors = useCallback(async () => {
+   141→    try {
+   142→      const res = await fetch('/api/leaderboard?type=predictors')
+   143→      const data = await res.json()
+   144→      setPredictors(data.leaderboard || [])
+   145→    } catch (err) {
+   146→      console.error('Failed to fetch predictors:', err)
+   147→    }
+   148→  }, [])
+   149→
+   150→  const fetchGoldenBoot = useCallback(async () => {
+   151→    try {
+   152→      const res = await fetch('/api/leaderboard?type=golden_boot')
+   153→      const data = await res.json()
+   154→      setGoldenBoot(data.leaderboard || [])
+   155→    } catch (err) {
+   156→      console.error('Failed to fetch golden boot:', err)
+   157→    }
+   158→  }, [])
+   159→
+   160→  useEffect(() => {
+   161→    const load = async () => {
+   162→      setLoading(true)
+   163→      await Promise.all([fetchPredictors(), fetchGoldenBoot()])
+   164→      setLoading(false)
+   165→    }
+   166→    load()
+   167→  }, [fetchPredictors, fetchGoldenBoot])
+   168→
+   169→  // ── Computed: Current user ranking ──────────────────────────────────────────
+   170→
+   171→  const userPredictorRank = useMemo(() => {
+   172→    if (!user) return null
+   173→    const found = predictors.find((p) => p.id === user.id)
+   174→    if (found) return found
+   175→    // If user not in top 50, use their profile data
+   176→    if (user.totalPredictions >= 5) {
+   177→      return {
+   178→        rank: predictors.length + 1,
+   179→        id: user.id,
+   180→        name: user.name,
+   181→        displayName: user.displayName,
+   182→        avatarUrl: user.avatarUrl,
+   183→        plan: user.plan,
+   184→        predictionAccuracy: user.predictionAccuracy,
+   185→        predictionStreak: user.predictionStreak,
+   186→        bestStreak: user.bestStreak,
+   187→        totalPredictions: user.totalPredictions,
+   188→        correctPredictions: user.correctPredictions,
+   189→      }
+   190→    }
+   191→    return null
+   192→  }, [user, predictors])
+   193→
+   194→  const motivMsg = userPredictorRank
+   195→    ? getMotivationalMessage(userPredictorRank.rank, Math.max(predictors.length, 50))
+   196→    : null
+   197→
+   198→  // ═══════════════════════════════════════════════════════════════════════════
+   199→  return (
+   200→    <div className="space-y-6 animate-fade-in-up">
+   201→      {/* ── Page Header ──────────────────────────────────────────────────── */}
+   202→      <div className="flex items-center gap-3">
+   203→        <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15">
+   204→          <Trophy className="size-5 text-amber-400" />
+   205→        </div>
+   206→        <div>
+   207→          <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
+   208→          <p className="text-sm text-muted-foreground">
+   209→            Top predictors & golden boot race
+   210→          </p>
+   211→        </div>
+   212→      </div>
+   213→
+   214→      {/* ── Your Ranking Card ────────────────────────────────────────────── */}
+   215→      {userPredictorRank && motivMsg && (
+   216→        <Card className="glass-card border-primary/20 neon-border animate-fade-in-up">
+   217→          <CardContent className="p-4">
+   218→            <div className="flex items-center gap-4">
+   219→              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+   220→                <RankBadge rank={userPredictorRank.rank} />
+   221→              </div>
+   222→              <div className="flex-1 min-w-0">
+   223→                <div className="flex items-center gap-2">
+   224→                  <span className="text-sm font-bold">
+   225→                    Your Ranking: #{userPredictorRank.rank}
+   226→                  </span>
+   227→                  <Badge
+   228→                    variant="outline"
+   229→                    className={planBadgeConfig[userPredictorRank.plan] || planBadgeConfig.free}
+   230→                  >
+   231→                    {(userPredictorRank.plan || 'Free').toUpperCase()}
+   232→                  </Badge>
+   233→                </div>
+   234→                <p className={`text-xs mt-1 flex items-center gap-1.5 ${motivMsg.color}`}>
+   235→                  <motivMsg.icon className="size-3.5" />
+   236→                  {motivMsg.text}
+   237→                </p>
+   238→              </div>
+   239→              <div className="hidden sm:flex items-center gap-4 text-center">
+   240→                <div>
+   241→                  <p className="text-lg font-bold text-primary">
+   242→                    {userPredictorRank.predictionAccuracy.toFixed(1)}%
+   243→                  </p>
+   244→                  <p className="text-[10px] text-muted-foreground">Accuracy</p>
+   245→                </div>
+   246→                <div className="h-8 w-px bg-border/50" />
+   247→                <div>
+   248→                  <p className="text-lg font-bold text-amber-400">
+   249→                    {userPredictorRank.bestStreak}
+   250→                  </p>
+   251→                  <p className="text-[10px] text-muted-foreground">Best Streak</p>
+   252→                </div>
+   253→              </div>
+   254→            </div>
+   255→          </CardContent>
+   256→        </Card>
+   257→      )}
+   258→
+   259→      {/* ── Tabs ─────────────────────────────────────────────────────────── */}
+   260→      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+   261→        <TabsList className="bg-muted/50 border border-border/50">
+   262→          <TabsTrigger value="predictors" className="gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary">
+   263→            <Trophy className="size-3.5" />
+   264→            Predictors
+   265→          </TabsTrigger>
+   266→          <TabsTrigger value="golden_boot" className="gap-1.5 data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-400">
+   267→            <span className="text-sm">👟</span>
+   268→            Golden Boot
+   269→          </TabsTrigger>
+   270→        </TabsList>
+   271→
+   272→        {/* ── Predictors Tab ──────────────────────────────────────────────── */}
+   273→        <TabsContent value="predictors" className="mt-4">
+   274→          <Card className="glass-card border-border/50">
+   275→            <CardHeader className="pb-2">
+   276→              <div className="flex items-center justify-between">
+   277→                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+   278→                  <Trophy className="size-3.5" />
+   279→                  Top Predictors
+   280→                </CardTitle>
+   281→                <Badge variant="outline" className="text-[10px] border-border/50 text-muted-foreground">
+   282→                  Min. 5 predictions
+   283→                </Badge>
+   284→              </div>
+   285→            </CardHeader>
+   286→            <CardContent>
+   287→              {loading ? (
+   288→                <div className="space-y-2">
+   289→                  {Array.from({ length: 10 }).map((_, i) => (
+   290→                    <Skeleton key={i} className="h-12 w-full" />
+   291→                  ))}
+   292→                </div>
+   293→              ) : predictors.length === 0 ? (
+   294→                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+   295→                  <Trophy className="mb-3 size-10 opacity-30" />
+   296→                  <p className="text-sm font-medium">No predictors yet</p>
+   297→                  <p className="text-xs mt-1">Make at least 5 predictions to appear here</p>
+   298→                </div>
+   299→              ) : (
+   300→                <div className="max-h-[600px] overflow-y-auto rounded-lg">
+   301→                  <Table>
+   302→                    <TableHeader>
+   303→                      <TableRow className="hover:bg-transparent">
+   304→                        <TableHead className="w-10 text-xs text-center">#</TableHead>
+   305→                        <TableHead className="text-xs">Predictor</TableHead>
+   306→                        <TableHead className="text-xs text-center">Accuracy</TableHead>
+   307→                        <TableHead className="text-xs text-center hidden sm:table-cell">Predictions</TableHead>
+   308→                        <TableHead className="text-xs text-center hidden md:table-cell">Best Streak</TableHead>
+   309→                        <TableHead className="text-xs text-right">Plan</TableHead>
+   310→                      </TableRow>
+   311→                    </TableHeader>
+   312→                    <TableBody>
+   313→                      {predictors.map((p) => {
+   314→                        const isCurrentUser = user?.id === p.id
+   315→                        const isTop3 = p.rank <= 3
+   316→                        const displayName = p.displayName || p.name || 'Anonymous'
+   317→
+   318→                        return (
+   319→                          <TableRow
+   320→                            key={p.id}
+   321→                            className={isCurrentUser ? 'bg-primary/5' : ''}
+   322→                          >
+   323→                            {/* Rank */}
+   324→                            <TableCell className="text-center">
+   325→                              {isTop3 ? (
+   326→                                <RankBadge rank={p.rank} />
+   327→                              ) : (
+   328→                                <span className="text-xs font-bold text-muted-foreground">
+   329→                                  {p.rank}
+   330→                                </span>
+   331→                              )}
+   332→                            </TableCell>
+   333→
+   334→                            {/* Predictor info */}
+   335→                            <TableCell>
+   336→                              <div className="flex items-center gap-2.5">
+   337→                                <Avatar className="size-8 shrink-0">
+   338→                                  <AvatarImage src={p.avatarUrl || undefined} alt={displayName} />
+   339→                                  <AvatarFallback className="bg-primary/15 text-primary text-[10px] font-semibold">
+   340→                                    {getInitials(displayName)}
+   341→                                  </AvatarFallback>
+   342→                                </Avatar>
+   343→                                <div className="min-w-0">
+   344→                                  <p className={`text-xs font-medium truncate ${isCurrentUser ? 'text-primary' : ''}`}>
+   345→                                    {displayName}
+   346→                                    {isCurrentUser && (
+   347→                                      <span className="ml-1.5 text-[10px] text-muted-foreground">(You)</span>
+   348→                                    )}
+   349→                                  </p>
+   350→                                  {isTop3 && (
+   351→                                    <div className="flex items-center gap-0.5 mt-0.5">
+   352→                                      {Array.from({ length: p.rank === 1 ? 3 : p.rank === 2 ? 2 : 1 }).map((_, i) => (
+   353→                                        <Star key={i} className="size-2.5 text-amber-400 fill-amber-400" />
+   354→                                      ))}
+   355→                                    </div>
+   356→                                  )}
+   357→                                </div>
+   358→                              </div>
+   359→                            </TableCell>
+   360→
+   361→                            {/* Accuracy */}
+   362→                            <TableCell className="text-center">
+   363→                              <span
+   364→                                className={`text-sm font-bold ${
+   365→                                  p.predictionAccuracy >= 80
+   366→                                    ? 'text-emerald-400'
+   367→                                    : p.predictionAccuracy >= 60
+   368→                                      ? 'text-primary'
+   369→                                      : 'text-muted-foreground'
+   370→                                }`}
+   371→                              >
+   372→                                {p.predictionAccuracy.toFixed(1)}%
+   373→                              </span>
+   374→                            </TableCell>
+   375→
+   376→                            {/* Total Predictions */}
+   377→                            <TableCell className="text-center hidden sm:table-cell">
+   378→                              <span className="text-xs text-muted-foreground">
+   379→                                {p.totalPredictions}
+   380→                              </span>
+   381→                            </TableCell>
+   382→
+   383→                            {/* Best Streak */}
+   384→                            <TableCell className="text-center hidden md:table-cell">
+   385→                              <div className="flex items-center justify-center gap-1">
+   386→                                <Flame className="size-3 text-orange-400" />
+   387→                                <span className="text-xs font-medium text-orange-400">
+   388→                                  {p.bestStreak}
+   389→                                </span>
+   390→                              </div>
+   391→                            </TableCell>
+   392→
+   393→                            {/* Plan */}
+   394→                            <TableCell className="text-right">
+   395→                              <Badge
+   396→                                variant="outline"
+   397→                                className={`text-[10px] px-1.5 py-0 ${
+   398→                                  planBadgeConfig[p.plan?.toLowerCase()] || planBadgeConfig.free
+   399→                                }`}
+   400→                              >
+   401→                                {(p.plan || 'Free').toUpperCase()}
+   402→                              </Badge>
+   403→                            </TableCell>
+   404→                          </TableRow>
+   405→                        )
+   406→                      })}
+   407→                    </TableBody>
+   408→                  </Table>
+   409→                </div>
+   410→              )}
+   411→            </CardContent>
+   412→          </Card>
+   413→        </TabsContent>
+   414→
+   415→        {/* ── Golden Boot Tab ─────────────────────────────────────────────── */}
+   416→        <TabsContent value="golden_boot" className="mt-4">
+   417→          <Card className="glass-card border-border/50">
+   418→            <CardHeader className="pb-2">
+   419→              <div className="flex items-center justify-between">
+   420→                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+   421→                  <span className="text-sm">👟</span>
+   422→                  Golden Boot Race
+   423→                </CardTitle>
+   424→                <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400">
+   425→                  Top Scorers
+   426→                </Badge>
+   427→              </div>
+   428→            </CardHeader>
+   429→            <CardContent>
+   430→              {loading ? (
+   431→                <div className="space-y-2">
+   432→                  {Array.from({ length: 10 }).map((_, i) => (
+   433→                    <Skeleton key={i} className="h-12 w-full" />
+   434→                  ))}
+   435→                </div>
+   436→              ) : goldenBoot.length === 0 ? (
+   437→                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+   438→                  <Zap className="mb-3 size-10 opacity-30" />
+   439→                  <p className="text-sm font-medium">No goals scored yet</p>
+   440→                  <p className="text-xs mt-1">Goals will appear here once matches are played</p>
+   441→                </div>
+   442→              ) : (
+   443→                <div className="max-h-[600px] overflow-y-auto rounded-lg">
+   444→                  <Table>
+   445→                    <TableHeader>
+   446→                      <TableRow className="hover:bg-transparent">
+   447→                        <TableHead className="w-10 text-xs text-center">#</TableHead>
+   448→                        <TableHead className="text-xs">Player</TableHead>
+   449→                        <TableHead className="text-xs text-center hidden sm:table-cell">Team</TableHead>
+   450→                        <TableHead className="text-xs text-center">Goals</TableHead>
+   451→                        <TableHead className="text-xs text-center hidden sm:table-cell">Assists</TableHead>
+   452→                        <TableHead className="text-xs text-center hidden md:table-cell">Position</TableHead>
+   453→                      </TableRow>
+   454→                    </TableHeader>
+   455→                    <TableBody>
+   456→                      {goldenBoot.map((entry) => {
+   457→                        const isTop = entry.rank === 1
+   458→                        const topGoals = goldenBoot[0]?.goals || 0
+   459→
+   460→                        return (
+   461→                          <TableRow
+   462→                            key={entry.id}
+   463→                            className={isTop ? 'bg-amber-500/5' : ''}
+   464→                          >
+   465→                            {/* Rank */}
+   466→                            <TableCell className="text-center">
+   467→                              {isTop ? (
+   468→                                <div className="flex flex-col items-center">
+   469→                                  <RankBadge rank={1} />
+   470→                                  <span className="text-[9px] text-amber-400 mt-0.5">👢</span>
+   471→                                </div>
+   472→                              ) : entry.rank <= 3 ? (
+   473→                                <RankBadge rank={entry.rank} />
+   474→                              ) : (
+   475→                                <span className="text-xs font-bold text-muted-foreground">
+   476→                                  {entry.rank}
+   477→                                </span>
+   478→                              )}
+   479→                            </TableCell>
+   480→
+   481→                            {/* Player */}
+   482→                            <TableCell>
+   483→                              <div className="flex items-center gap-2.5">
+   484→                                <div
+   485→                                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold border border-border/50"
+   486→                                  style={{
+   487→                                    backgroundColor: entry.team?.primaryColor
+   488→                                      ? `${entry.team.primaryColor}22`
+   489→                                      : 'bg-muted/50',
+   490→                                    color: entry.team?.primaryColor || 'text-muted-foreground',
+   491→                                    borderColor: entry.team?.primaryColor
+   492→                                      ? `${entry.team.primaryColor}44`
+   493→                                      : undefined,
+   494→                                  }}
+   495→                                >
+   496→                                  {entry.number}
+   497→                                </div>
+   498→                                <div className="min-w-0">
+   499→                                  <p className={`text-xs font-medium truncate ${isTop ? 'text-amber-400' : ''}`}>
+   500→                                    {entry.name}
+   501→                                  </p>
+   502→                                </div>
+   503→                              </div>
+   504→                            </TableCell>
+   505→
+   506→                            {/* Team */}
+   507→                            <TableCell className="text-center hidden sm:table-cell">
+   508→                              {entry.team ? (
+   509→                                <div className="flex items-center justify-center gap-1.5">
+   510→                                  <div
+   511→                                    className="size-3 rounded-full border border-border/50"
+   512→                                    style={{ backgroundColor: entry.team.primaryColor }}
+   513→                                  />
+   514→                                  <span className="text-xs text-muted-foreground">
+   515→                                    {entry.team.code}
+   516→                                  </span>
+   517→                                </div>
+   518→                              ) : (
+   519→                                <span className="text-xs text-muted-foreground">—</span>
+   520→                              )}
+   521→                            </TableCell>
+   522→
+   523→                            {/* Goals */}
+   524→                            <TableCell className="text-center">
+   525→                              <div className="flex items-center justify-center gap-1">
+   526→                                <Target className={`size-3 ${isTop ? 'text-amber-400' : 'text-muted-foreground'}`} />
+   527→                                <span
+   528→                                  className={`text-sm font-bold ${
+   529→                                    isTop
+   530→                                      ? 'text-amber-400'
+   531→                                      : entry.goals === topGoals - 1
+   532→                                        ? 'text-emerald-400'
+   533→                                        : 'text-foreground'
+   534→                                  }`}
+   535→                                >
+   536→                                  {entry.goals}
+   537→                                </span>
+   538→                              </div>
+   539→                              {/* Progress bar relative to top scorer */}
+   540→                              {topGoals > 0 && (
+   541→                                <div className="mt-1 mx-auto w-16 h-1 rounded-full bg-muted overflow-hidden">
+   542→                                  <div
+   543→                                    className="h-full rounded-full transition-all duration-500"
+   544→                                    style={{
+   545→                                      width: `${(entry.goals / topGoals) * 100}%`,
+   546→                                      backgroundColor: isTop
+   547→                                        ? '#ffd700'
+   548→                                        : entry.goals === topGoals - 1
+   549→                                          ? '#00e676'
+   550→                                          : 'oklch(0.4 0.03 260)',
+   551→                                    }}
+   552→                                  />
+   553→                                </div>
+   554→                              )}
+   555→                            </TableCell>
+   556→
+   557→                            {/* Assists */}
+   558→                            <TableCell className="text-center hidden sm:table-cell">
+   559→                              <span className="text-xs text-muted-foreground">
+   560→                                {entry.assists}
+   561→                              </span>
+   562→                            </TableCell>
+   563→
+   564→                            {/* Position */}
+   565→                            <TableCell className="text-center hidden md:table-cell">
+   566→                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-border/50 text-muted-foreground">
+   567→                                {entry.position}
+   568→                              </Badge>
+   569→                            </TableCell>
+   570→                          </TableRow>
+   571→                        )
+   572→                      })}
+   573→                    </TableBody>
+   574→                  </Table>
+   575→                </div>
+   576→              )}
+   577→            </CardContent>
+   578→          </Card>
+   579→        </TabsContent>
+   580→      </Tabs>
+   581→    </div>
+   582→  )
+   583→}
