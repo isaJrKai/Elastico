@@ -1,0 +1,2002 @@
+     1→'use client'
+     2→import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+     3→import { useElasticoStore } from '@/store/use-elastico-store'
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Label } from '@/components/ui/label'
+     9→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    10→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    11→import { Switch } from '@/components/ui/switch'
+    12→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    13→import { Progress } from '@/components/ui/progress'
+    14→import { Separator } from '@/components/ui/separator'
+    15→import { Textarea } from '@/components/ui/textarea'
+    16→import { Skeleton } from '@/components/ui/skeleton'
+    17→import { ScrollArea } from '@/components/ui/scroll-area'
+    18→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+    19→import { Checkbox } from '@/components/ui/checkbox'
+    20→import { Slider } from '@/components/ui/slider'
+    21→import { toast } from 'sonner'
+    22→import {
+    23→  AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
+    24→  ResponsiveContainer, Cell, PieChart, Pie
+    25→} from 'recharts'
+    26→import {
+    27→  Activity, Users, DollarSign, TrendingUp, TrendingDown, Shield, Server, Database, Brain,
+    28→  Settings, Bell, AlertTriangle, CheckCircle, XCircle, Eye, Ban, UserCheck, UserX,
+    29→  FileText, Flag, Radio, Cpu, HardDrive, Wifi, Globe, Clock, ArrowUpRight, ArrowDownRight,
+    30→  RefreshCw, Download, Upload, Search, Filter, MoreHorizontal, Trash2, Edit,
+    31→  Lock, Unlock, Key, Monitor, Smartphone, Mail, Zap, Crown, Star, BarChart3,
+    32→  PieChart as PieIcon, Target, Layers, Copy, Send, Megaphone,
+    33→  ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, Calendar, Newspaper,
+    34→  LayoutDashboard, UserCog, FilePlus2, ChartLine, Wallet, Wrench,
+    35→  Hash, Thermometer, MemoryStick, Gauge, ShieldCheck, Fingerprint, Network,
+    36→  FileSpreadsheet, MegaphoneIcon, CalendarDays, UserPlus, UserMinus, CheckSquare,
+    37→  AlertOctagon, Timer, GitBranch, Bug, Flame, Heart, ThumbsUp, ThumbsDown,
+    38→  CircleDot, Circle, Square, Triangle, ArrowRight, Rocket, Sparkles,
+    39→  History, HardDriveDownload, ActivityIcon, GaugeCircle, Plus, CreditCard
+    40→} from 'lucide-react'
+    41→
+    42→// ── Constants ────────────────────────────────────────────────────────────────
+    43→
+    44→const CHART_COLORS = ['#00e676', '#00b4d8', '#ffd700', '#ff4757', '#a855f7', '#f97316', '#06b6d4', '#ec4899']
+    45→const PLAN_COLORS: Record<string, string> = { free: 'bg-gray-500/20 text-gray-300 border-gray-500/30', pro: 'bg-blue-500/20 text-blue-300 border-blue-500/30', elite: 'bg-amber-500/20 text-amber-300 border-amber-500/30' }
+    46→const ROLE_COLORS: Record<string, string> = { admin: 'bg-red-500/20 text-red-300 border-red-500/30', user: 'bg-gray-500/20 text-gray-300 border-gray-500/30', pro: 'bg-blue-500/20 text-blue-300 border-blue-500/30' }
+    47→const ANNOUNCEMENT_TYPES = ['info', 'warning', 'success', 'maintenance']
+    48→const NEWS_CATEGORIES = ['general', 'transfer', 'injury', 'tactical', 'match', 'rumor']
+    49→const NEWS_SENTIMENTS = ['positive', 'negative', 'neutral']
+    50→
+    51→// ── Helper: Auth Headers ─────────────────────────────────────────────────────
+    52→
+    53→function authHeaders() {
+    54→  const token = typeof window !== 'undefined' ? localStorage.getItem('elastico_token') : null
+    55→  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+    56→}
+    57→
+    58→// ── Sub-Components ───────────────────────────────────────────────────────────
+    59→
+    60→function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix = '' }: {
+    61→  title: string; value: string | number; icon: any; change?: number; color?: string; suffix?: string
+    62→}) {
+    63→  const isPositive = change !== undefined && change >= 0
+    64→  const colorMap: Record<string, string> = {
+    65→    emerald: 'bg-emerald-500/10 text-emerald-400',
+    66→    gold: 'bg-yellow-500/10 text-yellow-400',
+    67→    red: 'bg-red-500/10 text-red-400',
+    68→    blue: 'bg-cyan-500/10 text-cyan-400',
+    69→    purple: 'bg-purple-500/10 text-purple-400',
+    70→    orange: 'bg-orange-500/10 text-orange-400',
+    71→  }
+    72→  return (
+    73→    <Card className="glass-card glass-card-hover animate-fade-in-up">
+    74→      <CardContent className="p-4">
+    75→        <div className="flex items-center justify-between">
+    76→          <div className="space-y-1 min-w-0">
+    77→            <p className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+    78→              <Icon className="h-3 w-3" />
+    79→              {title}
+    80→            </p>
+    81→            <p className="text-2xl font-bold truncate">{value}{suffix}</p>
+    82→            {change !== undefined && (
+    83→              <div className={`flex items-center gap-1 text-xs ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+    84→                {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+    85→                <span>{Math.abs(change)}%</span>
+    86→                <span className="text-muted-foreground">vs last period</span>
+    87→              </div>
+    88→            )}
+    89→          </div>
+    90→          <div className={`p-3 rounded-xl shrink-0 ${colorMap[color] || colorMap.emerald}`}>
+    91→            <Icon className="h-5 w-5" />
+    92→          </div>
+    93→        </div>
+    94→      </CardContent>
+    95→    </Card>
+    96→  )
+    97→}
+    98→
+    99→function GaugeBar({ value, max = 100, label, color = '#00e676' }: { value: number; max?: number; label: string; color?: string }) {
+   100→  const pct = Math.min((value / max) * 100, 100)
+   101→  return (
+   102→    <div className="space-y-1.5">
+   103→      <div className="flex items-center justify-between text-xs">
+   104→        <span className="text-muted-foreground">{label}</span>
+   105→        <span className="font-mono font-bold" style={{ color }}>{value}{max === 100 ? '%' : ''}</span>
+   106→      </div>
+   107→      <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+   108→        <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${pct}%`, backgroundColor: color }} />
+   109→      </div>
+   110→    </div>
+   111→  )
+   112→}
+   113→
+   114→function SectionCard({ title, icon: Icon, children, className = '' }: { title: string; icon: any; children: React.ReactNode; className?: string }) {
+   115→  return (
+   116→    <Card className={`glass-card animate-fade-in-up ${className}`}>
+   117→      <CardHeader className="pb-3 pt-4 px-4">
+   118→        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   119→          <Icon className="h-4 w-4 text-emerald-400" />
+   120→          {title}
+   121→        </CardTitle>
+   122→      </CardHeader>
+   123→      <CardContent className="px-4 pb-4 pt-0">{children}</CardContent>
+   124→    </Card>
+   125→  )
+   126→}
+   127→
+   128→function ChartTooltip({ active, payload, label }: any) {
+   129→  if (!active || !payload?.length) return null
+   130→  return (
+   131→    <div className="glass-card p-2 rounded-lg text-xs border border-border">
+   132→      <p className="text-muted-foreground mb-1">{label}</p>
+   133→      {payload.map((p: any, i: number) => (
+   134→        <p key={i} className="flex items-center gap-1.5">
+   135→          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+   136→          <span className="text-foreground">{p.name}:</span>
+   137→          <span className="font-bold">{p.value}</span>
+   138→        </p>
+   139→      ))}
+   140→    </div>
+   141→  )
+   142→}
+   143→
+   144→function EmptyState({ message }: { message: string }) {
+   145→  return (
+   146→    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+   147→      <Database className="h-8 w-8 mb-2 opacity-50" />
+   148→      <p className="text-sm">{message}</p>
+   149→    </div>
+   150→  )
+   151→}
+   152→
+   153→// ── Mock Data Generators ─────────────────────────────────────────────────────
+   154→
+   155→function generateUserGrowth(days = 30) {
+   156→  const now = new Date()
+   157→  return Array.from({ length: days }, (_, i) => {
+   158→    const d = new Date(now)
+   159→    d.setDate(d.getDate() - (days - 1 - i))
+   160→    return {
+   161→      day: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+   162→      users: 80 + Math.floor(Math.random() * 40) + i * 3,
+   163→      pro: 10 + Math.floor(i * 0.8),
+   164→      elite: 3 + Math.floor(i * 0.3),
+   165→    }
+   166→  })
+   167→}
+   168→
+   169→function generateApiUsage() {
+   170→  return Array.from({ length: 24 }, (_, i) => ({
+   171→    hour: `${String(i).padStart(2, '0')}:00`,
+   172→    requests: 200 + Math.floor(Math.random() * 300) - (i < 6 || i > 22 ? 150 : 0),
+   173→    errors: Math.floor(Math.random() * 15),
+   174→  }))
+   175→}
+   176→
+   177→function generateRevenueTrend() {
+   178→  return Array.from({ length: 12 }, (_, i) => {
+   179→    const m = new Date(2025, i)
+   180→    return {
+   181→      month: m.toLocaleDateString('en', { month: 'short' }),
+   182→      free: 0,
+   183→      pro: Math.floor(800 + i * 120 + Math.random() * 200),
+   184→      elite: Math.floor(1200 + i * 200 + Math.random() * 300),
+   185→    }
+   186→  })
+   187→}
+   188→
+   189→function generateActivityFeed() {
+   190→  const types = ['login', 'prediction', 'subscription', 'achievement', 'vote', 'bookmark']
+   191→  const emails = ['admin@elastico.ai', 'pro@elastico.ai', 'elite@elastico.ai', 'user@elastico.ai', 'marco@elastico.ai', 'sofia@elastico.ai']
+   192→  const descs: Record<string, string[]> = {
+   193→    login: ['logged in from Chrome/Windows', 'logged in from Safari/iOS', 'logged in from Firefox/Mac'],
+   194→    prediction: ['predicted BRA vs GER: 2-1', 'predicted ARG vs FRA: 1-1', 'predicted ESP vs ENG: 3-2'],
+   195→    subscription: ['upgraded to Pro plan', 'upgraded to Elite plan', 'started free trial'],
+   196→    achievement: ['earned "First Prediction" badge', 'reached 10 prediction streak', 'earned "Top 10%" badge'],
+   197→    vote: ['voted on BRA vs GER', 'voted on ARG vs FRA', 'voted on ESP vs ENG'],
+   198→    bookmark: ['bookmarked BRA vs GER match', 'bookmarked Tournament Bracket', 'bookmarked Leaderboard'],
+   199→  }
+   200→  return Array.from({ length: 15 }, (_, i) => {
+   201→    const t = types[Math.floor(Math.random() * types.length)]
+   202→    const dArr = descs[t]
+   203→    const mins = i * 8 + Math.floor(Math.random() * 5)
+   204→    return {
+   205→      id: `act-${i}`,
+   206→      type: t,
+   207→      email: emails[Math.floor(Math.random() * emails.length)],
+   208→      description: dArr[Math.floor(Math.random() * dArr.length)],
+   209→      timestamp: `${mins}m ago`,
+   210→    }
+   211→  })
+   212→}
+   213→
+   214→function generateModelPerformance() {
+   215→  return [
+   216→    { model: 'ELO', accuracy: 62.4, predictions: 450, avgConfidence: 71, calibrations: 8 },
+   217→    { model: 'Poisson', accuracy: 58.1, predictions: 320, avgConfidence: 68, calibrations: 6 },
+   218→    { model: 'Dixon-Coles', accuracy: 67.8, predictions: 180, avgConfidence: 74, calibrations: 5 },
+   219→    { model: 'Monte Carlo', accuracy: 64.2, predictions: 120, avgConfidence: 72, calibrations: 4 },
+   220→    { model: 'User Average', accuracy: 54.6, predictions: 890, avgConfidence: 65, calibrations: 0 },
+   221→  ]
+   222→}
+   223→
+   224→function generateHeatmapData() {
+   225→  const stages = ['Group A', 'Group B', 'Group C', 'Group D', 'R16', 'QF', 'SF', 'Final']
+   226→  return stages.map(stage => ({
+   227→    stage,
+   228→    accuracy: 50 + Math.floor(Math.random() * 30),
+   229→    predictions: 20 + Math.floor(Math.random() * 80),
+   230→  }))
+   231→}
+   232→
+   233→function generateFunnelData() {
+   234→  return [
+   235→    { stage: 'Visitors', count: 12400, pct: 100 },
+   236→    { stage: 'Signups', count: 3720, pct: 30 },
+   237→    { stage: 'First Prediction', count: 2232, pct: 18 },
+   238→    { stage: 'Repeat Predictors', count: 1339, pct: 10.8 },
+   239→    { stage: 'Subscribers', count: 446, pct: 3.6 },
+   240→  ]
+   241→}
+   242→
+   243→function generateFeatureUsage() {
+   244→  return [
+   245→    { feature: 'Dashboard', usage: 95 },
+   246→    { feature: 'Predictions', usage: 78 },
+   247→    { feature: 'Live Matches', usage: 72 },
+   248→    { feature: 'AI Chat', usage: 65 },
+   249→    { feature: 'Leaderboard', usage: 45 },
+   250→    { feature: 'Tournament', usage: 52 },
+   251→    { feature: 'News', usage: 38 },
+   252→    { feature: 'Tactical View', usage: 28 },
+   253→    { feature: 'Export PDF', usage: 15 },
+   254→    { feature: 'Simulation', usage: 22 },
+   255→  ]
+   256→}
+   257→
+   258→function generateAbTests() {
+   259→  return [
+   260→    { id: '1', name: 'New Dashboard Layout', variant: 'A (Grid)', metric: '+12% engagement', status: 'Running', significant: false, startDate: '2025-06-01' },
+   261→    { id: '2', name: 'AI Chat Suggestions', variant: 'B (Contextual)', metric: '+23% chat rate', status: 'Winner', significant: true, startDate: '2025-05-15' },
+   262→    { id: '3', name: 'Prediction Confidence UI', variant: 'A (Slider)', metric: '+5% accuracy', status: 'Running', significant: false, startDate: '2025-06-10' },
+   263→    { id: '4', name: 'Onboarding Flow', variant: 'B (Interactive)', metric: '+18% completion', status: 'Winner', significant: true, startDate: '2025-04-20' },
+   264→    { id: '5', name: 'Push Notifications', variant: 'A (Rich)', metric: '+8% CTR', status: 'Running', significant: false, startDate: '2025-06-05' },
+   265→  ]
+   266→}
+   267→
+   268→function generateSubscriptions() {
+   269→  const plans = [
+   270→    { plan: 'Free', amount: '$0.00', interval: 'N/A', status: 'active' },
+   271→    { plan: 'Pro', amount: '$9.99', interval: 'Monthly', status: 'active' },
+   272→    { plan: 'Elite', amount: '$24.99', interval: 'Monthly', status: 'active' },
+   273→    { plan: 'Pro', amount: '$9.99', interval: 'Monthly', status: 'active' },
+   274→    { plan: 'Elite', amount: '$24.99', interval: 'Monthly', status: 'active' },
+   275→    { plan: 'Free', amount: '$0.00', interval: 'N/A', status: 'active' },
+   276→    { plan: 'Pro', amount: '$9.99', interval: 'Monthly', status: 'cancelled' },
+   277→    { plan: 'Elite', amount: '$24.99', interval: 'Monthly', status: 'past_due' },
+   278→  ]
+   279→  return plans.map((p, i) => ({
+   280→    id: `sub-${i + 1}`,
+   281→    userId: `usr-${String(i + 1).padStart(3, '0')}`,
+   282→    email: ['admin@elastico.ai', 'pro@elastico.ai', 'elite@elastico.ai', 'user@elastico.ai', 'marco@elastico.ai', 'sofia@elastico.ai', 'james@elastico.ai', 'chen@elastico.ai'][i],
+   283→    ...p,
+   284→    nextBilling: i < 6 ? '2025-07-15' : '—',
+   285→    createdAt: `2025-0${(i % 6) + 1}-${String((i * 3) % 28 + 1).padStart(2, '0')}`,
+   286→  }))
+   287→}
+   288→
+   289→function generateNewsItems() {
+   290→  return [
+   291→    { id: 'n1', title: 'Brazil Announces Squad for World Cup 2026', summary: 'Brazil reveals their 26-man squad for the upcoming tournament.', content: 'Full squad analysis and key selections.', category: 'match', isBreaking: true, sentiment: 'positive', readCount: 2840, publishedAt: '2025-06-14T10:00:00Z' },
+   292→    { id: 'n2', title: 'Injury Update: Key Players Missing Group Stage', summary: 'Several star players will miss the group stage due to injuries.', content: 'Detailed injury report for group stage.', category: 'injury', isBreaking: false, sentiment: 'negative', readCount: 1520, publishedAt: '2025-06-13T14:30:00Z' },
+   293→    { id: 'n3', title: 'New Transfer: Star Midfielder Joins Premier League', summary: 'Major transfer news from the Premier League.', content: 'Transfer details and analysis.', category: 'transfer', isBreaking: true, sentiment: 'positive', readCount: 3200, publishedAt: '2025-06-12T09:15:00Z' },
+   294→    { id: 'n4', title: 'Tactical Analysis: High Press vs Low Block', summary: 'An in-depth look at two contrasting tactical approaches.', content: 'Full tactical breakdown.', category: 'tactical', isBreaking: false, sentiment: 'neutral', readCount: 980, publishedAt: '2025-06-11T16:00:00Z' },
+   295→    { id: 'n5', title: 'Rumor: Manager Set to Leave After Tournament', summary: 'Reports suggest the manager will step down after the World Cup.', content: 'Full rumor analysis.', category: 'rumor', isBreaking: false, sentiment: 'negative', readCount: 2100, publishedAt: '2025-06-10T11:00:00Z' },
+   296→    { id: 'n6', title: 'Historical Performance in World Cup Knockouts', summary: 'A look at how teams have performed historically in knockout stages.', content: 'Historical data and analysis.', category: 'general', isBreaking: false, sentiment: 'neutral', readCount: 760, publishedAt: '2025-06-09T08:45:00Z' },
+   297→  ]
+   298→}
+   299→
+   300→function generateRealtimeMetrics() {
+   301→  return Array.from({ length: 60 }, (_, i) => ({
+   302→    second: i,
+   303→    reqPerSec: 45 + Math.floor(Math.random() * 40),
+   304→    errorRate: 0.5 + Math.random() * 3,
+   305→    p50: 20 + Math.floor(Math.random() * 15),
+   306→    p95: 80 + Math.floor(Math.random() * 60),
+   307→    p99: 200 + Math.floor(Math.random() * 150),
+   308→  }))
+   309→}
+   310→
+   311→function generateGeoData() {
+   312→  return [
+   313→    { country: 'United States', users: 2840, pct: 35 },
+   314→    { country: 'Brazil', users: 1620, pct: 20 },
+   315→    { country: 'United Kingdom', users: 980, pct: 12 },
+   316→    { country: 'Germany', users: 720, pct: 9 },
+   317→    { country: 'Nigeria', users: 560, pct: 7 },
+   318→    { country: 'India', users: 440, pct: 5 },
+   319→    { country: 'Others', users: 960, pct: 12 },
+   320→  ]
+   321→}
+   322→
+   323→function generateContentCalendar() {
+   324→  const events = [
+   325→    { date: '2025-06-15', type: 'announcement', title: 'System Maintenance Window' },
+   326→    { date: '2025-06-18', type: 'news', title: 'World Cup Group Stage Preview' },
+   327→    { date: '2025-06-20', type: 'push', title: 'Match Day Reminder' },
+   328→    { date: '2025-06-22', type: 'announcement', title: 'New Feature: AI Tactical Analysis' },
+   329→    { date: '2025-06-25', type: 'news', title: 'Quarter-Final Predictions' },
+   330→    { date: '2025-06-28', type: 'push', title: 'Live Match Alert' },
+   331→    { date: '2025-07-01', type: 'announcement', title: 'Elite Plan Updates' },
+   332→    { date: '2025-07-05', type: 'news', title: 'Semi-Final Tactical Breakdown' },
+   333→  ]
+   334→  return events
+   335→}
+   336→
+   337→function generateAuditTrail() {
+   338→  const actions = [
+   339→    { admin: 'admin@elastico.ai', action: 'Updated user plan', target: 'user@elastico.ai → Pro', time: '2m ago' },
+   340→    { admin: 'admin@elastico.ai', action: 'Created announcement', target: 'System Maintenance', time: '15m ago' },
+   341→    { admin: 'admin@elastico.ai', action: 'Toggled feature flag', target: 'ai_chat_v2 → enabled', time: '1h ago' },
+   342→    { admin: 'admin@elastico.ai', action: 'Updated setting', target: 'max_predictions_free → 10', time: '2h ago' },
+   343→    { admin: 'admin@elastico.ai', action: 'Deactivated user', target: 'spam@elastico.ai', time: '3h ago' },
+   344→    { admin: 'admin@elastico.ai', action: 'Sent broadcast', target: 'All users: "New features!"', time: '5h ago' },
+   345→    { admin: 'admin@elastico.ai', action: 'Exported user data', target: 'users_export.csv', time: '6h ago' },
+   346→    { admin: 'admin@elastico.ai', action: 'Cleared cache', target: 'System-wide', time: '8h ago' },
+   347→    { admin: 'admin@elastico.ai', action: 'Synced data', target: 'Teams, Players, Matches', time: '12h ago' },
+   348→    { admin: 'admin@elastico.ai', action: 'Enabled maintenance', target: 'System-wide', time: '1d ago' },
+   349→  ]
+   350→  return actions
+   351→}
+   352→
+   353→function generateRateLimits() {
+   354→  return [
+   355→    { endpoint: '/api/auth/login', limit: 10, window: '15min', current: 3, pct: 30 },
+   356→    { endpoint: '/api/predictions', limit: 100, window: '1hr', current: 42, pct: 42 },
+   357→    { endpoint: '/api/matches', limit: 200, window: '1hr', current: 78, pct: 39 },
+   358→    { endpoint: '/api/admin/*', limit: 50, window: '1hr', current: 12, pct: 24 },
+   359→    { endpoint: '/api/chat', limit: 30, window: '1hr', current: 28, pct: 93 },
+   360→    { endpoint: '/api/news', limit: 100, window: '1hr', current: 15, pct: 15 },
+   361→    { endpoint: '/api/leaderboard', limit: 60, window: '1hr', current: 22, pct: 37 },
+   362→  ]
+   363→}
+   364→
+   365→// ── Main Component ───────────────────────────────────────────────────────────
+   366→
+   367→export default function AdminView() {
+   368→  const user = useElasticoStore(s => s.user)
+   369→  const [activeTab, setActiveTab] = useState('overview')
+   370→
+   371→  // ── Data State ──
+   372→  const [stats, setStats] = useState<any>(null)
+   373→  const [users, setUsers] = useState<any[]>([])
+   374→  const [userPagination, setUserPagination] = useState<any>({ page: 1, totalPages: 1, total: 0 })
+   375→  const [logs, setLogs] = useState<any[]>([])
+   376→  const [logPagination, setLogPagination] = useState<any>({ page: 1, totalPages: 1, total: 0 })
+   377→  const [settingsList, setSettingsList] = useState<any[]>([])
+   378→  const [announcements, setAnnouncements] = useState<any[]>([])
+   379→  const [featureFlags, setFeatureFlags] = useState<any[]>([])
+   380→  const [loading, setLoading] = useState(true)
+   381→  const [actionLoading, setActionLoading] = useState<string | null>(null)
+   382→
+   383→  // ── User Tab State ──
+   384→  const [userSearch, setUserSearch] = useState('')
+   385→  const [userPlanFilter, setUserPlanFilter] = useState('all')
+   386→  const [userRoleFilter, setUserRoleFilter] = useState('all')
+   387→  const [userStatusFilter, setUserStatusFilter] = useState('all')
+   388→  const [selectedUser, setSelectedUser] = useState<any>(null)
+   389→  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
+   390→  const [userSortField, setUserSortField] = useState<string>('createdAt')
+   391→  const [userSortDir, setUserSortDir] = useState<'asc' | 'desc'>('desc')
+   392→
+   393→  // ── Content Tab State ──
+   394→  const [announcementModal, setAnnouncementModal] = useState(false)
+   395→  const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null)
+   396→  const [annForm, setAnnForm] = useState({ title: '', content: '', type: 'info', targetRole: 'all' })
+   397→  const [newsItems, setNewsItems] = useState(generateNewsItems())
+   398→  const [newsModal, setNewsModal] = useState(false)
+   399→  const [editingNews, setEditingNews] = useState<any>(null)
+   400→  const [newsForm, setNewsForm] = useState({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
+   401→  const [pushForm, setPushForm] = useState({ title: '', message: '', segment: 'all' })
+   402→
+   403→  // ── Invite User State ──
+   404→  const [inviteModal, setInviteModal] = useState(false)
+   405→  const [inviteForm, setInviteForm] = useState({ email: '', plan: 'free', role: 'user' })
+   406→
+   407→  // ── Bulk Action State ──
+   408→  const [bulkActionModal, setBulkActionModal] = useState(false)
+   409→  const [bulkAction, setBulkAction] = useState('')
+   410→
+   411→  // ── Log Tab State ──
+   412→  const [logStatusFilter, setLogStatusFilter] = useState('all')
+   413→
+   414→  // ── Real-time Metrics ──
+   415→  const [realtimeData, setRealtimeData] = useState(generateRealtimeMetrics())
+   416→  const realtimeRef = useRef<NodeJS.Timeout | null>(null)
+   417→
+   418→  // ── Data Fetching ──
+   419→  const fetchAdminData = useCallback(async () => {
+   420→    setLoading(true)
+   421→    try {
+   422→      const headers = authHeaders()
+   423→      const [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes] = await Promise.all([
+   424→        fetch('/api/admin', { headers }).then(r => r.json()).catch(() => null),
+   425→        fetch('/api/admin/users', { headers }).then(r => r.json()).catch(() => ({ users: [] })),
+   426→        fetch('/api/admin/logs?limit=50', { headers }).then(r => r.json()).catch(() => ({ logs: [] })),
+   427→        fetch('/api/admin/settings', { headers }).then(r => r.json()).catch(() => ({ settings: [] })),
+   428→        fetch('/api/admin/announcements', { headers }).then(r => r.json()).catch(() => ({ announcements: [] })),
+   429→        fetch('/api/admin/feature-flags', { headers }).then(r => r.json()).catch(() => ({ flags: [] })),
+   430→      ])
+   431→      setStats(statsRes?.dashboard || statsRes || null)
+   432→      setUsers(usersRes.users || [])
+   433→      setUserPagination(usersRes.pagination || { page: 1, totalPages: 1, total: 0 })
+   434→      setLogs(logsRes.logs || [])
+   435→      setLogPagination(logsRes.pagination || { page: 1, totalPages: 1, total: 0 })
+   436→      setSettingsList(Array.isArray(settingsRes.settings) ? settingsRes.settings : [])
+   437→      setAnnouncements(Array.isArray(annRes.announcements) ? annRes.announcements : [])
+   438→      setFeatureFlags(Array.isArray(flagsRes.flags) ? flagsRes.flags : [])
+   439→    } catch (e) { console.error('Admin fetch error:', e) }
+   440→    finally { setLoading(false) }
+   441→  }, [])
+   442→
+   443→  useEffect(() => { fetchAdminData() }, [fetchAdminData])
+   444→
+   445→  // ── Real-time metrics updater ──
+   446→  useEffect(() => {
+   447→    realtimeRef.current = setInterval(() => {
+   448→      setRealtimeData(prev => {
+   449→        const next = [...prev.slice(1), {
+   450→          second: prev[prev.length - 1].second + 1,
+   451→          reqPerSec: 45 + Math.floor(Math.random() * 40),
+   452→          errorRate: 0.5 + Math.random() * 3,
+   453→          p50: 20 + Math.floor(Math.random() * 15),
+   454→          p95: 80 + Math.floor(Math.random() * 60),
+   455→          p99: 200 + Math.floor(Math.random() * 150),
+   456→        }]
+   457→        return next
+   458→      })
+   459→    }, 2000)
+   460→    return () => { if (realtimeRef.current) clearInterval(realtimeRef.current) }
+   461→  }, [])
+   462→
+   463→  // ── Filtered / Derived Data ──
+   464→  const filteredUsers = useMemo(() => {
+   465→    let result = [...users]
+   466→    if (userSearch) {
+   467→      const s = userSearch.toLowerCase()
+   468→      result = result.filter((u: any) => u.email?.toLowerCase().includes(s) || u.name?.toLowerCase().includes(s) || u.displayName?.toLowerCase().includes(s))
+   469→    }
+   470→    if (userPlanFilter !== 'all') result = result.filter((u: any) => u.plan === userPlanFilter)
+   471→    if (userRoleFilter !== 'all') result = result.filter((u: any) => u.role === userRoleFilter)
+   472→    if (userStatusFilter === 'banned') result = result.filter((u: any) => u.isBanned)
+   473→    else if (userStatusFilter === 'inactive') result = result.filter((u: any) => !u.isActive)
+   474→    else if (userStatusFilter === 'active') result = result.filter((u: any) => u.isActive && !u.isBanned)
+   475→    result.sort((a: any, b: any) => {
+   476→      const aVal = a[userSortField]
+   477→      const bVal = b[userSortField]
+   478→      if (typeof aVal === 'string' && typeof bVal === 'string') return userSortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+   479→      return userSortDir === 'asc' ? (aVal || 0) - (bVal || 0) : (bVal || 0) - (aVal || 0)
+   480→    })
+   481→    return result
+   482→  }, [users, userSearch, userPlanFilter, userRoleFilter, userStatusFilter, userSortField, userSortDir])
+   483→
+   484→  const filteredLogs = useMemo(() => {
+   485→    if (logStatusFilter === 'all') return logs
+   486→    return logs.filter((l: any) => String(l.statusCode).startsWith(logStatusFilter))
+   487→  }, [logs, logStatusFilter])
+   488→
+   489→  // ── User Segmentation ──
+   490→  const userSegments = useMemo(() => {
+   491→    const now = new Date()
+   492→    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+   493→    return {
+   494→      power: users.filter((u: any) => u.totalPredictions > 50).length,
+   495→      dormant: users.filter((u: any) => u.lastLoginAt && new Date(u.lastLoginAt) < weekAgo).length,
+   496→      newSignups: users.filter((u: any) => new Date(u.createdAt) >= weekAgo).length,
+   497→      highAccuracy: users.filter((u: any) => u.predictionAccuracy > 60 && u.totalPredictions > 10).length,
+   498→      paying: users.filter((u: any) => u.plan !== 'free' && u.isActive).length,
+   499→    }
+   500→  }, [users])
+   501→
+   502→  // ── Handlers ──
+   503→  const handleUpdateUser = async (userId: string, data: any) => {
+   504→    try {
+   505→      const res = await fetch(`/api/admin/users/${userId}`, {
+   506→        method: 'PATCH',
+   507→        headers: authHeaders(),
+   508→        body: JSON.stringify(data),
+   509→      })
+   510→      if (res.ok) {
+   511→        toast.success('User updated')
+   512→        setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...data } : u))
+   513→        if (selectedUser?.id === userId) setSelectedUser(prev => prev ? { ...prev, ...data } : null)
+   514→      }
+   515→    } catch { toast.error('Error updating user') }
+   516→  }
+   517→
+   518→  const handleDeleteUser = async (userId: string) => {
+   519→    try {
+   520→      const res = await fetch(`/api/admin/users/${userId}`, {
+   521→        method: 'DELETE',
+   522→        headers: authHeaders(),
+   523→      })
+   524→      if (res.ok) { toast.success('User deactivated'); fetchAdminData() }
+   525→    } catch { toast.error('Error deactivating user') }
+   526→  }
+   527→
+   528→  const handleQuickAction = async (action: string) => {
+   529→    setActionLoading(action)
+   530→    try {
+   531→      const body: any = { action }
+   532→      if (action === 'broadcast') {
+   533→        body.message = 'System update: New features have been deployed!'
+   534→        body.title = 'ELASTICO Update'
+   535→        body.type = 'info'
+   536→      }
+   537→      const res = await fetch('/api/admin', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) })
+   538→      if (res.ok) {
+   539→        const data = await res.json()
+   540→        toast.success(data.message || `Action "${action}" completed`)
+   541→        if (action === 'maintenance') fetchAdminData()
+   542→      } else {
+   543→        toast.error('Action failed')
+   544→      }
+   545→    } catch { toast.error('Action error') }
+   546→    finally { setActionLoading(null) }
+   547→  }
+   548→
+   549→  const handleExportCSV = () => {
+   550→    const csv = [
+   551→      'Email,Name,Plan,Role,Active,Predictions,Accuracy,Last Login',
+   552→      ...users.map((u: any) =>
+   553→        `${u.email},${u.name || ''},${u.plan},${u.role},${u.isActive},${u.totalPredictions},${u.predictionAccuracy}%,${u.lastLoginAt || 'Never'}`
+   554→      ),
+   555→    ].join('\n')
+   556→    const blob = new Blob([csv], { type: 'text/csv' })
+   557→    const url = URL.createObjectURL(blob)
+   558→    const a = document.createElement('a')
+   559→    a.href = url
+   560→    a.download = 'elastico_users_export.csv'
+   561→    a.click()
+   562→    URL.revokeObjectURL(url)
+   563→    toast.success('CSV exported')
+   564→  }
+   565→
+   566→  const handleCreateAnnouncement = async () => {
+   567→    if (!annForm.title || !annForm.content) { toast.error('Title and content required'); return }
+   568→    try {
+   569→      const res = await fetch('/api/admin/announcements', {
+   570→        method: 'POST',
+   571→        headers: authHeaders(),
+   572→        body: JSON.stringify(annForm),
+   573→      })
+   574→      if (res.ok) {
+   575→        toast.success('Announcement created')
+   576→        setAnnForm({ title: '', content: '', type: 'info', targetRole: 'all' })
+   577→        setAnnouncementModal(false)
+   578→        setEditingAnnouncement(null)
+   579→        fetchAdminData()
+   580→      }
+   581→    } catch { toast.error('Error creating announcement') }
+   582→  }
+   583→
+   584→  const handleCreateNews = () => {
+   585→    if (!newsForm.title) { toast.error('Title required'); return }
+   586→    if (editingNews) {
+   587→      setNewsItems(prev => prev.map(n => n.id === editingNews.id ? { ...n, ...newsForm } : n))
+   588→      toast.success('News updated')
+   589→    } else {
+   590→      const newItem = { id: `n-${Date.now()}`, ...newsForm, readCount: 0, publishedAt: new Date().toISOString() }
+   591→      setNewsItems(prev => [newItem, ...prev])
+   592→      toast.success('News published')
+   593→    }
+   594→    setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
+   595→    setNewsModal(false)
+   596→    setEditingNews(null)
+   597→  }
+   598→
+   599→  const handleDeleteNews = (id: string) => {
+   600→    setNewsItems(prev => prev.filter(n => n.id !== id))
+   601→    toast.success('News deleted')
+   602→  }
+   603→
+   604→  const handleSendPush = () => {
+   605→    if (!pushForm.title || !pushForm.message) { toast.error('Title and message required'); return }
+   606→    toast.success(`Push notification sent to ${pushForm.segment === 'all' ? 'all users' : pushForm.segment}`)
+   607→    setPushForm({ title: '', message: '', segment: 'all' })
+   608→  }
+   609→
+   610→  const handleBulkAction = async () => {
+   611→    if (selectedUsers.size === 0) { toast.error('No users selected'); return }
+   612→    const data: any = {}
+   613→    if (bulkAction === 'upgrade-pro') data.plan = 'pro'
+   614→    else if (bulkAction === 'upgrade-elite') data.plan = 'elite'
+   615→    else if (bulkAction === 'downgrade-free') data.plan = 'free'
+   616→    else if (bulkAction === 'activate') data.isActive = true
+   617→    else if (bulkAction === 'deactivate') data.isActive = false
+   618→
+   619→    let success = 0
+   620→    for (const userId of selectedUsers) {
+   621→      try {
+   622→        const res = await fetch(`/api/admin/users/${userId}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(data) })
+   623→        if (res.ok) success++
+   624→      } catch { /* skip */ }
+   625→    }
+   626→    toast.success(`Bulk action completed: ${success}/${selectedUsers.size} users updated`)
+   627→    setSelectedUsers(new Set())
+   628→    setBulkActionModal(false)
+   629→    setBulkAction('')
+   630→    fetchAdminData()
+   631→  }
+   632→
+   633→  const handleInviteUser = () => {
+   634→    if (!inviteForm.email || !inviteForm.email.includes('@')) { toast.error('Valid email required'); return }
+   635→    toast.success(`Invitation sent to ${inviteForm.email} with ${inviteForm.plan} plan`)
+   636→    setInviteForm({ email: '', plan: 'free', role: 'user' })
+   637→    setInviteModal(false)
+   638→  }
+   639→
+   640→  const handleToggleSetting = async (key: string, value: string) => {
+   641→    try {
+   642→      await fetch('/api/admin/settings', {
+   643→        method: 'PATCH',
+   644→        headers: authHeaders(),
+   645→        body: JSON.stringify({ settings: [{ key, value, type: 'string' }] }),
+   646→      })
+   647→      setSettingsList(prev => prev.map(s => s.key === key ? { ...s, value } : s))
+   648→      toast.success('Setting updated')
+   649→    } catch { toast.error('Error updating setting') }
+   650→  }
+   651→
+   652→  const handleToggleFlag = async (flag: any) => {
+   653→    try {
+   654→      const res = await fetch('/api/admin/feature-flags', {
+   655→        method: 'PATCH',
+   656→        headers: authHeaders(),
+   657→        body: JSON.stringify({ name: flag.name, isEnabled: !flag.isEnabled }),
+   658→      })
+   659→      if (res.ok) {
+   660→        const updated = await res.json()
+   661→        setFeatureFlags(prev => prev.map(f => f.name === flag.name ? { ...f, ...updated.flag } : f))
+   662→        toast.success(`Feature flag "${flag.name}" ${flag.isEnabled ? 'disabled' : 'enabled'}`)
+   663→      }
+   664→    } catch { toast.error('Error toggling flag') }
+   665→  }
+   666→
+   667→  const handleUpdateFlag = async (flag: any, updates: any) => {
+   668→    try {
+   669→      const res = await fetch('/api/admin/feature-flags', {
+   670→        method: 'PATCH',
+   671→        headers: authHeaders(),
+   672→        body: JSON.stringify({ name: flag.name, ...updates }),
+   673→      })
+   674→      if (res.ok) {
+   675→        const updated = await res.json()
+   676→        setFeatureFlags(prev => prev.map(f => f.name === flag.name ? { ...f, ...updated.flag } : f))
+   677→        toast.success('Feature flag updated')
+   678→      }
+   679→    } catch { toast.error('Error updating flag') }
+   680→  }
+   681→
+   682→  const toggleUserSelect = (userId: string) => {
+   683→    setSelectedUsers(prev => {
+   684→      const next = new Set(prev)
+   685→      if (next.has(userId)) next.delete(userId)
+   686→      else next.add(userId)
+   687→      return next
+   688→    })
+   689→  }
+   690→
+   691→  const toggleAllUsers = () => {
+   692→    if (selectedUsers.size === filteredUsers.length) {
+   693→      setSelectedUsers(new Set())
+   694→    } else {
+   695→      setSelectedUsers(new Set(filteredUsers.map((u: any) => u.id)))
+   696→    }
+   697→  }
+   698→
+   699→  const handleSortUsers = (field: string) => {
+   700→    if (userSortField === field) setUserSortDir(d => d === 'asc' ? 'desc' : 'asc')
+   701→    else { setUserSortField(field); setUserSortDir('asc') }
+   702→  }
+   703→
+   704→  const fetchUsersPage = async (page: number) => {
+   705→    try {
+   706→      const params = new URLSearchParams({ page: String(page), limit: '20' })
+   707→      if (userSearch) params.set('search', userSearch)
+   708→      if (userPlanFilter !== 'all') params.set('plan', userPlanFilter)
+   709→      if (userRoleFilter !== 'all') params.set('role', userRoleFilter)
+   710→      const res = await fetch(`/api/admin/users?${params}`, { headers: authHeaders() })
+   711→      if (res.ok) {
+   712→        const data = await res.json()
+   713→        setUsers(data.users || [])
+   714→        setUserPagination(data.pagination || { page: 1, totalPages: 1, total: 0 })
+   715→      }
+   716→    } catch { /* silent */ }
+   717→  }
+   718→
+   719→  const fetchLogsPage = async (page: number) => {
+   720→    try {
+   721→      const params = new URLSearchParams({ page: String(page), limit: '50' })
+   722→      if (logStatusFilter !== 'all') params.set('statusCode', logStatusFilter === 'error' ? '4' : logStatusFilter)
+   723→      const res = await fetch(`/api/admin/logs?${params}`, { headers: authHeaders() })
+   724→      if (res.ok) {
+   725→        const data = await res.json()
+   726→        setLogs(data.logs || [])
+   727→        setLogPagination(data.pagination || { page: 1, totalPages: 1, total: 0 })
+   728→      }
+   729→    } catch { /* silent */ }
+   730→  }
+   731→
+   732→  // ── Mock data (used when API data is unavailable) ──
+   733→  const userGrowthData = useMemo(() => generateUserGrowth(), [])
+   734→  const apiUsageData = useMemo(() => generateApiUsage(), [])
+   735→  const revenueTrendData = useMemo(() => generateRevenueTrend(), [])
+   736→  const activityFeed = useMemo(() => generateActivityFeed(), [])
+   737→  const modelPerfData = useMemo(() => generateModelPerformance(), [])
+   738→  const heatmapData = useMemo(() => generateHeatmapData(), [])
+   739→  const funnelData = useMemo(() => generateFunnelData(), [])
+   740→  const featureUsageData = useMemo(() => generateFeatureUsage(), [])
+   741→  const abTestData = useMemo(() => generateAbTests(), [])
+   742→  const subscriptionData = useMemo(() => generateSubscriptions(), [])
+   743→  const geoData = useMemo(() => generateGeoData(), [])
+   744→  const contentCalendar = useMemo(() => generateContentCalendar(), [])
+   745→  const auditTrail = useMemo(() => generateAuditTrail(), [])
+   746→  const rateLimitData = useMemo(() => generateRateLimits(), [])
+   747→
+   748→  const revenueByPlan = useMemo(() => {
+   749→    const free = stats?.totalUsers ? stats.totalUsers - (stats.proCount || 0) - (stats.eliteCount || 0) : 120
+   750→    return [
+   751→      { name: 'Free', value: free, color: '#6b7280' },
+   752→      { name: 'Pro', value: stats?.proCount || 28, color: '#00b4d8' },
+   753→      { name: 'Elite', value: stats?.eliteCount || 12, color: '#ffd700' },
+   754→    ]
+   755→  }, [stats])
+   756→
+   757→  // ── Security Score Calculation ──
+   758→  const securityScore = useMemo(() => {
+   759→    let score = 100
+   760→    if (users.some((u: any) => u.failedLogins > 3)) score -= 15
+   761→    if (users.some((u: any) => u.lockedUntil)) score -= 20
+   762→    if (!users.some((u: any) => u.twoFactorEnabled)) score -= 25
+   763→    if (stats?.errorRate > 5) score -= 10
+   764→    return Math.max(score, 0)
+   765→  }, [users, stats])
+   766→
+   767→  // ── Loading State ──
+   768→  if (loading) {
+   769→    return (
+   770→      <div className="p-4 md:p-6 space-y-6">
+   771→        <div className="flex items-center gap-3 mb-6">
+   772→          <Skeleton className="h-8 w-8 rounded-lg" />
+   773→          <Skeleton className="h-8 w-48" />
+   774→        </div>
+   775→        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+   776→          {Array.from({ length: 6 }).map((_, i) => (
+   777→            <Skeleton key={i} className="h-28 rounded-xl" />
+   778→          ))}
+   779→        </div>
+   780→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   781→          <Skeleton className="h-72 rounded-xl" />
+   782→          <Skeleton className="h-72 rounded-xl" />
+   783→        </div>
+   784→      </div>
+   785→    )
+   786→  }
+   787→
+   788→  // ── Render ──
+   789→  return (
+   790→    <div className="p-4 md:p-6 space-y-6">
+   791→      {/* ── Header ── */}
+   792→      <div className="flex items-center justify-between">
+   793→        <div className="flex items-center gap-3">
+   794→          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+   795→            <Shield className="h-5 w-5" />
+   796→          </div>
+   797→          <div>
+   798→            <h1 className="text-xl font-bold gradient-text">Admin Dashboard</h1>
+   799→            <p className="text-xs text-muted-foreground">ELASTICO System Management Console</p>
+   800→          </div>
+   801→        </div>
+   802→        <div className="flex items-center gap-2">
+   803→          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
+   804→            <Activity className="h-3 w-3 mr-1" />
+   805→            Live
+   806→          </Badge>
+   807→          <Button variant="outline" size="sm" onClick={fetchAdminData} className="gap-1.5">
+   808→            <RefreshCw className="h-3.5 w-3.5" />
+   809→            Refresh
+   810→          </Button>
+   811→        </div>
+   812→      </div>
+   813→
+   814→      {/* ── Tabs ── */}
+   815→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   816→        <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/30 p-1">
+   817→          <TabsTrigger value="overview" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   818→            <LayoutDashboard className="h-3.5 w-3.5" /> Overview
+   819→          </TabsTrigger>
+   820→          <TabsTrigger value="users" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   821→            <UserCog className="h-3.5 w-3.5" /> Users
+   822→          </TabsTrigger>
+   823→          <TabsTrigger value="content" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   824→            <FilePlus2 className="h-3.5 w-3.5" /> Content
+   825→          </TabsTrigger>
+   826→          <TabsTrigger value="analytics" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   827→            <ChartLine className="h-3.5 w-3.5" /> Analytics
+   828→          </TabsTrigger>
+   829→          <TabsTrigger value="finance" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   830→            <Wallet className="h-3.5 w-3.5" /> Finance
+   831→          </TabsTrigger>
+   832→          <TabsTrigger value="system" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   833→            <Wrench className="h-3.5 w-3.5" /> System
+   834→          </TabsTrigger>
+   835→        </TabsList>
+   836→
+   837→        {/* ════════════════════════════════════════════════════════════════════ */}
+   838→        {/* TAB 1: OVERVIEW                                                       */}
+   839→        {/* ════════════════════════════════════════════════════════════════════ */}
+   840→        <TabsContent value="overview" className="space-y-6 mt-6">
+   841→          {/* Feature 1: KPI Cards */}
+   842→          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+   843→            <StatCard title="Total Users" value={stats?.totalUsers || 0} icon={Users} change={12.5} color="emerald" />
+   844→            <StatCard title="Active Today" value={stats?.activeToday || 0} icon={Activity} change={8.3} color="blue" />
+   845→            <StatCard title="MRR Revenue" value={`$${(stats?.revenueEstimate || 0).toFixed(0)}`} icon={DollarSign} change={18.2} color="gold" />
+   846→            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate || 0) * 2).toFixed(1) : '64.2'}%`} icon={Target} change={3.1} color="emerald" />
+   847→            <StatCard title="AI Queries" value={stats?.totalApiCalls24h || 0} icon={Brain} change={-2.4} color="purple" />
+   848→            <StatCard title="Uptime" value="99.97%" icon={Server} change={0.02} color="emerald" />
+   849→          </div>
+   850→
+   851→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   852→            {/* Feature 2: User Growth Chart */}
+   853→            <SectionCard title="User Growth (30 Days)" icon={TrendingUp}>
+   854→              <div className="h-64">
+   855→                <ResponsiveContainer width="100%" height="100%">
+   856→                  <AreaChart data={userGrowthData}>
+   857→                    <defs>
+   858→                      <linearGradient id="gradUsers" x1="0" y1="0" x2="0" y2="1">
+   859→                        <stop offset="5%" stopColor="#00e676" stopOpacity={0.3} />
+   860→                        <stop offset="95%" stopColor="#00e676" stopOpacity={0} />
+   861→                      </linearGradient>
+   862→                      <linearGradient id="gradPro" x1="0" y1="0" x2="0" y2="1">
+   863→                        <stop offset="5%" stopColor="#00b4d8" stopOpacity={0.3} />
+   864→                        <stop offset="95%" stopColor="#00b4d8" stopOpacity={0} />
+   865→                      </linearGradient>
+   866→                    </defs>
+   867→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+   868→                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} interval={4} />
+   869→                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+   870→                    <RTooltip content={<ChartTooltip />} />
+   871→                    <Area type="monotone" dataKey="users" stroke="#00e676" fill="url(#gradUsers)" strokeWidth={2} />
+   872→                    <Area type="monotone" dataKey="pro" stroke="#00b4d8" fill="url(#gradPro)" strokeWidth={1.5} />
+   873→                  </AreaChart>
+   874→                </ResponsiveContainer>
+   875→              </div>
+   876→            </SectionCard>
+   877→
+   878→            {/* Feature 3: Revenue Breakdown */}
+   879→            <SectionCard title="Revenue Breakdown" icon={PieChart as any}>
+   880→              <div className="h-64 flex items-center">
+   881→                <div className="w-1/2 h-full">
+   882→                  <ResponsiveContainer width="100%" height="100%">
+   883→                    <PieChart>
+   884→                      <Pie data={revenueByPlan} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
+   885→                        {revenueByPlan.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+   886→                      </Pie>
+   887→                      <RTooltip content={<ChartTooltip />} />
+   888→                    </PieChart>
+   889→                  </ResponsiveContainer>
+   890→                </div>
+   891→                <div className="w-1/2 space-y-3">
+   892→                  {revenueByPlan.map((item) => (
+   893→                    <div key={item.name} className="flex items-center justify-between">
+   894→                      <div className="flex items-center gap-2">
+   895→                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+   896→                        <span className="text-sm">{item.name}</span>
+   897→                      </div>
+   898→                      <span className="text-sm font-bold">{item.value}</span>
+   899→                    </div>
+   900→                  ))}
+   901→                  <Separator className="my-2" />
+   902→                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+   903→                    <span>Pro + Elite Revenue</span>
+   904→                    <span className="text-emerald-400 font-bold text-sm">
+   905→                      ${((stats?.proCount || 0) * 9.99 + (stats?.eliteCount || 0) * 24.99).toFixed(2)}/mo
+   906→                    </span>
+   907→                  </div>
+   908→                </div>
+   909→              </div>
+   910→            </SectionCard>
+   911→          </div>
+   912→
+   913→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   914→            {/* Feature 4: System Health Monitor */}
+   915→            <SectionCard title="System Health" icon={Heart}>
+   916→              <div className="space-y-4">
+   917→                <GaugeBar value={42} label="CPU Usage" color="#00e676" />
+   918→                <GaugeBar value={67} label="Memory Usage" color="#00b4d8" />
+   919→                <GaugeBar value={28} label="Disk Usage" color="#ffd700" />
+   920→                <GaugeBar value={23} label="API Latency (ms avg)" color="#a855f7" max={200} />
+   921→                <GaugeBar value={stats?.errorRate ? Math.min(stats.errorRate, 100) : 1.2} label="Error Rate" color={stats?.errorRate > 5 ? '#ff4757' : '#00e676'} max={10} />
+   922→                <div className="flex items-center gap-2 pt-2">
+   923→                  <CheckCircle className="h-4 w-4 text-emerald-400" />
+   924→                  <span className="text-xs text-emerald-400">All systems operational</span>
+   925→                  <span className="text-xs text-muted-foreground ml-auto">Last check: just now</span>
+   926→                </div>
+   927→              </div>
+   928→            </SectionCard>
+   929→
+   930→            {/* Feature 5: Quick Actions Panel */}
+   931→            <SectionCard title="Quick Actions" icon={Zap}>
+   932→              <div className="grid grid-cols-2 gap-2">
+   933→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Cache cleared'); handleQuickAction('clearCache') }}>
+   934→                  <RefreshCw className={`h-3.5 w-3.5 ${actionLoading === 'clearCache' ? 'animate-spin' : ''}`} /> Clear Cache
+   935→                </Button>
+   936→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('broadcast')}>
+   937→                  <Megaphone className="h-3.5 w-3.5" /> Send Broadcast
+   938→                </Button>
+   939→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('maintenance')}>
+   940→                  <ToggleLeft className="h-3.5 w-3.5" /> Maintenance
+   941→                </Button>
+   942→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('sync')}>
+   943→                  <Upload className="h-3.5 w-3.5" /> Sync Data
+   944→                </Button>
+   945→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={handleExportCSV}>
+   946→                  <Download className="h-3.5 w-3.5" /> Export CSV
+   947→                </Button>
+   948→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Diagnostics complete: All checks passed') }}>
+   949→                  <Bug className="h-3.5 w-3.5" /> Diagnostics
+   950→                </Button>
+   951→              </div>
+   952→            </SectionCard>
+   953→          </div>
+   954→
+   955→          {/* Feature 6: Activity Feed */}
+   956→          <SectionCard title="Recent Activity" icon={Activity}>
+   957→            <ScrollArea className="max-h-80">
+   958→              <div className="space-y-2">
+   959→                {activityFeed.map((item) => (
+   960→                  <div key={item.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors">
+   961→                    <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${
+   962→                      item.type === 'login' ? 'bg-emerald-500/10 text-emerald-400' :
+   963→                      item.type === 'prediction' ? 'bg-cyan-500/10 text-cyan-400' :
+   964→                      item.type === 'subscription' ? 'bg-amber-500/10 text-amber-400' :
+   965→                      item.type === 'achievement' ? 'bg-purple-500/10 text-purple-400' :
+   966→                      'bg-gray-500/10 text-gray-400'
+   967→                    }`}>
+   968→                      {item.type === 'login' ? <Key className="h-3 w-3" /> :
+   969→                       item.type === 'prediction' ? <Target className="h-3 w-3" /> :
+   970→                       item.type === 'subscription' ? <Crown className="h-3 w-3" /> :
+   971→                       item.type === 'achievement' ? <Star className="h-3 w-3" /> :
+   972→                       <Activity className="h-3 w-3" />}
+   973→                    </div>
+   974→                    <div className="min-w-0 flex-1">
+   975→                      <p className="text-sm">
+   976→                        <span className="font-medium text-foreground">{item.email}</span>
+   977→                        <span className="text-muted-foreground"> {item.description}</span>
+   978→                      </p>
+   979→                      <p className="text-xs text-muted-foreground">{item.timestamp}</p>
+   980→                    </div>
+   981→                  </div>
+   982→                ))}
+   983→              </div>
+   984→            </ScrollArea>
+   985→          </SectionCard>
+   986→        </TabsContent>
+   987→
+   988→        {/* ════════════════════════════════════════════════════════════════════ */}
+   989→        {/* TAB 2: USERS                                                          */}
+   990→        {/* ════════════════════════════════════════════════════════════════════ */}
+   991→        <TabsContent value="users" className="space-y-6 mt-6">
+   992→          {/* User Segmentation (Feature 11) */}
+   993→          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+   994→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30" onClick={() => { setUserPlanFilter('all'); setUserRoleFilter('all'); setUserStatusFilter('active') }}>
+   995→              <CardContent className="p-3 text-center">
+   996→                <Zap className="h-4 w-4 text-amber-400 mx-auto mb-1" />
+   997→                <p className="text-lg font-bold">{userSegments.power}</p>
+   998→                <p className="text-xs text-muted-foreground">Power Users</p>
+   999→              </CardContent>
+  1000→            </Card>
+  1001→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+  1002→              <CardContent className="p-3 text-center">
+  1003→                <UserX className="h-4 w-4 text-red-400 mx-auto mb-1" />
+  1004→                <p className="text-lg font-bold">{userSegments.dormant}</p>
+  1005→                <p className="text-xs text-muted-foreground">Dormant (7d+)</p>
+  1006→              </CardContent>
+  1007→            </Card>
+  1008→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+  1009→              <CardContent className="p-3 text-center">
+  1010→                <UserPlus className="h-4 w-4 text-emerald-400 mx-auto mb-1" />
+  1011→                <p className="text-lg font-bold">{userSegments.newSignups}</p>
+  1012→                <p className="text-xs text-muted-foreground">New Signups (7d)</p>
+  1013→              </CardContent>
+  1014→            </Card>
+  1015→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+  1016→              <CardContent className="p-3 text-center">
+  1017→                <Target className="h-4 w-4 text-cyan-400 mx-auto mb-1" />
+  1018→                <p className="text-lg font-bold">{userSegments.highAccuracy}</p>
+  1019→                <p className="text-xs text-muted-foreground">High Accuracy</p>
+  1020→              </CardContent>
+  1021→            </Card>
+  1022→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+  1023→              <CardContent className="p-3 text-center">
+  1024→                <Crown className="h-4 w-4 text-amber-400 mx-auto mb-1" />
+  1025→                <p className="text-lg font-bold">{userSegments.paying}</p>
+  1026→                <p className="text-xs text-muted-foreground">Paying Users</p>
+  1027→              </CardContent>
+  1028→            </Card>
+  1029→          </div>
+  1030→
+  1031→          {/* Feature 7: Advanced User Table */}
+  1032→          <SectionCard title="User Management" icon={Users} className="col-span-full">
+  1033→            <div className="space-y-3">
+  1034→              {/* Toolbar */}
+  1035→              <div className="flex flex-wrap items-center gap-2">
+  1036→                <div className="relative flex-1 min-w-[200px]">
+  1037→                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+  1038→                  <Input placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="pl-9 h-9" />
+  1039→                </div>
+  1040→                <Select value={userPlanFilter} onValueChange={setUserPlanFilter}>
+  1041→                  <SelectTrigger className="w-28 h-9"><SelectValue placeholder="Plan" /></SelectTrigger>
+  1042→                  <SelectContent>
+  1043→                    <SelectItem value="all">All Plans</SelectItem>
+  1044→                    <SelectItem value="free">Free</SelectItem>
+  1045→                    <SelectItem value="pro">Pro</SelectItem>
+  1046→                    <SelectItem value="elite">Elite</SelectItem>
+  1047→                  </SelectContent>
+  1048→                </Select>
+  1049→                <Select value={userRoleFilter} onValueChange={setUserRoleFilter}>
+  1050→                  <SelectTrigger className="w-28 h-9"><SelectValue placeholder="Role" /></SelectTrigger>
+  1051→                  <SelectContent>
+  1052→                    <SelectItem value="all">All Roles</SelectItem>
+  1053→                    <SelectItem value="admin">Admin</SelectItem>
+  1054→                    <SelectItem value="user">User</SelectItem>
+  1055→                    <SelectItem value="pro">Pro</SelectItem>
+  1056→                  </SelectContent>
+  1057→                </Select>
+  1058→                <Select value={userStatusFilter} onValueChange={setUserStatusFilter}>
+  1059→                  <SelectTrigger className="w-28 h-9"><SelectValue placeholder="Status" /></SelectTrigger>
+  1060→                  <SelectContent>
+  1061→                    <SelectItem value="all">All Status</SelectItem>
+  1062→                    <SelectItem value="active">Active</SelectItem>
+  1063→                    <SelectItem value="inactive">Inactive</SelectItem>
+  1064→                    <SelectItem value="banned">Banned</SelectItem>
+  1065→                  </SelectContent>
+  1066→                </Select>
+  1067→                {/* Bulk Actions + Invite */}
+  1068→                {selectedUsers.size > 0 && (
+  1069→                  <Dialog open={bulkActionModal} onOpenChange={setBulkActionModal}>
+  1070→                    <DialogTrigger asChild>
+  1071→                      <Button variant="outline" size="sm" className="gap-1.5">
+  1072→                        <CheckSquare className="h-3.5 w-3.5" />
+  1073→                        Bulk ({selectedUsers.size})
+  1074→                      </Button>
+  1075→                    </DialogTrigger>
+  1076→                    <DialogContent className="glass-card">
+  1077→                      <DialogHeader>
+  1078→                        <DialogTitle>Bulk Action</DialogTitle>
+  1079→                        <DialogDescription>Apply action to {selectedUsers.size} selected users</DialogDescription>
+  1080→                      </DialogHeader>
+  1081→                      <div className="space-y-2">
+  1082→                        {['upgrade-pro', 'upgrade-elite', 'downgrade-free', 'activate', 'deactivate'].map(a => (
+  1083→                          <Button key={a} variant="outline" size="sm" className="w-full justify-start"
+  1084→                            onClick={() => { setBulkAction(a) }}>
+  1085→                            {a === 'upgrade-pro' && <ArrowUpRight className="h-3.5 w-3.5 mr-2 text-cyan-400" />}
+  1086→                            {a === 'upgrade-elite' && <Crown className="h-3.5 w-3.5 mr-2 text-amber-400" />}
+  1087→                            {a === 'downgrade-free' && <ArrowDownRight className="h-3.5 w-3.5 mr-2 text-gray-400" />}
+  1088→                            {a === 'activate' && <UserCheck className="h-3.5 w-3.5 mr-2 text-emerald-400" />}
+  1089→                            {a === 'deactivate' && <UserX className="h-3.5 w-3.5 mr-2 text-red-400" />}
+  1090→                            {a.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+  1091→                          </Button>
+  1092→                        ))}
+  1093→                      </div>
+  1094→                      <DialogFooter>
+  1095→                        <Button variant="outline" onClick={() => setBulkActionModal(false)}>Cancel</Button>
+  1096→                        <Button onClick={handleBulkAction} disabled={!bulkAction}>Apply</Button>
+  1097→                      </DialogFooter>
+  1098→                    </DialogContent>
+  1099→                  </Dialog>
+  1100→                )}
+  1101→                <Dialog open={inviteModal} onOpenChange={setInviteModal}>
+  1102→                  <DialogTrigger asChild>
+  1103→                    <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+  1104→                      <UserPlus className="h-3.5 w-3.5" /> Invite User
+  1105→                    </Button>
+  1106→                  </DialogTrigger>
+  1107→                  <DialogContent className="glass-card">
+  1108→                    <DialogHeader>
+  1109→                      <DialogTitle>Invite User</DialogTitle>
+  1110→                      <DialogDescription>Send an invitation to a new user</DialogDescription>
+  1111→                    </DialogHeader>
+  1112→                    <div className="space-y-4">
+  1113→                      <div className="space-y-2">
+  1114→                        <Label>Email</Label>
+  1115→                        <Input placeholder="user@example.com" value={inviteForm.email} onChange={e => setInviteForm(p => ({ ...p, email: e.target.value }))} />
+  1116→                      </div>
+  1117→                      <div className="space-y-2">
+  1118→                        <Label>Plan</Label>
+  1119→                        <Select value={inviteForm.plan} onValueChange={v => setInviteForm(p => ({ ...p, plan: v }))}>
+  1120→                          <SelectTrigger><SelectValue /></SelectTrigger>
+  1121→                          <SelectContent>
+  1122→                            <SelectItem value="free">Free</SelectItem>
+  1123→                            <SelectItem value="pro">Pro</SelectItem>
+  1124→                            <SelectItem value="elite">Elite</SelectItem>
+  1125→                          </SelectContent>
+  1126→                        </Select>
+  1127→                      </div>
+  1128→                      <div className="space-y-2">
+  1129→                        <Label>Role</Label>
+  1130→                        <Select value={inviteForm.role} onValueChange={v => setInviteForm(p => ({ ...p, role: v }))}>
+  1131→                          <SelectTrigger><SelectValue /></SelectTrigger>
+  1132→                          <SelectContent>
+  1133→                            <SelectItem value="user">User</SelectItem>
+  1134→                            <SelectItem value="pro">Pro</SelectItem>
+  1135→                            <SelectItem value="admin">Admin</SelectItem>
+  1136→                          </SelectContent>
+  1137→                        </Select>
+  1138→                      </div>
+  1139→                    </div>
+  1140→                    <DialogFooter>
+  1141→                      <Button variant="outline" onClick={() => setInviteModal(false)}>Cancel</Button>
+  1142→                      <Button onClick={handleInviteUser}>Send Invitation</Button>
+  1143→                    </DialogFooter>
+  1144→                  </DialogContent>
+  1145→                </Dialog>
+  1146→              </div>
+  1147→
+  1148→              {/* Table */}
+  1149→              <ScrollArea className="max-h-96">
+  1150→                <Table>
+  1151→                  <TableHeader>
+  1152→                    <TableRow>
+  1153→                      <TableHead className="w-10">
+  1154→                        <Checkbox checked={selectedUsers.size === filteredUsers.length && filteredUsers.length > 0}
+  1155→                          onCheckedChange={toggleAllUsers} />
+  1156→                      </TableHead>
+  1157→                      <TableHead className="cursor-pointer" onClick={() => handleSortUsers('email')}>
+  1158→                        User <ArrowUpRight className="inline h-3 w-3 opacity-50" />
+  1159→                      </TableHead>
+  1160→                      <TableHead>Plan</TableHead>
+  1161→                      <TableHead>Role</TableHead>
+  1162→                      <TableHead className="cursor-pointer" onClick={() => handleSortUsers('predictionAccuracy')}>
+  1163→                        Accuracy <ArrowUpRight className="inline h-3 w-3 opacity-50" />
+  1164→                      </TableHead>
+  1165→                      <TableHead>Predictions</TableHead>
+  1166→                      <TableHead className="cursor-pointer" onClick={() => handleSortUsers('lastLoginAt')}>
+  1167→                        Last Login <ArrowUpRight className="inline h-3 w-3 opacity-50" />
+  1168→                      </TableHead>
+  1169→                      <TableHead>Status</TableHead>
+  1170→                      <TableHead className="text-right">Actions</TableHead>
+  1171→                    </TableRow>
+  1172→                  </TableHeader>
+  1173→                  <TableBody>
+  1174→                    {filteredUsers.length === 0 ? (
+  1175→                      <TableRow><TableCell colSpan={9}><EmptyState message="No users found" /></TableCell></TableRow>
+  1176→                    ) : (
+  1177→                      filteredUsers.map((u: any) => (
+  1178→                        <TableRow key={u.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedUser(u)}>
+  1179→                          <TableCell onClick={e => e.stopPropagation()}>
+  1180→                            <Checkbox checked={selectedUsers.has(u.id)} onCheckedChange={() => toggleUserSelect(u.id)} />
+  1181→                          </TableCell>
+  1182→                          <TableCell>
+  1183→                            <div className="flex items-center gap-2">
+  1184→                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500/30 to-cyan-500/30 flex items-center justify-center text-xs font-bold">
+  1185→                                {(u.email?.[0] || '?').toUpperCase()}
+  1186→                              </div>
+  1187→                              <div>
+  1188→                                <p className="text-sm font-medium">{u.displayName || u.name || u.email}</p>
+  1189→                                <p className="text-xs text-muted-foreground">{u.email}</p>
+  1190→                              </div>
+  1191→                            </div>
+  1192→                          </TableCell>
+  1193→                          <TableCell>
+  1194→                            <Badge variant="outline" className={PLAN_COLORS[u.plan] || ''}>{u.plan}</Badge>
+  1195→                          </TableCell>
+  1196→                          <TableCell>
+  1197→                            <Badge variant="outline" className={ROLE_COLORS[u.role] || ''}>{u.role}</Badge>
+  1198→                          </TableCell>
+  1199→                          <TableCell>
+  1200→                            <div className="flex items-center gap-1.5">
+  1201→                              <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+  1202→                                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(u.predictionAccuracy || 0, 100)}%` }} />
+  1203→                              </div>
+  1204→                              <span className="text-xs font-mono">{u.predictionAccuracy || 0}%</span>
+  1205→                            </div>
+  1206→                          </TableCell>
+  1207→                          <TableCell className="text-sm">{u.totalPredictions || 0}</TableCell>
+  1208→                          <TableCell className="text-xs text-muted-foreground">
+  1209→                            {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : 'Never'}
+  1210→                          </TableCell>
+  1211→                          <TableCell>
+  1212→                            {u.isBanned ? <Badge variant="destructive" className="text-xs">Banned</Badge> :
+  1213→                             !u.isActive ? <Badge variant="secondary" className="text-xs">Inactive</Badge> :
+  1214→                             <Badge variant="outline" className="text-xs border-emerald-500/30 text-emerald-400">Active</Badge>}
+  1215→                          </TableCell>
+  1216→                          <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+  1217→                            <div className="flex items-center justify-end gap-1">
+  1218→                              <Button size="icon" variant="ghost" className="h-7 w-7"
+  1219→                                onClick={() => handleUpdateUser(u.id, { isActive: !u.isActive })}>
+  1220→                                {u.isActive ? <Ban className="h-3.5 w-3.5 text-red-400" /> : <UserCheck className="h-3.5 w-3.5 text-emerald-400" />}
+  1221→                              </Button>
+  1222→                              <Button size="icon" variant="ghost" className="h-7 w-7"
+  1223→                                onClick={() => handleUpdateUser(u.id, { plan: u.plan === 'elite' ? 'free' : u.plan === 'pro' ? 'elite' : 'pro' })}>
+  1224→                                <Crown className="h-3.5 w-3.5 text-amber-400" />
+  1225→                              </Button>
+  1226→                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteUser(u.id)}>
+  1227→                                <Trash2 className="h-3.5 w-3.5 text-red-400" />
+  1228→                              </Button>
+  1229→                            </div>
+  1230→                          </TableCell>
+  1231→                        </TableRow>
+  1232→                      ))
+  1233→                    )}
+  1234→                  </TableBody>
+  1235→                </Table>
+  1236→              </ScrollArea>
+  1237→              {/* Pagination */}
+  1238→              <div className="flex items-center justify-between text-xs text-muted-foreground">
+  1239→                <span>{filteredUsers.length} of {userPagination.total} users</span>
+  1240→                <div className="flex items-center gap-2">
+  1241→                  <Button size="sm" variant="outline" disabled={userPagination.page <= 1}
+  1242→                    onClick={() => fetchUsersPage(userPagination.page - 1)}>
+  1243→                    <ChevronLeft className="h-3.5 w-3.5" />
+  1244→                  </Button>
+  1245→                  <span>Page {userPagination.page} of {userPagination.totalPages}</span>
+  1246→                  <Button size="sm" variant="outline" disabled={userPagination.page >= userPagination.totalPages}
+  1247→                    onClick={() => fetchUsersPage(userPagination.page + 1)}>
+  1248→                    <ChevronRight className="h-3.5 w-3.5" />
+  1249→                  </Button>
+  1250→                </div>
+  1251→              </div>
+  1252→            </div>
+  1253→          </SectionCard>
+  1254→
+  1255→          {/* Feature 8: User Detail Modal */}
+  1256→          <Dialog open={!!selectedUser} onOpenChange={(open) => { if (!open) setSelectedUser(null) }}>
+  1257→            <DialogContent className="glass-card max-w-lg max-h-[80vh] overflow-y-auto">
+  1258→              {selectedUser && (
+  1259→                <>
+  1260→                  <DialogHeader>
+  1261→                    <DialogTitle className="flex items-center gap-3">
+  1262→                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500/30 to-cyan-500/30 flex items-center justify-center text-lg font-bold">
+  1263→                        {(selectedUser.email?.[0] || '?').toUpperCase()}
+  1264→                      </div>
+  1265→                      <div>
+  1266→                        <p>{selectedUser.displayName || selectedUser.name || selectedUser.email}</p>
+  1267→                        <p className="text-sm font-normal text-muted-foreground">{selectedUser.email}</p>
+  1268→                      </div>
+  1269→                    </DialogTitle>
+  1270→                  </DialogHeader>
+  1271→                  <div className="space-y-4">
+  1272→                    <div className="grid grid-cols-2 gap-3">
+  1273→                      <div className="p-3 rounded-lg bg-muted/30">
+  1274→                        <p className="text-xs text-muted-foreground">Plan</p>
+  1275→                        <Badge variant="outline" className={PLAN_COLORS[selectedUser.plan] || ''}>{selectedUser.plan}</Badge>
+  1276→                      </div>
+  1277→                      <div className="p-3 rounded-lg bg-muted/30">
+  1278→                        <p className="text-xs text-muted-foreground">Role</p>
+  1279→                        <Badge variant="outline" className={ROLE_COLORS[selectedUser.role] || ''}>{selectedUser.role}</Badge>
+  1280→                      </div>
+  1281→                      <div className="p-3 rounded-lg bg-muted/30">
+  1282→                        <p className="text-xs text-muted-foreground">Predictions</p>
+  1283→                        <p className="text-lg font-bold">{selectedUser.totalPredictions || 0}</p>
+  1284→                      </div>
+  1285→                      <div className="p-3 rounded-lg bg-muted/30">
+  1286→                        <p className="text-xs text-muted-foreground">Accuracy</p>
+  1287→                        <p className="text-lg font-bold text-emerald-400">{selectedUser.predictionAccuracy || 0}%</p>
+  1288→                      </div>
+  1289→                      <div className="p-3 rounded-lg bg-muted/30">
+  1290→                        <p className="text-xs text-muted-foreground">Best Streak</p>
+  1291→                        <p className="text-lg font-bold text-amber-400">{selectedUser.bestStreak || 0}</p>
+  1292→                      </div>
+  1293→                      <div className="p-3 rounded-lg bg-muted/30">
+  1294→                        <p className="text-xs text-muted-foreground">Login Count</p>
+  1295→                        <p className="text-lg font-bold">{selectedUser.loginCount || 0}</p>
+  1296→                      </div>
+  1297→                    </div>
+  1298→                    <Separator />
+  1299→                    <div className="space-y-2">
+  1300→                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Session Info</p>
+  1301→                      <div className="flex justify-between text-sm">
+  1302→                        <span>Last Login</span>
+  1303→                        <span>{selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleString() : 'Never'}</span>
+  1304→                      </div>
+  1305→                      <div className="flex justify-between text-sm">
+  1306→                        <span>Account Created</span>
+  1307→                        <span>{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : '—'}</span>
+  1308→                      </div>
+  1309→                      <div className="flex justify-between text-sm">
+  1310→                        <span>Failed Logins</span>
+  1311→                        <span className={selectedUser.failedLogins > 0 ? 'text-red-400' : ''}>{selectedUser.failedLogins || 0}</span>
+  1312→                      </div>
+  1313→                      <div className="flex justify-between text-sm">
+  1314→                        <span>2FA Enabled</span>
+  1315→                        <span>{selectedUser.twoFactorEnabled ? 'Yes' : 'No'}</span>
+  1316→                      </div>
+  1317→                    </div>
+  1318→                    <Separator />
+  1319→                    <div className="flex flex-wrap gap-2">
+  1320→                      <Select value={selectedUser.plan} onValueChange={v => handleUpdateUser(selectedUser.id, { plan: v })}>
+  1321→                        <SelectTrigger className="w-32 h-8"><SelectValue /></SelectTrigger>
+  1322→                        <SelectContent>
+  1323→                          <SelectItem value="free">Free</SelectItem>
+  1324→                          <SelectItem value="pro">Pro</SelectItem>
+  1325→                          <SelectItem value="elite">Elite</SelectItem>
+  1326→                        </SelectContent>
+  1327→                      </Select>
+  1328→                      <Button size="sm" variant="outline" onClick={() => handleUpdateUser(selectedUser.id, { isActive: !selectedUser.isActive })}>
+  1329→                        {selectedUser.isActive ? 'Deactivate' : 'Activate'}
+  1330→                      </Button>
+  1331→                      <Button size="sm" variant="outline" onClick={() => handleUpdateUser(selectedUser.id, { isBanned: !selectedUser.isBanned, banReason: selectedUser.isBanned ? null : 'Admin action' })}>
+  1332→                        {selectedUser.isBanned ? 'Unban' : 'Ban'}
+  1333→                      </Button>
+  1334→                    </div>
+  1335→                  </div>
+  1336→                </>
+  1337→              )}
+  1338→            </DialogContent>
+  1339→          </Dialog>
+  1340→
+  1341→          {/* Feature 10: User Analytics Charts */}
+  1342→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1343→            {/* User Acquisition */}
+  1344→            <SectionCard title="User Acquisition" icon={TrendingUp}>
+  1345→              <div className="h-56">
+  1346→                <ResponsiveContainer width="100%" height="100%">
+  1347→                  <BarChart data={userGrowthData.slice(-14)}>
+  1348→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+  1349→                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: 'oklch(0.6 0 0)' }} />
+  1350→                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+  1351→                    <RTooltip content={<ChartTooltip />} />
+  1352→                    <Bar dataKey="pro" stackId="a" fill="#00b4d8" name="Pro" />
+  1353→                    <Bar dataKey="elite" stackId="a" fill="#ffd700" name="Elite" />
+  1354→                  </BarChart>
+  1355→                </ResponsiveContainer>
+  1356→              </div>
+  1357→            </SectionCard>
+  1358→
+  1359→            {/* Geographic Distribution */}
+  1360→            <SectionCard title="Geographic Distribution" icon={Globe}>
+  1361→              <div className="h-56">
+  1362→                <ResponsiveContainer width="100%" height="100%">
+  1363→                  <BarChart data={geoData} layout="vertical">
+  1364→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+  1365→                    <XAxis type="number" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+  1366→                    <YAxis type="category" dataKey="country" tick={{ fontSize: 9, fill: 'oklch(0.6 0 0)' }} width={90} />
+  1367→                    <RTooltip content={<ChartTooltip />} />
+  1368→                    <Bar dataKey="users" fill="#00e676" name="Users" radius={[0, 4, 4, 0]} />
+  1369→                  </BarChart>
+  1370→                </ResponsiveContainer>
+  1371→              </div>
+  1372→            </SectionCard>
+  1373→          </div>
+  1374→        </TabsContent>
+  1375→
+  1376→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1377→        {/* TAB 3: CONTENT                                                        */}
+  1378→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1379→        <TabsContent value="content" className="space-y-6 mt-6">
+  1380→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1381→            {/* Feature 13: Announcement Manager */}
+  1382→            <SectionCard title="Announcements" icon={Megaphone}>
+  1383→              <div className="space-y-3">
+  1384→                <div className="flex items-center justify-between">
+  1385→                  <p className="text-xs text-muted-foreground">{announcements.length} active</p>
+  1386→                  <Dialog open={announcementModal} onOpenChange={(open) => { setAnnouncementModal(open); if (!open) { setEditingAnnouncement(null); setAnnForm({ title: '', content: '', type: 'info', targetRole: 'all' }) } }}>
+  1387→                    <DialogTrigger asChild>
+  1388→                      <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 h-8">
+  1389→                        <Plus className="h-3.5 w-3.5" /> New
+  1390→                      </Button>
+  1391→                    </DialogTrigger>
+  1392→                    <DialogContent className="glass-card">
+  1393→                      <DialogHeader>
+  1394→                        <DialogTitle>{editingAnnouncement ? 'Edit' : 'Create'} Announcement</DialogTitle>
+  1395→                        <DialogDescription>Announcements are shown to targeted user roles</DialogDescription>
+  1396→                      </DialogHeader>
+  1397→                      <div className="space-y-4">
+  1398→                        <div className="space-y-2">
+  1399→                          <Label>Title</Label>
+  1400→                          <Input value={annForm.title} onChange={e => setAnnForm(p => ({ ...p, title: e.target.value }))} placeholder="Announcement title" />
+  1401→                        </div>
+  1402→                        <div className="space-y-2">
+  1403→                          <Label>Content</Label>
+  1404→                          <Textarea value={annForm.content} onChange={e => setAnnForm(p => ({ ...p, content: e.target.value }))} placeholder="Announcement content..." rows={3} />
+  1405→                        </div>
+  1406→                        <div className="grid grid-cols-2 gap-3">
+  1407→                          <div className="space-y-2">
+  1408→                            <Label>Type</Label>
+  1409→                            <Select value={annForm.type} onValueChange={v => setAnnForm(p => ({ ...p, type: v }))}>
+  1410→                              <SelectTrigger><SelectValue /></SelectTrigger>
+  1411→                              <SelectContent>
+  1412→                                {ANNOUNCEMENT_TYPES.map(t => <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>)}
+  1413→                              </SelectContent>
+  1414→                            </Select>
+  1415→                          </div>
+  1416→                          <div className="space-y-2">
+  1417→                            <Label>Target Role</Label>
+  1418→                            <Select value={annForm.targetRole} onValueChange={v => setAnnForm(p => ({ ...p, targetRole: v }))}>
+  1419→                              <SelectTrigger><SelectValue /></SelectTrigger>
+  1420→                              <SelectContent>
+  1421→                                <SelectItem value="all">All</SelectItem>
+  1422→                                <SelectItem value="user">User</SelectItem>
+  1423→                                <SelectItem value="pro">Pro</SelectItem>
+  1424→                                <SelectItem value="elite">Elite</SelectItem>
+  1425→                                <SelectItem value="admin">Admin</SelectItem>
+  1426→                              </SelectContent>
+  1427→                            </Select>
+  1428→                          </div>
+  1429→                        </div>
+  1430→                      </div>
+  1431→                      <DialogFooter>
+  1432→                        <Button variant="outline" onClick={() => setAnnouncementModal(false)}>Cancel</Button>
+  1433→                        <Button onClick={handleCreateAnnouncement}>{editingAnnouncement ? 'Update' : 'Create'}</Button>
+  1434→                      </DialogFooter>
+  1435→                    </DialogContent>
+  1436→                  </Dialog>
+  1437→                </div>
+  1438→                <ScrollArea className="max-h-64">
+  1439→                  <div className="space-y-2">
+  1440→                    {announcements.length === 0 ? (
+  1441→                      <EmptyState message="No announcements" />
+  1442→                    ) : (
+  1443→                      announcements.map((ann: any) => (
+  1444→                        <div key={ann.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/20">
+  1445→                          <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${
+  1446→                            ann.type === 'warning' ? 'bg-amber-500/10 text-amber-400' :
+  1447→                            ann.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
+  1448→                            ann.type === 'maintenance' ? 'bg-red-500/10 text-red-400' :
+  1449→                            'bg-cyan-500/10 text-cyan-400'
+  1450→                          }`}>
+  1451→                            {ann.type === 'warning' ? <AlertTriangle className="h-3.5 w-3.5" /> :
+  1452→                             ann.type === 'success' ? <CheckCircle className="h-3.5 w-3.5" /> :
+  1453→                             ann.type === 'maintenance' ? <Wrench className="h-3.5 w-3.5" /> :
+  1454→                             <Bell className="h-3.5 w-3.5" />}
+  1455→                          </div>
+  1456→                          <div className="min-w-0 flex-1">
+  1457→                            <p className="text-sm font-medium">{ann.title}</p>
+  1458→                            <p className="text-xs text-muted-foreground line-clamp-2">{ann.content}</p>
+  1459→                            <div className="flex items-center gap-2 mt-1">
+  1460→                              <Badge variant="outline" className="text-[10px]">{ann.targetRole}</Badge>
+  1461→                              <span className="text-[10px] text-muted-foreground">{new Date(ann.createdAt).toLocaleDateString()}</span>
+  1462→                            </div>
+  1463→                          </div>
+  1464→                        </div>
+  1465→                      ))
+  1466→                    )}
+  1467→                  </div>
+  1468→                </ScrollArea>
+  1469→              </div>
+  1470→            </SectionCard>
+  1471→
+  1472→            {/* Feature 14: News Publisher */}
+  1473→            <SectionCard title="News Publisher" icon={Newspaper}>
+  1474→              <div className="space-y-3">
+  1475→                <div className="flex items-center justify-between">
+  1476→                  <p className="text-xs text-muted-foreground">{newsItems.length} articles</p>
+  1477→                  <Dialog open={newsModal} onOpenChange={(open) => { setNewsModal(open); if (!open) { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) } }}>
+  1478→                    <DialogTrigger asChild>
+  1479→                      <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 h-8"
+  1480→                        onClick={() => { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) }}>
+  1481→                        <Plus className="h-3.5 w-3.5" /> New Article
+  1482→                      </Button>
+  1483→                    </DialogTrigger>
+  1484→                    <DialogContent className="glass-card">
+  1485→                      <DialogHeader>
+  1486→                        <DialogTitle>{editingNews ? 'Edit' : 'Create'} News Article</DialogTitle>
+  1487→                      </DialogHeader>
+  1488→                      <div className="space-y-4">
+  1489→                        <div className="space-y-2">
+  1490→                          <Label>Title</Label>
+  1491→                          <Input value={newsForm.title} onChange={e => setNewsForm(p => ({ ...p, title: e.target.value }))} />
+  1492→                        </div>
+  1493→                        <div className="space-y-2">
+  1494→                          <Label>Summary</Label>
+  1495→                          <Textarea value={newsForm.summary} onChange={e => setNewsForm(p => ({ ...p, summary: e.target.value }))} rows={2} />
+  1496→                        </div>
+  1497→                        <div className="space-y-2">
+  1498→                          <Label>Content</Label>
+  1499→                          <Textarea value={newsForm.content} onChange={e => setNewsForm(p => ({ ...p, content: e.target.value }))} rows={4} />
+  1500→                        </div>
+  1501→                        <div className="grid grid-cols-3 gap-3">
+  1502→                          <div className="space-y-2">
+  1503→                            <Label>Category</Label>
+  1504→                            <Select value={newsForm.category} onValueChange={v => setNewsForm(p => ({ ...p, category: v }))}>
+  1505→                              <SelectTrigger><SelectValue /></SelectTrigger>
+  1506→                              <SelectContent>
+  1507→                                {NEWS_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>)}
+  1508→                              </SelectContent>
+  1509→                            </Select>
+  1510→                          </div>
+  1511→                          <div className="space-y-2">
+  1512→                            <Label>Sentiment</Label>
+  1513→                            <Select value={newsForm.sentiment} onValueChange={v => setNewsForm(p => ({ ...p, sentiment: v }))}>
+  1514→                              <SelectTrigger><SelectValue /></SelectTrigger>
+  1515→                              <SelectContent>
+  1516→                                {NEWS_SENTIMENTS.map(s => <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>)}
+  1517→                              </SelectContent>
+  1518→                            </Select>
+  1519→                          </div>
+  1520→                          <div className="flex items-end gap-2 pb-1">
+  1521→                            <div className="flex items-center gap-2">
+  1522→                              <Switch checked={newsForm.isBreaking} onCheckedChange={c => setNewsForm(p => ({ ...p, isBreaking: c }))} />
+  1523→                              <Label className="text-xs">Breaking</Label>
+  1524→                            </div>
+  1525→                          </div>
+  1526→                        </div>
+  1527→                      </div>
+  1528→                      <DialogFooter>
+  1529→                        <Button variant="outline" onClick={() => setNewsModal(false)}>Cancel</Button>
+  1530→                        <Button onClick={handleCreateNews}>{editingNews ? 'Update' : 'Publish'}</Button>
+  1531→                      </DialogFooter>
+  1532→                    </DialogContent>
+  1533→                  </Dialog>
+  1534→                </div>
+  1535→                <ScrollArea className="max-h-64">
+  1536→                  <div className="space-y-2">
+  1537→                    {newsItems.map((news) => (
+  1538→                      <div key={news.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/20 group">
+  1539→                        <div className="min-w-0 flex-1">
+  1540→                          <div className="flex items-center gap-2">
+  1541→                            {news.isBreaking && <Badge variant="destructive" className="text-[10px] animate-pulse">BREAKING</Badge>}
+  1542→                            <p className="text-sm font-medium line-clamp-1">{news.title}</p>
+  1543→                          </div>
+  1544→                          <div className="flex items-center gap-2 mt-1">
+  1545→                            <Badge variant="outline" className="text-[10px]">{news.category}</Badge>
+  1546→                            <span className="text-[10px] text-muted-foreground">{news.readCount} reads</span>
+  1547→                            <span className="text-[10px] text-muted-foreground">
+  1548→                              {news.sentiment === 'positive' ? '😊' : news.sentiment === 'negative' ? '😟' : '😐'}
+  1549→                            </span>
+  1550→                          </div>
+  1551→                        </div>
+  1552→                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+  1553→                          <Button size="icon" variant="ghost" className="h-7 w-7"
+  1554→                            onClick={() => { setEditingNews(news); setNewsForm({ title: news.title, summary: news.summary || '', content: news.content || '', category: news.category, isBreaking: news.isBreaking, sentiment: news.sentiment || 'neutral' }); setNewsModal(true) }}>
+  1555→                            <Edit className="h-3 w-3" />
+  1556→                          </Button>
+  1557→                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteNews(news.id)}>
+  1558→                            <Trash2 className="h-3 w-3 text-red-400" />
+  1559→                          </Button>
+  1560→                        </div>
+  1561→                      </div>
+  1562→                    ))}
+  1563→                  </div>
+  1564→                </ScrollArea>
+  1565→              </div>
+  1566→            </SectionCard>
+  1567→          </div>
+  1568→
+  1569→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1570→            {/* Feature 15: Content Calendar */}
+  1571→            <SectionCard title="Content Calendar" icon={CalendarDays}>
+  1572→              <ScrollArea className="max-h-64">
+  1573→                <div className="space-y-2">
+  1574→                  {contentCalendar.map((item, i) => (
+  1575→                    <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/20">
+  1576→                      <div className="text-center shrink-0 w-14">
+  1577→                        <p className="text-xs text-muted-foreground">{new Date(item.date).toLocaleDateString('en', { month: 'short' })}</p>
+  1578→                        <p className="text-lg font-bold">{new Date(item.date).getDate()}</p>
+  1579→                      </div>
+  1580→                      <div className={`p-1.5 rounded-lg shrink-0 ${
+  1581→                        item.type === 'announcement' ? 'bg-cyan-500/10 text-cyan-400' :
+  1582→                        item.type === 'news' ? 'bg-amber-500/10 text-amber-400' :
+  1583→                        'bg-purple-500/10 text-purple-400'
+  1584→                      }`}>
+  1585→                        {item.type === 'announcement' ? <Bell className="h-3.5 w-3.5" /> :
+  1586→                         item.type === 'news' ? <Newspaper className="h-3.5 w-3.5" /> :
+  1587→                         <Send className="h-3.5 w-3.5" />}
+  1588→                      </div>
+  1589→                      <div className="min-w-0">
+  1590→                        <p className="text-sm font-medium line-clamp-1">{item.title}</p>
+  1591→                        <Badge variant="outline" className="text-[10px] mt-0.5">{item.type}</Badge>
+  1592→                      </div>
+  1593→                    </div>
+  1594→                  ))}
+  1595→                </div>
+  1596→              </ScrollArea>
+  1597→            </SectionCard>
+  1598→
+  1599→            {/* Feature 16: Push Notification Composer */}
+  1600→            <SectionCard title="Push Notification Composer" icon={Radio}>
+  1601→              <div className="space-y-4">
+  1602→                <div className="space-y-2">
+  1603→                  <Label>Title</Label>
+  1604→                  <Input value={pushForm.title} onChange={e => setPushForm(p => ({ ...p, title: e.target.value }))} placeholder="Notification title" />
+  1605→                </div>
+  1606→                <div className="space-y-2">
+  1607→                  <Label>Message</Label>
+  1608→                  <Textarea value={pushForm.message} onChange={e => setPushForm(p => ({ ...p, message: e.target.value }))} placeholder="Notification message..." rows={3} />
+  1609→                </div>
+  1610→                <div className="space-y-2">
+  1611→                  <Label>Target Segment</Label>
+  1612→                  <Select value={pushForm.segment} onValueChange={v => setPushForm(p => ({ ...p, segment: v }))}>
+  1613→                    <SelectTrigger><SelectValue /></SelectTrigger>
+  1614→                    <SelectContent>
+  1615→                      <SelectItem value="all">All Users</SelectItem>
+  1616→                      <SelectItem value="free">Free Users</SelectItem>
+  1617→                      <SelectItem value="pro">Pro Users</SelectItem>
+  1618→                      <SelectItem value="elite">Elite Users</SelectItem>
+  1619→                      <SelectItem value="inactive">Inactive Users (7d+)</SelectItem>
+  1620→                    </SelectContent>
+  1621→                  </Select>
+  1622→                </div>
+  1623→                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleSendPush}>
+  1624→                  <Send className="h-4 w-4 mr-2" /> Send Push Notification
+  1625→                </Button>
+  1626→              </div>
+  1627→            </SectionCard>
+  1628→          </div>
+  1629→
+  1630→          {/* Feature 17: Content Analytics */}
+  1631→          <SectionCard title="Content Analytics" icon={BarChart3}>
+  1632→            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1633→              <div>
+  1634→                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Most Read News</p>
+  1635→                <div className="space-y-2">
+  1636→                  {newsItems.sort((a, b) => b.readCount - a.readCount).map((news, i) => (
+  1637→                    <div key={news.id} className="flex items-center gap-3">
+  1638→                      <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
+  1639→                      <div className="flex-1 min-w-0">
+  1640→                        <p className="text-sm line-clamp-1">{news.title}</p>
+  1641→                        <div className="h-1 bg-muted rounded-full mt-1">
+  1642→                          <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${(news.readCount / Math.max(...newsItems.map(n => n.readCount))) * 100}%` }} />
+  1643→                        </div>
+  1644→                      </div>
+  1645→                      <span className="text-xs text-muted-foreground shrink-0">{news.readCount}</span>
+  1646→                    </div>
+  1647→                  ))}
+  1648→                </div>
+  1649→              </div>
+  1650→              <div>
+  1651→                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Sentiment Distribution</p>
+  1652→                <div className="h-48">
+  1653→                  <ResponsiveContainer width="100%" height="100%">
+  1654→                    <PieChart>
+  1655→                      <Pie data={[
+  1656→                        { name: 'Positive', value: newsItems.filter(n => n.sentiment === 'positive').length, fill: '#00e676' },
+  1657→                        { name: 'Negative', value: newsItems.filter(n => n.sentiment === 'negative').length, fill: '#ff4757' },
+  1658→                        { name: 'Neutral', value: newsItems.filter(n => n.sentiment === 'neutral').length, fill: '#6b7280' },
+  1659→                      ]} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" label>
+  1660→                      </Pie>
+  1661→                      <RTooltip content={<ChartTooltip />} />
+  1662→                    </PieChart>
+  1663→                  </ResponsiveContainer>
+  1664→                </div>
+  1665→              </div>
+  1666→            </div>
+  1667→          </SectionCard>
+  1668→        </TabsContent>
+  1669→
+  1670→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1671→        {/* TAB 4: ANALYTICS                                                      */}
+  1672→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1673→        <TabsContent value="analytics" className="space-y-6 mt-6">
+  1674→          {/* Feature 18: Prediction Model Performance */}
+  1675→          <SectionCard title="Prediction Model Performance" icon={Brain}>
+  1676→            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1677→              <div>
+  1678→                <ScrollArea className="max-h-64">
+  1679→                  <Table>
+  1680→                    <TableHeader>
+  1681→                      <TableRow>
+  1682→                        <TableHead>Model</TableHead>
+  1683→                        <TableHead>Accuracy</TableHead>
+  1684→                        <TableHead>Predictions</TableHead>
+  1685→                        <TableHead>Avg Confidence</TableHead>
+  1686→                      </TableRow>
+  1687→                    </TableHeader>
+  1688→                    <TableBody>
+  1689→                      {modelPerfData.map((m) => (
+  1690→                        <TableRow key={m.model}>
+  1691→                          <TableCell className="font-medium">{m.model}</TableCell>
+  1692→                          <TableCell>
+  1693→                            <div className="flex items-center gap-2">
+  1694→                              <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+  1695→                                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${m.accuracy}%` }} />
+  1696→                              </div>
+  1697→                              <span className="text-xs font-mono">{m.accuracy}%</span>
+  1698→                            </div>
+  1699→                          </TableCell>
+  1700→                          <TableCell className="text-sm">{m.predictions}</TableCell>
+  1701→                          <TableCell className="text-sm">{m.avgConfidence}%</TableCell>
+  1702→                        </TableRow>
+  1703→                      ))}
+  1704→                    </TableBody>
+  1705→                  </Table>
+  1706→                </ScrollArea>
+  1707→              </div>
+  1708→              <div className="h-64">
+  1709→                <ResponsiveContainer width="100%" height="100%">
+  1710→                  <BarChart data={modelPerfData}>
+  1711→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+  1712→                    <XAxis dataKey="model" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+  1713→                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} domain={[0, 100]} />
+  1714→                    <RTooltip content={<ChartTooltip />} />
+  1715→                    <Bar dataKey="accuracy" fill="#00e676" name="Accuracy" radius={[4, 4, 0, 0]} />
+  1716→                    <Bar dataKey="avgConfidence" fill="#00b4d8" name="Confidence" radius={[4, 4, 0, 0]} />
+  1717→                  </BarChart>
+  1718→                </ResponsiveContainer>
+  1719→              </div>
+  1720→            </div>
+  1721→          </SectionCard>
+  1722→
+  1723→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1724→            {/* Feature 19: Match Prediction Heatmap */}
+  1725→            <SectionCard title="Match Prediction Heatmap" icon={Target}>
+  1726→              <div className="space-y-2">
+  1727→                {heatmapData.map((item) => {
+  1728→                  const intensity = item.accuracy / 100
+  1729→                  const bg = intensity > 0.7 ? 'bg-emerald-500/30 border-emerald-500/20' :
+  1730→                             intensity > 0.5 ? 'bg-amber-500/20 border-amber-500/20' :
+  1731→                             'bg-red-500/20 border-red-500/20'
+  1732→                  return (
+  1733→                    <div key={item.stage} className={`flex items-center justify-between p-2.5 rounded-lg border ${bg}`}>
+  1734→                      <span className="text-sm font-medium">{item.stage}</span>
+  1735→                      <div className="flex items-center gap-3">
+  1736→                        <span className="text-xs text-muted-foreground">{item.predictions} preds</span>
+  1737→                        <span className="text-sm font-bold">{item.accuracy}%</span>
+  1738→                      </div>
+  1739→                    </div>
+  1740→                  )
+  1741→                })}
+  1742→              </div>
+  1743→            </SectionCard>
+  1744→
+  1745→            {/* Feature 22: Funnel Analysis */}
+  1746→            <SectionCard title="Conversion Funnel" icon={Filter}>
+  1747→              <div className="h-64">
+  1748→                <ResponsiveContainer width="100%" height="100%">
+  1749→                  <BarChart data={funnelData} layout="vertical">
+  1750→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+  1751→                    <XAxis type="number" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+  1752→                    <YAxis type="category" dataKey="stage" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} width={110} />
+  1753→                    <RTooltip content={<ChartTooltip />} />
+  1754→                    <Bar dataKey="count" name="Users" radius={[0, 4, 4, 0]}>
+  1755→                      {funnelData.map((_, i) => (
+  1756→                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+  1757→                      ))}
+  1758→                    </Bar>
+  1759→                  </BarChart>
+  1760→                </ResponsiveContainer>
+  1761→              </div>
+  1762→              <div className="flex flex-wrap gap-2 mt-2">
+  1763→                {funnelData.map((item, i) => (
+  1764→                  <div key={item.stage} className="text-center">
+  1765→                    <p className="text-[10px] text-muted-foreground">{item.stage}</p>
+  1766→                    <p className="text-sm font-bold" style={{ color: CHART_COLORS[i % CHART_COLORS.length] }}>{item.pct}%</p>
+  1767→                  </div>
+  1768→                ))}
+  1769→              </div>
+  1770→            </SectionCard>
+  1771→          </div>
+  1772→
+  1773→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1774→            {/* Feature 20: A/B Test Manager */}
+  1775→            <SectionCard title="A/B Test Manager" icon={GitBranch}>
+  1776→              <ScrollArea className="max-h-72">
+  1777→                <div className="space-y-3">
+  1778→                  {abTestData.map((test) => (
+  1779→                    <div key={test.id} className="p-3 rounded-lg bg-muted/20 space-y-2">
+  1780→                      <div className="flex items-center justify-between">
+  1781→                        <p className="text-sm font-medium">{test.name}</p>
+  1782→                        <div className="flex items-center gap-2">
+  1783→                          {test.significant && <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">Significant</Badge>}
+  1784→                          <Badge variant={test.status === 'Winner' ? 'default' : 'outline'} className={test.status === 'Winner' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px]' : 'text-[10px]'}>
+  1785→                            {test.status}
+  1786→                          </Badge>
+  1787→                        </div>
+  1788→                      </div>
+  1789→                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+  1790→                        <span>Variant: {test.variant}</span>
+  1791→                        <span className={test.metric.startsWith('+') ? 'text-emerald-400 font-medium' : 'text-red-400 font-medium'}>{test.metric}</span>
+  1792→                      </div>
+  1793→                      <p className="text-[10px] text-muted-foreground">Started: {test.startDate}</p>
+  1794→                    </div>
+  1795→                  ))}
+  1796→                </div>
+  1797→              </ScrollArea>
+  1798→            </SectionCard>
+  1799→
+  1800→            {/* Feature 21: Feature Usage Analytics */}
+  1801→            <SectionCard title="Feature Usage Analytics" icon={BarChart3}>
+  1802→              <div className="h-72">
+  1803→                <ResponsiveContainer width="100%" height="100%">
+  1804→                  <BarChart data={featureUsageData} layout="vertical">
+  1805→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+  1806→                    <XAxis type="number" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} domain={[0, 100]} />
+  1807→                    <YAxis type="category" dataKey="feature" tick={{ fontSize: 9, fill: 'oklch(0.6 0 0)' }} width={80} />
+  1808→                    <RTooltip content={<ChartTooltip />} />
+  1809→                    <Bar dataKey="usage" fill="#00e676" name="Usage %" radius={[0, 4, 4, 0]}>
+  1810→                      {featureUsageData.map((entry, i) => (
+  1811→                        <Cell key={i} fill={entry.usage > 70 ? '#00e676' : entry.usage > 40 ? '#00b4d8' : '#ffd700'} />
+  1812→                      ))}
+  1813→                    </Bar>
+  1814→                  </BarChart>
+  1815→                </ResponsiveContainer>
+  1816→              </div>
+  1817→            </SectionCard>
+  1818→          </div>
+  1819→        </TabsContent>
+  1820→
+  1821→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1822→        {/* TAB 5: FINANCE                                                        */}
+  1823→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1824→        <TabsContent value="finance" className="space-y-6 mt-6">
+  1825→          {/* Feature 23: Revenue Dashboard */}
+  1826→          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+  1827→            <StatCard title="MRR" value={`$${(stats?.revenueEstimate || 0).toFixed(2)}`} icon={DollarSign} change={18.2} color="emerald" />
+  1828→            <StatCard title="ARR" value={`$${((stats?.revenueEstimate || 0) * 12).toFixed(0)}`} icon={TrendingUp} change={18.2} color="emerald" />
+  1829→            <StatCard title="Churn Rate" value="3.2%" icon={TrendingDown} change={-1.5} color="red" />
+  1830→            <StatCard title="LTV" value="$142" icon={Crown} change={5.4} color="gold" />
+  1831→            <StatCard title="ARPU" value="$12.80" icon={Users} change={2.1} color="blue" />
+  1832→          </div>
+  1833→
+  1834→          {/* Revenue Trend Chart */}
+  1835→          <SectionCard title="Revenue Trend" icon={ChartLine}>
+  1836→            <div className="h-64">
+  1837→              <ResponsiveContainer width="100%" height="100%">
+  1838→                <AreaChart data={revenueTrendData}>
+  1839→                  <defs>
+  1840→                    <linearGradient id="gradProRev" x1="0" y1="0" x2="0" y2="1">
+  1841→                      <stop offset="5%" stopColor="#00b4d8" stopOpacity={0.3} />
+  1842→                      <stop offset="95%" stopColor="#00b4d8" stopOpacity={0} />
+  1843→                    </linearGradient>
+  1844→                    <linearGradient id="gradEliteRev" x1="0" y1="0" x2="0" y2="1">
+  1845→                      <stop offset="5%" stopColor="#ffd700" stopOpacity={0.3} />
+  1846→                      <stop offset="95%" stopColor="#ffd700" stopOpacity={0} />
+  1847→                    </linearGradient>
+  1848→                  </defs>
+  1849→                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+  1850→                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+  1851→                  <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+  1852→                  <RTooltip content={<ChartTooltip />} />
+  1853→                  <Area type="monotone" dataKey="pro" stackId="rev" stroke="#00b4d8" fill="url(#gradProRev)" name="Pro Revenue" />
+  1854→                  <Area type="monotone" dataKey="elite" stackId="rev" stroke="#ffd700" fill="url(#gradEliteRev)" name="Elite Revenue" />
+  1855→                </AreaChart>
+  1856→              </ResponsiveContainer>
+  1857→            </div>
+  1858→          </SectionCard>
+  1859→
+  1860→          {/* Feature 25: Revenue by Plan Chart */}
+  1861→          <SectionCard title="Revenue by Plan (Over Time)" icon={PieChart as any}>
+  1862→            <div className="h-64">
+  1863→              <ResponsiveContainer width="100%" height="100%">
+  1864→                <AreaChart data={revenueTrendData}>
+  1865→                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+  1866→                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+  1867→                  <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+  1868→                  <RTooltip content={<ChartTooltip />} />
+  1869→                  <Area type="monotone" dataKey="pro" stroke="#00b4d8" fill="#00b4d8" fillOpacity={0.15} name="Pro" strokeWidth={2} />
+  1870→                  <Area type="monotone" dataKey="elite" stroke="#ffd700" fill="#ffd700" fillOpacity={0.15} name="Elite" strokeWidth={2} />
+  1871→                </AreaChart>
+  1872→              </ResponsiveContainer>
+  1873→            </div>
+  1874→          </SectionCard>
+  1875→
+  1876→          {/* Feature 24: Subscription Management */}
+  1877→          <SectionCard title="Subscription Management" icon={CreditCard}>
+  1878→            <ScrollArea className="max-h-72">
+  1879→              <Table>
+  1880→                <TableHeader>
+  1881→                  <TableRow>
+  1882→                    <TableHead>User</TableHead>
+  1883→                    <TableHead>Plan</TableHead>
+  1884→                    <TableHead>Amount</TableHead>
+  1885→                    <TableHead>Status</TableHead>
+  1886→                    <TableHead>Next Billing</TableHead>
+  1887→                    <TableHead className="text-right">Actions</TableHead>
+  1888→                  </TableRow>
+  1889→                </TableHeader>
+  1890→                <TableBody>
+  1891→                  {subscriptionData.map((sub) => (
+  1892→                    <TableRow key={sub.id}>
+  1893→                      <TableCell className="text-sm">{sub.email}</TableCell>
+  1894→                      <TableCell>
+  1895→                        <Badge variant="outline" className={PLAN_COLORS[sub.plan.toLowerCase()] || ''}>{sub.plan}</Badge>
+  1896→                      </TableCell>
+  1897→                      <TableCell className="text-sm font-mono">{sub.amount}</TableCell>
+  1898→                      <TableCell>
+  1899→                        <Badge variant={sub.status === 'active' ? 'outline' : sub.status === 'past_due' ? 'destructive' : 'secondary'}
+  1900→                          className={sub.status === 'active' ? 'border-emerald-500/30 text-emerald-400 text-xs' : 'text-xs'}>
+  1901→                          {sub.status}
+  1902→                        </Badge>
+  1903→                      </TableCell>
+  1904→                      <TableCell className="text-xs text-muted-foreground">{sub.nextBilling}</TableCell>
+  1905→                      <TableCell className="text-right">
+  1906→                        <Button size="sm" variant="ghost" className="h-7 text-xs"
+  1907→                          onClick={() => toast.success(`Managing subscription for ${sub.email}`)}>
+  1908→                          Manage
+  1909→                        </Button>
+  1910→                      </TableCell>
+  1911→                    </TableRow>
+  1912→                  ))}
+  1913→                </TableBody>
+  1914→              </Table>
+  1915→            </ScrollArea>
+  1916→          </SectionCard>
+  1917→        </TabsContent>
+  1918→
+  1919→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1920→        {/* TAB 6: SYSTEM                                                         */}
+  1921→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1922→        <TabsContent value="system" className="space-y-6 mt-6">
+  1923→          {/* Feature 26: System Settings Panel */}
+  1924→          <SectionCard title="System Settings" icon={Settings}>
+  1925→            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1926→              {[
+  1927→                { key: 'registration_open', label: 'Registration Open', type: 'boolean', default: 'true' },
+  1928→                { key: 'maintenance_mode', label: 'Maintenance Mode', type: 'boolean', default: 'false' },
+  1929→                { key: 'max_predictions_free', label: 'Max Predictions (Free)', type: 'number', default: '5' },
+  1930→                { key: 'ai_chat_enabled', label: 'AI Chat Enabled', type: 'boolean', default: 'true' },
+  1931→                { key: 'default_user_plan', label: 'Default User Plan', type: 'string', default: 'free' },
+  1932→                { key: 'prediction_lockout_hours', label: 'Prediction Lockout (hrs)', type: 'number', default: '1' },
+  1933→                { key: 'max_login_attempts', label: 'Max Login Attempts', type: 'number', default: '5' },
+  1934→                { key: 'session_timeout_minutes', label: 'Session Timeout (min)', type: 'number', default: '60' },
+  1935→              ].map(setting => {
+  1936→                const existing = settingsList.find((s: any) => s.key === setting.key)
+  1937→                const value = existing?.value || setting.default
+  1938→                return (
+  1939→                  <div key={setting.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/20">
+  1940→                    <div>
+  1941→                      <p className="text-sm font-medium">{setting.label}</p>
+  1942→                      <p className="text-[10px] text-muted-foreground font-mono">{setting.key}</p>
+  1943→                    </div>
+  1944→                    {setting.type === 'boolean' ? (
+  1945→                      <Switch checked={value === 'true'} onCheckedChange={(checked) => handleToggleSetting(setting.key, String(checked))} />
+  1946→                    ) : (
+  1947→                      <Input className="w-20 h-8 text-right text-sm" value={value}
+  1948→                        onChange={e => handleToggleSetting(setting.key, e.target.value)} />
+  1949→                    )}
+  1950→                  </div>
+  1951→                )
+  1952→              })}
+  1953→            </div>
+  1954→          </SectionCard>
+  1955→
+  1956→          {/* Feature 27: Feature Flags Manager */}
+  1957→          <SectionCard title="Feature Flags" icon={ToggleLeft}>
+  1958→            <ScrollArea className="max-h-72">
+  1959→              <div className="space-y-2">
+  1960→                {featureFlags.map((flag: any) => {
+  1961→                  const targetRoles: string[] = (() => { try { return JSON.parse(flag.targetRoles || '[]') } catch { return [] } })()
+  1962→                  return (
+  1963→                    <div key={flag.id} className="p-3 rounded-lg bg-muted/20 space-y-2">
+  1964→                      <div className="flex items-center justify-between">
+  1965→                        <div className="flex items-center gap-2">
+  1966→                          <Switch checked={flag.isEnabled} onCheckedChange={() => handleToggleFlag(flag)} />
+  1967→                          <div>
+  1968→                            <p className="text-sm font-medium font-mono">{flag.name}</p>
+  1969→                            <p className="text-xs text-muted-foreground">{flag.description || 'No description'}</p>
+  1970→                          </div>
+  1971→                        </div>
+  1972→                        <Badge variant={flag.isEnabled ? 'outline' : 'secondary'}
+  1973→                          className={flag.isEnabled ? 'border-emerald-500/30 text-emerald-400 text-[10px]' : 'text-[10px]'}>
+  1974→                          {flag.isEnabled ? 'Enabled' : 'Disabled'}
+  1975→                        </Badge>
+  1976→                      </div>
+  1977→                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+  1978→                        <span>Rollout: {flag.rollout || 100}%</span>
+  1979→                        <span>Target: {targetRoles.length > 0 ? targetRoles.join(', ') : 'All'}</span>
+  1980→                        <div className="flex-1" />
+  1981→                        <Slider value={[flag.rollout || 100]} max={100} step={5} className="w-24"
+  1982→                          onValueChange={([v]) => handleUpdateFlag(flag, { rollout: v })} />
+  1983→                      </div>
+  1984→                    </div>
+  1985→                  )
+  1986→                })}
+  1987→                {featureFlags.length === 0 && <EmptyState message="No feature flags configured" />}
+  1988→              </div>
+  1989→            </ScrollArea>
+  1990→          </SectionCard>
+  1991→
+  1992→          {/* Feature 28: API Request Logs */}
+  1993→          <SectionCard title="API Request Logs" icon={FileText}>
+  1994→            <div className="space-y-3">
+  1995→              <div className="flex items-center gap-2">
+  1996→                <span className="text-xs text-muted-foreground">Filter:</span>
+  1997→                {['all', '2xx', '3xx', '4xx', '5xx'].map(f => (
+  1998→                  <Button key={f} size="sm" variant={logStatusFilter === f ? 'default' : 'outline'} className="h-7 text-xs"
+  1999→                    onClick={() => { setLogStatusFilter(f); fetchLogsPage(1) }}>
+  2000→                    {f === 'all' ? 'All' : f}
+
+[showing lines 1-2000 of 2265; use offset=2001 with limit to continue reading]

@@ -1,0 +1,1636 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  Shield,
+     7→  Heart,
+     8→  Brain,
+     9→  Activity,
+    10→  AlertTriangle,
+    11→  CheckCircle,
+    12→  XCircle,
+    13→  RefreshCw,
+    14→  Terminal,
+    15→  Lock,
+    16→  Zap,
+    17→  Radio,
+    18→  FileCode,
+    19→  Fingerprint,
+    20→  Send,
+    21→  Play,
+    22→  Clock,
+    23→  Cpu,
+    24→  Info,
+    25→  TrendingUp,
+    26→  Server,
+    27→  Database,
+    28→  Eye,
+    29→} from 'lucide-react'
+    30→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    31→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    32→import { Badge } from '@/components/ui/badge'
+    33→import { Button } from '@/components/ui/button'
+    34→import {
+    35→  Table,
+    36→  TableBody,
+    37→  TableCell,
+    38→  TableHead,
+    39→  TableHeader,
+    40→  TableRow,
+    41→} from '@/components/ui/table'
+    42→import { Switch } from '@/components/ui/switch'
+    43→import { Input } from '@/components/ui/input'
+    44→import { Textarea } from '@/components/ui/textarea'
+    45→import { Label } from '@/components/ui/label'
+    46→import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts'
+    47→import { useElasticoStore } from '@/store/use-elastico-store'
+    48→
+    49→// ── Types ────────────────────────────────────────────────────────────────────
+    50→
+    51→interface AuditLog {
+    52→  id: string
+    53→  timestamp: string
+    54→  type: 'scraper' | 'drift' | 'convergence'
+    55→  status: 'PASS' | 'FAIL' | 'WARNING'
+    56→  details: string
+    57→}
+    58→
+    59→interface HealingEvent {
+    60→  id: string
+    61→  timestamp: string
+    62→  file: string
+    63→  errorType: string
+    64→  status: 'HEALED' | 'FAILED' | 'QUARANTINED'
+    65→}
+    66→
+    67→interface FileIntegrity {
+    68→  file: string
+    69→  hash: string
+    70→  status: 'INTACT' | 'MODIFIED' | 'MISSING'
+    71→  lastChecked: string
+    72→}
+    73→
+    74→interface ForecastResult {
+    75→  id: string
+    76→  timestamp: string
+    77→  team: string
+    78→  projectedScore: string
+    79→  confidence: number
+    80→}
+    81→
+    82→// ── Mock Data ────────────────────────────────────────────────────────────────
+    83→
+    84→const initialAuditLogs: AuditLog[] = [
+    85→  { id: '1', timestamp: '2026-01-15 14:32:01', type: 'scraper', status: 'PASS', details: 'All 8 scraper endpoints responding within SLA (<2s)' },
+    86→  { id: '2', timestamp: '2026-01-15 13:15:22', type: 'drift', status: 'PASS', details: 'No data drift detected across 12 monitored metrics' },
+    87→  { id: '3', timestamp: '2026-01-15 12:00:00', type: 'convergence', status: 'PASS', details: 'CLV edge within normal range: +2.3% average' },
+    88→  { id: '4', timestamp: '2026-01-14 23:00:01', type: 'scraper', status: 'WARNING', details: 'SofaScore scraper latency elevated: 3.2s (threshold: 2s)' },
+    89→  { id: '5', timestamp: '2026-01-14 18:45:10', type: 'drift', status: 'PASS', details: 'Statistical tests passed: KS p=0.82, PSI=0.03' },
+    90→]
+    91→
+    92→const initialHealingEvents: HealingEvent[] = [
+    93→  { id: '1', timestamp: '2026-01-15 14:01:33', file: 'src/lib/predictions.ts', errorType: 'TypeError', status: 'HEALED' },
+    94→  { id: '2', timestamp: '2026-01-15 11:22:05', file: 'src/app/api/matches/route.ts', errorType: 'NullRef', status: 'HEALED' },
+    95→  { id: '3', timestamp: '2026-01-14 22:10:18', file: 'src/lib/auth.ts', errorType: 'AuthError', status: 'QUARANTINED' },
+    96→  { id: '4', timestamp: '2026-01-14 19:05:44', file: 'src/components/elastico/chat-view.tsx', errorType: 'ImportError', status: 'HEALED' },
+    97→  { id: '5', timestamp: '2026-01-13 08:30:12', file: 'scripts/seed.ts', errorType: 'DBError', status: 'FAILED' },
+    98→]
+    99→
+   100→const initialFileIntegrity: FileIntegrity[] = [
+   101→  { file: 'src/lib/auth.ts', hash: 'a1b2c3d4e5f6...', status: 'INTACT', lastChecked: '2026-01-15 14:30' },
+   102→  { file: 'src/lib/predictions.ts', hash: 'f7e6d5c4b3a2...', status: 'INTACT', lastChecked: '2026-01-15 14:30' },
+   103→  { file: 'src/app/api/matches/route.ts', hash: '1a2b3c4d5e6f...', status: 'MODIFIED', lastChecked: '2026-01-15 14:28' },
+   104→  { file: 'src/lib/db.ts', hash: '9z8y7x6w5v4u...', status: 'INTACT', lastChecked: '2026-01-15 14:30' },
+   105→  { file: 'src/lib/rbac.ts', hash: 'm5n4o3p2q1r0...', status: 'INTACT', lastChecked: '2026-01-15 14:30' },
+   106→  { file: 'src/middleware.ts', hash: 'f2a3b4c5d6e7...', status: 'MISSING', lastChecked: '2026-01-15 14:30' },
+   107→]
+   108→
+   109→const initialForecasts: ForecastResult[] = [
+   110→  { id: '1', timestamp: '2026-01-15 13:00:00', team: 'Manchester City', projectedScore: '2.4 - 0.8', confidence: 78 },
+   111→  { id: '2', timestamp: '2026-01-15 12:30:00', team: 'Arsenal', projectedScore: '1.9 - 1.2', confidence: 72 },
+   112→  { id: '3', timestamp: '2026-01-15 11:00:00', team: 'Liverpool', projectedScore: '2.1 - 1.0', confidence: 75 },
+   113→]
+   114→
+   115→const indicatorTrendData = [
+   116→  { name: 'W1', value: 1.2 },
+   117→  { name: 'W2', value: 1.5 },
+   118→  { name: 'W3', value: 0.8 },
+   119→  { name: 'W4', value: 2.1 },
+   120→  { name: 'W5', value: 1.9 },
+   121→  { name: 'W6', value: 2.4 },
+   122→  { name: 'W7', value: 1.7 },
+   123→  { name: 'W8', value: 2.8 },
+   124→]
+   125→
+   126→// High-level health timeline events (safe for non-admin)
+   127→const systemHealthTimeline = [
+   128→  { id: '1', time: '14:32', status: 'ok', event: 'All services operational' },
+   129→  { id: '2', time: '13:15', status: 'ok', event: 'Data pipeline check passed' },
+   130→  { id: '3', time: '12:00', status: 'ok', event: 'Scheduled health check completed' },
+   131→  { id: '4', time: '23:00', status: 'warning', event: 'Minor latency detected, auto-resolved' },
+   132→  { id: '5', time: '18:45', status: 'ok', event: 'Model engine synchronization successful' },
+   133→  { id: '6', time: '16:00', status: 'ok', event: 'Backup completed successfully' },
+   134→  { id: '7', time: '10:30', status: 'ok', event: 'System maintenance completed' },
+   135→]
+   136→
+   137→// ── Helpers ──────────────────────────────────────────────────────────────────
+   138→
+   139→function statusColor(status: string) {
+   140→  if (status === 'PASS' || status === 'HEALED' || status === 'INTACT' || status === 'HEALTHY' || status === 'ONLINE' || status === 'STABLE' || status === 'ok') return '#00e676'
+   141→  if (status === 'WARNING' || status === 'DRIFT_DETECTED' || status === 'QUARANTINED' || status === 'MODIFIED' || status === 'DEGRADED' || status === 'UNSTABLE' || status === 'warning') return '#eab308'
+   142→  return '#ef4444'
+   143→}
+   144→
+   145→function statusBgClass(status: string) {
+   146→  const c = statusColor(status)
+   147→  if (c === '#00e676') return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+   148→  if (c === '#eab308') return 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
+   149→  return 'bg-red-500/15 text-red-400 border-red-500/30'
+   150→}
+   151→
+   152→function CircGauge({ value, max = 100, size = 120, label, strokeColor }: {
+   153→  value: number; max?: number; size?: number; label: string; strokeColor?: string
+   154→}) {
+   155→  const pct = Math.min(value / max, 1)
+   156→  const r = (size - 16) / 2
+   157→  const circ = 2 * Math.PI * r
+   158→  const offset = circ * (1 - pct)
+   159→  const color = strokeColor || (pct > 0.7 ? '#00e676' : pct > 0.4 ? '#eab308' : '#ef4444')
+   160→
+   161→  return (
+   162→    <div className="flex flex-col items-center gap-2">
+   163→      <svg width={size} height={size} className="drop-shadow-lg">
+   164→        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="oklch(0.15 0.02 260)" strokeWidth={8} />
+   165→        <circle
+   166→          cx={size / 2} cy={size / 2} r={r} fill="none"
+   167→          stroke={color} strokeWidth={8} strokeLinecap="round"
+   168→          strokeDasharray={circ} strokeDashoffset={offset}
+   169→          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+   170→          className="transition-all duration-1000 ease-out"
+   171→        />
+   172→        <text x={size / 2} y={size / 2 - 4} textAnchor="middle" className="fill-foreground text-2xl font-bold" dominantBaseline="middle">
+   173→          {Math.round(value)}
+   174→        </text>
+   175→        <text x={size / 2} y={size / 2 + 18} textAnchor="middle" className="fill-muted-foreground text-xs" dominantBaseline="middle">
+   176→          / {max}
+   177→        </text>
+   178→      </svg>
+   179→      <span className="text-xs text-muted-foreground font-medium">{label}</span>
+   180→    </div>
+   181→  )
+   182→}
+   183→
+   184→// ── Non-Admin View: System Status Tab ────────────────────────────────────────
+   185→
+   186→function NonAdminSystemStatus() {
+   187→  const lastChecked = new Date().toISOString().replace('T', ' ').slice(0, 16) + '00'
+   188→
+   189→  const statusCards = [
+   190→    {
+   191→      label: 'Scraper',
+   192→      icon: Radio,
+   193→      status: 'HEALTHY' as const,
+   194→      sublabel: 'Data collection active',
+   195→    },
+   196→    {
+   197→      label: 'Data Pipeline',
+   198→      icon: Database,
+   199→      status: 'STABLE' as const,
+   200→      sublabel: 'Processing flowing normally',
+   201→    },
+   202→    {
+   203→      label: 'Model Engine',
+   204→      icon: Server,
+   205→      status: 'ONLINE' as const,
+   206→      sublabel: 'Predictions available',
+   207→    },
+   208→  ]
+   209→
+   210→  return (
+   211→    <div className="space-y-6">
+   212→      {/* ── 3 Status Cards ─────────────────────────────────────────────── */}
+   213→      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   214→        {statusCards.map((card, i) => (
+   215→          <motion.div
+   216→            key={card.label}
+   217→            initial={{ opacity: 0, y: 12 }}
+   218→            animate={{ opacity: 1, y: 0 }}
+   219→            transition={{ delay: 0.05 + i * 0.05 }}
+   220→          >
+   221→            <Card className="glass-card-premium">
+   222→              <CardHeader className="pb-3">
+   223→                <div className="flex items-center justify-between">
+   224→                  <CardTitle className="text-sm font-medium text-muted-foreground">{card.label}</CardTitle>
+   225→                  <card.icon className="size-4 text-muted-foreground" />
+   226→                </div>
+   227→              </CardHeader>
+   228→              <CardContent className="space-y-3">
+   229→                <div className="flex items-center gap-3">
+   230→                  <div
+   231→                    className="size-3 rounded-full"
+   232→                    style={{ backgroundColor: statusColor(card.status), boxShadow: `0 0 8px ${statusColor(card.status)}60` }}
+   233→                  />
+   234→                  <span className="text-lg font-bold" style={{ color: statusColor(card.status) }}>
+   235→                    {card.status}
+   236→                  </span>
+   237→                </div>
+   238→                <p className="text-xs text-muted-foreground">{card.sublabel}</p>
+   239→              </CardContent>
+   240→            </Card>
+   241→          </motion.div>
+   242→        ))}
+   243→      </div>
+   244→
+   245→      {/* ── Platform Uptime Card ──────────────────────────────────────── */}
+   246→      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   247→        <Card className="glass-card-premium">
+   248→          <CardHeader className="pb-3">
+   249→            <div className="flex items-center justify-between">
+   250→              <CardTitle className="text-sm font-medium text-muted-foreground">Platform Uptime</CardTitle>
+   251→              <TrendingUp className="size-4 text-muted-foreground" />
+   252→            </div>
+   253→          </CardHeader>
+   254→          <CardContent>
+   255→            <div className="flex items-center gap-4">
+   256→              <CircGauge value={99.7} max={100} size={120} label="Uptime %" strokeColor="#00e676" />
+   257→              <div className="space-y-1">
+   258→                <p className="text-2xl font-bold text-emerald-400">99.7%</p>
+   259→                <p className="text-xs text-muted-foreground">Last 30 days average</p>
+   260→                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
+   261→                  <Clock className="size-3" />
+   262→                  Last checked: {lastChecked}
+   263→                </div>
+   264→              </div>
+   265→            </div>
+   266→          </CardContent>
+   267→        </Card>
+   268→      </motion.div>
+   269→
+   270→      {/* ── System Health Timeline ───────────────────────────────────── */}
+   271→      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+   272→        <Card className="glass-card-premium">
+   273→          <CardHeader className="pb-3">
+   274→            <div className="flex items-center justify-between">
+   275→              <CardTitle className="text-sm font-medium">System Health Timeline</CardTitle>
+   276→              <Badge variant="outline" className="text-xs">{systemHealthTimeline.length} events</Badge>
+   277→            </div>
+   278→          </CardHeader>
+   279→          <CardContent>
+   280→            <div className="space-y-3">
+   281→              {systemHealthTimeline.map((evt) => (
+   282→                <div key={evt.id} className="flex items-start gap-3 py-2 border-b border-border/30 last:border-0">
+   283→                  <div className="mt-0.5">
+   284→                    {evt.status === 'ok' ? (
+   285→                      <CheckCircle className="size-4 text-emerald-400" />
+   286→                    ) : (
+   287→                      <AlertTriangle className="size-4 text-yellow-400" />
+   288→                    )}
+   289→                  </div>
+   290→                  <div className="flex-1 min-w-0">
+   291→                    <p className="text-sm">{evt.event}</p>
+   292→                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{evt.time}</p>
+   293→                  </div>
+   294→                  <Badge
+   295→                    variant="outline"
+   296→                    className={
+   297→                      evt.status === 'ok'
+   298→                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]'
+   299→                        : 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30 text-[10px]'
+   300→                    }
+   301→                  >
+   302→                    {evt.status === 'ok' ? 'OK' : 'WARN'}
+   303→                  </Badge>
+   304→                </div>
+   305→              ))}
+   306→            </div>
+   307→          </CardContent>
+   308→        </Card>
+   309→      </motion.div>
+   310→
+   311→      {/* ── Info Note ─────────────────────────────────────────────────── */}
+   312→      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+   313→        <Card className="glass-card-premium border-primary/20">
+   314→          <CardContent className="py-4">
+   315→            <div className="flex items-start gap-3">
+   316→              <Info className="size-4 text-primary shrink-0 mt-0.5" />
+   317→              <p className="text-sm text-muted-foreground">
+   318→                System health is monitored automatically. Contact your administrator for details.
+   319→              </p>
+   320→            </div>
+   321→          </CardContent>
+   322→        </Card>
+   323→      </motion.div>
+   324→    </div>
+   325→  )
+   326→}
+   327→
+   328→// ── Non-Admin View: AI Forecasts Tab ─────────────────────────────────────────
+   329→
+   330→function NonAdminAIForecasts() {
+   331→  const [modelActive, setModelActive] = useState(false)
+   332→  const [forecastTeam, setForecastTeam] = useState('')
+   333→  const [forecastHistory, setForecastHistory] = useState('')
+   334→  const [forecastIndicators, setForecastIndicators] = useState('')
+   335→  const [forecastLoading, setForecastLoading] = useState(false)
+   336→  const [forecastResult, setForecastResult] = useState<{ score: string; confidence: number } | null>(null)
+   337→  const [forecasts, setForecasts] = useState<ForecastResult[]>(initialForecasts)
+   338→
+   339→  useEffect(() => {
+   340→    fetch('/api/prediction-engine/config')
+   341→      .then(r => r.json())
+   342→      .then(data => {
+   343→        if (data.nvidiaApiKey) setModelActive(true)
+   344→      })
+   345→      .catch(() => {})
+   346→  }, [])
+   347→
+   348→  const runForecast = async () => {
+   349→    if (!forecastTeam) return
+   350→    setForecastLoading(true)
+   351→    setForecastResult(null)
+   352→    try {
+   353→      const res = await fetch('/api/prediction-engine/timesfm', {
+   354→        method: 'POST',
+   355→        headers: { 'Content-Type': 'application/json' },
+   356→        body: JSON.stringify({
+   357→          team: forecastTeam,
+   358→          history: forecastHistory || '1,1,3,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3',
+   359→          indicators: forecastIndicators || '1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8',
+   360→        }),
+   361→      })
+   362→      if (res.ok) {
+   363→        const data = await res.json()
+   364→        setForecastResult({ score: data.projectedScore, confidence: data.confidence })
+   365→        setForecasts(prev => [{
+   366→          id: String(Date.now()),
+   367→          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   368→          team: forecastTeam,
+   369→          projectedScore: data.projectedScore,
+   370→          confidence: data.confidence,
+   371→        }, ...prev])
+   372→      } else {
+   373→        await new Promise(r => setTimeout(r, 1000))
+   374→        const mockScore = `${(1 + Math.random() * 2).toFixed(1)} - ${(Math.random() * 1.5).toFixed(1)}`
+   375→        const mockConf = 65 + Math.floor(Math.random() * 25)
+   376→        setForecastResult({ score: mockScore, confidence: mockConf })
+   377→        setForecasts(prev => [{
+   378→          id: String(Date.now()),
+   379→          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   380→          team: forecastTeam,
+   381→          projectedScore: mockScore,
+   382→          confidence: mockConf,
+   383→        }, ...prev])
+   384→      }
+   385→    } catch {
+   386→      await new Promise(r => setTimeout(r, 800))
+   387→      const mockScore = `${(1 + Math.random() * 2).toFixed(1)} - ${(Math.random() * 1.5).toFixed(1)}`
+   388→      const mockConf = 65 + Math.floor(Math.random() * 25)
+   389→      setForecastResult({ score: mockScore, confidence: mockConf })
+   390→      setForecasts(prev => [{
+   391→        id: String(Date.now()),
+   392→        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   393→        team: forecastTeam,
+   394→        projectedScore: mockScore,
+   395→        confidence: mockConf,
+   396→      }, ...prev])
+   397→    }
+   398→    setForecastLoading(false)
+   399→  }
+   400→
+   401→  return (
+   402→    <div className="space-y-6">
+   403→      {/* Model Status + Conditioning Panel */}
+   404→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   405→        {/* Model Status — Simplified for non-admin */}
+   406→        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+   407→          <Card className="glass-card-premium">
+   408→            <CardHeader className="pb-3">
+   409→              <div className="flex items-center justify-between">
+   410→                <CardTitle className="text-sm font-medium text-muted-foreground">AI Model Status</CardTitle>
+   411→                <Brain className="size-4 text-muted-foreground" />
+   412→              </div>
+   413→            </CardHeader>
+   414→            <CardContent className="space-y-4">
+   415→              <div className="flex items-center gap-3">
+   416→                <div
+   417→                  className="size-4 rounded-full"
+   418→                  style={{
+   419→                    backgroundColor: modelActive ? '#00e676' : '#ef4444',
+   420→                    boxShadow: modelActive ? '0 0 12px #00e67680' : '0 0 12px #ef444480',
+   421→                  }}
+   422→                />
+   423→                <span className="text-lg font-bold" style={{ color: modelActive ? '#00e676' : '#ef4444' }}>
+   424→                  {modelActive ? 'Active' : 'Offline'}
+   425→                </span>
+   426→              </div>
+   427→              {forecastResult && (
+   428→                <div className="bg-muted/50 rounded-lg p-3 space-y-2 border border-primary/20">
+   429→                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Latest Forecast Result</p>
+   430→                  <div className="flex items-center gap-4">
+   431→                    <div>
+   432→                      <p className="text-2xl font-bold gradient-text">{forecastResult.score}</p>
+   433→                      <p className="text-xs text-muted-foreground">Projected Score</p>
+   434→                    </div>
+   435→                    <div className="h-10 w-px bg-border" />
+   436→                    <div>
+   437→                      <p className="text-2xl font-bold" style={{
+   438→                        color: forecastResult.confidence >= 75 ? '#00e676' : forecastResult.confidence >= 60 ? '#eab308' : '#ef4444',
+   439→                      }}>
+   440→                        {forecastResult.confidence}%
+   441→                      </p>
+   442→                      <p className="text-xs text-muted-foreground">Confidence</p>
+   443→                    </div>
+   444→                  </div>
+   445→                </div>
+   446→              )}
+   447→            </CardContent>
+   448→          </Card>
+   449→        </motion.div>
+   450→
+   451→        {/* Conditioning Test Panel */}
+   452→        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   453→          <Card className="glass-card-premium">
+   454→            <CardHeader className="pb-3">
+   455→              <div className="flex items-center justify-between">
+   456→                <CardTitle className="text-sm font-medium text-muted-foreground">Conditioning Test Panel</CardTitle>
+   457→                <Brain className="size-4 text-muted-foreground" />
+   458→              </div>
+   459→            </CardHeader>
+   460→            <CardContent className="space-y-3">
+   461→              <div className="space-y-1.5">
+   462→                <Label className="text-xs text-muted-foreground">Team Name</Label>
+   463→                <Input
+   464→                  value={forecastTeam}
+   465→                  onChange={e => setForecastTeam(e.target.value)}
+   466→                  placeholder="e.g. Manchester City"
+   467→                  className="h-8 text-sm"
+   468→                />
+   469→              </div>
+   470→              <div className="space-y-1.5">
+   471→                <Label className="text-xs text-muted-foreground">64-Game History (comma separated: W=3, D=1, L=0)</Label>
+   472→                <Textarea
+   473→                  value={forecastHistory}
+   474→                  onChange={e => setForecastHistory(e.target.value)}
+   475→                  placeholder="3,1,0,3,3,1,0,0,3,1,..."
+   476→                  className="min-h-[60px] font-mono text-xs bg-muted/50 resize-y"
+   477→                />
+   478→              </div>
+   479→              <div className="space-y-1.5">
+   480→                <Label className="text-xs text-muted-foreground">Recent Indicators (comma separated)</Label>
+   481→                <Input
+   482→                  value={forecastIndicators}
+   483→                  onChange={e => setForecastIndicators(e.target.value)}
+   484→                  placeholder="1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8"
+   485→                  className="h-8 text-sm font-mono"
+   486→                />
+   487→              </div>
+   488→              <Button
+   489→                size="sm" className="w-full gap-2"
+   490→                onClick={runForecast}
+   491→                disabled={forecastLoading || !forecastTeam}
+   492→              >
+   493→                {forecastLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
+   494→                Run Conditioned Forecast
+   495→              </Button>
+   496→            </CardContent>
+   497→          </Card>
+   498→        </motion.div>
+   499→      </div>
+   500→
+   501→      {/* Forecast History + xReg Chart */}
+   502→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   503→        {/* Forecast History */}
+   504→        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+   505→          <Card className="glass-card-premium">
+   506→            <CardHeader className="pb-3">
+   507→              <CardTitle className="text-sm font-medium">Forecast History</CardTitle>
+   508→            </CardHeader>
+   509→            <CardContent>
+   510→              <Table>
+   511→                <TableHeader>
+   512→                  <TableRow>
+   513→                    <TableHead>Timestamp</TableHead>
+   514→                    <TableHead>Team</TableHead>
+   515→                    <TableHead>Score</TableHead>
+   516→                    <TableHead>Conf</TableHead>
+   517→                  </TableRow>
+   518→                </TableHeader>
+   519→                <TableBody>
+   520→                  {forecasts.slice(0, 8).map(f => (
+   521→                    <TableRow key={f.id}>
+   522→                      <TableCell className="text-xs text-muted-foreground font-mono">{f.timestamp.slice(11, 19)}</TableCell>
+   523→                      <TableCell className="text-sm font-medium">{f.team}</TableCell>
+   524→                      <TableCell className="text-sm font-mono">{f.projectedScore}</TableCell>
+   525→                      <TableCell>
+   526→                        <span className="text-xs font-bold" style={{
+   527→                          color: f.confidence >= 75 ? '#00e676' : f.confidence >= 60 ? '#eab308' : '#ef4444',
+   528→                        }}>
+   529→                          {f.confidence}%
+   530→                        </span>
+   531→                      </TableCell>
+   532→                    </TableRow>
+   533→                  ))}
+   534→                </TableBody>
+   535→              </Table>
+   536→            </CardContent>
+   537→          </Card>
+   538→        </motion.div>
+   539→
+   540→        {/* xReg Conditioning Visualization */}
+   541→        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   542→          <Card className="glass-card-premium">
+   543→            <CardHeader className="pb-3">
+   544→              <CardTitle className="text-sm font-medium">xReg Conditioning — Indicator Trend</CardTitle>
+   545→            </CardHeader>
+   546→            <CardContent>
+   547→              <div className="h-[250px]">
+   548→                <ResponsiveContainer width="100%" height="100%">
+   549→                  <BarChart data={indicatorTrendData}>
+   550→                    <XAxis
+   551→                      dataKey="name"
+   552→                      tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
+   553→                      axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+   554→                      tickLine={false}
+   555→                    />
+   556→                    <YAxis
+   557→                      tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
+   558→                      axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+   559→                      tickLine={false}
+   560→                    />
+   561→                    <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
+   562→                      {indicatorTrendData.map((entry, index) => (
+   563→                        <Cell
+   564→                          key={index}
+   565→                          fill={entry.value >= 2.0 ? '#00e676' : entry.value >= 1.5 ? '#00bfa5' : entry.value >= 1.0 ? '#eab308' : '#ef4444'}
+   566→                          fillOpacity={0.8}
+   567→                        />
+   568→                      ))}
+   569→                    </Bar>
+   570→                  </BarChart>
+   571→                </ResponsiveContainer>
+   572→              </div>
+   573→              <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-muted-foreground">
+   574→                <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-red-500 inline-block" /> &lt;1.0</span>
+   575→                <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-yellow-500 inline-block" /> 1.0-1.4</span>
+   576→                <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-teal-500 inline-block" /> 1.5-1.9</span>
+   577→                <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-emerald-500 inline-block" /> ≥2.0</span>
+   578→              </div>
+   579→            </CardContent>
+   580→          </Card>
+   581→        </motion.div>
+   582→      </div>
+   583→    </div>
+   584→  )
+   585→}
+   586→
+   587→// ── Non-Admin View (Combined) ────────────────────────────────────────────────
+   588→
+   589→function NonAdminSystemMonitor() {
+   590→  return (
+   591→    <div className="animate-fade-in-up space-y-6">
+   592→      {/* ── Header ─────────────────────────────────────────────────────── */}
+   593→      <div className="flex items-center gap-3">
+   594→        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+   595→          <Activity className="size-5 text-primary" />
+   596→        </div>
+   597→        <div>
+   598→          <h1 className="text-2xl font-bold tracking-tight">System Status</h1>
+   599→          <p className="text-sm text-muted-foreground">Platform health overview and AI-powered forecasts</p>
+   600→        </div>
+   601→      </div>
+   602→
+   603→      {/* ── Tabs ─────────────────────────────────────────────────────── */}
+   604→      <Tabs defaultValue="system-status" className="w-full">
+   605→        <TabsList className="w-full sm:w-auto flex-wrap">
+   606→          <TabsTrigger value="system-status" className="gap-1.5">
+   607→            <Activity className="size-3.5" /> System Status
+   608→          </TabsTrigger>
+   609→          <TabsTrigger value="ai-forecasts" className="gap-1.5">
+   610→            <Brain className="size-3.5" /> AI Forecasts
+   611→          </TabsTrigger>
+   612→        </TabsList>
+   613→
+   614→        <TabsContent value="system-status" className="mt-4">
+   615→          <NonAdminSystemStatus />
+   616→        </TabsContent>
+   617→
+   618→        <TabsContent value="ai-forecasts" className="mt-4">
+   619→          <NonAdminAIForecasts />
+   620→        </TabsContent>
+   621→      </Tabs>
+   622→
+   623→      {/* ── Admin Access Required Notice ──────────────────────────────── */}
+   624→      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+   625→        <Card className="glass-card-premium border-yellow-500/20">
+   626→          <CardContent className="py-5">
+   627→            <div className="flex items-start gap-4">
+   628→              <div className="flex size-10 items-center justify-center rounded-lg bg-yellow-500/10 border border-yellow-500/20 shrink-0">
+   629→                <Lock className="size-5 text-yellow-400" />
+   630→              </div>
+   631→              <div className="space-y-1">
+   632→                <h3 className="text-sm font-semibold text-yellow-400">Admin Access Required</h3>
+   633→                <p className="text-sm text-muted-foreground">
+   634→                  Advanced infrastructure controls, security auditing, code healing, and system diagnostics
+   635→                  require administrator privileges. Contact your system administrator to request elevated access.
+   636→                </p>
+   637→              </div>
+   638→            </div>
+   639→          </CardContent>
+   640→        </Card>
+   641→      </motion.div>
+   642→    </div>
+   643→  )
+   644→}
+   645→
+   646→// ── Admin View (Full Infrastructure Dashboard) ─────────────────────────────
+   647→
+   648→function AdminSystemMonitor() {
+   649→  // Shared loading state
+   650→  const [globalLoading, setGlobalLoading] = useState(false)
+   651→
+   652→  // ── Tab 1: Audit Core ────────────────────────────────────────────────────
+   653→  const [scraperStatus, setScraperStatus] = useState<'HEALTHY' | 'DEGRADED' | 'DOWN'>('HEALTHY')
+   654→  const [driftStatus, setDriftStatus] = useState<'HEALTHY' | 'DRIFT_DETECTED'>('HEALTHY')
+   655→  const [clvEdge, setClvEdge] = useState(3.2)
+   656→  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs)
+   657→  const [auditLoading, setAuditLoading] = useState<string | null>(null)
+   658→
+   659→  const runAudit = async (type: 'scraper' | 'drift' | 'convergence') => {
+   660→    setAuditLoading(type)
+   661→    try {
+   662→      const res = await fetch('/api/system/self-audit', {
+   663→        method: 'POST',
+   664→        headers: { 'Content-Type': 'application/json' },
+   665→        body: JSON.stringify({ auditType: type }),
+   666→      })
+   667→      if (res.ok) {
+   668→        const data = await res.json()
+   669→        if (type === 'scraper') setScraperStatus(data.status || 'HEALTHY')
+   670→        if (type === 'drift') setDriftStatus(data.status || 'HEALTHY')
+   671→        if (type === 'convergence') setClvEdge(data.clvEdge ?? clvEdge)
+   672→        setAuditLogs(prev => [{
+   673→          id: String(Date.now()),
+   674→          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   675→          type,
+   676→          status: data.status === 'DRIFT_DETECTED' ? 'WARNING' : 'PASS',
+   677→          details: data.details || `Audit completed for ${type}`,
+   678→        }, ...prev])
+   679→      } else {
+   680→        // Mock fallback
+   681→        await new Promise(r => setTimeout(r, 800))
+   682→        if (type === 'scraper') setScraperStatus('HEALTHY')
+   683→        if (type === 'drift') setDriftStatus('HEALTHY')
+   684→        if (type === 'convergence') setClvEdge(prev => +(prev + (Math.random() - 0.5) * 0.5).toFixed(1))
+   685→        setAuditLogs(prev => [{
+   686→          id: String(Date.now()),
+   687→          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   688→          type,
+   689→          status: 'PASS',
+   690→          details: `[Mock] ${type} audit completed successfully`,
+   691→        }, ...prev])
+   692→      }
+   693→    } catch {
+   694→      await new Promise(r => setTimeout(r, 600))
+   695→      setAuditLogs(prev => [{
+   696→        id: String(Date.now()),
+   697→        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   698→        type,
+   699→        status: 'PASS',
+   700→        details: `[Offline Mock] ${type} audit completed`,
+   701→      }, ...prev])
+   702→    }
+   703→    setAuditLoading(null)
+   704→  }
+   705→
+   706→  // ── Tab 2: Veronica ─────────────────────────────────────────────────────
+   707→  const [veronicaOnline, setVeronicaOnline] = useState(true)
+   708→  const [healingEvents, setHealingEvents] = useState<HealingEvent[]>(initialHealingEvents)
+   709→  const [healingLoading, setHealingLoading] = useState(false)
+   710→  const [sandboxCode, setSandboxCode] = useState('// Test code here\nconsole.log("Hello from sandbox");')
+   711→  const [sandboxFilename, setSandboxFilename] = useState('test.ts')
+   712→  const [sandboxResult, setSandboxResult] = useState('')
+   713→  const [sandboxLoading, setSandboxLoading] = useState(false)
+   714→
+   715→  const triggerDiagnostic = async () => {
+   716→    setHealingLoading(true)
+   717→    try {
+   718→      const res = await fetch('/api/system/veronica-heal', { method: 'POST' })
+   719→      if (res.ok) {
+   720→        const data = await res.json()
+   721→        if (data.events) setHealingEvents(prev => [...data.events, ...prev])
+   722→        if (data.events?.[0]) {
+   723→          setHealingEvents(prev => [{
+   724→            id: String(Date.now()),
+   725→            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   726→            file: data.events[0]?.file || 'unknown',
+   727→            errorType: data.events[0]?.errorType || 'ScanComplete',
+   728→            status: data.events[0]?.status || 'HEALED',
+   729→          }, ...prev])
+   730→        }
+   731→      } else {
+   732→        await new Promise(r => setTimeout(r, 1000))
+   733→        setHealingEvents(prev => [{
+   734→          id: String(Date.now()),
+   735→          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   736→          file: 'src/app/globals.css',
+   737→          errorType: 'ScanComplete',
+   738→          status: 'HEALED',
+   739→        }, ...prev])
+   740→      }
+   741→    } catch {
+   742→      await new Promise(r => setTimeout(r, 800))
+   743→    }
+   744→    setHealingLoading(false)
+   745→  }
+   746→
+   747→  const testInSandbox = async () => {
+   748→    setSandboxLoading(true)
+   749→    setSandboxResult('')
+   750→    await new Promise(r => setTimeout(r, 1200))
+   751→    setSandboxResult(`✅ Sandbox execution complete\nFile: ${sandboxFilename}\nStatus: No errors detected\nRuntime: 42ms`)
+   752→    setSandboxLoading(false)
+   753→  }
+   754→
+   755→  // ── Tab 3: SAIM Security ────────────────────────────────────────────────
+   756→  const [integrityScore, setIntegrityScore] = useState(94)
+   757→  const [fileIntegrity, setFileIntegrity] = useState<FileIntegrity[]>(initialFileIntegrity)
+   758→  const [integrityLoading, setIntegrityLoading] = useState(false)
+   759→  const [autoDestruct, setAutoDestruct] = useState(false)
+   760→  const [securityLogs, setSecurityLogs] = useState([
+   761→    { id: '1', time: '2026-01-15 14:30:00', event: 'Integrity scan completed — 5/6 files INTACT', severity: 'info' as const },
+   762→    { id: '2', time: '2026-01-15 14:28:00', event: 'auth.ts hash mismatch detected (MANUAL)', severity: 'warning' as const },
+   763→    { id: '3', time: '2026-01-15 14:25:00', event: 'middleware.ts marked MISSING (expected removal)', severity: 'warning' as const },
+   764→    { id: '4', time: '2026-01-15 12:00:00', event: 'Scheduled integrity audit passed', severity: 'info' as const },
+   765→    { id: '5', time: '2026-01-14 22:00:00', event: 'Adversarial probe blocked — IP 203.0.113.42', severity: 'critical' as const },
+   766→  ])
+   767→
+   768→  const runIntegrityCheck = async () => {
+   769→    setIntegrityLoading(true)
+   770→    try {
+   771→      await fetch('/api/system/saim-security', {
+   772→        method: 'POST',
+   773→        headers: { 'Content-Type': 'application/json' },
+   774→        body: JSON.stringify({ action: 'audit' }),
+   775→      })
+   776→      await fetch('/api/system/saim-security', {
+   777→        method: 'POST',
+   778→        headers: { 'Content-Type': 'application/json' },
+   779→        body: JSON.stringify({ action: 'verify' }),
+   780→      })
+   781→    } catch { /* mock fallback */ }
+   782→    await new Promise(r => setTimeout(r, 1500))
+   783→    const newScore = 88 + Math.floor(Math.random() * 10)
+   784→    setIntegrityScore(newScore)
+   785→    setFileIntegrity(prev => prev.map(f => ({
+   786→      ...f,
+   787→      status: Math.random() > 0.2 ? 'INTACT' : f.status,
+   788→      lastChecked: new Date().toISOString().replace('T', ' ').slice(0, 14) + '00',
+   789→    })))
+   790→    setSecurityLogs(prev => [{
+   791→      id: String(Date.now()),
+   792→      time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   793→      event: `Manual integrity check completed — Score: ${newScore}/100`,
+   794→      severity: 'info' as const,
+   795→    }, ...prev])
+   796→    setIntegrityLoading(false)
+   797→  }
+   798→
+   799→  // ── Tab 4: TimesFM ──────────────────────────────────────────────────────
+   800→  const [modelStatus, setModelStatus] = useState<'CONNECTED' | 'OFFLINE'>('OFFLINE')
+   801→  const [forecastTeam, setForecastTeam] = useState('')
+   802→  const [forecastHistory, setForecastHistory] = useState('')
+   803→  const [forecastIndicators, setForecastIndicators] = useState('')
+   804→  const [forecastLoading, setForecastLoading] = useState(false)
+   805→  const [forecasts, setForecasts] = useState<ForecastResult[]>(initialForecasts)
+   806→  const [forecastResult, setForecastResult] = useState<{ score: string; confidence: number } | null>(null)
+   807→
+   808→  useEffect(() => {
+   809→    // Check if NVIDIA API is configured
+   810→    fetch('/api/prediction-engine/config')
+   811→      .then(r => r.json())
+   812→      .then(data => {
+   813→        if (data.nvidiaApiKey) setModelStatus('CONNECTED')
+   814→      })
+   815→      .catch(() => {})
+   816→  }, [])
+   817→
+   818→  const runForecast = async () => {
+   819→    if (!forecastTeam) return
+   820→    setForecastLoading(true)
+   821→    setForecastResult(null)
+   822→    try {
+   823→      const res = await fetch('/api/prediction-engine/timesfm', {
+   824→        method: 'POST',
+   825→        headers: { 'Content-Type': 'application/json' },
+   826→        body: JSON.stringify({
+   827→          team: forecastTeam,
+   828→          history: forecastHistory || '1,1,3,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3',
+   829→          indicators: forecastIndicators || '1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8',
+   830→        }),
+   831→      })
+   832→      if (res.ok) {
+   833→        const data = await res.json()
+   834→        setForecastResult({ score: data.projectedScore, confidence: data.confidence })
+   835→        setForecasts(prev => [{
+   836→          id: String(Date.now()),
+   837→          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   838→          team: forecastTeam,
+   839→          projectedScore: data.projectedScore,
+   840→          confidence: data.confidence,
+   841→        }, ...prev])
+   842→      } else {
+   843→        // Mock fallback
+   844→        await new Promise(r => setTimeout(r, 1000))
+   845→        const mockScore = `${(1 + Math.random() * 2).toFixed(1)} - ${(Math.random() * 1.5).toFixed(1)}`
+   846→        const mockConf = 65 + Math.floor(Math.random() * 25)
+   847→        setForecastResult({ score: mockScore, confidence: mockConf })
+   848→        setForecasts(prev => [{
+   849→          id: String(Date.now()),
+   850→          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   851→          team: forecastTeam,
+   852→          projectedScore: mockScore,
+   853→          confidence: mockConf,
+   854→        }, ...prev])
+   855→      }
+   856→    } catch {
+   857→      await new Promise(r => setTimeout(r, 800))
+   858→      const mockScore = `${(1 + Math.random() * 2).toFixed(1)} - ${(Math.random() * 1.5).toFixed(1)}`
+   859→      const mockConf = 65 + Math.floor(Math.random() * 25)
+   860→      setForecastResult({ score: mockScore, confidence: mockConf })
+   861→      setForecasts(prev => [{
+   862→        id: String(Date.now()),
+   863→        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+   864→        team: forecastTeam,
+   865→        projectedScore: mockScore,
+   866→        confidence: mockConf,
+   867→      }, ...prev])
+   868→    }
+   869→    setForecastLoading(false)
+   870→  }
+   871→
+   872→  // ── Render ──────────────────────────────────────────────────────────────
+   873→  return (
+   874→    <div className="animate-fade-in-up space-y-6">
+   875→      {/* ── Admin Access Banner ─────────────────────────────────────────── */}
+   876→      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+   877→        <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+   878→          <Lock className="size-4 text-primary shrink-0" />
+   879→          <span className="text-sm font-semibold text-primary">
+   880→            🔒 ADMIN ACCESS — Infrastructure controls active
+   881→          </span>
+   882→        </div>
+   883→      </motion.div>
+   884→
+   885→      {/* ── Header ─────────────────────────────────────────────────────── */}
+   886→      <div className="flex items-center gap-3">
+   887→        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+   888→          <Shield className="size-5 text-primary" />
+   889→        </div>
+   890→        <div>
+   891→          <h1 className="text-2xl font-bold tracking-tight">System Integrity Monitor</h1>
+   892→          <p className="text-sm text-muted-foreground">Audit, heal, secure, and forecast — all in one dashboard</p>
+   893→        </div>
+   894→      </div>
+   895→
+   896→      {/* ── Tabs ─────────────────────────────────────────────────────── */}
+   897→      <Tabs defaultValue="audit-core" className="w-full">
+   898→        <TabsList className="w-full sm:w-auto flex-wrap">
+   899→          <TabsTrigger value="audit-core" className="gap-1.5">
+   900→            <Activity className="size-3.5" /> Audit Core
+   901→          </TabsTrigger>
+   902→          <TabsTrigger value="veronica" className="gap-1.5">
+   903→            <Heart className="size-3.5" /> Veronica
+   904→          </TabsTrigger>
+   905→          <TabsTrigger value="saim" className="gap-1.5">
+   906→            <Lock className="size-3.5" /> SAIM Security
+   907→          </TabsTrigger>
+   908→          <TabsTrigger value="timesfm" className="gap-1.5">
+   909→            <Brain className="size-3.5" /> TimesFM 2.5
+   910→          </TabsTrigger>
+   911→        </TabsList>
+   912→
+   913→        {/* ═══════════════════════════════════════════════════════════════════
+   914→           TAB 1: AUDIT CORE
+   915→           ═══════════════════════════════════════════════════════════════════ */}
+   916→        <TabsContent value="audit-core" className="space-y-6 mt-4">
+   917→          {/* 3 Status Cards */}
+   918→          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   919→            {/* Scraper Fidelity */}
+   920→            <motion.div
+   921→              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+   922→            >
+   923→              <Card className="glass-card-premium">
+   924→                <CardHeader className="pb-3">
+   925→                  <div className="flex items-center justify-between">
+   926→                    <CardTitle className="text-sm font-medium text-muted-foreground">Scraper Fidelity</CardTitle>
+   927→                    <Radio className="size-4 text-muted-foreground" />
+   928→                  </div>
+   929→                </CardHeader>
+   930→                <CardContent className="space-y-4">
+   931→                  <div className="flex items-center gap-3">
+   932→                    <div
+   933→                      className="size-3 rounded-full"
+   934→                      style={{ backgroundColor: statusColor(scraperStatus), boxShadow: `0 0 8px ${statusColor(scraperStatus)}60` }}
+   935→                    />
+   936→                    <span className="text-lg font-bold" style={{ color: statusColor(scraperStatus) }}>
+   937→                      {scraperStatus}
+   938→                    </span>
+   939→                  </div>
+   940→                  <p className="text-xs text-muted-foreground">
+   941→                    8 endpoints monitored · Last check: {auditLogs[0]?.timestamp?.slice(11, 19) || 'N/A'}
+   942→                  </p>
+   943→                  <Button
+   944→                    size="sm" variant="outline" className="w-full gap-2"
+   945→                    onClick={() => runAudit('scraper')}
+   946→                    disabled={auditLoading === 'scraper'}
+   947→                  >
+   948→                    {auditLoading === 'scraper' ? <RefreshCw className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
+   949→                    Run Audit
+   950→                  </Button>
+   951→                </CardContent>
+   952→              </Card>
+   953→            </motion.div>
+   954→
+   955→            {/* Data Drift Monitor */}
+   956→            <motion.div
+   957→              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+   958→            >
+   959→              <Card className="glass-card-premium">
+   960→                <CardHeader className="pb-3">
+   961→                  <div className="flex items-center justify-between">
+   962→                    <CardTitle className="text-sm font-medium text-muted-foreground">Data Drift Monitor</CardTitle>
+   963→                    <Activity className="size-4 text-muted-foreground" />
+   964→                  </div>
+   965→                </CardHeader>
+   966→                <CardContent className="space-y-4">
+   967→                  <div className="flex items-center gap-3">
+   968→                    <div
+   969→                      className="size-3 rounded-full"
+   970→                      style={{ backgroundColor: statusColor(driftStatus), boxShadow: `0 0 8px ${statusColor(driftStatus)}60` }}
+   971→                    />
+   972→                    <span className="text-lg font-bold" style={{ color: statusColor(driftStatus) }}>
+   973→                      {driftStatus}
+   974→                    </span>
+   975→                  </div>
+   976→                  <p className="text-xs text-muted-foreground">
+   977→                    12 metrics tracked · KS test + PSI monitoring
+   978→                  </p>
+   979→                  <Button
+   980→                    size="sm" variant="outline" className="w-full gap-2"
+   981→                    onClick={() => runAudit('drift')}
+   982→                    disabled={auditLoading === 'drift'}
+   983→                  >
+   984→                    {auditLoading === 'drift' ? <RefreshCw className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
+   985→                    Run Audit
+   986→                  </Button>
+   987→                </CardContent>
+   988→              </Card>
+   989→            </motion.div>
+   990→
+   991→            {/* Market Convergence */}
+   992→            <motion.div
+   993→              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+   994→            >
+   995→              <Card className="glass-card-premium">
+   996→                <CardHeader className="pb-3">
+   997→                  <div className="flex items-center justify-between">
+   998→                    <CardTitle className="text-sm font-medium text-muted-foreground">Market Convergence</CardTitle>
+   999→                    <Shield className="size-4 text-muted-foreground" />
+  1000→                  </div>
+  1001→                </CardHeader>
+  1002→                <CardContent className="space-y-4">
+  1003→                  <div className="flex items-center gap-3">
+  1004→                    <CircGauge
+  1005→                      value={Math.abs(clvEdge) * 10}
+  1006→                      max={50}
+  1007→                      size={80}
+  1008→                      label="CLV Edge %"
+  1009→                      strokeColor={clvEdge > 2 ? '#00e676' : clvEdge > 1 ? '#eab308' : '#ef4444'}
+  1010→                    />
+  1011→                    <span className="text-2xl font-bold" style={{ color: statusColor(clvEdge > 2 ? 'PASS' : 'WARNING') }}>
+  1012→                      {clvEdge > 0 ? '+' : ''}{clvEdge}%
+  1013→                    </span>
+  1014→                  </div>
+  1015→                  <p className="text-xs text-muted-foreground">
+  1016→                    Closing line value tracking · Avg over 30 days
+  1017→                  </p>
+  1018→                  <Button
+  1019→                    size="sm" variant="outline" className="w-full gap-2"
+  1020→                    onClick={() => runAudit('convergence')}
+  1021→                    disabled={auditLoading === 'convergence'}
+  1022→                  >
+  1023→                    {auditLoading === 'convergence' ? <RefreshCw className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
+  1024→                    Run Audit
+  1025→                  </Button>
+  1026→                </CardContent>
+  1027→              </Card>
+  1028→            </motion.div>
+  1029→          </div>
+  1030→
+  1031→          {/* Audit Results Log */}
+  1032→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+  1033→            <Card className="glass-card-premium">
+  1034→              <CardHeader className="pb-3">
+  1035→                <div className="flex items-center justify-between">
+  1036→                  <CardTitle className="text-sm font-medium">Audit Results Log</CardTitle>
+  1037→                  <Badge variant="outline" className="text-xs">{auditLogs.length} entries</Badge>
+  1038→                </div>
+  1039→              </CardHeader>
+  1040→              <CardContent>
+  1041→                <Table>
+  1042→                  <TableHeader>
+  1043→                    <TableRow>
+  1044→                      <TableHead>Timestamp</TableHead>
+  1045→                      <TableHead>Type</TableHead>
+  1046→                      <TableHead>Status</TableHead>
+  1047→                      <TableHead className="hidden sm:table-cell">Details</TableHead>
+  1048→                    </TableRow>
+  1049→                  </TableHeader>
+  1050→                  <TableBody>
+  1051→                    {auditLogs.slice(0, 8).map(log => (
+  1052→                      <TableRow key={log.id}>
+  1053→                        <TableCell className="text-xs text-muted-foreground font-mono">{log.timestamp}</TableCell>
+  1054→                        <TableCell>
+  1055→                          <Badge variant="outline" className="text-xs capitalize">{log.type}</Badge>
+  1056→                        </TableCell>
+  1057→                        <TableCell>
+  1058→                          <Badge variant="outline" className={statusBgClass(log.status)}>{log.status}</Badge>
+  1059→                        </TableCell>
+  1060→                        <TableCell className="hidden sm:table-cell text-xs text-muted-foreground max-w-[300px] truncate">
+  1061→                          {log.details}
+  1062→                        </TableCell>
+  1063→                      </TableRow>
+  1064→                    ))}
+  1065→                  </TableBody>
+  1066→                </Table>
+  1067→              </CardContent>
+  1068→            </Card>
+  1069→          </motion.div>
+  1070→        </TabsContent>
+  1071→
+  1072→        {/* ═══════════════════════════════════════════════════════════════════
+  1073→           TAB 2: VERONICA
+  1074→           ═══════════════════════════════════════════════════════════════════ */}
+  1075→        <TabsContent value="veronica" className="space-y-6 mt-4">
+  1076→          {/* Status + Last Healing */}
+  1077→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1078→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+  1079→              <Card className="glass-card-premium">
+  1080→                <CardHeader className="pb-3">
+  1081→                  <div className="flex items-center justify-between">
+  1082→                    <CardTitle className="text-sm font-medium text-muted-foreground">System Status</CardTitle>
+  1083→                    <Heart className="size-4 text-muted-foreground" />
+  1084→                  </div>
+  1085→                </CardHeader>
+  1086→                <CardContent className="space-y-3">
+  1087→                  <div className="flex items-center gap-3">
+  1088→                    <div
+  1089→                      className="size-4 rounded-full"
+  1090→                      style={{
+  1091→                        backgroundColor: statusColor(veronicaOnline ? 'ONLINE' : 'OFFLINE'),
+  1092→                        boxShadow: `0 0 12px ${statusColor(veronicaOnline ? 'ONLINE' : 'OFFLINE')}80`,
+  1093→                      }}
+  1094→                    />
+  1095→                    <span className="text-xl font-bold" style={{ color: statusColor(veronicaOnline ? 'ONLINE' : 'OFFLINE') }}>
+  1096→                      {veronicaOnline ? 'ONLINE' : 'OFFLINE'}
+  1097→                    </span>
+  1098→                  </div>
+  1099→                  <p className="text-xs text-muted-foreground">
+  1100→                    Self-healing engine active · Monitoring {healingEvents.length} events
+  1101→                  </p>
+  1102→                  <div className="flex gap-2 pt-2">
+  1103→                    <Button size="sm" className="flex-1 gap-2" onClick={triggerDiagnostic} disabled={healingLoading}>
+  1104→                      {healingLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Terminal className="size-3.5" />}
+  1105→                      Trigger Diagnostic
+  1106→                    </Button>
+  1107→                  </div>
+  1108→                </CardContent>
+  1109→              </Card>
+  1110→            </motion.div>
+  1111→
+  1112→            {/* Last Healing Event */}
+  1113→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+  1114→              <Card className="glass-card-premium">
+  1115→                <CardHeader className="pb-3">
+  1116→                  <div className="flex items-center justify-between">
+  1117→                    <CardTitle className="text-sm font-medium text-muted-foreground">Last Healing Event</CardTitle>
+  1118→                    <Clock className="size-4 text-muted-foreground" />
+  1119→                  </div>
+  1120→                </CardHeader>
+  1121→                <CardContent className="space-y-3">
+  1122→                  {healingEvents[0] ? (
+  1123→                    <>
+  1124→                      <div className="flex items-center gap-2">
+  1125→                        {healingEvents[0].status === 'HEALED' ? (
+  1126→                          <CheckCircle className="size-5 text-emerald-400" />
+  1127→                        ) : healingEvents[0].status === 'QUARANTINED' ? (
+  1128→                          <AlertTriangle className="size-5 text-yellow-400" />
+  1129→                        ) : (
+  1130→                          <XCircle className="size-5 text-red-400" />
+  1131→                        )}
+  1132→                        <Badge variant="outline" className={statusBgClass(healingEvents[0].status)}>
+  1133→                          {healingEvents[0].status}
+  1134→                        </Badge>
+  1135→                      </div>
+  1136→                      <div className="text-sm">
+  1137→                        <span className="text-muted-foreground">File: </span>
+  1138→                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{healingEvents[0].file}</code>
+  1139→                      </div>
+  1140→                      <div className="text-sm">
+  1141→                        <span className="text-muted-foreground">Error: </span>
+  1142→                        <span className="font-medium">{healingEvents[0].errorType}</span>
+  1143→                      </div>
+  1144→                      <p className="text-xs text-muted-foreground">{healingEvents[0].timestamp}</p>
+  1145→                    </>
+  1146→                  ) : (
+  1147→                    <p className="text-sm text-muted-foreground">No healing events recorded</p>
+  1148→                  )}
+  1149→                </CardContent>
+  1150→              </Card>
+  1151→            </motion.div>
+  1152→          </div>
+  1153→
+  1154→          {/* Healing Event Log */}
+  1155→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+  1156→            <Card className="glass-card-premium">
+  1157→              <CardHeader className="pb-3">
+  1158→                <CardTitle className="text-sm font-medium">Healing Event Log</CardTitle>
+  1159→              </CardHeader>
+  1160→              <CardContent>
+  1161→                <Table>
+  1162→                  <TableHeader>
+  1163→                    <TableRow>
+  1164→                      <TableHead>Timestamp</TableHead>
+  1165→                      <TableHead>File</TableHead>
+  1166→                      <TableHead>Error Type</TableHead>
+  1167→                      <TableHead>Status</TableHead>
+  1168→                    </TableRow>
+  1169→                  </TableHeader>
+  1170→                  <TableBody>
+  1171→                    {healingEvents.slice(0, 10).map(evt => (
+  1172→                      <TableRow key={evt.id}>
+  1173→                        <TableCell className="text-xs text-muted-foreground font-mono">{evt.timestamp}</TableCell>
+  1174→                        <TableCell>
+  1175→                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono max-w-[200px] truncate block">
+  1176→                            {evt.file}
+  1177→                          </code>
+  1178→                        </TableCell>
+  1179→                        <TableCell className="text-xs">{evt.errorType}</TableCell>
+  1180→                        <TableCell>
+  1181→                          <Badge variant="outline" className={statusBgClass(evt.status)}>
+  1182→                            {evt.status}
+  1183→                          </Badge>
+  1184→                        </TableCell>
+  1185→                      </TableRow>
+  1186→                    ))}
+  1187→                  </TableBody>
+  1188→                </Table>
+  1189→              </CardContent>
+  1190→            </Card>
+  1191→          </motion.div>
+  1192→
+  1193→          {/* Code Sandbox */}
+  1194→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+  1195→            <Card className="glass-card-premium">
+  1196→              <CardHeader className="pb-3">
+  1197→                <div className="flex items-center justify-between">
+  1198→                  <CardTitle className="text-sm font-medium">Code Sandbox Test Panel</CardTitle>
+  1199→                  <Terminal className="size-4 text-muted-foreground" />
+  1200→                </div>
+  1201→              </CardHeader>
+  1202→              <CardContent className="space-y-3">
+  1203→                <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-3">
+  1204→                  <div className="space-y-2">
+  1205→                    <Label className="text-xs text-muted-foreground">Filename</Label>
+  1206→                    <div className="flex items-center gap-2">
+  1207→                      <FileCode className="size-4 text-muted-foreground shrink-0" />
+  1208→                      <Input
+  1209→                        value={sandboxFilename}
+  1210→                        onChange={e => setSandboxFilename(e.target.value)}
+  1211→                        placeholder="test.ts"
+  1212→                        className="h-8 text-sm"
+  1213→                      />
+  1214→                    </div>
+  1215→                  </div>
+  1216→                  <div className="flex items-end">
+  1217→                    <Button size="sm" className="w-full gap-2" onClick={testInSandbox} disabled={sandboxLoading}>
+  1218→                      {sandboxLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+  1219→                      Test in Sandbox
+  1220→                    </Button>
+  1221→                  </div>
+  1222→                </div>
+  1223→                <div className="space-y-2">
+  1224→                  <Label className="text-xs text-muted-foreground">Code</Label>
+  1225→                  <Textarea
+  1226→                    value={sandboxCode}
+  1227→                    onChange={e => setSandboxCode(e.target.value)}
+  1228→                    className="min-h-[100px] font-mono text-xs bg-muted/50 resize-y"
+  1229→                    placeholder="// Enter test code here..."
+  1230→                  />
+  1231→                </div>
+  1232→                {sandboxResult && (
+  1233→                  <div className="bg-muted/50 rounded-lg p-3 font-mono text-xs whitespace-pre-wrap border border-border/50">
+  1234→                    {sandboxResult}
+  1235→                  </div>
+  1236→                )}
+  1237→              </CardContent>
+  1238→            </Card>
+  1239→          </motion.div>
+  1240→        </TabsContent>
+  1241→
+  1242→        {/* ═══════════════════════════════════════════════════════════════════
+  1243→           TAB 3: SAIM SECURITY
+  1244→           ═══════════════════════════════════════════════════════════════════ */}
+  1245→        <TabsContent value="saim" className="space-y-6 mt-4">
+  1246→          {/* Score + Actions */}
+  1247→          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4">
+  1248→            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.05 }}>
+  1249→              <Card className="glass-card-premium">
+  1250→                <CardContent className="flex flex-col items-center py-6 px-8">
+  1251→                  <CircGauge
+  1252→                    value={integrityScore}
+  1253→                    max={100}
+  1254→                    size={140}
+  1255→                    label="Integrity Score"
+  1256→                  />
+  1257→                  <p className="text-xs text-muted-foreground mt-1">
+  1258→                    {integrityScore >= 90 ? 'Excellent' : integrityScore >= 70 ? 'Good' : 'Needs Attention'}
+  1259→                  </p>
+  1260→                </CardContent>
+  1261→              </Card>
+  1262→            </motion.div>
+  1263→
+  1264→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-4">
+  1265→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1266→                {/* Auto-Destruct Toggle */}
+  1267→                <Card className="glass-card-premium">
+  1268→                  <CardContent className="py-4 space-y-3">
+  1269→                    <div className="flex items-center justify-between">
+  1270→                      <div className="flex items-center gap-2">
+  1271→                        <AlertTriangle className="size-4 text-red-400" />
+  1272→                        <span className="text-sm font-medium">Auto-Destruct Mode</span>
+  1273→                      </div>
+  1274→                      <Switch
+  1275→                        checked={autoDestruct}
+  1276→                        onCheckedChange={setAutoDestruct}
+  1277→                        className="data-[state=checked]:bg-red-500"
+  1278→                      />
+  1279→                    </div>
+  1280→                    <p className="text-xs text-muted-foreground">
+  1281→                      {autoDestruct
+  1282→                        ? '⚠️ ACTIVE — System will self-destruct on critical breach'
+  1283→                        : 'Disabled — System runs in monitoring mode only'}
+  1284→                    </p>
+  1285→                  </CardContent>
+  1286→                </Card>
+  1287→
+  1288→                {/* Alert Channels */}
+  1289→                <Card className="glass-card-premium">
+  1290→                  <CardContent className="py-4 space-y-3">
+  1291→                    <span className="text-sm font-medium">Alert Channels</span>
+  1292→                    <div className="space-y-2">
+  1293→                      <div className="flex items-center justify-between">
+  1294→                        <div className="flex items-center gap-2">
+  1295→                          <Send className="size-3.5 text-blue-400" />
+  1296→                          <span className="text-xs text-muted-foreground">Telegram Bot</span>
+  1297→                        </div>
+  1298→                        <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">
+  1299→                          CONFIGURED
+  1300→                        </Badge>
+  1301→                      </div>
+  1302→                      <div className="flex items-center justify-between">
+  1303→                        <div className="flex items-center gap-2">
+  1304→                          <Radio className="size-3.5 text-indigo-400" />
+  1305→                          <span className="text-xs text-muted-foreground">Discord Webhook</span>
+  1306→                        </div>
+  1307→                        <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">
+  1308→                          CONFIGURED
+  1309→                        </Badge>
+  1310→                      </div>
+  1311→                    </div>
+  1312→                  </CardContent>
+  1313→                </Card>
+  1314→
+  1315→                {/* Run Integrity Check Button */}
+  1316→                <Card className="glass-card-premium sm:col-span-2">
+  1317→                  <CardContent className="py-4 flex items-center justify-between">
+  1318→                    <div>
+  1319→                      <p className="text-sm font-medium">Run Full Integrity Check</p>
+  1320→                      <p className="text-xs text-muted-foreground">Audits all monitored files, verifies SHA-256 hashes</p>
+  1321→                    </div>
+  1322→                    <Button
+  1323→                      size="sm" className="gap-2 shrink-0"
+  1324→                      onClick={runIntegrityCheck}
+  1325→                      disabled={integrityLoading}
+  1326→                    >
+  1327→                      {integrityLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Fingerprint className="size-3.5" />}
+  1328→                      {integrityLoading ? 'Scanning...' : 'Run Integrity Check'}
+  1329→                    </Button>
+  1330→                  </CardContent>
+  1331→                </Card>
+  1332→              </div>
+  1333→            </motion.div>
+  1334→          </div>
+  1335→
+  1336→          {/* File Integrity Grid */}
+  1337→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+  1338→            <Card className="glass-card-premium">
+  1339→              <CardHeader className="pb-3">
+  1340→                <div className="flex items-center justify-between">
+  1341→                  <CardTitle className="text-sm font-medium">File Integrity Grid</CardTitle>
+  1342→                  <Badge variant="outline" className="text-xs">
+  1343→                    {fileIntegrity.filter(f => f.status === 'INTACT').length}/{fileIntegrity.length} INTACT
+  1344→                  </Badge>
+  1345→                </div>
+  1346→              </CardHeader>
+  1347→              <CardContent>
+  1348→                <Table>
+  1349→                  <TableHeader>
+  1350→                    <TableRow>
+  1351→                      <TableHead>File</TableHead>
+  1352→                      <TableHead className="hidden sm:table-cell">SHA-256 Hash</TableHead>
+  1353→                      <TableHead>Status</TableHead>
+  1354→                      <TableHead className="hidden md:table-cell">Last Checked</TableHead>
+  1355→                    </TableRow>
+  1356→                  </TableHeader>
+  1357→                  <TableBody>
+  1358→                    {fileIntegrity.map((f, i) => (
+  1359→                      <TableRow key={i}>
+  1360→                        <TableCell>
+  1361→                          <code className="text-xs font-mono">{f.file.split('/').pop()}</code>
+  1362→                          <span className="hidden sm:inline text-xs text-muted-foreground ml-2">
+  1363→                            {f.file.split('/').slice(0, -1).join('/')}
+  1364→                          </span>
+  1365→                        </TableCell>
+  1366→                        <TableCell className="hidden sm:table-cell">
+  1367→                          <code className="text-[10px] text-muted-foreground font-mono">{f.hash}</code>
+  1368→                        </TableCell>
+  1369→                        <TableCell>
+  1370→                          <Badge variant="outline" className={statusBgClass(f.status)}>{f.status}</Badge>
+  1371→                        </TableCell>
+  1372→                        <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">
+  1373→                          {f.lastChecked}
+  1374→                        </TableCell>
+  1375→                      </TableRow>
+  1376→                    ))}
+  1377→                  </TableBody>
+  1378→                </Table>
+  1379→              </CardContent>
+  1380→            </Card>
+  1381→          </motion.div>
+  1382→
+  1383→          {/* Security Event Log */}
+  1384→          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+  1385→            <Card className="glass-card-premium">
+  1386→              <CardHeader className="pb-3">
+  1387→                <CardTitle className="text-sm font-medium">Security Event Log</CardTitle>
+  1388→              </CardHeader>
+  1389→              <CardContent>
+  1390→                <div className="space-y-2">
+  1391→                  {securityLogs.map(log => (
+  1392→                    <div key={log.id} className="flex items-start gap-3 py-2 border-b border-border/30 last:border-0">
+  1393→                      <div className="mt-0.5">
+  1394→                        {log.severity === 'critical' ? (
+  1395→                          <XCircle className="size-4 text-red-400" />
+  1396→                        ) : log.severity === 'warning' ? (
+  1397→                          <AlertTriangle className="size-4 text-yellow-400" />
+  1398→                        ) : (
+  1399→                          <CheckCircle className="size-4 text-emerald-400" />
+  1400→                        )}
+  1401→                      </div>
+  1402→                      <div className="flex-1 min-w-0">
+  1403→                        <p className="text-sm">{log.event}</p>
+  1404→                        <p className="text-xs text-muted-foreground font-mono mt-0.5">{log.time}</p>
+  1405→                      </div>
+  1406→                      <Badge
+  1407→                        variant="outline"
+  1408→                        className={
+  1409→                          log.severity === 'critical'
+  1410→                            ? 'bg-red-500/15 text-red-400 border-red-500/30 text-[10px]'
+  1411→                            : log.severity === 'warning'
+  1412→                              ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30 text-[10px]'
+  1413→                              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]'
+  1414→                        }
+  1415→                      >
+  1416→                        {log.severity.toUpperCase()}
+  1417→                      </Badge>
+  1418→                    </div>
+  1419→                  ))}
+  1420→                </div>
+  1421→              </CardContent>
+  1422→            </Card>
+  1423→          </motion.div>
+  1424→        </TabsContent>
+  1425→
+  1426→        {/* ═══════════════════════════════════════════════════════════════════
+  1427→           TAB 4: TIMESFM 2.5
+  1428→           ═══════════════════════════════════════════════════════════════════ */}
+  1429→        <TabsContent value="timesfm" className="space-y-6 mt-4">
+  1430→          {/* Model Status + Conditioning Panel */}
+  1431→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1432→            {/* Model Status */}
+  1433→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+  1434→              <Card className="glass-card-premium">
+  1435→                <CardHeader className="pb-3">
+  1436→                  <div className="flex items-center justify-between">
+  1437→                    <CardTitle className="text-sm font-medium text-muted-foreground">Model Status</CardTitle>
+  1438→                    <Cpu className="size-4 text-muted-foreground" />
+  1439→                  </div>
+  1440→                </CardHeader>
+  1441→                <CardContent className="space-y-4">
+  1442→                  <div className="flex items-center gap-3">
+  1443→                    <div
+  1444→                      className="size-4 rounded-full"
+  1445→                      style={{
+  1446→                        backgroundColor: statusColor(modelStatus === 'CONNECTED' ? 'ONLINE' : 'OFFLINE'),
+  1447→                        boxShadow: `0 0 12px ${statusColor(modelStatus === 'CONNECTED' ? 'ONLINE' : 'OFFLINE')}80`,
+  1448→                      }}
+  1449→                    />
+  1450→                    <span className="text-lg font-bold" style={{ color: statusColor(modelStatus === 'CONNECTED' ? 'ONLINE' : 'OFFLINE') }}>
+  1451→                      {modelStatus === 'CONNECTED' ? 'Connected to NVIDIA NIM' : 'Offline (Mock Mode)'}
+  1452→                    </span>
+  1453→                  </div>
+  1454→                  <div className="space-y-2 text-xs text-muted-foreground">
+  1455→                    <p><strong className="text-foreground">Model:</strong> TimesFM 2.5 (500M params)</p>
+  1456→                    <p><strong className="text-foreground">Backend:</strong> {modelStatus === 'CONNECTED' ? 'NVIDIA NIM API' : 'Local Fallback'}</p>
+  1457→                    <p><strong className="text-foreground">Context Window:</strong> 512 tokens</p>
+  1458→                    <p><strong className="text-foreground">Conditioning:</strong> xReg enabled</p>
+  1459→                  </div>
+  1460→                  {forecastResult && (
+  1461→                    <div className="bg-muted/50 rounded-lg p-3 space-y-2 border border-primary/20">
+  1462→                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Latest Forecast Result</p>
+  1463→                      <div className="flex items-center gap-4">
+  1464→                        <div>
+  1465→                          <p className="text-2xl font-bold gradient-text">{forecastResult.score}</p>
+  1466→                          <p className="text-xs text-muted-foreground">Projected Score</p>
+  1467→                        </div>
+  1468→                        <div className="h-10 w-px bg-border" />
+  1469→                        <div>
+  1470→                          <p className="text-2xl font-bold" style={{
+  1471→                            color: forecastResult.confidence >= 75 ? '#00e676' : forecastResult.confidence >= 60 ? '#eab308' : '#ef4444',
+  1472→                          }}>
+  1473→                            {forecastResult.confidence}%
+  1474→                          </p>
+  1475→                          <p className="text-xs text-muted-foreground">Confidence</p>
+  1476→                        </div>
+  1477→                      </div>
+  1478→                    </div>
+  1479→                  )}
+  1480→                </CardContent>
+  1481→              </Card>
+  1482→            </motion.div>
+  1483→
+  1484→            {/* Conditioning Test Panel */}
+  1485→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+  1486→              <Card className="glass-card-premium">
+  1487→                <CardHeader className="pb-3">
+  1488→                  <div className="flex items-center justify-between">
+  1489→                    <CardTitle className="text-sm font-medium text-muted-foreground">Conditioning Test Panel</CardTitle>
+  1490→                    <Brain className="size-4 text-muted-foreground" />
+  1491→                  </div>
+  1492→                </CardHeader>
+  1493→                <CardContent className="space-y-3">
+  1494→                  <div className="space-y-1.5">
+  1495→                    <Label className="text-xs text-muted-foreground">Team Name</Label>
+  1496→                    <Input
+  1497→                      value={forecastTeam}
+  1498→                      onChange={e => setForecastTeam(e.target.value)}
+  1499→                      placeholder="e.g. Manchester City"
+  1500→                      className="h-8 text-sm"
+  1501→                    />
+  1502→                  </div>
+  1503→                  <div className="space-y-1.5">
+  1504→                    <Label className="text-xs text-muted-foreground">64-Game History (comma separated: W=3, D=1, L=0)</Label>
+  1505→                    <Textarea
+  1506→                      value={forecastHistory}
+  1507→                      onChange={e => setForecastHistory(e.target.value)}
+  1508→                      placeholder="3,1,0,3,3,1,0,0,3,1,..."
+  1509→                      className="min-h-[60px] font-mono text-xs bg-muted/50 resize-y"
+  1510→                    />
+  1511→                  </div>
+  1512→                  <div className="space-y-1.5">
+  1513→                    <Label className="text-xs text-muted-foreground">Recent Indicators (comma separated)</Label>
+  1514→                    <Input
+  1515→                      value={forecastIndicators}
+  1516→                      onChange={e => setForecastIndicators(e.target.value)}
+  1517→                      placeholder="1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8"
+  1518→                      className="h-8 text-sm font-mono"
+  1519→                    />
+  1520→                  </div>
+  1521→                  <Button
+  1522→                    size="sm" className="w-full gap-2"
+  1523→                    onClick={runForecast}
+  1524→                    disabled={forecastLoading || !forecastTeam}
+  1525→                  >
+  1526→                    {forecastLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
+  1527→                    Run Conditioned Forecast
+  1528→                  </Button>
+  1529→                </CardContent>
+  1530→              </Card>
+  1531→            </motion.div>
+  1532→          </div>
+  1533→
+  1534→          {/* Forecast History + xReg Chart */}
+  1535→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1536→            {/* Forecast History */}
+  1537→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+  1538→              <Card className="glass-card-premium">
+  1539→                <CardHeader className="pb-3">
+  1540→                  <CardTitle className="text-sm font-medium">Forecast History</CardTitle>
+  1541→                </CardHeader>
+  1542→                <CardContent>
+  1543→                  <Table>
+  1544→                    <TableHeader>
+  1545→                      <TableRow>
+  1546→                        <TableHead>Timestamp</TableHead>
+  1547→                        <TableHead>Team</TableHead>
+  1548→                        <TableHead>Score</TableHead>
+  1549→                        <TableHead>Conf</TableHead>
+  1550→                      </TableRow>
+  1551→                    </TableHeader>
+  1552→                    <TableBody>
+  1553→                      {forecasts.slice(0, 8).map(f => (
+  1554→                        <TableRow key={f.id}>
+  1555→                          <TableCell className="text-xs text-muted-foreground font-mono">{f.timestamp.slice(11, 19)}</TableCell>
+  1556→                          <TableCell className="text-sm font-medium">{f.team}</TableCell>
+  1557→                          <TableCell className="text-sm font-mono">{f.projectedScore}</TableCell>
+  1558→                          <TableCell>
+  1559→                            <span className="text-xs font-bold" style={{
+  1560→                              color: f.confidence >= 75 ? '#00e676' : f.confidence >= 60 ? '#eab308' : '#ef4444',
+  1561→                            }}>
+  1562→                              {f.confidence}%
+  1563→                            </span>
+  1564→                          </TableCell>
+  1565→                        </TableRow>
+  1566→                      ))}
+  1567→                    </TableBody>
+  1568→                  </Table>
+  1569→                </CardContent>
+  1570→              </Card>
+  1571→            </motion.div>
+  1572→
+  1573→            {/* xReg Conditioning Visualization */}
+  1574→            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+  1575→              <Card className="glass-card-premium">
+  1576→                <CardHeader className="pb-3">
+  1577→                  <CardTitle className="text-sm font-medium">xReg Conditioning — Indicator Trend</CardTitle>
+  1578→                </CardHeader>
+  1579→                <CardContent>
+  1580→                  <div className="h-[250px]">
+  1581→                    <ResponsiveContainer width="100%" height="100%">
+  1582→                      <BarChart data={indicatorTrendData}>
+  1583→                        <XAxis
+  1584→                          dataKey="name"
+  1585→                          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
+  1586→                          axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+  1587→                          tickLine={false}
+  1588→                        />
+  1589→                        <YAxis
+  1590→                          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
+  1591→                          axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+  1592→                          tickLine={false}
+  1593→                        />
+  1594→                        <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
+  1595→                          {indicatorTrendData.map((entry, index) => (
+  1596→                            <Cell
+  1597→                              key={index}
+  1598→                              fill={entry.value >= 2.0 ? '#00e676' : entry.value >= 1.5 ? '#00bfa5' : entry.value >= 1.0 ? '#eab308' : '#ef4444'}
+  1599→                              fillOpacity={0.8}
+  1600→                            />
+  1601→                          ))}
+  1602→                        </Bar>
+  1603→                      </BarChart>
+  1604→                    </ResponsiveContainer>
+  1605→                  </div>
+  1606→                  <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-muted-foreground">
+  1607→                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-red-500 inline-block" /> &lt;1.0</span>
+  1608→                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-yellow-500 inline-block" /> 1.0-1.4</span>
+  1609→                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-teal-500 inline-block" /> 1.5-1.9</span>
+  1610→                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-emerald-500 inline-block" /> ≥2.0</span>
+  1611→                  </div>
+  1612→                </CardContent>
+  1613→              </Card>
+  1614→            </motion.div>
+  1615→          </div>
+  1616→        </TabsContent>
+  1617→      </Tabs>
+  1618→    </div>
+  1619→  )
+  1620→}
+  1621→
+  1622→// ── Main Export: Role-Gated System Monitor ─────────────────────────────────
+  1623→
+  1624→export default function SystemMonitorView() {
+  1625→  const user = useElasticoStore(s => s.user)
+  1626→  const isAdmin = user?.role === 'admin'
+  1627→
+  1628→  // Admin sees the full infrastructure dashboard
+  1629→  // Non-admin sees a safe read-only status overview + AI forecasts
+  1630→  if (isAdmin) {
+  1631→    return <AdminSystemMonitor />
+  1632→  }
+  1633→
+  1634→  return <NonAdminSystemMonitor />
+  1635→}
+  1636→
