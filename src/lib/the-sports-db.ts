@@ -260,8 +260,8 @@ function findLeagueById(id: string | number) {
  */
 export async function searchLeagues(query: string): Promise<TSDLeague[]> {
   const data = await tsdFetch<any>(`/search_all_leagues.php?c=${encodeURIComponent(query)}&s=Soccer`, 'searchLeagues')
-  if (!data?.countrys) return []
-  return data.countrys as TSDLeague[]
+  if (!data?.countries && !data?.countrys) return []
+  return (data.countries || data.countrys) as TSDLeague[]
 }
 
 /**
@@ -396,8 +396,8 @@ export async function fetchLeagueEvents(leagueId: string, season?: string, round
  */
 export async function fetchLeaguesByCountry(country: string): Promise<TSDLeague[]> {
   const data = await tsdFetch<any>(`/search_all_leagues.php?c=${encodeURIComponent(country)}&s=Soccer`, 'fetchLeaguesByCountry')
-  if (!data?.countrys) return []
-  return data.countrys as TSDLeague[]
+  if (!data?.countries && !data?.countrys) return []
+  return (data.countries || data.countrys) as TSDLeague[]
 }
 
 // ── Normalizers ───────────────────────────────────────────────────────────────
