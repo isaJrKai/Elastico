@@ -85,10 +85,16 @@ function getEventIcon(type: string) {
   }
 }
 
-// ── SHOT MAP DATA (Mock) ──────────────────────────────────────────────────
+// ── SHOT MAP DATA ──────────────────────────────────────────────────────────
 
-function getMockShots(events: MatchEvent[], homeXg: number, awayXg: number) {
-  const shots: { x: number; y: number; team: string; goal: boolean }[] = []
+interface ShotMapPoint {
+  x: number; y: number; team: string; goal: boolean
+  xg?: number; player?: string | null; minute?: number; outcome?: string
+}
+
+// Fallback: generate shot positions from match events when no deep data source
+function generateShotsFromEvents(events: MatchEvent[], homeXg: number, awayXg: number): ShotMapPoint[] {
+  const shots: ShotMapPoint[] = []
   const homeGoals = events.filter(e => e.type === 'goal' && e.team === 'home')
   const awayGoals = events.filter(e => e.type === 'goal' && e.team === 'away')
   for (let i = 0; i < Math.ceil(homeXg * 3); i++) {
@@ -201,7 +207,33 @@ export function MatchDetailView() {
     return pts
   }, [match])
 
-  const shotMapData = useMemo(() => match ? getMockShots(match.events || [], match.homeXg, match.awayXg) : [], [match])
+  // ── StatsBomb shot map (real xG + coordinates) ────────────────────────
+  const [sbShots, setSbShots] = useState<ShotMapPoint[]>([])
+  const [sbLoading, setSbLoading] = useState(false)
+  const [sbSource, setSbSource] = useState<string>('')
+
+  useEffect(() => {
+    // Try to fetch real shot data from StatsBomb for the 2022 World Cup Final as demo
+    // In production, match SB match IDs to DB matches
+    const demoMatchId = 3869151 // 2022 World Cup Final: Argentina vs France
+    setSbLoading(true)
+    fetch(`/api/statsbomb?action=shots&match=${demoMatchId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.data?.length > 0) {
+          setSbShots(data.data)
+          setSbSource(`StatsBomb: ${data.homeTeam} vs ${data.awayTeam}`)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setSbLoading(false))
+  }, [])
+
+  const shotMapData = useMemo(() => {
+    if (sbShots.length > 0) return sbShots
+    if (match) return generateShotsFromEvents(match.events || [], match.homeXg, match.awayXg)
+    return []
+  }, [sbShots, match])
 
   // ── Loading ──
   if (loading) return (<div className="flex flex-col gap-4 animate-fade-in-up"><Skeleton className="h-44 w-full rounded-xl" /><div className="grid grid-cols-1 lg:grid-cols-2 gap-4"><Skeleton className="h-64 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div></div>)
@@ -427,7 +459,7 @@ export function MatchDetailView() {
           {/* SHOT MAP TAB */}
           <TabsContent value="shotmap" className="mt-4">
             <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
-              <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Swords className="size-4 text-amber-400" />Shot Map</h3>
+              <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Swords className="size-4 text-amber-400" />Shot Map {sbSource && <span className="text-[10px] font-normal text-muted-foreground">({sbSource})</span>}{sbLoading && <Loader2 className="size-3 animate-spin text-muted-foreground" />}</h3>
               <div className="pitch-bg rounded-xl p-4 relative" style={{ aspectRatio: '3/2' }}>
                 {/* Pitch markings */}
                 <div className="absolute inset-0 border-2 border-emerald-500/20 rounded-xl" />
@@ -440,9 +472,13 @@ export function MatchDetailView() {
                 {shotMapData.map((s, i) => (
                   <Tooltip key={i}>
                     <TooltipTrigger asChild>
-                      <div className={cn('absolute size-3 rounded-full border-2 transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-150 cursor-pointer', s.goal ? 'border-white bg-amber-400' : s.team === 'home' ? 'border-primary/50 bg-primary/30' : 'border-cyan-500/50 bg-cyan-500/30')} style={{ left: `${s.x}%`, top: `${s.y}%` }} />
+                      <div className={cn('absolute rounded-full border-2 transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-150 cursor-pointer', s.goal ? 'size-4 border-white bg-amber-400 shadow-lg shadow-amber-400/40' : 'size-3', !s.goal && s.team === 'home' && 'border-primary/50 bg-primary/30', !s.goal && s.team === 'away' && 'border-cyan-500/50 bg-cyan-500/30')} style={{ left: `${s.x}%`, top: `${s.y}%` }} />
                     </TooltipTrigger>
-                    <TooltipContent className="text-[10px]">{s.team === 'home' ? homeTeam?.code : awayTeam?.code} {s.goal ? '⚽ GOAL' : 'Shot'}</TooltipContent>
+                    <TooltipContent className="text-[10px] space-y-0.5">
+                      <div className="font-semibold">{s.player ? `${s.player} ${s.minute ? `${s.minute}'` : ''}` : `${s.team === 'home' ? homeTeam?.code : awayTeam?.code} ${s.goal ? '⚽ GOAL' : 'Shot'}`}</div>
+                      {'xg' in s && s.xg !== undefined && <div className="text-muted-foreground">xG: {s.xg.toFixed(3)}</div>}
+                      {s.outcome && <div className="text-muted-foreground">{s.outcome}</div>}
+                    </TooltipContent>
                   </Tooltip>
                 ))}
               </div>
