@@ -12,6 +12,13 @@ import {
   type GameState, type TaggedEvent,
 } from '@/lib/game-state-engine'
 import { fetchEvents, extractShots, extractPasses } from '@/lib/statsbomb'
+import {
+  calculateXG, shotAngle, shotDistance, batchCalculateXG,
+  passCompletionProbability, passInterceptionCDA, expectedAssist,
+  passSonarDistribution, convexHullArea, teamCentroid,
+  defensiveLineHeight, defensiveLineVariance, calculatePPDA,
+  fullShotAnalysis, fullPassAnalysis, teamTacticalSnapshot,
+} from '@/lib/elite-math-engine'
 
 /**
  * GET /api/analytics
@@ -27,6 +34,13 @@ import { fetchEvents, extractShots, extractPasses } from '@/lib/statsbomb'
  *   game-state      — Tag events with WINNING/DRAWING/LOSING
  *   game-state-match — Full game-state analysis for a StatsBomb match
  *   full-analysis   — Run all engines on a StatsBomb match
+ *   shot-analysis   — Full shot analysis (angle, distance, xG, xGOT)
+ *   pass-analysis   — Full pass analysis (CDA, completion prob, xA, xT)
+ *   team-tactical   — Team centroid, hull area, defensive line
+ *   convex-hull     — Defensive compactness from coordinates
+ *   ppda           — Passes Per Defensive Action
+ *   pass-sonar     — Angular passing distribution
+ *   batch-xg       — Batch xG for multiple shots
  */
 
 export const dynamic = 'force-dynamic'
@@ -349,6 +363,106 @@ export async function GET(request: NextRequest) {
         })
       }
 
+      // ════════════════════════════════════════════════════════════════════
+      // ELITE MATH ENGINE (20 Equations)
+      // ════════════════════════════════════════════════════════════════════
+
+      case 'shot-analysis': {
+        const x = parseFloat(searchParams.get('x') || '90')
+        const y = parseFloat(searchParams.get('y') || '34')
+        const bodyPart = searchParams.get('body') || 'Strong Foot'
+        const result = fullShotAnalysis(x, y, bodyPart)
+        return NextResponse.json({ success: true, action, data: result })
+      }
+
+      case 'batch-xg': {
+        const shotsJson = searchParams.get('shots')
+        if (!shotsJson) {
+          return NextResponse.json({
+            success: false, error: 'Provide ?shots= as JSON array of {x,y,bodyPart?}',
+          }, { status: 400 })
+        }
+        const shots = JSON.parse(shotsJson)
+        const xgValues = batchCalculateXG(shots)
+        return NextResponse.json({
+          success: true, action, count: xgValues.length,
+          data: shots.map((s: any, i: number) => ({
+            x: s.x, y: s.y, bodyPart: s.bodyPart || 'Strong Foot',
+            xg: xgValues[i],
+          })),
+        })
+      }
+
+      case 'pass-analysis': {
+        const sx = parseFloat(searchParams.get('sx') || '0')
+        const sy = parseFloat(searchParams.get('sy') || '0')
+        const ex = parseFloat(searchParams.get('ex') || '0')
+        const ey = parseFloat(searchParams.get('ey') || '0')
+        const defJson = searchParams.get('defenders')
+        if (!defJson) {
+          return NextResponse.json({
+            success: false, error: 'Provide ?defenders= as JSON array of [x,y] pairs',
+          }, { status: 400 })
+        }
+        const defenders = JSON.parse(defJson)
+        const result = fullPassAnalysis(sx, sy, ex, ey, defenders)
+        return NextResponse.json({ success: true, action, data: result })
+      }
+
+      case 'pass-sonar': {
+        const passesJson = searchParams.get('passes')
+        if (!passesJson) {
+          return NextResponse.json({
+            success: false, error: 'Provide ?passes= as JSON array of {startX,startY,endX,endY}',
+          }, { status: 400 })
+        }
+        const passes = JSON.parse(passesJson)
+        const distribution = passSonarDistribution(passes)
+        return NextResponse.json({ success: true, action, data: distribution })
+      }
+
+      case 'team-tactical': {
+        const positionsJson = searchParams.get('positions')
+        const defendersJson = searchParams.get('defenders')
+        if (!positionsJson) {
+          return NextResponse.json({
+            success: false, error: 'Provide ?positions= as JSON array of [x,y] pairs',
+          }, { status: 400 })
+        }
+        const positions = JSON.parse(positionsJson)
+        const defXCoords = defendersJson ? JSON.parse(defendersJson).map((d: any) => d[0]) : undefined
+        const result = teamTacticalSnapshot(positions, defXCoords)
+        return NextResponse.json({ success: true, action, data: result })
+      }
+
+      case 'convex-hull': {
+        const pointsJson = searchParams.get('points')
+        if (!pointsJson) {
+          return NextResponse.json({
+            success: false, error: 'Provide ?points= as JSON array of [x,y] pairs',
+          }, { status: 400 })
+        }
+        const points = JSON.parse(pointsJson)
+        const area = convexHullArea(points)
+        const centroid = teamCentroid(points)
+        const maxArea = 105 * 68
+        return NextResponse.json({
+          success: true, action,
+          data: { area, centroid, pitchArea: maxArea, compactness: +((area / maxArea) * 100).toFixed(2) },
+        })
+      }
+
+      case 'ppda': {
+        const oppPasses = parseInt(searchParams.get('oppPasses') || '0')
+        const defActions = parseInt(searchParams.get('defActions') || '1')
+        const ppda = calculatePPDA(oppPasses, defActions)
+        return NextResponse.json({
+          success: true, action,
+          data: { ppda: ppda === Infinity ? null : ppda, oppPasses, defActions,
+            interpretation: ppda < 8 ? 'High Press' : ppda < 15 ? 'Medium Press' : 'Low Block' },
+        })
+      }
+
       default:
         return NextResponse.json({
           success: false,
@@ -358,6 +472,8 @@ export async function GET(request: NextRequest) {
             'voronoi', 'voronoi-demo',
             'game-state', 'game-state-match',
             'full-analysis',
+            'shot-analysis', 'batch-xg', 'pass-analysis', 'pass-sonar',
+            'team-tactical', 'convex-hull', 'ppda',
           ],
         }, { status: 400 })
     }
