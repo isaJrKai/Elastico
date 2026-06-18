@@ -6,7 +6,8 @@ import { fetchFootballNews, normalizeNDArticle } from '@/lib/newsdata'
  *
  * Priority chain for real news:
  * 1. Newsdata.io (real articles from thousands of sources)
- * 2. Fallback: DB news items (if any exist)
+ * 2. ESPN league news (from /api/live?action=news)
+ * 3. Fallback: DB news items (if any exist)
  * No mock data — returns empty array if no sources available.
  */
 export const dynamic = 'force-dynamic'
@@ -18,6 +19,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const search = searchParams.get('search') || undefined
     const topic = searchParams.get('topic') || undefined
+    const league = searchParams.get('league') || undefined
 
     // ── Primary: Newsdata.io (real news) ──────────────────────────────────
     if (process.env.NEWSDATA_API_KEY) {
@@ -26,7 +28,6 @@ export async function GET(req: NextRequest) {
         const { articles, total } = await fetchFootballNews(query, page, limit)
 
         if (articles.length > 0) {
-          // Filter to football-relevant articles only
           const footballArticles = articles.filter(a => {
             const text = `${a.title} ${a.description} ${a.content}`.toLowerCase()
             return /football|soccer|premier|la liga|serie a|bundesliga|ligue|champions league|europa|goal|match|transfer|player|manager|coach|club|team|fixture|score|kickoff|derby/i.test(text)
@@ -44,7 +45,38 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Fallback: DB news ─────────────────────────────────────────────────
+    // ── Secondary: ESPN league news ───────────────────────────────────────
+    try {
+      const { fetchLeagueNews } = await import('@/lib/football-data')
+      const newsLeague = league || 'PL' // default to Premier League
+      const espnNews = await fetchLeagueNews(newsLeague)
+
+      if (espnNews.length > 0) {
+        const newsItems = espnNews.map((n, i) => ({
+          id: `espn-${newsLeague}-${i}`,
+          title: n.headline,
+          summary: n.description,
+          content: null,
+          source: n.source || 'ESPN',
+          sourceUrl: n.link,
+          category: n.type || 'sports',
+          isBreaking: false,
+          sentiment: 'neutral',
+          publishedAt: n.publishedAt,
+          imageUrl: n.imageUrl,
+        }))
+
+        return NextResponse.json({
+          news: newsItems,
+          source: `espn:${newsLeague}`,
+          pagination: { page, limit, total: newsItems.length, totalPages: 1 },
+        })
+      }
+    } catch (err) {
+      console.error('[News] ESPN news fetch failed:', err)
+    }
+
+    // ── Tertiary: DB news ─────────────────────────────────────────────────
     const { db } = await import('@/lib/db')
     const category = searchParams.get('category') || undefined
 
