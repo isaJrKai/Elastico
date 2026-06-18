@@ -5,12 +5,42 @@ import { fetchFootballNews, normalizeNDArticle } from '@/lib/newsdata'
  * GET /api/news
  *
  * Priority chain for real news:
- * 1. Newsdata.io (real articles from thousands of sources)
- * 2. ESPN league news (from /api/live?action=news)
+ * 1. ESPN league news (direct fetch, no API key needed)
+ * 2. Newsdata.io (if API key configured)
  * 3. Fallback: DB news items (if any exist)
- * No mock data — returns empty array if no sources available.
  */
+
+const ESPN_NEWS_URLS: Record<string, string> = {
+  PL: 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/news',
+  LIGA: 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/news',
+  SA: 'https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/news',
+  BL: 'https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/news',
+  L1: 'https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/news',
+  UCL: 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/news',
+}
+
 export const dynamic = 'force-dynamic'
+
+async function fetchESPNNewsDirect(leagueCode: string): Promise<any[]> {
+  const espnUrl = ESPN_NEWS_URLS[leagueCode] || ESPN_NEWS_URLS.PL
+  try {
+    const res = await fetch(espnUrl, {
+      next: { revalidate: 300 },
+      headers: { 'User-Agent': 'ELASTICO/1.0' },
+    })
+    if (!res.ok) {
+      console.error(`[News] ESPN direct fetch ${res.status} from ${espnUrl}`)
+      return []
+    }
+    const data = await res.json()
+    const articles = data?.articles || []
+    console.log(`[News] ESPN direct got ${articles.length} articles for ${leagueCode}`)
+    return articles
+  } catch (err) {
+    console.error(`[News] ESPN direct fetch error for ${leagueCode}:`, err)
+    return []
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,25 +51,24 @@ export async function GET(req: NextRequest) {
     const topic = searchParams.get('topic') || undefined
     const league = searchParams.get('league') || undefined
 
-    // ── Primary: ESPN league news (no API key needed — always available) ──
+    // ── Primary: ESPN news (direct fetch, no API key needed) ───────────────
     try {
-      const { fetchLeagueNews } = await import('@/lib/football-data')
       const newsLeague = league || 'PL'
-      const espnNews = await fetchLeagueNews(newsLeague)
+      const espnArticles = await fetchESPNNewsDirect(newsLeague)
 
-      if (espnNews.length > 0) {
-        const newsItems = espnNews.map((n, i) => ({
-          id: `espn-${newsLeague}-${i}`,
-          title: n.headline,
-          summary: n.description,
+      if (espnArticles.length > 0) {
+        const newsItems = espnArticles.slice(0, limit).map((a: any, i: number) => ({
+          id: `espn-${newsLeague}-${i}-${Date.now()}`,
+          title: a.headline || '',
+          summary: a.description || '',
           content: null,
-          source: n.source || 'ESPN',
-          sourceUrl: n.link,
-          category: n.type || 'sports',
+          source: a.source?.name || 'ESPN',
+          sourceUrl: a.links?.web?.href || a.links?.mobile?.href || '',
+          category: a.type || 'sports',
           isBreaking: false,
           sentiment: 'neutral',
-          publishedAt: n.publishedAt,
-          imageUrl: n.imageUrl,
+          publishedAt: a.published || a.date || new Date().toISOString(),
+          imageUrl: a.images?.[0]?.url || a.image?.url || '',
         }))
 
         return NextResponse.json({
@@ -52,7 +81,7 @@ export async function GET(req: NextRequest) {
       console.error('[News] ESPN news fetch failed:', err)
     }
 
-    // ── Secondary: Newsdata.io (real news from thousands of sources) ──────
+    // ── Secondary: Newsdata.io (if API key configured) ────────────────────
     if (process.env.NEWSDATA_API_KEY) {
       try {
         const query = search || topic || 'football soccer premier league champions league'
