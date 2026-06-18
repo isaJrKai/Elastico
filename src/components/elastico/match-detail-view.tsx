@@ -229,6 +229,23 @@ export function MatchDetailView() {
       .finally(() => setSbLoading(false))
   }, [])
 
+  // ── xT (Expected Threat) leaderboard from analytics engine ──────────────
+  const [xtLeaderboard, setXtLeaderboard] = useState<Array<{ player: string; team: string; totalXtGained: number; totalActions: number; avgXtPerAction: number; progressiveActions: number }>>([])
+  const [xtLoading, setXtLoading] = useState(false)
+
+  useEffect(() => {
+    setXtLoading(true)
+    fetch('/api/analytics?action=xt-match&match=3869151')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.data?.leaderboard) {
+          setXtLeaderboard(data.data.leaderboard)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setXtLoading(false))
+  }, [])
+
   const shotMapData = useMemo(() => {
     if (sbShots.length > 0) return sbShots
     if (match) return generateShotsFromEvents(match.events || [], match.homeXg, match.awayXg)
@@ -397,6 +414,7 @@ export function MatchDetailView() {
               { value: 'statistics', label: 'Statistics' },
               { value: 'xg', label: 'xG Timeline' },
               { value: 'shotmap', label: 'Shot Map' },
+              { value: 'xt', label: 'xT Threat' },
               { value: 'votes', label: 'Votes' },
             ].map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="flex-1 h-8 text-xs font-semibold rounded-md transition-all data-[state=active]:bg-primary/15 data-[state=active]:text-primary">{t.label}</TabsTrigger>
@@ -486,6 +504,47 @@ export function MatchDetailView() {
                 <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-primary/50" />{homeTeam?.code} Shot</span>
                 <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-amber-400" />Goal</span>
                 <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-cyan-500/50" />{awayTeam?.code} Shot</span>
+              </div>
+            </CardContent></Card>
+          </TabsContent>
+
+          {/* xT (EXPECTED THREAT) TAB */}
+          <TabsContent value="xt" className="mt-4">
+            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+              <h3 className="text-sm font-bold mb-1 flex items-center gap-2"><Flame className="size-4 text-orange-400" />Expected Threat (xT) Leaderboard</h3>
+              <p className="text-[10px] text-muted-foreground mb-4">Measures how much each pass increased the probability of scoring. Powered by a 12x8 pitch grid trained on thousands of matches.</p>
+              {xtLoading ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
+              ) : xtLeaderboard.length > 0 ? (
+                <div className="space-y-1.5 max-h-80 overflow-y-auto">
+                  {xtLeaderboard.map((p, i) => (
+                    <div key={i} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-muted/30 transition-colors">
+                      <span className="text-[10px] font-bold text-muted-foreground w-5 text-right">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold truncate">{p.player}</span>
+                          <Badge variant="outline" className="text-[9px] shrink-0">{p.team.split(' ').slice(-1)[0]}</Badge>
+                        </div>
+                        <div className="flex gap-3 text-[10px] text-muted-foreground mt-0.5">
+                          <span>{p.totalActions} actions</span>
+                          <span>{p.progressiveActions} progressive</span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className={cn('text-sm font-bold tabular-nums', p.totalXtGained > 0.1 ? 'text-orange-400' : p.totalXtGained > 0 ? 'text-amber-400' : 'text-muted-foreground')}>
+                          {p.totalXtGained > 0 ? '+' : ''}{p.totalXtGained.toFixed(4)}
+                        </div>
+                        <div className="text-[9px] text-muted-foreground">avg {p.avgXtPerAction.toFixed(4)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No xT data available for this match</p>
+              )}
+              <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-4 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1.5"><Flame className="size-3 text-orange-400" />xT = probability of scoring from that zone</span>
+                <span>Higher = more threatening pass progression</span>
               </div>
             </CardContent></Card>
           </TabsContent>
