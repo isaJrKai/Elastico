@@ -248,7 +248,7 @@ function findLeagueByCode(code: string) {
 }
 
 function findLeagueById(id: string | number) {
-  return TSD_LEAGUES.find(l => l.idLeague === String(id))
+  return TSD_LEAGUES.find(l => l.id === Number(id))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -279,7 +279,7 @@ export async function fetchTeamsByLeague(leagueId: string): Promise<TSDTeam[]> {
 export async function fetchTeams(leagueCode: string): Promise<TSDTeam[]> {
   const league = findLeagueByCode(leagueCode)
   if (!league) return []
-  const teams = await fetchTeamsByLeague(league.idLeague)
+  const teams = await fetchTeamsByLeague(String(league.id))
   return teams.map(t => ({ ...t, _leagueCode: leagueCode }))
 }
 
@@ -376,7 +376,7 @@ export async function fetchLeagueTable(leagueId: string, season?: string): Promi
 export async function fetchStandings(leagueCode: string, season?: string): Promise<TSDTableEntry[]> {
   const league = findLeagueByCode(leagueCode)
   if (!league) return []
-  const table = await fetchLeagueTable(league.idLeague, season)
+  const table = await fetchLeagueTable(String(league.id), season)
   return table.map(r => ({ ...r, _leagueCode: leagueCode }))
 }
 

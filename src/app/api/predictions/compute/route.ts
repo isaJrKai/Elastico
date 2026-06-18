@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
       // 3. Dixon-Coles Model
       const dc = dixonColes(
-        elo.expectedHomeGoals, elo.expectedAwayGoals, 0.1, -0.1, 0.05
+        elo.expectedHomeGoals, elo.expectedAwayGoals, 0.1, -0.1, 0.1, 0.0
       )
 
       // 4. Stochastic Simulation (Merton Jump-Diffusion + GARCH)
@@ -127,18 +127,18 @@ const TEAM_ELO_MAP: Record<string, number> = {
   'NFO': 260, 'BRE': 250, 'SOU': 210, 'LEI': 240, 'IPS': 200, 'SUN': 190,
   // La Liga
   'RMA': 390, 'BAR': 380, 'ATM': 350, 'SEV': 300, 'RSO': 310, 'VIL': 300, 'BET': 280, 'CEL': 260,
-  'ATH': 270, 'VAL': 260, 'OSA': 230, 'GET': 240, 'MLL': 220, 'CAD': 200, 'UDL': 210, 'LEV': 250,
+  'ATH': 270, 'VAL': 260, 'OSA': 230, 'GET': 240, 'MLL': 220, 'CAD': 200, 'UDL': 210, 'LEV_LIGA': 250,
   // Serie A
   'INT': 360, 'NAP': 350, 'JUV': 340, 'ACM': 350, 'ROM': 310, 'LAZ': 300, 'ATA': 290, 'FIO': 270,
-  'BOL': 260, 'TOR': 260, 'MON': 240, 'UDI': 230, 'SAS': 220, 'EMP': 230, 'CAG': 200, 'LEC': 190,
+  'BOL': 260, 'TOR': 260, 'MON_SSA': 240, 'UDI': 230, 'SAS': 220, 'EMP': 230, 'CAG': 200, 'LEC': 190,
   'PAR': 210, 'GEN': 220, 'VER': 200, 'VEN': 210, 'COM': 190, 'CAL': 180,
   // Bundesliga
-  'BAY': 380, 'DOR': 340, 'LEV': 330, 'STU': 310, 'EIN': 300, 'FRE': 290, 'HOF': 280, 'WOB': 270,
+  'BAY': 380, 'DOR': 340, 'B04': 330, 'STU': 310, 'EIN': 300, 'FRE': 290, 'HOF': 280, 'WOB': 270,
   'UNB': 260, 'M05': 260, 'BSC': 250, 'AUG': 240, 'MGL': 230, 'KOE': 240, 'DAR': 220, 'BOC': 210,
   // Ligue 1
   'PSG': 380, 'ASM': 340, 'OL': 310, 'OM': 300, 'LYO': 290, 'NCE': 280, 'LEN': 260, 'REN': 260,
-  'MON': 250, 'LIL': 270, 'STR': 240, 'TOU': 230, 'REI': 220, 'MET': 210, 'NAN': 210, 'LER': 200,
-  'ANG': 200, 'AUX': 210, 'LEH': 190, 'BRE': 220, 'MHS': 200,
+  'ASM_L1': 340, 'LIL': 270, 'STR': 240, 'TOU': 230, 'REI': 220, 'MET': 210, 'NAN': 210, 'LER': 200,
+  'ANG': 200, 'AUX': 210, 'LEH': 190, 'BRE_L1': 220, 'MHS': 200,
 }
 
 function hashToElo(abbr: string): number {

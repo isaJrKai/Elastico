@@ -999,7 +999,7 @@ export function halftimeAdjustment(
     homeWinAdj += 0.10 * awayReds;
     drawAdj += 0.02;
     narratives.push(
-      `The away side are down to ${11 - awayReds} men — big advantage for the home side.',
+      `The away side are down to ${11 - awayReds} men — big advantage for the home side.`,
     );
   }
 
@@ -1049,7 +1049,7 @@ export function generateTacticalInsight(matchData: MatchStats): string {
   const possDiff = matchData.homePossession - matchData.awayPossession;
   if (possDiff > 15) {
     insights.push(
-      `The home side are dominating possession (${matchData.homePossession}%). They're likely dictating the tempo and forcing the opposition into a reactive game.',
+      `The home side are dominating possession (${matchData.homePossession}%). They're likely dictating the tempo and forcing the opposition into a reactive game.`,
     );
   } else if (possDiff < -15) {
     insights.push(

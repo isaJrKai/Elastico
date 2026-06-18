@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import {
   Trophy, Medal, Target, Crown, TrendingUp, Star, Flame, ArrowUp, ArrowDown, Minus,
-  Zap, Search, Download, Goal,
+  Zap, Search, Download, Goal, Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateCSV } from '@/lib/export'

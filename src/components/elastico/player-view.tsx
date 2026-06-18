@@ -53,6 +53,7 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
+  ReferenceLine,
 } from 'recharts'
 import { useElasticoStore, type Player } from '@/store/use-elastico-store'
 import { cn } from '@/lib/utils'
@@ -462,9 +463,9 @@ export function PlayerView() {
                         </TableCell>
                         <TableCell className="text-center font-bold text-primary">{p.goals}</TableCell>
                         <TableCell className="text-center">{p.assists}</TableCell>
-                        <TableCell className="text-center text-muted-foreground">{p.minutesPlayed || p.appearances * 90}</TableCell>
+                        <TableCell className="text-center text-muted-foreground">{p.minutesPlayed || (p.appearances || 0) * 90}</TableCell>
                         <TableCell className="text-center font-medium">
-                          {((p.goals / ((p.minutesPlayed || p.appearances * 90) / 90))).toFixed(2)}
+                          {((p.goals / ((p.minutesPlayed || (p.appearances || 0) * 90) / 90))).toFixed(2)}
                         </TableCell>
                         <TableCell className={cn('text-center font-bold', getRatingColor(p.rating))}>{p.rating.toFixed(1)}</TableCell>
                       </TableRow>
@@ -831,7 +832,7 @@ export function PlayerView() {
                     <YAxis domain={[5, 10]} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                     <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
                     <Line type="monotone" dataKey="rating" stroke="#00e676" strokeWidth={2} dot={{ fill: '#00e676', r: 4 }} />
-                    <referenceLine y={7} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" />
+                    <ReferenceLine y={7} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

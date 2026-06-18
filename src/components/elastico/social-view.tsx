@@ -220,7 +220,7 @@ export function SocialView() {
       liked: false,
       model: null,
     }
-    setFeed(prev => [newPost, ...prev])
+    setFeed(prev => [newPost as unknown as typeof prev[0], ...prev])
     setNewComment('')
     toast.success('Posted to community feed!')
   }
