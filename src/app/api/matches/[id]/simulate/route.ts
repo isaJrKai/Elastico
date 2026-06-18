@@ -12,10 +12,7 @@ export async function POST(
 
     const { user } = auth
 
-    // Check plan: pro or elite only
-    if (!['pro', 'elite'].includes(user.plan)) {
-      return NextResponse.json({ error: 'Pro or Elite plan required for simulations' }, { status: 403 })
-    }
+    // All authenticated users can run simulations (removed paywall for demo/pitch)
 
     const { id } = await params
 
