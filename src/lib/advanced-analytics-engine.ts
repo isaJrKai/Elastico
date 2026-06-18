@@ -35,6 +35,8 @@
  *   20. Inter-Game Psychological Residue (IPR) — Hangover model
  */
 
+import { XT_GRID, XT_ROWS, XT_COLS } from './xt-engine'
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -463,6 +465,10 @@ export function calculateFCD(params: FCDParams): FormulaResult {
   }
 
   // Calculate fatigue score — sum of exponential decay contributions
+  // Each match contributes fatigue that decays over time.
+  // Key: fatigue is INVERSELY related to days since match.
+  // A match TODAY (dayAgo=0) contributes maximum fatigue.
+  // A match 7 days ago contributes almost nothing.
   let totalFatigue = 0
   let matchCount = 0
   let shortestGap = Infinity
@@ -472,18 +478,17 @@ export function calculateFCD(params: FCDParams): FormulaResult {
     matchCount++
     if (dayAgo < shortestGap) shortestGap = dayAgo
 
-    // Weighted by position distribution
-    const fatigueContribution =
-      (squad.strikers / totalPlayers) * Math.exp(-LAMBDA.striker * dayAgo) +
-      (squad.midfielders / totalPlayers) * Math.exp(-LAMBDA.midfielder * dayAgo) +
-      (squad.defenders / totalPlayers) * Math.exp(-LAMBDA.defender * dayAgo) +
-      (squad.goalkeepers / totalPlayers) * Math.exp(-LAMBDA.goalkeeper * dayAgo)
+    // Fatigue from this match: position-weighted exponential decay
+    // Using average lambda (0.27) for the team-wide fatigue score
+    const avgLambda = (LAMBDA.striker * squad.strikers + LAMBDA.midfielder * squad.midfielders + LAMBDA.defender * squad.defenders + LAMBDA.goalkeeper * squad.goalkeepers) / totalPlayers
 
-    totalFatigue += fatigueContribution
+    // Fresh match (dayAgo=0) = 1.0 fatigue. Decays with avgLambda.
+    totalFatigue += Math.exp(-avgLambda * dayAgo)
   }
 
-  // Normalize to 0-1 scale (2 matches in 7 days ≈ 0.3, 3 in 7 days ≈ 0.6)
-  const normalizedFatigue = Math.min(totalFatigue / (matchCount * 0.5), 1.0)
+  // Normalize: 1 match = ~0.33, 3 matches in 3 days ≈ 0.75-0.90, 4+ = ~1.0
+  // A single match 7+ days ago ≈ 0.15
+  const normalizedFatigue = Math.min(totalFatigue / 3.5, 1.0)
 
   // Performance drop percentage
   const perfDrop = normalizedFatigue * 0.35  // max ~35% drop for extreme congestion
@@ -705,33 +710,45 @@ export function calculateDSE(params: DSEParams): FormulaResult {
     const inZone = player.currentX >= xMin && player.currentX <= xMax &&
                    player.currentY >= yMin && player.currentY <= yMax
 
-    // Binary: 1 if in zone, small probability if slightly outside
-    let prob: number
+    // "Order" probability: 1 = perfectly in zone, 0 = completely out of position
+    let orderProb: number
     if (inZone) {
-      prob = 0.85  // high confidence when in zone
+      orderProb = 1.0
     } else {
-      // Distance from zone center — further = lower probability
+      // How far outside the zone? Normalize by pitch diagonal.
       const zoneCenterX = (xMin + xMax) / 2
       const zoneCenterY = (yMin + yMax) / 2
       const dist = Math.sqrt(
         Math.pow(player.currentX - zoneCenterX, 2) +
         Math.pow(player.currentY - zoneCenterY, 2)
       )
-      prob = Math.max(0.05, 0.85 - dist * 2.5)
+      orderProb = Math.max(0, 1.0 - dist * 2.0)
     }
-    zoneProbs.push(prob)
+    zoneProbs.push(orderProb)
   }
 
-  // Shannon entropy calculation
+  // Entropy of the formation: HIGH when players are scattered (disorder)
+  // We use 1 - mean(orderProb) as a measure of disorder, then apply entropy formula
+  // DSE = -Σ Pi × log(Pi) where Pi = normalized displacement for each player
+  // When all players are in zone (Pi≈0), entropy ≈ 0 (organized)
+  // When players are scattered, displacement values are high → higher entropy
+  const displacements = zoneProbs.map(p => 1 - p)  // 0 = in zone, 1 = far out
+  const totalDisplacement = displacements.reduce((a, b) => a + b, 0)
+
+  // Shannon entropy over the distribution of displacement across players
+  // Normalize displacements to sum to 1 (probability distribution)
   let entropy = 0
-  for (const p of zoneProbs) {
-    if (p > 0 && p < 1) {
-      entropy -= p * Math.log2(p) + (1 - p) * Math.log2(1 - p)
+  if (totalDisplacement > 0.001) {
+    for (const d of displacements) {
+      const p = d / totalDisplacement
+      if (p > 0) {
+        entropy -= p * Math.log2(p)
+      }
     }
   }
-
-  // Normalize by number of players (max entropy for n players = n bits)
-  const normalizedEntropy = entropy / players.length
+  // Max entropy for n players = log2(n). Normalize to [0, 1].
+  const maxEntropy = Math.log2(Math.max(players.length, 2))
+  const normalizedEntropy = entropy / maxEntropy
 
   // Goal probability multiplier
   let goalRiskMultiplier: number
@@ -1173,9 +1190,12 @@ export function calculateCTC(params: CTCParams): FormulaResult {
   const t = monthsSinceAppointment
 
   // Damped oscillation parameters (calibrated to real-world tenure data)
-  const lambda = 0.06   // decay rate
-  const omega = 0.35    // oscillation frequency
-  const phi = Math.PI / 4  // phase offset (starts on upward swing)
+  // CTC(t) = A × e^(-λt) × sin(ωt + φ) + Baseline_talent
+  // Peak: months 6-18, Cliff: months 30-36
+  const A = newManagerEffectStrength
+  const lambda = 0.10   // decay rate — ensures bump is <5% by month 25
+  const omega = 0.18    // oscillation frequency — single positive peak around month 8-10
+  const phi = -0.23     // phase offset — peak at ~month 8, dip around month 20-25
 
   // New manager bump — exponential decay with oscillation
   const newManagerBump = newManagerEffectStrength * Math.exp(-lambda * t) * Math.sin(omega * t + phi)
@@ -1190,13 +1210,14 @@ export function calculateCTC(params: CTCParams): FormulaResult {
   // Final CTC value
   const CTC = baselineTalent + tenureModifier
 
-  // Lifecycle phase
+  // Lifecycle phase classification based on the actual curve value relative to baseline
+  const relPerformance = CTC - baselineTalent
   let phase: string
   let phaseLabel: string
   if (t < 3) {
     phase = 'HONEYMOON'
     phaseLabel = `Honeymoon phase (${t}mo). Players responding to new methods. Performance elevated but may be unsustainable.`
-  } else if (t <= 18) {
+  } else if (t <= 18 && relPerformance > 0) {
     phase = 'PEAK_WINDOW'
     phaseLabel = `Peak performance window (${t}mo). Coach has implemented system, players adapted. This is typically the highest-output phase.`
   } else if (t <= 30) {
@@ -1838,4 +1859,152 @@ export function runFullAdvancedAnalysis(params: FullAdvancedAnalysisParams): Adv
     compositeLabel,
     flags
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BONUS: VAEP — Valuing Actions by Estimating Probabilities
+// From socceraction framework (the metric Arsenal, Brentford, etc. use)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export interface VAEPAction {
+  playerId: string
+  actionType: 'pass' | 'shot' | 'dribble' | 'tackle' | 'interception' | 'clearance' | 'cross' | 'carry' | 'aerial_duel'
+  /** [x, y] position on pitch in meters (0-105 × 0-68) */
+  startLocation: [number, number]
+  /** [x, y] end position (for passes/carries/shots) */
+  endLocation?: [number, number]
+  /** Was the action successful? */
+  successful: boolean
+  /** Minute of the action */
+  minute: number
+}
+
+export interface VAEPResult {
+  /** Per-action VAEP values */
+  actions: Array<{
+    playerId: string
+    actionType: string
+    minute: number
+    vaep: number
+    offensiveValue: number
+    defensiveValue: number
+    location: [number, number]
+  }>
+  /** Team total VAEP */
+  teamVAEP: number
+  /** Top player by VAEP */
+  topPlayer: { playerId: string; vaep: number }
+  /** VAEP per 90 minutes */
+  vaepPer90: { team: number; bestPlayer: number }
+}
+
+/**
+ * Simplified VAEP computation.
+ *
+ * In production, VAEP uses trained XGBoost models on event + tracking data.
+ * This implementation uses a heuristic approximation based on:
+ *   - xT grid for offensive value (probability of scoring from a zone)
+ *   - Distance-based defensive value (probability of conceding if ball lost)
+ *   - Action success/failure multipliers
+ *
+ * VAEP(action) = P(scoring|before) - P(scoring|after) + P(conceding|before) - P(conceding|after)
+ * Simplified: offensive_value = xT(after) - xT(before) for successful actions
+ *             defensive_value = xT(own_half_before) - xT(own_half_after) for failed actions
+ */
+export function calculateVAEP(
+  actions: VAEPAction[],
+  teamId?: string,
+  matchMinutes?: number,
+): VAEPResult {
+  const results: VAEPResult['actions'] = []
+  const playerTotals: Record<string, number> = {}
+
+  for (const action of actions) {
+    const [sx, sy] = action.startLocation
+    const [ex, ey] = action.endLocation ?? [sx, sy]
+
+    // Get xT values for start and end positions
+    const xTBefore = getXTValue(sx, sy)
+    const xTAfter = action.endLocation ? getXTValue(ex, ey) : xTBefore
+
+    let offensiveValue = 0
+    let defensiveValue = 0
+
+    if (action.successful) {
+      // Offensive: ball moved to higher xT zone
+      offensiveValue = xTAfter - xTBefore
+
+      // Action type multipliers (based on socceraction research)
+      const offensiveMultipliers: Record<string, number> = {
+        shot: 3.0,          // direct scoring attempt
+        dribble: 1.3,       // progressive carry
+        pass: 1.0,          // baseline
+        cross: 1.2,         // into dangerous area
+        carry: 1.1,         // ball progression
+        aerial_duel: 0.8,   // won duel
+        tackle: 0.3,        // minimal offensive value
+        interception: 0.5,  // turnover
+        clearance: 0.0,     // defensive only
+      }
+      offensiveValue *= (offensiveMultipliers[action.actionType] ?? 1.0)
+
+      // Defensive: successful action reduces opponent's scoring probability
+      // Approximate: actions in own half have more defensive value
+      if (sx < 52.5) {  // own half
+        defensiveValue = xTBefore * 0.15  // 15% of the xT value retained
+      }
+    } else {
+      // Failed action: offensive value is negative (lost the ball)
+      offensiveValue = -xTBefore * 0.1
+
+      // Failed action in dangerous area: high defensive cost
+      if (sx > 52.5) {
+        // Ball lost in opponent's half → counter-attack risk
+        defensiveValue = -(1 - xTBefore) * 0.05  // concede probability increases
+      }
+    }
+
+    const vaep = offensiveValue + defensiveValue
+    playerTotals[action.playerId] = (playerTotals[action.playerId] ?? 0) + vaep
+
+    results.push({
+      playerId: action.playerId,
+      actionType: action.actionType,
+      minute: action.minute,
+      vaep,
+      offensiveValue,
+      defensiveValue,
+      location: action.startLocation,
+    })
+  }
+
+  const teamVAEP = results.reduce((sum, a) => sum + a.vaep, 0)
+  const totalMinutes = matchMinutes ?? 90
+
+  // Find top player
+  let topPlayerId = ''
+  let topVAEP = -Infinity
+  for (const [id, total] of Object.entries(playerTotals)) {
+    if (total > topVAEP) {
+      topVAEP = total
+      topPlayerId = id
+    }
+  }
+
+  return {
+    actions: results.sort((a, b) => b.vaep - a.vaep),
+    teamVAEP,
+    topPlayer: { playerId: topPlayerId, vaep: topVAEP },
+    vaepPer90: {
+      team: (teamVAEP / totalMinutes) * 90,
+      bestPlayer: (topVAEP / totalMinutes) * 90,
+    },
+  }
+}
+
+/** Helper: get xT value from meter coordinates using the 12×8 grid */
+function getXTValue(x: number, y: number): number {
+  const col = Math.min(Math.floor((x / 105) * XT_COLS), XT_COLS - 1)
+  const row = Math.min(Math.floor((y / 68) * XT_ROWS), XT_ROWS - 1)
+  return XT_GRID[row]?.[col] ?? 0
 }
