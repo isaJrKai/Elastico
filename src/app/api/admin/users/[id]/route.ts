@@ -9,7 +9,8 @@ export async function PATCH(
   try {
     const auth = await authenticateRequest(req)
     if (auth instanceof Response) return auth
-    if (auth.user.role !== 'admin') {
+    const { user } = auth
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -59,7 +60,8 @@ export async function DELETE(
   try {
     const auth = await authenticateRequest(req)
     if (auth instanceof Response) return auth
-    if (auth.user.role !== 'admin') {
+    const { user } = auth
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 

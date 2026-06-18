@@ -6,7 +6,8 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req)
     if (auth instanceof Response) return auth
-    if (auth.user.role !== 'admin') {
+    const { user } = auth
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -25,7 +26,8 @@ export async function PATCH(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req)
     if (auth instanceof Response) return auth
-    if (auth.user.role !== 'admin') {
+    const { user } = auth
+    if (!user || user.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -41,7 +43,7 @@ export async function PATCH(req: NextRequest) {
 
       const result = await db.systemSetting.upsert({
         where: { key: item.key },
-        update: { value: String(item.value), type: item.type || 'string' },
+        update: { value: String(item.value) },
         create: { key: item.key, value: String(item.value), type: item.type || 'string' },
       })
       results.push(result)

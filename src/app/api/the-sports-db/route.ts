@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  fetchTeams, fetchTeamDetails, searchTeam, searchLeague,
+  fetchTeams, fetchTeamDetails, searchTeam, fetchLeaguesByCountry,
   fetchPlayersByTeam, searchPlayer, fetchPlayerDetails,
   fetchLastEvents, fetchNextEvents, fetchStandings,
   fetchLeagueEvents, fetchLeaguesByCountry,
@@ -278,7 +278,7 @@ export async function GET(request: NextRequest) {
         if (!leagueObj) {
           return NextResponse.json({ success: false, error: `Unknown league code: ${league}` }, { status: 400 })
         }
-        const events = await fetchLeagueEvents(leagueObj.idLeague, season, round)
+        const events = await fetchLeagueEvents(leagueObj.id, season, round)
         return NextResponse.json({
           success: true,
           action,

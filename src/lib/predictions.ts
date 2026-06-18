@@ -945,7 +945,7 @@ export function halftimeAdjustment(
     drawAdj -= 0.05;
     awayWinAdj -= 0.03;
     narratives.push(
-      `${home.name} are in control. Expect them to manage the game in the second half.`,
+      'The home side is in control. Expect them to manage the game in the second half.',
     );
   } else if (goalDiff === 1) {
     homeGoalAdj -= 0.05;
@@ -970,7 +970,7 @@ export function halftimeAdjustment(
     drawAdj -= 0.05;
     homeWinAdj -= 0.03;
     narratives.push(
-      `${away.name} are dominant. The home side face an uphill battle.`,
+      'The away side is dominant. The home side face an uphill battle.',
     );
   } else {
     // 0-0
@@ -989,7 +989,7 @@ export function halftimeAdjustment(
     awayWinAdj += 0.10 * homeReds;
     drawAdj += 0.02;
     narratives.push(
-      `Disaster for ${home.name} — a red card significantly shifts the balance.`,
+      'Disaster for the home side — a red card significantly shifts the balance.',
     );
   }
   if (awayReds > 0) {
@@ -999,7 +999,7 @@ export function halftimeAdjustment(
     homeWinAdj += 0.10 * awayReds;
     drawAdj += 0.02;
     narratives.push(
-      `${away.name} are down to ${11 - awayReds} men — big advantage for the home side.`,
+      `The away side are down to ${11 - awayReds} men — big advantage for the home side.',
     );
   }
 
@@ -1007,13 +1007,13 @@ export function halftimeAdjustment(
   if (homeYellows >= 3) {
     homeGoalAdj -= 0.05;
     narratives.push(
-      `${home.name} have racked up bookings and may need to tread carefully.`,
+      'The home side have racked up bookings and may need to tread carefully.',
     );
   }
   if (awayYellows >= 3) {
     awayGoalAdj -= 0.05;
     narratives.push(
-      `Discipline concerns for ${away.name} with multiple yellow cards.`,
+      'Discipline concerns for the away side with multiple yellow cards.'
     );
   }
 
@@ -1049,7 +1049,7 @@ export function generateTacticalInsight(matchData: MatchStats): string {
   const possDiff = matchData.homePossession - matchData.awayPossession;
   if (possDiff > 15) {
     insights.push(
-      `The home side are dominating possession (${matchData.homePossession}%). They're likely dictating the tempo and forcing the opposition into a reactive game.`,
+      `The home side are dominating possession (${matchData.homePossession}%). They're likely dictating the tempo and forcing the opposition into a reactive game.',
     );
   } else if (possDiff < -15) {
     insights.push(

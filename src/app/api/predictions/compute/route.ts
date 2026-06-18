@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAllLiveScores, mapStatus } from '@/lib/football-data'
+import { fetchAllLiveScores, mapStatus, type ESPNMatch } from '@/lib/football-data'
 import { calculateElo, poissonProbabilities, dixonColes, type EloResult } from '@/lib/predictions'
 import { runStochasticSimulation, type StochasticMatchResult, type MatchInput, DEFAULT_CONFIG } from '@/lib/prediction-engine'
 
@@ -33,12 +33,11 @@ export async function GET(request: NextRequest) {
         awayTeam: m.awayTeam.name,
         homeXg: elo.expectedHomeGoals,
         awayXg: elo.expectedAwayGoals,
-        homeGoals: m.homeScore,
-        awayGoals: m.awayScore,
-        homeShots: 0,
-        awayShots: 0,
-        possession: 50,
-        injuries: [],
+        homeGoalsConceded: 1.0,
+        awayGoalsConceded: 1.0,
+        homeElo,
+        awayElo,
+        bookmakerOdds: { home: 2.10, draw: 3.40, away: 3.50 },
       }
       const stochastic: StochasticMatchResult = runStochasticSimulation(
         matchInput, DEFAULT_CONFIG
