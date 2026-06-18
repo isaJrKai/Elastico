@@ -45,7 +45,7 @@ function computeGroupStandings(teams: TeamData[], matches: MatchData[], group: s
   }).sort((a, b) => b.points - a.points || b.goalDiff - a.goalDiff || b.goalsFor - a.goalsFor).map((r, i) => ({ ...r, pos: i + 1 }))
 }
 
-function isKnockoutStage(stage: string) { return ['R16', 'QF', 'SF', 'Final', 'Third Place'].includes(stage) }
+function isKnockoutStage(m: MatchData) { return ['R16', 'QF', 'SF', 'Final', 'Third Place'].includes(m.stage) }
 function getStageLabel(s: string) { return s === 'R16' ? 'Round of 16' : s === 'QF' ? 'Quarter-Finals' : s === 'SF' ? 'Semi-Finals' : s === 'Third Place' ? '3rd Place' : s }
 function getStageOrder(s: string) { return s === 'R16' ? 0 : s === 'QF' ? 1 : s === 'SF' ? 2 : s === 'Third Place' ? 3 : 4 }
 
@@ -206,6 +206,17 @@ export default function TournamentView() {
     )
   }
 
+  const toKO = (m: MatchData): KnockoutMatch => ({
+    id: m.id,
+    label: getStageLabel(m.stage),
+    stage: m.stage,
+    homeTeam: m.homeTeam ? { name: m.homeTeam.name, code: m.homeTeam.code, primaryColor: m.homeTeam.primaryColor } : null,
+    awayTeam: m.awayTeam ? { name: m.awayTeam.name, code: m.awayTeam.code, primaryColor: m.awayTeam.primaryColor } : null,
+    homeScore: m.homeScore,
+    awayScore: m.awayScore,
+    status: m.status,
+    date: m.date,
+  })
   const renderKOMatch = (m: KnockoutMatch) => {
     const isUp = m.status === 'upcoming'; const isLive = m.status === 'live' || m.status === 'halftime'
     const winner = m.status === 'finished' ? (m.homeScore > m.awayScore ? m.homeTeam?.code : m.awayScore > m.homeScore ? m.awayTeam?.code : null) : null
@@ -362,7 +373,7 @@ export default function TournamentView() {
                   <React.Fragment key={col.label}>
                     <div className="flex flex-col justify-around gap-3 flex-1">
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center mb-1">{col.label}</p>
-                      {col.matches.length > 0 ? col.matches.map(m => renderKOMatch(m)) : <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground/50">TBD</div>}
+                      {col.matches.length > 0 ? col.matches.map(m => renderKOMatch(toKO(m))) : <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground/50">TBD</div>}
                     </div>
                     {ci < 2 && <div className="flex items-center w-10 shrink-0"><svg className="w-full h-full" viewBox="0 0 40 420" fill="none" preserveAspectRatio="none"><line x1="0" y1="105" x2="40" y2="105" stroke="oklch(0.25 0.03 260)" strokeWidth="1" strokeDasharray="4 3" /><line x1="40" y1="105" x2="40" y2="315" stroke="oklch(0.25 0.03 260)" strokeWidth="1" strokeDasharray="4 3" /><line x1="0" y1="315" x2="40" y2="315" stroke="oklch(0.25 0.03 260)" strokeWidth="1" strokeDasharray="4 3" /></svg></div>}
                   </React.Fragment>
@@ -370,8 +381,8 @@ export default function TournamentView() {
                 {/* Finals column */}
                 <div className="flex flex-col justify-around gap-3 flex-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center mb-1">Finals</p>
-                  {finalMatch && <div className="relative">{renderKOMatch(finalMatch)}<div className="absolute -top-1 -right-1"><Crown className="size-5 text-amber-400" /></div></div>}
-                  {thirdPlaceMatch && renderKOMatch(thirdPlaceMatch)}
+                  {finalMatch && <div className="relative">{renderKOMatch(toKO(finalMatch))}<div className="absolute -top-1 -right-1"><Crown className="size-5 text-amber-400" /></div></div>}
+                  {thirdPlaceMatch && renderKOMatch(toKO(thirdPlaceMatch))}
                   {!finalMatch && !thirdPlaceMatch && <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground/50">TBD</div>}
                 </div>
               </div>
@@ -381,11 +392,11 @@ export default function TournamentView() {
                   { matches: r16Matches, label: 'Round of 16' },
                   { matches: qfMatches, label: 'Quarter-Finals' },
                   { matches: sfMatches, label: 'Semi-Finals' },
-                  { matches: [finalMatch, thirdPlaceMatch].filter(Boolean) as KnockoutMatch[], label: 'Finals' },
+                  { matches: [finalMatch, thirdPlaceMatch].filter((m): m is MatchData => m !== undefined).map(toKO), label: 'Finals' },
                 ].filter(c => c.matches.length > 0).map(col => (
                   <div key={col.label}>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 text-center">{col.label}</p>
-                    <div className="space-y-3">{col.matches.map(m => renderKOMatch(m))}</div>
+                    <div className="space-y-3">{col.matches.map(m => renderKOMatch(toKO(m)))}</div>
                   </div>
                 ))}
               </div>

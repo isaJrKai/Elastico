@@ -39,6 +39,7 @@ import {
   Radar,
   AreaChart,
   Area,
+  ReferenceLine,
 } from 'recharts'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { cn } from '@/lib/utils'
@@ -688,7 +689,7 @@ export default function TacticalView() {
                     <XAxis dataKey="minute" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                     <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-                    <referenceLine y={50} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" />
+                    <ReferenceLine y={50} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" />
                     <Area type="monotone" dataKey="momentum" stroke="#ffab40" fill="url(#gMom)" strokeWidth={2} name="Momentum" />
                   </AreaChart>
                 </ResponsiveContainer>

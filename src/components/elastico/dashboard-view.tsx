@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 import {
   TrendingUp, Target, Zap, Users, Trophy, Swords, Clock,
-  Star, Newspaper, MessageSquare,
+  Star, Newspaper, MessageSquare, Cloud,
   ChevronRight, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'

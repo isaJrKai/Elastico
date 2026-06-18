@@ -182,6 +182,8 @@ interface ElasticoStore {
   news: NewsItem[]
   notifications: Notification[]
   chatMessages: ChatMessage[]
+  liveMatches: any[]
+  isLiveLoading: boolean
 
   // UI State
   isLoading: boolean

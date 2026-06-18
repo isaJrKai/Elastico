@@ -37,7 +37,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'settings array is required' }, { status: 400 })
     }
 
-    const results = []
+    const results: any[] = []
     for (const item of settings) {
       if (!item.key || item.value === undefined) continue
 

@@ -3,7 +3,7 @@ import {
   fetchTeams, fetchTeamDetails, searchTeam, fetchLeaguesByCountry,
   fetchPlayersByTeam, searchPlayer, fetchPlayerDetails,
   fetchLastEvents, fetchNextEvents, fetchStandings,
-  fetchLeagueEvents, fetchLeaguesByCountry,
+  fetchLeagueEvents,
   normalizeTSDEvent, normalizeTSDTableEntry, TSD_LEAGUES,
 } from '@/lib/the-sports-db'
 
@@ -278,7 +278,7 @@ export async function GET(request: NextRequest) {
         if (!leagueObj) {
           return NextResponse.json({ success: false, error: `Unknown league code: ${league}` }, { status: 400 })
         }
-        const events = await fetchLeagueEvents(leagueObj.id, season, round)
+        const events = await fetchLeagueEvents(String(leagueObj.id), season, round)
         return NextResponse.json({
           success: true,
           action,
