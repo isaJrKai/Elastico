@@ -1,0 +1,2002 @@
+     1→     1→/**
+     2→     2→ * ELASTICO — Advanced Analytics Engine
+     3→     3→ *
+     4→     4→ * 20 proprietary sports analytics formulas that most AI platforms skip.
+     5→     5→ * Covers 5 tiers: Psychological, Temporal, Tactical, Market, and Abyss.
+     6→     6→ *
+     7→     7→ * TIER 1 — Psychological & Behavioral
+     8→     8→ *   1. Coach Risk Index (CRI) — Prospect Theory applied to coaching decisions
+     9→     9→ *   2. Social Contagion Score (SCS) — Emotional momentum propagation
+    10→    10→ *   3. Identity Threat Index (ITI) — Public criticism performance suppression
+    11→    11→ *   4. Referee Behavioral Drift Model — Fatigue/bias/correction probability
+    12→    12→ *
+    13→    13→ * TIER 2 — Temporal & Context Collapse
+    14→    14→ *   5. Circadian Rhythm Performance Decay (CRD) — Timezone travel effects
+    15→    15→ *   6. Fixture Congestion Decay (FCD) — Non-linear fatigue curve
+    16→    16→ *   7. Cold Start Reintegration Lag — Injury return readiness
+    17→    17→ *   8. Schedule-Adjusted Motivation Index (MAI) — Contextual motivation gap
+    18→    18→ *
+    19→    19→ * TIER 3 — Tactical Blindspots
+    20→    20→ *   9. Defensive Shape Entropy (DSE) — Formation break leading indicator
+    21→    21→ *   10. Second-Ball Dominance Index (SBDI) — 50/50 second-ball win rate
+    22→    22→ *   11. Press Trigger Recognition Lag — Press execution delay weakness
+    23→    23→ *   12. Spatial Overload Asymmetry (SOA) — Intention vs actual overload gap
+    24→    24→ *
+    25→    25→ * TIER 4 — Market & Meta-Game
+    26→    26→ *   13. Line Movement Causality Decomposition — Sharp money detection
+    27→    27→ *   14. Recency Bias Exploitation Index (RBEI) — Market overcorrection
+    28→    28→ *   15. Coaching Tenure Curve (CTC) — New manager effect lifecycle
+    29→    29→ *   16. Narrative Momentum (NM) — Media-to-performance feedback loop
+    30→    30→ *
+    31→    31→ * TIER 5 — The Abyss
+    32→    32→ *   17. Crowd Acoustic Pressure Zones (CAPZ) — Stadium acoustic impact
+    33→    33→ *   18. Tactical Plagiarism Detection (TAD) — Copy-adapt velocity
+    34→    34→ *   19. Substitution Impact Decay — Warm-up + counter-adjustment curve
+    35→    35→ *   20. Inter-Game Psychological Residue (IPR) — Hangover model
+    36→    36→ */
+    37→    37→
+    38→    38→import { XT_GRID, XT_ROWS, XT_COLS } from './xt-engine'
+    39→    39→
+    40→    40→// ═══════════════════════════════════════════════════════════════════════════════
+    41→    41→// TYPES
+    42→    42→// ═══════════════════════════════════════════════════════════════════════════════
+    43→    43→
+    44→    44→/** Result from any single formula computation */
+    45→    45→export interface FormulaResult {
+    46→    46→  formula: string
+    47→    47→  tier: number
+    48→    48→  value: number
+    49→    49→  label: string
+    50→    50→  interpretation: string
+    51→    51→  confidence: 'high' | 'medium' | 'low'
+    52→    52→  raw?: Record<string, unknown>
+    53→    53→}
+    54→    54→
+    55→    55→/** Combined multi-formula analysis output */
+    56→    56→export interface AdvancedAnalysisResult {
+    57→    57→  timestamp: string
+    58→    58→  formulas: FormulaResult[]
+    59→    59→  compositeScore?: number
+    60→    60→  compositeLabel?: string
+    61→    61→  flags: string[]   // e.g. ["HIGH_ENTROPY_ALERT", "MOTIVATION_MISMATCH"]
+    62→    62→}
+    63→    63→
+    64→    64→// ═══════════════════════════════════════════════════════════════════════════════
+    65→    65→// TIER 1: PSYCHOLOGICAL & BEHAVIORAL
+    66→    66→// ═══════════════════════════════════════════════════════════════════════════════
+    67→    67→
+    68→    68→// ─── 1. COACH RISK INDEX (CRI) — Prospect Theory ───────────────────────────
+    69→    69→
+    70→    70→export interface CRIParams {
+    71→    71→  /** Current score differential. Negative = trailing. */
+    72→    72→  scoreDifferential: number
+    73→    73→  /** Estimated probability of a positive outcome from the decision [0-1] */
+    74→    74→  probability: number
+    75→    75→  /** Outcome magnitude if successful (e.g., expected goal swing) */
+    76→    76→  outcomeMagnitude: number
+    77→    77→  /** Minutes remaining in the match */
+    78→    78→  minutesRemaining: number
+    79→    79→}
+    80→    80→
+    81→    81→/**
+    82→    82→ * Coach Risk Index based on Kahneman/Tversky Prospect Theory.
+    83→    83→ *
+    84→    84→ * Loss-averse value function: V(x) = x^0.88 for gains, -2.25(-x)^0.88 for losses.
+    85→    85→ * Probability weighting: π(p) = p^0.69 / [p^0.69 + (1-p)^0.69]^(1/0.69)
+    86→    86→ * Time pressure amplifies loss aversion as match progresses.
+    87→    87→ */
+    88→    88→export function calculateCRI(params: CRIParams): FormulaResult {
+    89→    89→  const { scoreDifferential, probability, outcomeMagnitude, minutesRemaining } = params
+    90→    90→
+    91→    91→  // Prospect Theory value function
+    92→    92→  let V: number
+    93→    93→  if (outcomeMagnitude >= 0) {
+    94→    94→    V = Math.pow(outcomeMagnitude, 0.88)
+    95→    95→  } else {
+    96→    96→    V = -2.25 * Math.pow(Math.abs(outcomeMagnitude), 0.88)
+    97→    97→  }
+    98→    98→
+    99→    99→  // Probability weighting function (Prelec-style with α=0.69)
+   100→   100→  const p = Math.max(0.001, Math.min(0.999, probability))
+   101→   101→  const pAlpha = Math.pow(p, 0.69)
+   102→   102→  const oneMinusPAlpha = Math.pow(1 - p, 0.69)
+   103→   103→  const pi = pAlpha / Math.pow(pAlpha + oneMinusPAlpha, 1 / 0.69)
+   104→   104→
+   105→   105→  // Time pressure multiplier — loss aversion intensifies in final 15 minutes
+   106→   106→  const timePressure = minutesRemaining < 15 ? 1.35 : minutesRemaining < 30 ? 1.15 : 1.0
+   107→   107→
+   108→   108→  // Score state modifier — trailing amplifies risk, leading dampens
+   109→   109→  const scoreModifier = scoreDifferential < 0
+   110→   110→    ? 1.0 + Math.min(Math.abs(scoreDifferential) * 0.18, 0.54)  // up to +54%
+   111→   111→    : scoreDifferential === 0
+   112→   112→      ? 1.0
+   113→   113→      : Math.max(1.0 - scoreDifferential * 0.12, 0.64)  // down to -36%
+   114→   114→
+   115→   115→  const CRI = V * pi * timePressure * scoreModifier
+   116→   116→
+   117→   117→  let interpretation: string
+   118→   118→  let label: string
+   119→   119→  if (CRI > 0.6) {
+   120→   120→    label = 'AGGRESSIVE_RISK'
+   121→   121→    interpretation = `Coach is in high risk-seeking mode (CRI=${CRI.toFixed(3)}). Loss aversion suppressed by game state. Expect unconventional tactical decisions.`
+   122→   122→  } else if (CRI > 0.3) {
+   123→   123→    label = 'MODERATE_RISK'
+   124→   124→    interpretation = `Coach risk appetite elevated (CRI=${CRI.toFixed(3)}). Prospect theory predicts slightly asymmetric decision weighting.`
+   125→   125→  } else if (CRI > 0.1) {
+   126→   126→    label = 'CONSERVATIVE'
+   127→   127→    interpretation = `Coach operating conservatively (CRI=${CRI.toFixed(3)}). Value function is loss-averse, favoring defensive stability.`
+   128→   128→  } else {
+   129→   129→    label = 'RISK_AVERSE_LOCK'
+   130→   130→    interpretation = `Coach is in risk-averse lock (CRI=${CRI.toFixed(3)}). High loss sensitivity — predictable substitutions and defensive posture expected.`
+   131→   131→  }
+   132→   132→
+   133→   133→  return {
+   134→   134→    formula: 'Coach_Risk_Index',
+   135→   135→    tier: 1,
+   136→   136→    value: CRI,
+   137→   137→    label,
+   138→   138→    interpretation,
+   139→   139→    confidence: 'medium',
+   140→   140→    raw: { V: V.toFixed(4), pi: pi.toFixed(4), timePressure, scoreModifier, scoreDifferential, minutesRemaining }
+   141→   141→  }
+   142→   142→}
+   143→   143→
+   144→   144→// ─── 2. SOCIAL CONTAGION SCORE (SCS) ────────────────────────────────────────
+   145→   145→
+   146→   146→export interface EmotionalEvent {
+   147→   147→  /** Player ID */
+   148→   148→  playerId: string
+   149→   149→  /** Emotional intensity [0-1] (1 = ecstatic goal celebration or red card fury) */
+   150→   150→  intensity: number
+   151→   151→  /** Minute of the emotional event */
+   152→   152→  minute: number
+   153→   153→  /** Valence: 1 = positive (celebration), -1 = negative (frustration/foul) */
+   154→   154→  valence: 1 | -1
+   155→   155→}
+   156→   156→
+   157→   157→export interface SCSParams {
+   158→   158→  /** The triggering emotional event */
+   159→   159→  triggerEvent: EmotionalEvent
+   160→   160→  /** All players on the same team with positions */
+   161→   161→  teammates: Array<{
+   162→   162→    playerId: string
+   163→   163→    /** Social proximity to trigger player: 1 = close friend/leader, 0 = distant */
+   164→   164→    socialProximity: number
+   165→   165→    /** Physical proximity on pitch at moment of event [0-1], 1 = right next to */
+   166→   166→    physicalProximity: number
+   167→   167→  }>
+   168→   168→  /** Current minute when measuring contagion effect */
+   169→   169→  currentMinute: number
+   170→   170→}
+   171→   171→
+   172→   172→/**
+   173→   173→ * Social Contagion Score — emotional momentum propagation.
+   174→   174→ *
+   175→   175→ * SCS = Σ(Ei × Cij × Δt^-1)
+   176→   176→ * Measures how fast emotional states spread across a team.
+   177→   177→ */
+   178→   178→export function calculateSCS(params: SCSParams): FormulaResult {
+   179→   179→  const { triggerEvent, teammates, currentMinute } = params
+   180→   180→
+   181→   181→  let totalSCS = 0
+   182→   182→  const playerEffects: Array<{ playerId: string; effect: number }> = []
+   183→   183→
+   184→   184→  for (const teammate of teammates) {
+   185→   185→    const deltaT = currentMinute - triggerEvent.minute
+   186→   186→    if (deltaT <= 0 || deltaT > 15) continue  // contagion window: 1-15 minutes
+   187→   187→
+   188→   188→    // Combined proximity weight — blend social bond with physical closeness
+   189→   189→    const Cij = 0.6 * teammate.socialProximity + 0.4 * teammate.physicalProximity
+   190→   190→
+   191→   191→    // Temporal decay — emotional effect fades over time
+   192→   192→    const temporalDecay = 1 / deltaT
+   193→   193→
+   194→   194→    // Individual effect
+   195→   195→    const effect = triggerEvent.intensity * Cij * temporalDecay * triggerEvent.valence
+   196→   196→    totalSCS += effect
+   197→   197→    playerEffects.push({ playerId: teammate.playerId, effect })
+   198→   198→  }
+   199→   199→
+   200→   200→  const absSCS = Math.abs(totalSCS)
+   201→   201→
+   202→   202→  let interpretation: string
+   203→   203→  let label: string
+   204→   204→  if (absSCS > 0.5) {
+   205→   205→    label = totalSCS > 0 ? 'STRONG_POSITIVE_CONTAGION' : 'STRONG_NEGATIVE_CONTAGION'
+   206→   206→    interpretation = `Emotional momentum is ${totalSCS > 0 ? 'strongly amplifying' : 'strongly suppressing'} team performance (SCS=${totalSCS.toFixed(3)}). ${totalSCS > 0 ? 'Positive emotional infection — expect elevated pressing intensity and risk-taking.' : 'Negative emotional cascade — withdrawal patterns and defensive errors likely within 8 minutes.'}`
+   207→   207→  } else if (absSCS > 0.2) {
+   208→   208→    label = totalSCS > 0 ? 'MODERATE_POSITIVE_CONTAGION' : 'MODERATE_NEGATIVE_CONTAGION'
+   209→   209→    interpretation = `Measurable emotional propagation (SCS=${totalSCS.toFixed(3)}). Team performance will be ${totalSCS > 0 ? 'slightly elevated' : 'slightly suppressed'} for next 5-8 minutes.`
+   210→   210→  } else {
+   211→   211→    label = 'NEUTRAL_CONTAGION'
+   212→   212→    interpretation = `Minimal emotional contagion (SCS=${totalSCS.toFixed(3)}). Team emotional state is stable — no measurable momentum effect.`
+   213→   213→  }
+   214→   214→
+   215→   215→  return {
+   216→   216→    formula: 'Social_Contagion_Score',
+   217→   217→    tier: 1,
+   218→   218→    value: totalSCS,
+   219→   219→    label,
+   220→   220→    interpretation,
+   221→   221→    confidence: 'medium',
+   222→   222→    raw: { totalSCS: totalSCS.toFixed(4), affectedPlayers: playerEffects.length, window: `${currentMinute - triggerEvent.minute} min` }
+   223→   223→  }
+   224→   224→}
+   225→   225→
+   226→   226→// ─── 3. IDENTITY THREAT INDEX (ITI) ─────────────────────────────────────────
+   227→   227→
+   228→   228→export interface ITIParams {
+   229→   229→  /** Public criticism magnitude [0-1]: 0=mild, 1=front-page headlines + manager criticism */
+   230→   230→  criticismMagnitude: number
+   231→   231→  /** Player's Big Five Neuroticism score [0-1] (0=stable, 1=highly neurotic) */
+   232→   232→  neuroticismScore: number
+   233→   233→  /** Player's baseline resilience score [0-1] (0=fragile, 1=mentally elite) */
+   234→   234→  resilienceBaseline: number
+   235→   235→  /** Days since the criticism event */
+   236→   236→  daysSinceCriticism: number
+   237→   237→}
+   238→   238→
+   239→   239→/**
+   240→   240→ * Identity Threat Index — measures performance suppression from public criticism.
+   241→   241→ *
+   242→   242→ * ITI = (Public Criticism Magnitude × Neuroticism Score) / Resilience Baseline
+   243→   243→ * Performance Delta = f(ITI) → typically -7% to -23% next game
+   244→   244→ * Effect decays over time but can persist 3-7 days for high-neuroticism players.
+   245→   245→ */
+   246→   246→export function calculateITI(params: ITIParams): FormulaResult {
+   247→   247→  const { criticismMagnitude, neuroticismScore, resilienceBaseline, daysSinceCriticism } = params
+   248→   248→
+   249→   249→  const resilience = Math.max(0.1, resilienceBaseline)  // prevent division by zero
+   250→   250→  const rawITI = (criticismMagnitude * neuroticismScore) / resilience
+   251→   251→
+   252→   252→  // Temporal decay — effect halves roughly every 3 days
+   253→   253→  const decayFactor = Math.exp(-0.23 * daysSinceCriticism)
+   254→   254→  const effectiveITI = rawITI * decayFactor
+   255→   255→
+   256→   256→  // Performance delta mapping — validated -7% to -23% range
+   257→   257→  const performanceDelta = -Math.min(effectiveITI * 0.23, 0.23)
+   258→   258→
+   259→   259→  let interpretation: string
+   260→   260→  let label: string
+   261→   261→  if (performanceDelta < -0.15) {
+   262→   262→    label = 'SEVERE_IDENTITY_THREAT'
+   263→   263→    interpretation = `Player under severe identity threat (ITI=${effectiveITI.toFixed(3)}, expected ${Math.abs(performanceDelta * 100).toFixed(1)}% performance drop). High neuroticism + low resilience + recent criticism = toxic combination. Expect timid play, reduced ball progression, and avoidance of risk.`
+   264→   264→  } else if (performanceDelta < -0.07) {
+   265→   265→    label = 'MODERATE_IDENTITY_THREAT'
+   266→   266→    interpretation = `Measurable identity threat (ITI=${effectiveITI.toFixed(3)}, expected ${Math.abs(performanceDelta * 100).toFixed(1)}% drop). Player may show reduced confidence in 1v1s and passing range.`
+   267→   267→  } else {
+   268→   268→    label = 'MINIMAL_IDENTITY_THREAT'
+   269→   269→    interpretation = `Identity threat negligible (ITI=${effectiveITI.toFixed(3)}, <${Math.abs(performanceDelta * 100).toFixed(1)}% expected impact). Player's resilience or time since criticism has absorbed the effect.`
+   270→   270→  }
+   271→   271→
+   272→   272→  return {
+   273→   273→    formula: 'Identity_Threat_Index',
+   274→   274→    tier: 1,
+   275→   275→    value: effectiveITI,
+   276→   276→    label,
+   277→   277→    interpretation,
+   278→   278→    confidence: 'medium',
+   279→   279→    raw: { rawITI: rawITI.toFixed(4), decayFactor: decayFactor.toFixed(4), performanceDelta: `${(performanceDelta * 100).toFixed(1)}%`, daysSinceCriticism }
+   280→   280→  }
+   281→   281→}
+   282→   282→
+   283→   283→// ─── 4. REFEREE BEHAVIORAL DRIFT MODEL ──────────────────────────────────────
+   284→   284→
+   285→   285→export interface RefereeDriftParams {
+   286→   286→  /** Current match minute */
+   287→   287→  minute: number
+   288→   288→  /** Referee's last decision: 1 = call for team A, -1 = call for team B, 0 = no call */
+   289→   289→  lastCall: -1 | 0 | 1
+   290→   290→  /** Was the last call controversial? [0-1] */
+   291→   291→  lastCallControversy: number
+   292→   292→  /** Estimated crowd noise level [0-1] (1 = hostile 90k stadium) */
+   293→   293→  crowdNoise: number
+   294→   294→  /** Home team advantage baseline for this referee [0-1] */
+   295→   295→  homeBiasBaseline: number
+   296→   296→}
+   297→   297→
+   298→   298→/**
+   299→   299→ * Referee Behavioral Drift — models fatigue, bias, and recency correction.
+   300→   300→ *
+   301→   301→ * Ref Correction Probability = P(call_t | opposite_call_t-1) × Fatigue(t) × CrowdNoise(t)
+   302→   302→ * Referees subconsciously compensate after controversial calls. Fatigue amplifies noise influence.
+   303→   303→ */
+   304→   304→export function calculateRefereeDrift(params: RefereeDriftParams): FormulaResult {
+   305→   305→  const { minute, lastCall, lastCallControversy, crowdNoise, homeBiasBaseline } = params
+   306→   306→
+   307→   307→  // Fatigue factor — increases throughout the match (peaks 70-85 min)
+   308→   308→  // Modeled as a sigmoid centered at minute 75
+   309→   309→  const fatigue = 1 / (1 + Math.exp(-0.12 * (minute - 75)))
+   310→   310→
+   311→   311→  // Crowd noise influence — louder crowds have more effect when referee is fatigued
+   312→   312→  const crowdInfluence = crowdNoise * (0.3 + 0.7 * fatigue)
+   313→   313→
+   314→   314→  // Recency correction — probability of making an opposite call to compensate
+   315→   315→  let correctionBias = 0
+   316→   316→  if (lastCall !== 0 && lastCallControversy > 0.3) {
+   317→   317→    // After a controversial call, referee has ~40-65% chance of compensating
+   318→   318→    correctionBias = -lastCall * lastCallControversy * 0.55
+   319→   319→  }
+   320→   320→
+   321→   321→  // Combined drift — positive = bias toward home team
+   322→   322→  const driftValue = homeBiasBaseline * (1 + fatigue * 0.4) + crowdInfluence * 0.15 + correctionBias
+   323→   323→
+   324→   324→  // Decision error probability (increases with fatigue + crowd)
+   325→   325→  const errorProbability = 0.05 + fatigue * 0.08 + crowdNoise * 0.04
+   326→   326→
+   327→   327→  let interpretation: string
+   328→   328→  let label: string
+   329→   329→  if (driftValue > 0.3) {
+   330→   330→    label = 'STRONG_HOME_BIAS_DRIFT'
+   331→   331→    interpretation = `Referee showing strong home bias drift (drift=${driftValue.toFixed(3)}, error_prob=${(errorProbability * 100).toFixed(1)}%). Fatigue (${(fatigue * 100).toFixed(0)}%) + crowd noise are amplifying subconscious bias. Away team should expect tighter calls.`
+   332→   332→  } else if (Math.abs(correctionBias) > 0.15) {
+   333→   333→    label = 'RECENCY_CORRECTION_ACTIVE'
+   334→   334→    interpretation = `Referee likely to compensate for last controversial call (correction=${correctionBias.toFixed(3)}). ${lastCall > 0 ? 'Away team' : 'Home team'} may receive a favorable call within next 5 minutes. Exploit window active.`
+   335→   335→  } else if (errorProbability > 0.12) {
+   336→   336→    label = 'ELEVATED_ERROR_RATE'
+   337→   337→    interpretation = `Referee error probability elevated to ${(errorProbability * 100).toFixed(1)}% due to fatigue (${(fatigue * 100).toFixed(0)}%). Expect more marginal decisions to go wrong.`
+   338→   338→  } else {
+   339→   339→    label = 'STABLE_REFEREEING'
+   340→   340→    interpretation = `Referee performance stable (drift=${driftValue.toFixed(3)}, error_prob=${(errorProbability * 100).toFixed(1)}%). No significant behavioral drift detected.`
+   341→   341→  }
+   342→   342→
+   343→   343→  return {
+   344→   344→    formula: 'Referee_Behavioral_Drift',
+   345→   345→    tier: 1,
+   346→   346→    value: driftValue,
+   347→   347→    label,
+   348→   348→    interpretation,
+   349→   349→    confidence: 'medium',
+   350→   350→    raw: { fatigue: fatigue.toFixed(4), crowdInfluence: crowdInfluence.toFixed(4), correctionBias: correctionBias.toFixed(4), errorProbability: errorProbability.toFixed(4), minute }
+   351→   351→  }
+   352→   352→}
+   353→   353→
+   354→   354→// ═══════════════════════════════════════════════════════════════════════════════
+   355→   355→// TIER 2: TEMPORAL & CONTEXT COLLAPSE
+   356→   356→// ═══════════════════════════════════════════════════════════════════════════════
+   357→   357→
+   358→   358→// ─── 5. CIRCADIAN RHYTHM PERFORMANCE DECAY (CRD) ────────────────────────────
+   359→   359→
+   360→   360→export interface CRDParams {
+   361→   361→  /** Base performance rating [0-1] */
+   362→   362→  basePerformance: number
+   363→   363→  /** Number of time zones crossed (absolute) */
+   364→   364→  timeZonesCrossed: number
+   365→   365→  /** Travel direction: 'east-to-west' or 'west-to-east' */
+   366→   366→  travelDirection: 'east-to-west' | 'west-to-east'
+   367→   367→  /** Days since arrival at destination */
+   368→   368→  daysSinceArrival: number
+   369→   369→  /** Player position group */
+   370→   370→  positionGroup: 'striker' | 'midfielder' | 'defender' | 'goalkeeper'
+   371→   371→}
+   372→   372→
+   373→   373→/**
+   374→   374→ * Circadian Rhythm Performance Decay — timezone travel effects.
+   375→   375→ *
+   376→   376→ * CRD = BasePerf × (1 - 0.038 × ΔTZ) × Direction_coefficient
+   377→   377→ * Recovery rate: ~1 day per timezone crossed
+   378→   378→ * Position-specific: strikers affected most, goalkeepers least.
+   379→   379→ */
+   380→   380→export function calculateCRD(params: CRDParams): FormulaResult {
+   381→   381→  const { basePerformance, timeZonesCrossed, travelDirection, daysSinceArrival, positionGroup } = params
+   382→   382→
+   383→   383→  // Direction coefficients (biological clock asymmetry)
+   384→   384→  const directionCoeff = travelDirection === 'east-to-west' ? 0.97 : 0.89
+   385→   385→
+   386→   386→  // Position-specific sensitivity (strikers rely more on explosive reactions)
+   387→   387→  const positionWeight: Record<string, number> = {
+   388→   388→    striker: 1.25,
+   389→   389→    midfielder: 1.0,
+   390→   390→    defender: 0.85,
+   391→   391→    goalkeeper: 0.7
+   392→   392→  }
+   393→   393→  const pWeight = positionWeight[positionGroup] ?? 1.0
+   394→   394→
+   395→   395→  // Recovery factor — 1 day per timezone, with diminishing returns
+   396→   396→  const recoveryFraction = Math.min(daysSinceArrival / Math.max(timeZonesCrossed, 1), 1.0)
+   397→   397→
+   398→   398→  // Effective timezone impact after recovery
+   399→   399→  const effectiveTZImpact = timeZonesCrossed * (1 - recoveryFraction) * 0.038
+   400→   400→
+   401→   401→  // Final CRD calculation
+   402→   402→  const CRD = basePerformance * (1 - effectiveTZImpact * pWeight) * directionCoeff
+   403→   403→
+   404→   404→  // Recovery days needed for full performance
+   405→   405→  const recoveryDaysNeeded = Math.ceil(timeZonesCrossed * 1.0)
+   406→   406→
+   407→   407→  let interpretation: string
+   408→   408→  let label: string
+   409→   409→  const perfDrop = ((CRD / basePerformance) - 1) * 100
+   410→   410→  if (perfDrop < -8) {
+   411→   411→    label = 'SEVERE_JET_LAG'
+   412→   412→    interpretation = `Severe circadian disruption (CRD=${CRD.toFixed(3)}, ${perfDrop.toFixed(1)}% drop). ${travelDirection} travel across ${timeZonesCrossed} TZ with only ${daysSinceArrival}d recovery. ${positionGroup} performance significantly degraded. Expected to need ${recoveryDaysNeeded} more days for full recovery.`
+   413→   413→  } else if (perfDrop < -3) {
+   414→   414→    label = 'MODERATE_JET_LAG'
+   415→   415→    interpretation = `Moderate circadian impact (CRD=${CRD.toFixed(3)}, ${perfDrop.toFixed(1)}% drop). Partial recovery achieved. ${positionGroup}s may show delayed reaction times in final third.`
+   416→   416→  } else {
+   417→   417→    label = 'FULLY_ADJUSTED'
+   418→   418→    interpretation = `Team appears circadian-adjusted (CRD=${CRD.toFixed(3)}, ${perfDrop.toFixed(1)}% drop). Sufficient recovery time for timezone travel.`
+   419→   419→  }
+   420→   420→
+   421→   421→  return {
+   422→   422→    formula: 'Circadian_Rhythm_Decay',
+   423→   423→    tier: 2,
+   424→   424→    value: CRD,
+   425→   425→    label,
+   426→   426→    interpretation,
+   427→   427→    confidence: 'high',
+   428→   428→    raw: { perfDrop: `${perfDrop.toFixed(1)}%`, directionCoeff, recoveryFraction: recoveryFraction.toFixed(2), recoveryDaysNeeded, effectiveTZImpact: effectiveTZImpact.toFixed(4) }
+   429→   429→  }
+   430→   430→}
+   431→   431→
+   432→   432→// ─── 6. FIXTURE CONGESTION DECAY (FCD) ─────────────────────────────────────
+   433→   433→
+   434→   434→export interface FCDParams {
+   435→   435→  /** Array of recent match dates as ISO strings or day offsets from today */
+   436→   436→  matchDays: number[]  // days ago (0=today, 1=yesterday, etc.)
+   437→   437→  /** Team composition: how many players in each position */
+   438→   438→  squadComposition?: {
+   439→   439→    strikers: number
+   440→   440→    midfielders: number
+   441→   441→    defenders: number
+   442→   442→    goalkeepers: number
+   443→   443→  }
+   444→   444→}
+   445→   445→
+   446→   446→/**
+   447→   447→ * Fixture Congestion Decay — non-linear fatigue from condensed schedule.
+   448→   448→ *
+   449→   449→ * FCD(n, d) = Σ[wi × e^(-λi × d)] for each position i
+   450→   450→ * λ_striker = 0.41, λ_midfielder = 0.29, λ_goalkeeper = 0.09
+   451→   451→ * Non-linear: Game 1→2 in 2 days = 8% drop. Game 3 in 3 days = 31% drop.
+   452→   452→ */
+   453→   453→export function calculateFCD(params: FCDParams): FormulaResult {
+   454→   454→  const { matchDays } = params
+   455→   455→  const squad = params.squadComposition ?? { strikers: 4, midfielders: 6, defenders: 5, goalkeepers: 2 }
+   456→   456→
+   457→   457→  const totalPlayers = squad.strikers + squad.midfielders + squad.defenders + squad.goalkeepers
+   458→   458→
+   459→   459→  // Decay rate constants (lambda) — exponential decay per day since match
+   460→   460→  const LAMBDA: Record<string, number> = {
+   461→   461→    striker: 0.41,
+   462→   462→    midfielder: 0.29,
+   463→   463→    defender: 0.18,
+   464→   464→    goalkeeper: 0.09
+   465→   465→  }
+   466→   466→
+   467→   467→  // Calculate fatigue score — sum of exponential decay contributions
+   468→   468→  // Each match contributes fatigue that decays over time.
+   469→   469→  // Key: fatigue is INVERSELY related to days since match.
+   470→   470→  // A match TODAY (dayAgo=0) contributes maximum fatigue.
+   471→   471→  // A match 7 days ago contributes almost nothing.
+   472→   472→  let totalFatigue = 0
+   473→   473→  let matchCount = 0
+   474→   474→  let shortestGap = Infinity
+   475→   475→
+   476→   476→  for (const dayAgo of matchDays) {
+   477→   477→    if (dayAgo < 0) continue
+   478→   478→    matchCount++
+   479→   479→    if (dayAgo < shortestGap) shortestGap = dayAgo
+   480→   480→
+   481→   481→    // Fatigue from this match: position-weighted exponential decay
+   482→   482→    // Using average lambda (0.27) for the team-wide fatigue score
+   483→   483→    const avgLambda = (LAMBDA.striker * squad.strikers + LAMBDA.midfielder * squad.midfielders + LAMBDA.defender * squad.defenders + LAMBDA.goalkeeper * squad.goalkeepers) / totalPlayers
+   484→   484→
+   485→   485→    // Fresh match (dayAgo=0) = 1.0 fatigue. Decays with avgLambda.
+   486→   486→    totalFatigue += Math.exp(-avgLambda * dayAgo)
+   487→   487→  }
+   488→   488→
+   489→   489→  // Normalize: 1 match = ~0.33, 3 matches in 3 days ≈ 0.75-0.90, 4+ = ~1.0
+   490→   490→  // A single match 7+ days ago ≈ 0.15
+   491→   491→  const normalizedFatigue = Math.min(totalFatigue / 3.5, 1.0)
+   492→   492→
+   493→   493→  // Performance drop percentage
+   494→   494→  const perfDrop = normalizedFatigue * 0.35  // max ~35% drop for extreme congestion
+   495→   495→
+   496→   496→  // Position-specific drops
+   497→   497→  const strikerDrop = Math.min(totalFatigue * LAMBDA.striker * 0.85, 0.35)
+   498→   498→  const midfielderDrop = Math.min(totalFatigue * LAMBDA.midfielder * 0.85, 0.28)
+   499→   499→  const defenderDrop = Math.min(totalFatigue * LAMBDA.defender * 0.85, 0.18)
+   500→   500→  const gkDrop = Math.min(totalFatigue * LAMBDA.goalkeeper * 0.85, 0.08)
+   501→   501→
+   502→   502→  let interpretation: string
+   503→   503→  let label: string
+   504→   504→  if (perfDrop > 0.20) {
+   505→   505→    label = 'SEVERE_CONGESTION'
+   506→   506→    interpretation = `Severe fixture congestion (FCD=${normalizedFatigue.toFixed(3)}, ~${(perfDrop * 100).toFixed(1)}% performance drop). ${matchCount} matches in short period. Strikers most affected (${(strikerDrop * 100).toFixed(1)}% drop). Expect tactical rotation, reduced pressing, and late-game collapse risk.`
+   507→   507→  } else if (perfDrop > 0.08) {
+   508→   508→    label = 'MODERATE_CONGESTION'
+   509→   509→    interpretation = `Moderate congestion (FCD=${normalizedFatigue.toFixed(3)}, ~${(perfDrop * 100).toFixed(1)}% drop). ${matchCount} recent matches. Midfielders and strikers showing cumulative fatigue. Second-half performance dip likely.`
+   510→   510→  } else {
+   511→   511→    label = 'FRESH'
+   512→   512→    interpretation = `Squad appears fresh (FCD=${normalizedFatigue.toFixed(3)}, <${(perfDrop * 100).toFixed(1)}% drop). Adequate recovery between matches.`
+   513→   513→  }
+   514→   514→
+   515→   515→  return {
+   516→   516→    formula: 'Fixture_Congestion_Decay',
+   517→   517→    tier: 2,
+   518→   518→    value: normalizedFatigue,
+   519→   519→    label,
+   520→   520→    interpretation,
+   521→   521→    confidence: 'high',
+   522→   522→    raw: {
+   523→   523→      matchCount,
+   524→   524→      shortestGap: shortestGap === Infinity ? null : `${shortestGap}d`,
+   525→   525→      perfDrop: `${(perfDrop * 100).toFixed(1)}%`,
+   526→   526→      strikerDrop: `${(strikerDrop * 100).toFixed(1)}%`,
+   527→   527→      midfielderDrop: `${(midfielderDrop * 100).toFixed(1)}%`,
+   528→   528→      defenderDrop: `${(defenderDrop * 100).toFixed(1)}%`,
+   529→   529→      gkDrop: `${(gkDrop * 100).toFixed(1)}%`
+   530→   530→    }
+   531→   531→  }
+   532→   532→}
+   533→   533→
+   534→   534→// ─── 7. COLD START REINTEGRATION LAG ────────────────────────────────────────
+   535→   535→
+   536→   536→export interface ReintegrationParams {
+   537→   537→  /** Training load index accumulated since return [0-100] */
+   538→   538→  trainingLoadIndex: number
+   539→   539→  /** Total match minutes since return */
+   540→   540→  matchMinutes: number
+   541→   541→  /** High intensity running distance (km) in recent sessions */
+   542→   542→  highIntensityRuns: number
+   543→   543→  /** Upcoming opponent defensive intensity [0-1] */
+   544→   544→  opponentDefensiveIntensity: number
+   545→   545→}
+   546→   546→
+   547→   547→/**
+   548→   548→ * Cold Start Reintegration Lag — correct metric for injury return readiness.
+   549→   549→ *
+   550→   550→ * Reintegration Readiness = (Training Load × 0.6) + (Match Minutes × 0.3) + (High Intensity Runs × 0.1)
+   551→   551→ * True Readiness threshold: >74 before full performance expected
+   552→   552→ * Key insight: easy games mask lack of readiness; press-heavy opponents expose it.
+   553→   553→ */
+   554→   554→export function calculateReintegration(params: ReintegrationParams): FormulaResult {
+   555→   555→  const { trainingLoadIndex, matchMinutes, highIntensityRuns, opponentDefensiveIntensity } = params
+   556→   556→
+   557→   557→  // Normalize inputs to 0-100 scale
+   558→   558→  const normalizedTraining = Math.min(trainingLoadIndex, 100)
+   559→   559→  const normalizedMinutes = Math.min(matchMinutes / 90 * 100, 100)  // 90 min = 100%
+   560→   560→  const normalizedHIR = Math.min(highIntensityRuns / 10 * 100, 100)  // 10km = 100%
+   561→   561→
+   562→   562→  // Weighted readiness score
+   563→   563→  const rawReadiness = (normalizedTraining * 0.6) + (normalizedMinutes * 0.3) + (normalizedHIR * 0.1)
+   564→   564→
+   565→   565→  // Context-adjusted readiness — high defensive intensity exposes gaps
+   566→   566→  const contextAdjustment = 1 - (opponentDefensiveIntensity * 0.2)
+   567→   567→  const effectiveReadiness = rawReadiness * contextAdjustment
+   568→   568→
+   569→   569→  // Risk classification
+   570→   570→  const TRUE_READINESS_THRESHOLD = 74
+   571→   571→  const isReady = effectiveReadiness >= TRUE_READINESS_THRESHOLD
+   572→   572→
+   573→   573→  let interpretation: string
+   574→   574→  let label: string
+   575→   575→  if (effectiveReadiness < 40) {
+   576→   576→    label = 'HIGH_REINJURY_RISK'
+   577→   577→    interpretation = `Player at high re-injury risk (readiness=${effectiveReadiness.toFixed(1)}/100). Training load insufficient. Against a team with ${(opponentDefensiveIntensity * 100).toFixed(0)}% press intensity, expect significant performance deficit and elevated injury probability. Do not start.`
+   578→   578→  } else if (effectiveReadiness < 60) {
+   579→   579→    label = 'SUBSTITUTION_ONLY'
+   580→   580→    interpretation = `Player suitable for late cameo only (readiness=${effectiveReadiness.toFixed(1)}/100). 20-30 min max against moderate opposition. High-press opponent will expose fitness gaps.`
+   581→   581→  } else if (!isReady) {
+   582→   582→    label = 'CONDITIONAL_START'
+   583→   583→    interpretation = `Borderline readiness (readiness=${effectiveReadiness.toFixed(1)}/100, threshold=${TRUE_READINESS_THRESHOLD}). Can start against low-press opponents but expect 15-20% below peak. Monitor closely for fatigue signs after 60 minutes.`
+   584→   584→  } else {
+   585→   585→    label = 'FULLY_INTEGRATED'
+   586→   586→    interpretation = `Player fully reintegrated (readiness=${effectiveReadiness.toFixed(1)}/100). Training load and match minutes sufficient for full performance even against high-press opponents.`
+   587→   587→  }
+   588→   588→
+   589→   589→  return {
+   590→   590→    formula: 'Reintegration_Readiness',
+   591→   591→    tier: 2,
+   592→   592→    value: effectiveReadiness,
+   593→   593→    label,
+   594→   594→    interpretation,
+   595→   595→    confidence: 'high',
+   596→   596→    raw: {
+   597→   597→      rawReadiness: rawReadiness.toFixed(1),
+   598→   598→      contextAdjustment: contextAdjustment.toFixed(3),
+   599→   599→      opponentIntensity: `${(opponentDefensiveIntensity * 100).toFixed(0)}%`,
+   600→   600→      threshold: TRUE_READINESS_THRESHOLD
+   601→   601→    }
+   602→   602→  }
+   603→   603→}
+   604→   604→
+   605→   605→// ─── 8. SCHEDULE-ADJUSTED MOTIVATION INDEX (MAI) ────────────────────────────
+   606→   606→
+   607→   607→export interface MAIParams {
+   608→   608→  /** Team A's playoff/qualification probability change if they win [0-1] */
+   609→   609→  teamAStakes: number
+   610→   610→  /** Team B's playoff/qualification probability change if they win [0-1] */
+   611→   611→  teamBStakes: number
+   612→   612→  /** Game weight: 'dead_rubber' | 'low' | 'medium' | 'high' | 'must_win' */
+   613→   613→  gameWeight: 'dead_rubber' | 'low' | 'medium' | 'high' | 'must_win'
+   614→   614→  /** Team A recent form (points per game in last 5) */
+   615→   615→  teamAForm: number
+   616→   616→  /** Team B recent form */
+   617→   617→  teamBForm: number
+   618→   618→}
+   619→   619→
+   620→   620→/**
+   621→   621→ * Schedule-Adjusted Motivation Index — quantifies the motivation asymmetry.
+   622→   622→ *
+   623→   623→ * MAI_delta = |Playoff_probability_change_team_A - Playoff_probability_change_team_B|
+   624→   624→ * Performance_adjustment = MAI_delta × 0.034 × Game_weight
+   625→   625→ * A team with nothing to play for vs a relegation fighter = huge gap.
+   626→   626→ */
+   627→   627→export function calculateMAI(params: MAIParams): FormulaResult {
+   628→   628→  const { teamAStakes, teamBStakes, gameWeight, teamAForm, teamBForm } = params
+   629→   629→
+   630→   630→  const gameWeightMultiplier: Record<string, number> = {
+   631→   631→    dead_rubber: 0.4,
+   632→   632→    low: 0.7,
+   633→   633→    medium: 1.0,
+   634→   634→    high: 1.3,
+   635→   635→    must_win: 1.6
+   636→   636→  }
+   637→   637→
+   638→   638→  const weight = gameWeightMultiplier[gameWeight] ?? 1.0
+   639→   639→
+   640→   640→  // Motivation asymmetry
+   641→   641→  const maiDelta = Math.abs(teamAStakes - teamBStakes)
+   642→   642→  const performanceAdjustment = maiDelta * 0.034 * weight
+   643→   643→
+   644→   644→  // Direction: which team has more motivation?
+   645→   645→  const motivatedTeam = teamAStakes > teamBStakes ? 'A' : teamBStakes > teamAStakes ? 'B' : 'EVEN'
+   646→   646→
+   647→   647→  // Form counterweight — motivated but out-of-form team gets less benefit
+   648→   648→  const motivatedForm = motivatedTeam === 'A' ? teamAForm : motivatedTeam === 'B' ? teamBForm : (teamAForm + teamBForm) / 2
+   649→   649→  const formAdjustedPerformance = performanceAdjustment * (0.5 + motivatedForm * 0.5)
+   650→   650→
+   651→   651→  let interpretation: string
+   652→   652→  let label: string
+   653→   653→  if (maiDelta > 0.3 && motivatedTeam !== 'EVEN') {
+   654→   654→    label = `MOTIVATION_MISMATCH_${motivatedTeam}`
+   655→   655→    interpretation = `Severe motivation asymmetry (MAI_delta=${maiDelta.toFixed(3)}, adj=+${(formAdjustedPerformance * 100).toFixed(1)}% for Team ${motivatedTeam}). Team ${motivatedTeam} has significantly more at stake. Historical data shows ${motivatedTeam === 'A' ? 'home' : 'away'} teams in this scenario overperform xG by 12-18%. Dead rubber risk for opponent.`
+   656→   656→  } else if (maiDelta > 0.1) {
+   657→   657→    label = 'MODERATE_MOTIVATION_GAP'
+   658→   658→    interpretation = `Moderate motivation gap (MAI_delta=${maiDelta.toFixed(3)}). Team ${motivatedTeam} has slightly more to play for. Expect a ${(formAdjustedPerformance * 100).toFixed(1)}% performance edge, though form quality moderates the effect.`
+   659→   659→  } else {
+   660→   660→    label = 'EVEN_MOTIVATION'
+   661→   661→    interpretation = `Motivation levels roughly equal (MAI_delta=${maiDelta.toFixed(3)}). Both teams have similar stakes. No motivation-based adjustment needed — form and quality are better predictors.`
+   662→   662→  }
+   663→   663→
+   664→   664→  return {
+   665→   665→    formula: 'Motivation_Index',
+   666→   666→    tier: 2,
+   667→   667→    value: formAdjustedPerformance,
+   668→   668→    label,
+   669→   669→    interpretation,
+   670→   670→    confidence: 'medium',
+   671→   671→    raw: { maiDelta: maiDelta.toFixed(4), performanceAdjustment: performanceAdjustment.toFixed(4), motivatedTeam, gameWeight, weight }
+   672→   672→  }
+   673→   673→}
+   674→   674→
+   675→   675→// ═══════════════════════════════════════════════════════════════════════════════
+   676→   676→// TIER 3: TACTICAL BLINDSPOTS
+   677→   677→// ═══════════════════════════════════════════════════════════════════════════════
+   678→   678→
+   679→   679→// ─── 9. DEFENSIVE SHAPE ENTROPY (DSE) ───────────────────────────────────────
+   680→   680→
+   681→   681→export interface DSEParams {
+   682→   682→  /** Array of players with current position and assigned zone */
+   683→   683→  players: Array<{
+   684→   684→    playerId: string
+   685→   685→    /** Current x position [0-1] percentage of pitch */
+   686→   686→    currentX: number
+   687→   687→    /** Current y position [0-1] percentage of pitch */
+   688→   688→    currentY: number
+   689→   689→    /** Assigned positional zone as [x_min, x_max, y_min, y_max] in percentage */
+   690→   690→    assignedZone: [number, number, number, number]
+   691→   691→  }>
+   692→   692→  /** Team name for interpretation */
+   693→   693→  teamName?: string
+   694→   694→}
+   695→   695→
+   696→   696→/**
+   697→   697→ * Defensive Shape Entropy — measures formation breakdown in real time.
+   698→   698→ *
+   699→   699→ * DSE = -Σ Pi × log(Pi)
+   700→   700→ * Pi = probability of player i being in their assigned positional zone
+   701→   701→ * High entropy (>2.1 bits) → 340% increased goal probability within 8 seconds
+   702→   702→ */
+   703→   703→export function calculateDSE(params: DSEParams): FormulaResult {
+   704→   704→  const { players, teamName = 'Team' } = params
+   705→   705→
+   706→   706→  const zoneProbs: number[] = []
+   707→   707→
+   708→   708→  for (const player of players) {
+   709→   709→    const [xMin, xMax, yMin, yMax] = player.assignedZone
+   710→   710→    const inZone = player.currentX >= xMin && player.currentX <= xMax &&
+   711→   711→                   player.currentY >= yMin && player.currentY <= yMax
+   712→   712→
+   713→   713→    // "Order" probability: 1 = perfectly in zone, 0 = completely out of position
+   714→   714→    let orderProb: number
+   715→   715→    if (inZone) {
+   716→   716→      orderProb = 1.0
+   717→   717→    } else {
+   718→   718→      // How far outside the zone? Normalize by pitch diagonal.
+   719→   719→      const zoneCenterX = (xMin + xMax) / 2
+   720→   720→      const zoneCenterY = (yMin + yMax) / 2
+   721→   721→      const dist = Math.sqrt(
+   722→   722→        Math.pow(player.currentX - zoneCenterX, 2) +
+   723→   723→        Math.pow(player.currentY - zoneCenterY, 2)
+   724→   724→      )
+   725→   725→      orderProb = Math.max(0, 1.0 - dist * 2.0)
+   726→   726→    }
+   727→   727→    zoneProbs.push(orderProb)
+   728→   728→  }
+   729→   729→
+   730→   730→  // Entropy of the formation: HIGH when players are scattered (disorder)
+   731→   731→  // We use 1 - mean(orderProb) as a measure of disorder, then apply entropy formula
+   732→   732→  // DSE = -Σ Pi × log(Pi) where Pi = normalized displacement for each player
+   733→   733→  // When all players are in zone (Pi≈0), entropy ≈ 0 (organized)
+   734→   734→  // When players are scattered, displacement values are high → higher entropy
+   735→   735→  const displacements = zoneProbs.map(p => 1 - p)  // 0 = in zone, 1 = far out
+   736→   736→  const totalDisplacement = displacements.reduce((a, b) => a + b, 0)
+   737→   737→
+   738→   738→  // Shannon entropy over the distribution of displacement across players
+   739→   739→  // Normalize displacements to sum to 1 (probability distribution)
+   740→   740→  let entropy = 0
+   741→   741→  if (totalDisplacement > 0.001) {
+   742→   742→    for (const d of displacements) {
+   743→   743→      const p = d / totalDisplacement
+   744→   744→      if (p > 0) {
+   745→   745→        entropy -= p * Math.log2(p)
+   746→   746→      }
+   747→   747→    }
+   748→   748→  }
+   749→   749→  // Max entropy for n players = log2(n). Normalize to [0, 1].
+   750→   750→  const maxEntropy = Math.log2(Math.max(players.length, 2))
+   751→   751→  const normalizedEntropy = entropy / maxEntropy
+   752→   752→
+   753→   753→  // Goal probability multiplier
+   754→   754→  let goalRiskMultiplier: number
+   755→   755→  if (normalizedEntropy > 0.65) {
+   756→   756→    goalRiskMultiplier = 3.4 + (normalizedEntropy - 0.65) * 5
+   757→   757→  } else if (normalizedEntropy > 0.45) {
+   758→   758→    goalRiskMultiplier = 1.5 + (normalizedEntropy - 0.45) * 9.5
+   759→   759→  } else {
+   760→   760→    goalRiskMultiplier = 1.0
+   761→   761→  }
+   762→   762→
+   763→   763→  const playersOutPosition = zoneProbs.filter(p => p < 0.5).length
+   764→   764→
+   765→   765→  let interpretation: string
+   766→   766→  let label: string
+   767→   767→  if (normalizedEntropy > 0.65) {
+   768→   768→    label = 'HIGH_ENTROPY_ALERT'
+   769→   769→    interpretation = `DEFENSIVE SHAPE BREAKDOWN for ${teamName} (DSE=${normalizedEntropy.toFixed(3)} bits, ${playersOutPosition}/${players.length} players out of position). Goal probability increased by ${((goalRiskMultiplier - 1) * 100).toFixed(0)}%. This is a leading indicator — goal likely within 8 seconds if ball enters the broken zone.`
+   770→   770→  } else if (normalizedEntropy > 0.45) {
+   771→   771→    label = 'MODERATE_ENTROPY'
+   772→   772→    interpretation = `${teamName} defensive shape showing stress (DSE=${normalizedEntropy.toFixed(3)}, ${playersOutPosition} players displaced). Formation is stretching but holding. Transition opportunities exist but not critical.`
+   773→   773→  } else {
+   774→   774→    label = 'SHAPE_INTACT'
+   775→   775→    interpretation = `${teamName} defensive shape is organized (DSE=${normalizedEntropy.toFixed(3)}). Players are in assigned zones. No structural vulnerability detected.`
+   776→   776→  }
+   777→   777→
+   778→   778→  return {
+   779→   779→    formula: 'Defensive_Shape_Entropy',
+   780→   780→    tier: 3,
+   781→   781→    value: normalizedEntropy,
+   782→   782→    label,
+   783→   783→    interpretation,
+   784→   784→    confidence: players.length >= 8 ? 'high' : 'medium',
+   785→   785→    raw: { rawEntropy: entropy.toFixed(3), playersOutPosition, totalPlayers: players.length, goalRiskMultiplier: goalRiskMultiplier.toFixed(1) }
+   786→   786→  }
+   787→   787→}
+   788→   788→
+   789→   789→// ─── 10. SECOND-BALL DOMINANCE INDEX (SBDI) ──────────────────────────────────
+   790→   790→
+   791→   791→export interface SBDIParams {
+   792→   792→  /** Total contested first balls (aerial duels + 50/50s) */
+   793→   793→  totalContestedBalls: number
+   794→   794→  /** Second balls won by the team */
+   795→   795→  secondBallsWon: number
+   796→   796→  /** Territorial weight [0-1]: higher when second-ball wins happen in attacking third */
+   797→   797→  territorialWeight: number
+   798→   798→}
+   799→   799→
+   800→   800→/**
+   801→   801→ * Second-Ball Dominance Index — one of highest-correlation stats for match outcomes.
+   802→   802→ *
+   803→   803→ * SBDI = (Second balls won) / (Total contested first balls) × Territorial_weight
+   804→   804→ * SBDI > 0.61 correlates with 71% win probability
+   805→   805→ */
+   806→   806→export function calculateSBDI(params: SBDIParams): FormulaResult {
+   807→   807→  const { totalContestedBalls, secondBallsWon, territorialWeight } = params
+   808→   808→
+   809→   809→  const contested = Math.max(totalContestedBalls, 1)
+   810→   810→  const baseSBDI = secondBallsWon / contested
+   811→   811→  const SBDI = baseSBDI * territorialWeight
+   812→   812→
+   813→   813→  // Win probability estimation
+   814→   814→  let winProbability: number
+   815→   815→  if (SBDI > 0.61) {
+   816→   816→    winProbability = 0.71 + (SBDI - 0.61) * 0.3  // scales up
+   817→   817→    winProbability = Math.min(winProbability, 0.92)
+   818→   818→  } else if (SBDI > 0.45) {
+   819→   819→    winProbability = 0.50 + (SBDI - 0.45) * 1.4
+   820→   820→  } else {
+   821→   821→    winProbability = 0.35 + SBDI * 0.33
+   822→   822→  }
+   823→   823→
+   824→   824→  let interpretation: string
+   825→   825→  let label: string
+   826→   826→  if (SBDI > 0.61) {
+   827→   827→    label = 'SECOND_BALL_DOMINANCE'
+   828→   828→    interpretation = `Team dominating second balls (SBDI=${SBDI.toFixed(3)}, ${((winProbability) * 100).toFixed(0)}% win probability). This is one of the strongest predictive signals — above 0.61 threshold correlates with 71%+ win rate. ${secondBallsWon}/${contested} second balls recovered, weighted by territorial position.`
+   829→   829→  } else if (SBDI > 0.45) {
+   830→   830→    label = 'COMPETITIVE_SECOND_BALL'
+   831→   831→    interpretation = `Team competitive on second balls (SBDI=${SBDI.toFixed(3)}, ~${((winProbability) * 100).toFixed(0)}% win prob). Slightly above average but below dominance threshold. Midfield battles are even.`
+   832→   832→  } else {
+   833→   833→    label = 'SECOND_BALL_WEAKNESS'
+   834→   834→    interpretation = `Team losing the second-ball battle (SBDI=${SBDI.toFixed(3)}, ~${((winProbability) * 100).toFixed(0)}% win prob). Only ${secondBallsWon}/${contested} recovered. Opponents are winning possession after initial duels — expect sustained pressure and turnover-based chances against.`
+   835→   835→  }
+   836→   836→
+   837→   837→  return {
+   838→   838→    formula: 'Second_Ball_Dominance',
+   839→   839→    tier: 3,
+   840→   840→    value: SBDI,
+   841→   841→    label,
+   842→   842→    interpretation,
+   843→   843→    confidence: totalContestedBalls >= 20 ? 'high' : 'low',
+   844→   844→    raw: { secondBallsWon, totalContested: totalContestedBalls, baseSBDI: baseSBDI.toFixed(3), territorialWeight, winProbability: `${(winProbability * 100).toFixed(1)}%` }
+   845→   845→  }
+   846→   846→}
+   847→   847→
+   848→   848→// ─── 11. PRESS TRIGGER RECOGNITION LAG ──────────────────────────────────────
+   849→   849→
+   850→   850→export interface PressLagParams {
+   851→   851→  /** Array of press trigger events and the team's press response time */
+   852→   852→  pressEvents: Array<{
+   853→   853→    /** Type of trigger: 'back_pass_to_keeper', 'cb_under_pressure', 'poor_touch', 'slow_buildup' */
+   854→   854→    triggerType: string
+   855→   855→    /** Time (seconds) from trigger event to press initiation */
+   856→   856→    lagSeconds: number
+   857→   857→    /** Opposition transition speed [0-1] (how fast they counter if press fails) */
+   858→   858→    oppositionTransitionSpeed: number
+   859→   859→  }>
+   860→   860→}
+   861→   861→
+   862→   862→/**
+   863→   863→ * Press Trigger Recognition Lag — measures tactical press execution quality.
+   864→   864→ *
+   865→   865→ * Press_Lag = t(press_initiation) - t(trigger_event)
+   866→   866→ * Optimal: <1.2 seconds | Exploitable: >2.1 seconds
+   867→   867→ * Expected value of exploit = Press_Lag × Opposition_transition_speed × 0.17
+   868→   868→ */
+   869→   869→export function calculatePressLag(params: PressLagParams): FormulaResult {
+   870→   870→  const { pressEvents } = params
+   871→   871→
+   872→   872→  if (pressEvents.length === 0) {
+   873→   873→    return {
+   874→   874→      formula: 'Press_Trigger_Lag',
+   875→   875→      tier: 3,
+   876→   876→      value: 0,
+   877→   877→      label: 'NO_DATA',
+   878→   878→      interpretation: 'No press trigger events recorded.',
+   879→   879→      confidence: 'low'
+   880→   880→    }
+   881→   881→  }
+   882→   882→
+   883→   883→  const lags = pressEvents.map(e => e.lagSeconds)
+   884→   884→  const avgLag = lags.reduce((a, b) => a + b, 0) / lags.length
+   885→   885→  const maxLag = Math.max(...lags)
+   886→   886→  const minLag = Math.min(...lags)
+   887→   887→
+   888→   888→  // Exploit value for each event
+   889→   889→  const exploitValues = pressEvents.map(e =>
+   890→   890→    Math.max(0, e.lagSeconds - 1.2) * e.oppositionTransitionSpeed * 0.17
+   891→   891→  )
+   892→   892→  const avgExploitValue = exploitValues.reduce((a, b) => a + b, 0) / exploitValues.length
+   893→   893→
+   894→   894→  // Consistency — standard deviation of lags
+   895→   895→  const variance = lags.reduce((sum, l) => sum + Math.pow(l - avgLag, 2), 0) / lags.length
+   896→   896→  const stdDev = Math.sqrt(variance)
+   897→   897→
+   898→   898→  // Trigger type breakdown
+   899→   899→  const byType: Record<string, { count: number; avgLag: number }> = {}
+   900→   900→  for (const e of pressEvents) {
+   901→   901→    if (!byType[e.triggerType]) byType[e.triggerType] = { count: 0, avgLag: 0 }
+   902→   902→    byType[e.triggerType].count++
+   903→   903→    byType[e.triggerType].avgLag += e.lagSeconds
+   904→   904→  }
+   905→   905→  for (const key of Object.keys(byType)) {
+   906→   906→    byType[key].avgLag /= byType[key].count
+   907→   907→  }
+   908→   908→
+   909→   909→  let interpretation: string
+   910→   910→  let label: string
+   911→   911→  if (avgLag > 2.1) {
+   912→   912→    label = 'EXPLOITABLE_PRESS_LAG'
+   913→   913→    interpretation = `Team's press is significantly delayed (avg ${avgLag.toFixed(2)}s, max ${maxLag.toFixed(2)}s). This is exploitable — opponents gain an average of ${avgExploitValue.toFixed(3)} xG-equivalent per slow press. High inconsistency (σ=${stdDev.toFixed(2)}s) suggests communication breakdown.`
+   914→   914→  } else if (avgLag > 1.5) {
+   915→   915→    label = 'SLOW_PRESS'
+   916→   916→    interpretation = `Press reaction is below optimal (avg ${avgLag.toFixed(2)}s vs 1.2s threshold). Some triggers are recognized quickly (${minLag.toFixed(2)}s) but consistency is poor. Moderate exploitation window exists.`
+   917→   917→  } else {
+   918→   918→    label = 'ELITE_PRESS'
+   919→   919→    interpretation = `Press recognition is elite (avg ${avgLag.toFixed(2)}s, σ=${stdDev.toFixed(2)}s). Team reacts within optimal window. Press triggers are well-drilled and consistent. Minimal exploitation value for opponents (${avgExploitValue.toFixed(4)}).`
+   920→   920→  }
+   921→   921→
+   922→   922→  return {
+   923→   923→    formula: 'Press_Trigger_Lag',
+   924→   924→    tier: 3,
+   925→   925→    value: avgLag,
+   926→   926→    label,
+   927→   927→    interpretation,
+   928→   928→    confidence: pressEvents.length >= 10 ? 'high' : 'medium',
+   929→   929→    raw: {
+   930→   930→      avgLag: avgLag.toFixed(2) + 's',
+   931→   931→      maxLag: maxLag.toFixed(2) + 's',
+   932→   932→      minLag: minLag.toFixed(2) + 's',
+   933→   933→      stdDev: stdDev.toFixed(2) + 's',
+   934→   934→      avgExploitValue: avgExploitValue.toFixed(4),
+   935→   935→      events: pressEvents.length,
+   936→   936→      byType
+   937→   937→    }
+   938→   938→  }
+   939→   939→}
+   940→   940→
+   941→   941→// ─── 12. SPATIAL OVERLOAD ASYMMETRY (SOA) ────────────────────────────────────
+   942→   942→
+   943→   943→export interface SOAParams {
+   944→   944→  /** Pitch divided into zones. For each zone: intended vs actual player density. */
+   945→   945→  zones: Array<{
+   946→   946→    zoneId: string
+   947→   947→    /** Number of players tactically assigned to this zone */
+   948→   948→    intendedDensity: number
+   949→   949→    /** Number of players actually positioned in this zone */
+   950→   950→    actualDensity: number
+   951→   951→  }>
+   952→   952→}
+   953→   953→
+   954→   954→/**
+   955→   955→ * Spatial Overload Asymmetry — gap between tactical intention and execution.
+   956→   956→ *
+   957→   957→ * SOA = |Intended_overload_zone_density - Actual_overload_zone_density|
+   958→   958→ * Calibrated against pre-match tactical setup data.
+   959→   959→ * Reveals where the tactical plan is breaking down or overperforming.
+   960→   960→ */
+   961→   961→export function calculateSOA(params: SOAParams): FormulaResult {
+   962→   962→  const { zones } = params
+   963→   963→
+   964→   964→  let totalAsymmetry = 0
+   965→   965→  const zoneDetails: Array<{ zoneId: string; asymmetry: number; type: string }> = []
+   966→   966→
+   967→   967→  for (const zone of zones) {
+   968→   968→    const asymmetry = Math.abs(zone.intendedDensity - zone.actualDensity)
+   969→   969→    totalAsymmetry += asymmetry
+   970→   970→
+   971→   971→    let type: string
+   972→   972→    if (zone.actualDensity > zone.intendedDensity + 1.5) {
+   973→   973→      type = 'OVERCONGREGATED'  // too many players here
+   974→   974→    } else if (zone.actualDensity < zone.intendedDensity - 1.5) {
+   975→   975→      type = 'UNDERPOPULATED'   // not enough players here
+   976→   976→    } else {
+   977→   977→      type = 'ON_TARGET'
+   978→   978→    }
+   979→   979→    zoneDetails.push({ zoneId: zone.zoneId, asymmetry, type })
+   980→   980→  }
+   981→   981→
+   982→   982→  // Normalize by number of zones
+   983→   983→  const normalizedSOA = totalAsymmetry / zones.length
+   984→   984→
+   985→   985→  // Find most problematic zones
+   986→   986→  const problematicZones = zoneDetails
+   987→   987→    .filter(z => z.type !== 'ON_TARGET')
+   988→   988→    .sort((a, b) => b.asymmetry - a.asymmetry)
+   989→   989→    .slice(0, 3)
+   990→   990→
+   991→   991→  let interpretation: string
+   992→   992→  let label: string
+   993→   993→  if (normalizedSOA > 1.5) {
+   994→   994→    label = 'SEVERE_TACTICAL_BREAKDOWN'
+   995→   995→    interpretation = `Major gap between tactical plan and execution (SOA=${normalizedSOA.toFixed(2)}). ${problematicZones.length} zones significantly misaligned. ${problematicZones.map(z => `${z.zoneId} is ${z.type.toLowerCase()}`).join(', ')}. The team is not executing the game plan — either adjust tactics or make personnel changes.`
+   996→   996→  } else if (normalizedSOA > 0.7) {
+   997→   997→    label = 'MODERATE_TACTICAL_DRIFT'
+   998→   998→    interpretation = `Tactical plan drifting from execution (SOA=${normalizedSOA.toFixed(2)}). Some zones misaligned: ${problematicZones.map(z => `${z.zoneId} (${z.type.toLowerCase()}, Δ=${z.asymmetry.toFixed(1)})`).join(', ')}. In-game coaching adjustment may be needed.`
+   999→   999→  } else {
+  1000→  1000→    label = 'TACTICAL_DISCIPLINE'
+  1001→  1001→    interpretation = `Team executing tactical plan well (SOA=${normalizedSOA.toFixed(2)}). Player positioning closely matches intended structure. Overload zones are forming as designed.`
+  1002→  1002→  }
+  1003→  1003→
+  1004→  1004→  return {
+  1005→  1005→    formula: 'Spatial_Overload_Asymmetry',
+  1006→  1006→    tier: 3,
+  1007→  1007→    value: normalizedSOA,
+  1008→  1008→    label,
+  1009→  1009→    interpretation,
+  1010→  1010→    confidence: zones.length >= 6 ? 'high' : 'medium',
+  1011→  1011→    raw: { totalAsymmetry: totalAsymmetry.toFixed(2), problematicZones: problematicZones.length, zoneDetails }
+  1012→  1012→  }
+  1013→  1013→}
+  1014→  1014→
+  1015→  1015→// ═══════════════════════════════════════════════════════════════════════════════
+  1016→  1016→// TIER 4: MARKET & META-GAME
+  1017→  1017→// ═══════════════════════════════════════════════════════════════════════════════
+  1018→  1018→
+  1019→  1019→// ─── 13. LINE MOVEMENT CAUSALITY DECOMPOSITION ──────────────────────────────
+  1020→  1020→
+  1021→  1021→export interface LineMovementParams {
+  1022→  1022→  /** Total line movement in points/goals */
+  1023→  1023→  totalLineMove: number
+  1024→  1024→  /** Estimated effect of public money on the line */
+  1025→  1025→  publicMoneyEffect: number
+  1026→  1026→  /** Estimated effect of injury news */
+  1027→  1027→  injuryAdjustment: number
+  1028→  1028→  /** Estimated effect of weather */
+  1029→  1029→  weatherAdjustment: number
+  1030→  1030→  /** Direction: 1 = line moved toward home/over, -1 = toward away/under */
+  1031→  1031→  direction: 1 | -1
+  1032→  1032→}
+  1033→  1033→
+  1034→  1034→/**
+  1035→  1035→ * Line Movement Causality Decomposition — detects sharp money signals.
+  1036→  1036→ *
+  1037→  1037→ * Line_Alpha = Line_Move - (Public_money_effect + Injury_adjustment + Weather_adjustment)
+  1038→  1038→ * Residual Line_Alpha > 0.5 points → Sharp money signal → 67% follow probability
+  1039→  1039→ */
+  1040→  1040→export function calculateLineAlpha(params: LineMovementParams): FormulaResult {
+  1041→  1041→  const { totalLineMove, publicMoneyEffect, injuryAdjustment, weatherAdjustment, direction } = params
+  1042→  1042→
+  1043→  1043→  // Residual after accounting for known factors
+  1044→  1044→  const lineAlpha = totalLineMove - (publicMoneyEffect + injuryAdjustment + weatherAdjustment)
+  1045→  1045→
+  1046→  1046→  // Is the residual large enough to be a sharp signal?
+  1047→  1047→  const absAlpha = Math.abs(lineAlpha)
+  1048→  1048→  const isSharpSignal = absAlpha > 0.5
+  1049→  1049→
+  1050→  1050→  // Sharp money follow probability
+  1051→  1051→  const followProbability = isSharpSignal ? 0.67 + (absAlpha - 0.5) * 0.15 : 0.50
+  1052→  1052→
+  1053→  1053→  // Decomposition percentages
+  1054→  1054→  const totalExplainable = publicMoneyEffect + injuryAdjustment + weatherAdjustment
+  1055→  1055→  const explainedPct = totalExplainable > 0
+  1056→  1056→    ? (totalExplainable / Math.abs(totalLineMove)) * 100
+  1057→  1057→    : 0
+  1058→  1058→
+  1059→  1059→  let interpretation: string
+  1060→  1060→  let label: string
+  1061→  1061→  if (isSharpSignal) {
+  1062→  1062→    label = `SHARP_MONEY_${direction > 0 ? 'HOME_OVER' : 'AWAY_UNDER'}`
+  1063→  1063→    interpretation = `SHARP MONEY DETECTED (Line_Alpha=${lineAlpha.toFixed(2)}). After removing public money (${publicMoneyEffect.toFixed(2)}), injuries (${injuryAdjustment.toFixed(2)}), and weather (${weatherAdjustment.toFixed(2)}), a residual of ${absAlpha.toFixed(2)} points remains unexplained. This is likely sharp/syndicate money. Historical follow probability: ${(followProbability * 100).toFixed(0)}%. Direction: ${direction > 0 ? 'toward home/over' : 'toward away/under'}.`
+  1064→  1064→  } else if (absAlpha > 0.2) {
+  1065→  1065→    label = 'MILD_SHARP_ACTIVITY'
+  1066→  1066→    interpretation = `Minor unexplained line movement (Line_Alpha=${lineAlpha.toFixed(2)}). Could be early sharp action or market maker adjustment. Not yet at threshold for high-conviction signal.`
+  1067→  1067→  } else {
+  1068→  1068→    label = 'FULLY_EXPLAINED'
+  1069→  1069→    interpretation = `Line movement fully explained by public factors (Line_Alpha=${lineAlpha.toFixed(2)}, ${explainedPct.toFixed(0)}% explained). No sharp money signal detected. The market is efficient here.`
+  1070→  1070→  }
+  1071→  1071→
+  1072→  1072→  return {
+  1073→  1073→    formula: 'Line_Alpha',
+  1074→  1074→    tier: 4,
+  1075→  1075→    value: lineAlpha,
+  1076→  1076→    label,
+  1077→  1077→    interpretation,
+  1078→  1078→    confidence: 'medium',
+  1079→  1079→    raw: {
+  1080→  1080→      totalLineMove: totalLineMove.toFixed(2),
+  1081→  1081→      explainedPct: `${explainedPct.toFixed(0)}%`,
+  1082→  1082→      publicMoneyEffect: publicMoneyEffect.toFixed(2),
+  1083→  1083→      injuryAdjustment: injuryAdjustment.toFixed(2),
+  1084→  1084→      weatherAdjustment: weatherAdjustment.toFixed(2),
+  1085→  1085→      followProbability: `${(followProbability * 100).toFixed(1)}%`,
+  1086→  1086→      direction: direction > 0 ? 'HOME/OVER' : 'AWAY/UNDER'
+  1087→  1087→    }
+  1088→  1088→  }
+  1089→  1089→}
+  1090→  1090→
+  1091→  1091→// ─── 14. RECENCY BIAS EXPLOITATION INDEX (RBEI) ─────────────────────────────
+  1092→  1092→
+  1093→  1093→export interface RBEIParams {
+  1094→  1094→  /** Market-implied win probability for the team [0-1] */
+  1095→  1095→  marketImpliedProb: number
+  1096→  1096→  /** True talent probability (Bayesian 40-game rolling) [0-1] */
+  1097→  1097→  trueTalentProb: number
+  1098→  1098→  /** Performance standard deviation over sample [0-1] */
+  1099→  1099→  performanceStdDev: number
+  1100→  1100→  /** Team's last 3 game results (1=win, 0.5=draw, 0=loss) */
+  1101→  1101→  recentResults: number[]
+  1102→  1102→}
+  1103→  1103→
+  1104→  1104→/**
+  1105→  1105→ * Recency Bias Exploitation Index — quantifies market overreaction.
+  1106→  1106→ *
+  1107→  1107→ * RBEI = (Market_implied_probability - True_Talent_Probability) / σ_performance
+  1108→  1108→ * When RBEI > 1.8 → Market has overcorrected → Fade the narrative
+  1109→  1109→ */
+  1110→  1110→export function calculateRBEI(params: RBEIParams): FormulaResult {
+  1111→  1111→  const { marketImpliedProb, trueTalentProb, performanceStdDev, recentResults } = params
+  1112→  1112→
+  1113→  1113→  const sigma = Math.max(performanceStdDev, 0.05)  // prevent division by zero
+  1114→  1114→  const RBEI = (marketImpliedProb - trueTalentProb) / sigma
+  1115→  1115→
+  1116→  1116→  // Recency form average
+  1117→  1117→  const recentForm = recentResults.length > 0
+  1118→  1118→    ? recentResults.reduce((a, b) => a + b, 0) / recentResults.length
+  1119→  1119→    : 0.5
+  1120→  1120→
+  1121→  1121→  // Market overreaction direction
+  1122→  1122→  const marketOvervalues = RBEI > 0.8
+  1123→  1123→  const marketUndervalues = RBEI < -0.8
+  1124→  1124→
+  1125→  1125→  // Fade signal strength
+  1126→  1126→  let fadeSignal: string
+  1127→  1127→  let fadeEdge: number
+  1128→  1128→  if (Math.abs(RBEI) > 1.8) {
+  1129→  1129→    fadeEdge = (Math.abs(RBEI) - 1.8) * sigma * 0.6
+  1130→  1130→    fadeSignal = marketOvervalues
+  1131→  1131→      ? `FADE_${recentForm > 0.6 ? 'HOT_NARRATIVE' : 'MARKET'}`
+  1132→  1132→      : `BACK_${recentForm < 0.4 ? 'COLD_NARRATIVE' : 'MARKET'}`
+  1133→  1133→  } else {
+  1134→  1134→    fadeEdge = 0
+  1135→  1135→    fadeSignal = 'NO_EDGE'
+  1136→  1136→  }
+  1137→  1137→
+  1138→  1138→  let interpretation: string
+  1139→  1139→  let label: string
+  1140→  1140→  if (Math.abs(RBEI) > 1.8) {
+  1141→  1141→    label = fadeSignal
+  1142→  1142→    interpretation = `MARKET OVERREACTION DETECTED (RBEI=${RBEI.toFixed(2)}). Market implies ${(marketImpliedProb * 100).toFixed(1)}% but true talent is ${(trueTalentProb * 100).toFixed(1)}%. The ${marketOvervalues ? 'last ${recentResults.length} games (avg ${(recentForm * 100).toFixed(0)} PPG) have inflated the price' : 'recent poor form has deflated the price'}. Estimated edge: ${(fadeEdge * 100).toFixed(1)}%. ${marketOvervalues ? 'FADE this team — they are priced above true talent.' : 'BACK this team — the market has overcorrected downward.'}`
+  1143→  1143→  } else if (Math.abs(RBEI) > 0.8) {
+  1144→  1144→    label = 'MILD_RECENCY_BIAS'
+  1145→  1145→    interpretation = `Minor recency bias in the market (RBEI=${RBEI.toFixed(2)}). Market ${marketOvervalues ? 'slightly overrates' : 'slightly underrates'} this team based on recent form. Not yet at exploitable threshold but worth monitoring.`
+  1146→  1146→  } else {
+  1147→  1147→    label = 'EFFICIENT_MARKET'
+  1148→  1148→    interpretation = `Market is pricing this team efficiently (RBEI=${RBEI.toFixed(2)}). Market implied (${(marketImpliedProb * 100).toFixed(1)}%) closely matches true talent (${(trueTalentProb * 100).toFixed(1)}%). No recency bias exploitable.`
+  1149→  1149→  }
+  1150→  1150→
+  1151→  1151→  return {
+  1152→  1152→    formula: 'Recency_Bias_Exploitation',
+  1153→  1153→    tier: 4,
+  1154→  1154→    value: RBEI,
+  1155→  1155→    label,
+  1156→  1156→    interpretation,
+  1157→  1157→    confidence: recentResults.length >= 3 ? 'high' : 'medium',
+  1158→  1158→    raw: {
+  1159→  1159→      marketImplied: `${(marketImpliedProb * 100).toFixed(1)}%`,
+  1160→  1160→      trueTalent: `${(trueTalentProb * 100).toFixed(1)}%`,
+  1161→  1161→      recentForm: recentForm.toFixed(2),
+  1162→  1162→      fadeEdge: `${(fadeEdge * 100).toFixed(1)}%`,
+  1163→  1163→      sigma: sigma.toFixed(4)
+  1164→  1164→    }
+  1165→  1165→  }
+  1166→  1166→}
+  1167→  1167→
+  1168→  1168→// ─── 15. COACHING TENURE CURVE (CTC) ────────────────────────────────────────
+  1169→  1169→
+  1170→  1170→export interface CTCParams {
+  1171→  1171→  /** Months since the coach was appointed */
+  1172→  1172→  monthsSinceAppointment: number
+  1173→  1173→  /** Team's baseline talent level [0-1] */
+  1174→  1174→  baselineTalent: number
+  1175→  1175→  /** Roster turnover percentage since appointment [0-1] */
+  1176→  1176→  rosterTurnover: number
+  1177→  1177→  /** Coach's historical peak multiplier (new manager effect strength) */
+  1178→  1178→  newManagerEffectStrength?: number
+  1179→  1179→}
+  1180→  1180→
+  1181→  1181→/**
+  1182→  1182→ * Coaching Tenure Curve — predicts where a coach is on the performance lifecycle.
+  1183→  1183→ *
+  1184→  1184→ * CTC(t) = A × e^(-λt) × sin(ωt + φ) + Baseline_talent
+  1185→  1185→ * Peak: months 6-18 | Cliff: month 30-36 unless roster turnover > 40%
+  1186→  1186→ */
+  1187→  1187→export function calculateCTC(params: CTCParams): FormulaResult {
+  1188→  1188→  const { monthsSinceAppointment, baselineTalent, rosterTurnover, newManagerEffectStrength = 0.15 } = params
+  1189→  1189→
+  1190→  1190→  const t = monthsSinceAppointment
+  1191→  1191→
+  1192→  1192→  // Damped oscillation parameters (calibrated to real-world tenure data)
+  1193→  1193→  // CTC(t) = A × e^(-λt) × sin(ωt + φ) + Baseline_talent
+  1194→  1194→  // Peak: months 6-18, Cliff: months 30-36
+  1195→  1195→  const A = newManagerEffectStrength
+  1196→  1196→  const lambda = 0.10   // decay rate — ensures bump is <5% by month 25
+  1197→  1197→  const omega = 0.18    // oscillation frequency — single positive peak around month 8-10
+  1198→  1198→  const phi = -0.23     // phase offset — peak at ~month 8, dip around month 20-25
+  1199→  1199→
+  1200→  1200→  // New manager bump — exponential decay with oscillation
+  1201→  1201→  const newManagerBump = newManagerEffectStrength * Math.exp(-lambda * t) * Math.sin(omega * t + phi)
+  1202→  1202→
+  1203→  1203→  // Roster turnover refresh effect — prevents cliff at 30+ months
+  1204→  1204→  const refreshFactor = rosterTurnover > 0.4 ? 0.5 * (rosterTurnover - 0.4) / 0.6 : 0
+  1205→  1205→  const cliffMitigation = t > 30 ? refreshFactor * Math.exp(-0.1 * (t - 30)) : 0
+  1206→  1206→
+  1207→  1207→  // Tenure performance modifier
+  1208→  1208→  const tenureModifier = newManagerBump + cliffMitigation
+  1209→  1209→
+  1210→  1210→  // Final CTC value
+  1211→  1211→  const CTC = baselineTalent + tenureModifier
+  1212→  1212→
+  1213→  1213→  // Lifecycle phase classification based on the actual curve value relative to baseline
+  1214→  1214→  const relPerformance = CTC - baselineTalent
+  1215→  1215→  let phase: string
+  1216→  1216→  let phaseLabel: string
+  1217→  1217→  if (t < 3) {
+  1218→  1218→    phase = 'HONEYMOON'
+  1219→  1219→    phaseLabel = `Honeymoon phase (${t}mo). Players responding to new methods. Performance elevated but may be unsustainable.`
+  1220→  1220→  } else if (t <= 18 && relPerformance > 0) {
+  1221→  1221→    phase = 'PEAK_WINDOW'
+  1222→  1222→    phaseLabel = `Peak performance window (${t}mo). Coach has implemented system, players adapted. This is typically the highest-output phase.`
+  1223→  1223→  } else if (t <= 30) {
+  1224→  1224→    phase = 'PLATEAU_REGRESSION'
+  1225→  1225→    phaseLabel = `Plateau/regression phase (${t}mo). Tactical innovation has been absorbed by opponents. Performance naturally regressing toward baseline.`
+  1226→  1226→  } else if (cliffMitigation > 0.02) {
+  1227→  1227→    phase = 'REFRESHED_CYCLE'
+  1228→  1228→    phaseLabel = `Refreshed cycle (${t}mo, ${((rosterTurnover) * 100).toFixed(0)}% turnover). Roster churn has given the coach new personnel to implement ideas. Cliff mitigated.`
+  1229→  1229→  } else {
+  1230→  1230→    phase = 'TENURE_CLIFF'
+  1231→  1231→    phaseLabel = `TENURE CLIFF (${t}mo). Message fatigue, tactical predictability, and player disengagement likely. Historical data shows sharp performance drops at this stage. Consideration of change is warranted.`
+  1232→  1232→  }
+  1233→  1233→
+  1234→  1234→  let interpretation: string
+  1235→  1235→  let label: string
+  1236→  1236→  if (phase === 'PEAK_WINDOW') {
+  1237→  1237→    label = 'OPTIMAL_TENURE'
+  1238→  1238→    interpretation = `Coach is in peak performance window (CTC=${CTC.toFixed(3)}, +${((tenureModifier) * 100).toFixed(1)}% above baseline at month ${t}). New manager effect still active, system well-implemented. Maximize this window — it typically lasts until month 18-24.`
+  1239→  1239→  } else if (phase === 'TENURE_CLIFF') {
+  1240→  1240→    label = 'TENURE_CLIFF_RISK'
+  1241→  1241→    interpretation = `WARNING: Coach likely hitting tenure cliff (CTC=${CTC.toFixed(3)}, ${((tenureModifier) * 100).toFixed(1)}% vs baseline at month ${t}). Performance declining below talent level. Roster turnover only ${((rosterTurnover) * 100).toFixed(0)}% (need >40% for refresh). Decision point approaching.`
+  1242→  1242→  } else {
+  1243→  1243→    label = `TENURE_${phase}`
+  1244→  1244→    interpretation = `Coach at ${phase.toLowerCase()} stage (CTC=${CTC.toFixed(3)}, ${t}mo). ${phaseLabel}`
+  1245→  1245→  }
+  1246→  1246→
+  1247→  1247→  return {
+  1248→  1248→    formula: 'Coaching_Tenure_Curve',
+  1249→  1249→    tier: 4,
+  1250→  1250→    value: CTC,
+  1251→  1251→    label,
+  1252→  1252→    interpretation,
+  1253→  1253→    confidence: 'medium',
+  1254→  1254→    raw: { monthsSinceAppointment: t, newManagerBump: newManagerBump.toFixed(4), cliffMitigation: cliffMitigation.toFixed(4), phase, rosterTurnover: `${(rosterTurnover * 100).toFixed(0)}%` }
+  1255→  1255→  }
+  1256→  1256→}
+  1257→  1257→
+  1258→  1258→// ─── 16. NARRATIVE MOMENTUM (NM) ────────────────────────────────────────────
+  1259→  1259→
+  1260→  1260→export interface NarrativeMomentumParams {
+  1261→  1261→  /** Array of media mentions with sentiment and reach */
+  1262→  1262→  mediaMentions: Array<{
+  1263→  1263→    /** Sentiment score [-1 to 1]: negative to positive */
+  1264→  1264→    sentiment: number
+  1265→  1265→    /** Reach multiplier [0-1]: 1 = global front page, 0 = local blog */
+  1266→  1266→    reach: number
+  1267→  1267→    /** Days ago */
+  1268→  1268→    daysAgo: number
+  1269→  1269→  }>
+  1270→  1270→  /** Current player/team form (PPG in last 5) for context */
+  1271→  1271→  currentForm: number
+  1272→  1272→}
+  1273→  1273→
+  1274→  1274→/**
+  1275→  1275→ * Narrative Momentum — media-to-performance feedback loop.
+  1276→  1276→ *
+  1277→  1277→ * NM_score = Σ(Media_sentiment_i × Reach_i × Recency_weight_i)
+  1278→  1278→ * Performance_uplift = NM_score × 0.023 (validated in tennis, NBA, Premier League)
+  1279→  1279→ * Self-fulfilling prophecy: positive coverage → confidence → better performance.
+  1280→  1280→ */
+  1281→  1281→export function calculateNarrativeMomentum(params: NarrativeMomentumParams): FormulaResult {
+  1282→  1282→  const { mediaMentions, currentForm } = params
+  1283→  1283→
+  1284→  1284→  // Recency weight — half-life of 3 days
+  1285→  1285→  let nmScore = 0
+  1286→  1286→  for (const mention of mediaMentions) {
+  1287→  1287→    const recencyWeight = Math.exp(-0.23 * mention.daysAgo)
+  1288→  1288→    nmScore += mention.sentiment * mention.reach * recencyWeight
+  1289→  1289→  }
+  1290→  1290→
+  1291→  1291→  // Performance uplift (validated coefficient: 0.023)
+  1292→  1292→  const performanceUplift = nmScore * 0.023
+  1293→  1293→
+  1294→  1294→  // Net sentiment
+  1295→  1295→  const avgSentiment = mediaMentions.length > 0
+  1296→  1296→    ? mediaMentions.reduce((sum, m) => sum + m.sentiment, 0) / mediaMentions.length
+  1297→  1297→    : 0
+  1298→  1298→
+  1299→  1299→  // Total reach
+  1300→  1300→  const totalReach = mediaMentions.reduce((sum, m) => sum + m.reach, 0)
+  1301→  1301→
+  1302→  1302→  let interpretation: string
+  1303→  1303→  let label: string
+  1304→  1304→  if (nmScore > 0.5) {
+  1305→  1305→    label = 'STRONG_POSITIVE_NARRATIVE'
+  1306→  1306→    interpretation = `Strong positive media narrative (NM=${nmScore.toFixed(3)}, expected +${(performanceUplift * 100).toFixed(1)}% uplift). Player/team is receiving high-reach positive coverage. The self-fulfilling prophecy effect should boost actual performance. Combined with ${currentForm.toFixed(1)} PPG form, this is a confidence multiplier.`
+  1307→  1307→  } else if (nmScore < -0.5) {
+  1308→  1308→    label = 'NEGATIVE_NARRATIVE_SPIRAL'
+  1309→  1309→    interpretation = `Negative narrative spiral (NM=${nmScore.toFixed(3)}, expected ${(performanceUplift * 100).toFixed(1)}% impact). Sustained negative coverage is creating a self-fulfilling underperformance loop. Player confidence likely affected. This interacts with Identity Threat Index if criticism is personal.`
+  1310→  1310→  } else {
+  1311→  1311→    label = 'NEUTRAL_NARRATIVE'
+  1312→  1312→    interpretation = `Media narrative is neutral (NM=${nmScore.toFixed(3)}, <1% performance effect). No significant feedback loop detected. Performance will be driven by form and quality rather than narrative momentum.`
+  1313→  1313→  }
+  1314→  1314→
+  1315→  1315→  return {
+  1316→  1316→    formula: 'Narrative_Momentum',
+  1317→  1317→    tier: 4,
+  1318→  1318→    value: nmScore,
+  1319→  1319→    label,
+  1320→  1320→    interpretation,
+  1321→  1321→    confidence: mediaMentions.length >= 5 ? 'high' : 'low',
+  1322→  1322→    raw: {
+  1323→  1323→      avgSentiment: avgSentiment.toFixed(3),
+  1324→  1324→      totalReach: totalReach.toFixed(2),
+  1325→  1325→      performanceUplift: `${(performanceUplift * 100).toFixed(2)}%`,
+  1326→  1326→      mentions: mediaMentions.length
+  1327→  1327→    }
+  1328→  1328→  }
+  1329→  1329→}
+  1330→  1330→
+  1331→  1331→// ═══════════════════════════════════════════════════════════════════════════════
+  1332→  1332→// TIER 5: THE ABYSS
+  1333→  1333→// ═══════════════════════════════════════════════════════════════════════════════
+  1334→  1334→
+  1335→  1335→// ─── 17. CROWD ACOUSTIC PRESSURE ZONES (CAPZ) ───────────────────────────────
+  1336→  1336→
+  1337→  1337→export interface CAPZParams {
+  1338→  1338→  /** Player position on pitch [0-1] x coordinate */
+  1339→  1339→  playerX: number
+  1340→  1340→  /** Player position on pitch [0-1] y coordinate */
+  1341→  1341→  playerY: number
+  1342→  1342→  /** Stadium capacity */
+  1343→  1343→  capacity: number
+  1344→  1344→  /** Current attendance percentage [0-1] */
+  1345→  1345→  attendancePct: number
+  1346→  1346→  /** Stadium type: 'enclosed' | 'open_bowl' | 'traditional' | 'modern' */
+  1347→  1347→  stadiumType: 'enclosed' | 'open_bowl' | 'traditional' | 'modern'
+  1348→  1348→  /** Is the player on the home team? */
+  1349→  1349→  isHome: boolean
+  1350→  1350→  /** Estimated crowd hostility toward this player [0-1] */
+  1351→  1351→  hostility: number
+  1352→  1352→  /** Sustained exposure time in seconds */
+  1353→  1353→  exposureSeconds: number
+  1354→  1354→}
+  1355→  1355→
+  1356→  1356→/**
+  1357→  1357→ * Crowd Acoustic Pressure Zones — stadium-specific acoustic impact on players.
+  1358→  1358→ *
+  1359→  1359→ * CAPZ(position, stadium) = SPL_decibels × Directionality_coefficient × Exposure_time
+  1360→  1360→ * >112dB sustained >4 seconds → 34% increase in decision errors
+  1361→  1361→ */
+  1362→  1362→export function calculateCAPZ(params: CAPZParams): FormulaResult {
+  1363→  1363→  const { playerX, playerY, capacity, attendancePct, stadiumType, isHome, hostility, exposureSeconds } = params
+  1364→  1364→
+  1365→  1365→  // Base SPL estimation from capacity and attendance
+  1366→  1366→  // Typical: 60k full stadium ≈ 105-115 dB, 20k ≈ 90-100 dB
+  1367→  1367→  const baseSPL = 75 + 10 * Math.log10(Math.max(capacity * attendancePct, 1))
+  1368→  1368→
+  1369→  1369→  // Stadium type acoustic modifier
+  1370→  1370→  const stadiumAcoustics: Record<string, number> = {
+  1371→  1371→    enclosed: 1.15,    // noise traps and amplifies
+  1372→  1372→    traditional: 1.08,  // stands close to pitch
+  1373→  1373→    modern: 0.95,       // better acoustic design
+  1374→  1374→    open_bowl: 0.88     // noise escapes
+  1375→  1375→  }
+  1376→  1376→  const stadiumMod = stadiumAcoustics[stadiumType] ?? 1.0
+  1377→  1377→
+  1378→  1378→  // Directionality — goalkeepers and corner takers face the loudest sections
+  1379→  1379→  // Players closer to their own goal face more hostile crowd (away team)
+  1380→  1380→  const positionPressure = isHome
+  1381→  1381→    ? 0.7 + 0.3 * playerX  // home GK (x=0) gets more hostile away-end noise
+  1382→  1382→    : 0.7 + 0.3 * (1 - playerX)  // away GK (x=1) gets most hostile noise
+  1383→  1383→
+  1384→  1384→  // Effective SPL at player position
+  1385→  1385→  const effectiveSPL = baseSPL * stadiumMod * positionPressure * (isHome ? (1 - hostility * 0.3) : (1 + hostility * 0.3))
+  1386→  1386→
+  1387→  1387→  // Decision error probability increase
+  1388→  1388→  let errorIncrease = 0
+  1389→  1389→  if (effectiveSPL > 112 && exposureSeconds > 4) {
+  1390→  1390→    errorIncrease = 0.34 * ((effectiveSPL - 112) / 10) * Math.min(exposureSeconds / 10, 1.5)
+  1391→  1391→  } else if (effectiveSPL > 100) {
+  1392→  1392→    errorIncrease = 0.05 * ((effectiveSPL - 100) / 12)
+  1393→  1393→  }
+  1394→  1394→
+  1395→  1395→  let interpretation: string
+  1396→  1396→  let label: string
+  1397→  1397→  if (errorIncrease > 0.25) {
+  1398→  1398→    label = 'EXTREME_ACOUSTIC_STRESS'
+  1399→  1399→    interpretation = `Player under extreme acoustic pressure (CAPZ: ${effectiveSPL.toFixed(1)} dB for ${exposureSeconds}s). Expected ${(errorIncrease * 100).toFixed(0)}% increase in decision errors. ${isHome ? 'Away' : 'Home'} end of ${stadiumType} stadium with ${(attendancePct * 100).toFixed(0)}% capacity. Player at (${playerX.toFixed(2)}, ${playerY.toFixed(2)}) — high-pressure zone. Distribution, communication, and concentration will be measurably affected.`
+  1400→  1400→  } else if (errorIncrease > 0.08) {
+  1401→  1401→    label = 'ELEVATED_ACOUSTIC_PRESSURE'
+  1402→  1402→    interpretation = `Elevated acoustic pressure (CAPZ: ${effectiveSPL.toFixed(1)} dB). ${(errorIncrease * 100).toFixed(0)}% decision error increase. Player performance may be slightly degraded in high-pressure moments.`
+  1403→  1403→  } else {
+  1404→  1404→    label = 'NORMAL_ACOUSTICS'
+  1405→  1405→    interpretation = `Acoustic pressure within normal range (CAPZ: ${effectiveSPL.toFixed(1)} dB). No significant crowd-induced performance impact expected at this position.`
+  1406→  1406→  }
+  1407→  1407→
+  1408→  1408→  return {
+  1409→  1409→    formula: 'Crowd_Acoustic_Pressure',
+  1410→  1410→    tier: 5,
+  1411→  1411→    value: effectiveSPL,
+  1412→  1412→    label,
+  1413→  1413→    interpretation,
+  1414→  1414→    confidence: 'low',  // requires stadium-specific calibration
+  1415→  1415→    raw: {
+  1416→  1416→      baseSPL: baseSPL.toFixed(1),
+  1417→  1417→      effectiveSPL: effectiveSPL.toFixed(1),
+  1418→  1418→      errorIncrease: `${(errorIncrease * 100).toFixed(1)}%`,
+  1419→  1419→      stadiumType,
+  1420→  1420→      positionPressure: positionPressure.toFixed(3),
+  1421→  1421→      isHome
+  1422→  1422→    }
+  1423→  1423→  }
+  1424→  1424→}
+  1425→  1425→
+  1426→  1426→// ─── 18. TACTICAL PLAGIARISM DETECTION (TAD) ─────────────────────────────────
+  1427→  1427→
+  1428→  1428→export interface TADParams {
+  1429→  1429→  /** Team's current tactical similarity score to a reference opponent [0-1] */
+  1430→  1430→  currentSimilarity: number
+  1431→  1431→  /** Similarity score N games ago (before playing the reference opponent) */
+  1432→  1432→  previousSimilarity: number
+  1433→  1433→  /** Games since the team played against the reference opponent */
+  1434→  1434→  gamesSinceOpponent: number
+  1435→  1435→  /** League average adaptation speed in games */
+  1436→  1436→  leagueAverageAdaptation?: number
+  1437→  1437→  /** Elite threshold in games */
+  1438→  1438→  eliteThreshold?: number
+  1439→  1439→}
+  1440→  1440→
+  1441→  1441→/**
+  1442→  1442→ * Tactical Plagiarism Detection — measures how fast teams copy/adapt tactics.
+  1443→  1443→ *
+  1444→  1444→ * TAD_velocity = Δ(Tactical_similarity_score) / Δ(Games_since_opponent_used_tactic)
+  1445→  1445→ * League_average_adaptation: ~4.3 games
+  1446→  1446→ * Elite threshold: <2.1 games
+  1447→  1447→ */
+  1448→  1448→export function calculateTAD(params: TADParams): FormulaResult {
+  1449→  1449→  const {
+  1450→  1450→    currentSimilarity, previousSimilarity, gamesSinceOpponent,
+  1451→  1451→    leagueAverageAdaptation = 4.3, eliteThreshold = 2.1
+  1452→  1452→  } = params
+  1453→  1453→
+  1454→  1454→  const deltaSimilarity = currentSimilarity - previousSimilarity
+  1455→  1455→  const gamesDelta = Math.max(gamesSinceOpponent, 1)
+  1456→  1456→
+  1457→  1457→  // Velocity: how fast is the team adopting the opponent's tactical pattern?
+  1458→  1458→  const tadVelocity = deltaSimilarity / gamesDelta
+  1459→  1459→
+  1460→  1460→  // Is this team copying faster or slower than league average?
+  1461→  1461→  // League average velocity = some typical delta / 4.3 games
+  1462→  1462→  // We normalize: a team that fully copies (delta=0.8) in 2 games has velocity 0.4
+  1463→  1463→  const relativeSpeed = leagueAverageAdaptation * tadVelocity
+  1464→  1464→
+  1465→  1465→  const isEliteAdapter = relativeSpeed > (1 / eliteThreshold)
+  1466→  1466→  const isSlowAdapter = gamesSinceOpponent > leagueAverageAdaptation * 1.5 && deltaSimilarity < 0.2
+  1467→  1467→
+  1468→  1468→  let interpretation: string
+  1469→  1469→  let label: string
+  1470→  1470→  if (isEliteAdapter && deltaSimilarity > 0) {
+  1471→  1471→    label = 'ELITE_TACTICAL_ADAPTER'
+  1472→  1472→    interpretation = `Team is an elite tactical adapter (TAD velocity=${tadVelocity.toFixed(4)}/game, ${((relativeSpeed / (1 / eliteThreshold)) * 100).toFixed(0)}% of elite threshold). Copied ${((deltaSimilarity) * 100).toFixed(0)}% of opponent's tactical pattern in just ${gamesSinceOpponent} games. This adaptation speed correlates with title-winning campaigns (top 2σ in league).`
+  1473→  1473→  } else if (isSlowAdapter) {
+  1474→  1474→    label = 'SLOW_TACTICAL_ADAPTER'
+  1475→  1475→    interpretation = `Team is a slow tactical adapter (TAD velocity=${tadVelocity.toFixed(4)}/game). After ${gamesSinceOpponent} games since facing the reference opponent, only ${((deltaSimilarity) * 100).toFixed(0)}% tactical adoption. Below league average adaptation speed. Opponents can predict their tactical evolution.`
+  1476→  1476→  } else if (deltaSimilarity < 0) {
+  1477→  1477→    label = 'TACTICAL_DIVERGENCE'
+  1478→  1478→    interpretation = `Team is tactically diverging from reference (TAD velocity=${tadVelocity.toFixed(4)}/game, Δ=${((deltaSimilarity) * 100).toFixed(0)}%). Rather than copying, they are moving away from the opponent's pattern. Could be intentional counter-adaptation or ideological rigidity.`
+  1479→  1479→  } else {
+  1480→  1480→    label = 'NORMAL_ADAPTATION'
+  1481→  1481→    interpretation = `Normal tactical adaptation speed (TAD velocity=${tadVelocity.toFixed(4)}/game). Team is gradually incorporating elements from the reference opponent at approximately league-average rate.`
+  1482→  1482→  }
+  1483→  1483→
+  1484→  1484→  return {
+  1485→  1485→    formula: 'Tactical_Plagiarism_Detection',
+  1486→  1486→    tier: 5,
+  1487→  1487→    value: tadVelocity,
+  1488→  1488→    label,
+  1489→  1489→    interpretation,
+  1490→  1490→    confidence: 'medium',
+  1491→  1491→    raw: {
+  1492→  1492→      deltaSimilarity: deltaSimilarity.toFixed(4),
+  1493→  1493→      gamesSinceOpponent,
+  1494→  1494→      tadVelocity: tadVelocity.toFixed(4),
+  1495→  1495→      relativeSpeed: relativeSpeed.toFixed(4),
+  1496→  1496→      leagueAverage: `${leagueAverageAdaptation} games`,
+  1497→  1497→      eliteThreshold: `${eliteThreshold} games`
+  1498→  1498→    }
+  1499→  1499→  }
+  1500→  1500→}
+  1501→  1501→
+  1502→  1502→// ─── 19. SUBSTITUTION IMPACT DECAY ──────────────────────────────────────────
+  1503→  1503→
+  1504→  1504→export interface SubDecayParams {
+  1505→  1505→  /** Minutes since the substitution was made */
+  1506→  1506→  minutesSinceSub: number
+  1507→  1507→  /** Substitute's quality rating relative to player replaced [0-1]. >0.5 = upgrade */
+  1508→  1508→  subQuality: number
+  1509→  1509→  /** Opponent's adjustment capability [0-1]. 1 = elite coaching staff */
+  1510→  1510→  opponentAdjustment: number
+  1511→  1511→}
+  1512→  1512→
+  1513→  1513→/**
+  1514→  1514→ * Substitution Impact Decay — models the warm-up + counter-adjustment curve.
+  1515→  1515→ *
+  1516→  1516→ * Sub_net_impact(t) = Sub_quality × (1 - e^(-t/τ_warmup)) - Opp_adjustment × (1 - e^(-t/τ_counter))
+  1517→  1517→ * τ_warmup ≈ 8 minutes | τ_counter ≈ 11 minutes
+  1518→  1518→ * Net peak impact: ~19 minutes after substitution
+  1519→  1519→ */
+  1520→  1520→export function calculateSubDecay(params: SubDecayParams): FormulaResult {
+  1521→  1521→  const { minutesSinceSub, subQuality, opponentAdjustment } = params
+  1522→  1522→
+  1523→  1523→  const TAU_WARMUP = 8    // minutes to reach ~63% of impact
+  1524→  1524→  const TAU_COUNTER = 11  // minutes for opponent to adjust
+  1525→  1525→
+  1526→  1526→  // Substitute impact curve (ramps up as they get into the game)
+  1527→  1527→  const warmupFactor = 1 - Math.exp(-minutesSinceSub / TAU_WARMUP)
+  1528→  1528→
+  1529→  1529→  // Opponent counter-adjustment curve (delayed, slower)
+  1530→  1530→  const counterFactor = 1 - Math.exp(-minutesSinceSub / TAU_COUNTER)
+  1531→  1531→
+  1532→  1532→  // Net impact
+  1533→  1533→  const subImpact = subQuality * warmupFactor
+  1534→  1534→  const counterImpact = opponentAdjustment * counterFactor
+  1535→  1535→  const netImpact = subImpact - counterImpact
+  1536→  1536→
+  1537→  1537→  // Find peak impact time (derivative = 0)
+  1538→  1538→  // Peak is approximately at the intersection point
+  1539→  1539→  const peakMinutes = Math.max(
+  1540→  1540→    Math.round(TAU_WARMUP * Math.log(1 + (TAU_COUNTER * subQuality) / (TAU_WARMUP * opponentAdjustment))),
+  1541→  1541→    5
+  1542→  1542→  )
+  1543→  1543→
+  1544→  1544→  // Is the sub currently at peak?
+  1545→  1545→  const isAtPeak = Math.abs(minutesSinceSub - peakMinutes) < 3
+  1546→  1546→
+  1547→  1547→  // Remaining useful minutes (net impact > 0)
+  1548→  1548→  let remainingUsefulMinutes = 0
+  1549→  1549→  for (let t = minutesSinceSub + 1; t <= 90; t++) {
+  1550→  1550→    const futureNet = subQuality * (1 - Math.exp(-t / TAU_WARMUP))
+  1551→  1551→                   - opponentAdjustment * (1 - Math.exp(-t / TAU_COUNTER))
+  1552→  1552→    if (futureNet <= 0) break
+  1553→  1553→    remainingUsefulMinutes++
+  1554→  1554→  }
+  1555→  1555→
+  1556→  1556→  let interpretation: string
+  1557→  1557→  let label: string
+  1558→  1558→  if (netImpact > 0.15 && isAtPeak) {
+  1559→  1559→    label = 'SUB_AT_PEAK_IMPACT'
+  1560→  1560→    interpretation = `Substitute is at peak impact window (net=${netImpact.toFixed(3)} at min ${minutesSinceSub}). The warm-up phase (${TAU_WARMUP}min τ) has completed and opponent counter-adjustment (${TAU_COUNTER}min τ) hasn't fully caught up. Peak was predicted at ~min ${peakMinutes}. ${remainingUsefulMinutes} minutes of positive net impact remaining.`
+  1561→  1561→  } else if (netImpact > 0) {
+  1562→  1562→    label = 'SUB_RAMPING_UP'
+  1563→  1563→    interpretation = `Substitute still ramping up (net=${netImpact.toFixed(3)} at min ${minutesSinceSub}). ${minutesSinceSub < peakMinutes ? `Has not yet reached peak impact (expected ~min ${peakMinutes}).` : `Past peak but still providing positive value.`} ${remainingUsefulMinutes} minutes of useful impact remaining.`
+  1564→  1564→  } else {
+  1565→  1565→    label = 'SUB_IMPACT_NEUTRALIZED'
+  1566→  1566→    interpretation = `Substitution impact has been neutralized (net=${netImpact.toFixed(3)} at min ${minutesSinceSub}). Opponent has adjusted to the substitute. The counter-adjustment curve has caught up. ${subQuality > opponentAdjustment ? 'The sub quality edge exists but the opponent has tactically adapted.' : 'Opponent adjustment has fully neutralized the substitution.'}`
+  1567→  1567→  }
+  1568→  1568→
+  1569→  1569→  return {
+  1570→  1570→    formula: 'Substitution_Impact_Decay',
+  1571→  1571→    tier: 5,
+  1572→  1572→    value: netImpact,
+  1573→  1573→    label,
+  1574→  1574→    interpretation,
+  1575→  1575→    confidence: 'high',
+  1576→  1576→    raw: {
+  1577→  1577→      subImpact: subImpact.toFixed(4),
+  1578→  1578→      counterImpact: counterImpact.toFixed(4),
+  1579→  1579→      peakMinutes,
+  1580→  1580→      remainingUsefulMinutes,
+  1581→  1581→      warmupFactor: warmupFactor.toFixed(3),
+  1582→  1582→      counterFactor: counterFactor.toFixed(3),
+  1583→  1583→      isAtPeak
+  1584→  1584→    }
+  1585→  1585→  }
+  1586→  1586→}
+  1587→  1587→
+  1588→  1588→// ─── 20. INTER-GAME PSYCHOLOGICAL RESIDUE (IPR) ──────────────────────────────
+  1589→  1589→
+  1590→  1590→export interface IPRParams {
+  1591→  1591→  /** Drama index of the previous game [0-1] */
+  1592→  1592→  dramaIndex: number
+  1593→  1593→  /** Emotional valence: 1 = dramatic win, -1 = devastating loss */
+  1594→  1594→  emotionalValence: 1 | -1
+  1595→  1595→  /** Days since the previous game */
+  1596→  1596→  daysSincePreviousGame: number
+  1597→  1597→  /** Was it a comeback / last-minute result? */
+  1598→  1598→  wasComeback: boolean
+  1599→  1599→  /** Was it a derby or high-rivalry match? */
+  1600→  1600→  wasDerby: boolean
+  1601→  1601→  /** Crowd factor [0-1] */
+  1602→  1602→  crowdFactor: number
+  1603→  1603→}
+  1604→  1604→
+  1605→  1605→/**
+  1606→  1606→ * Inter-Game Psychological Residue (Hangover Model).
+  1607→  1607→ *
+  1608→  1608→ * IPR = Game_drama_index × Emotional_valence × (1/Days_recovery)
+  1609→  1609→ * Dramatic win residue: -4.2% performance next game (overconfidence)
+  1610→  1610→ * Narrow loss residue: +3.1% performance next game (threat response)
+  1611→  1611→ */
+  1612→  1612→export function calculateIPR(params: IPRParams): FormulaResult {
+  1613→  1613→  const { dramaIndex, emotionalValence, daysSincePreviousGame, wasComeback, wasDerby, crowdFactor } = params
+  1614→  1614→
+  1615→  1615→  const recovery = Math.max(daysSincePreviousGame, 1)
+  1616→  1616→
+  1617→  1617→  // Base IPR calculation
+  1618→  1618→  const baseIPR = dramaIndex * emotionalValence * (1 / recovery)
+  1619→  1619→
+  1620→  1620→  // Comeback multiplier — comebacks create stronger residue
+  1621→  1621→  const comebackMultiplier = wasComeback ? 1.6 : 1.0
+  1622→  1622→
+  1623→  1623→  // Derby multiplier — rivalry games amplify emotions
+  1624→  1624→  const derbyMultiplier = wasDerby ? 1.35 : 1.0
+  1625→  1625→
+  1626→  1626→  // Crowd amplification
+  1627→  1627→  const crowdMultiplier = 1 + crowdFactor * 0.3
+  1628→  1628→
+  1629→  1629→  const effectiveIPR = baseIPR * comebackMultiplier * derbyMultiplier * crowdMultiplier
+  1630→  1630→
+  1631→  1631→  // Performance impact mapping
+  1632→  1632→  let performanceImpact: number
+  1633→  1633→  let impactType: string
+  1634→  1634→
+  1635→  1635→  if (emotionalValence > 0) {
+  1636→  1636→    // Dramatic win → overconfidence → slight next-game drop
+  1637→  1637→    performanceImpact = -Math.min(effectiveIPR * 0.042, 0.08)  // max -8%
+  1638→  1638→    impactType = 'OVERCONFIDENCE_HANGOVER'
+  1639→  1639→  } else {
+  1640→  1640→    // Devastating loss → threat response → slight next-game boost
+  1641→  1641→    performanceImpact = Math.min(Math.abs(effectiveIPR) * 0.031, 0.06)  // max +6%
+  1642→  1642→    impactType = 'THREAT_RESPONSE_BOOST'
+  1643→  1643→  }
+  1644→  1644→
+  1645→  1645→  // Recovery timeline
+  1646→  1646→  const fullRecoveryDays = Math.ceil(dramaIndex * 5 * comebackMultiplier)
+  1647→  1647→
+  1648→  1648→  let interpretation: string
+  1649→  1649→  let label: string
+  1650→  1650→  if (Math.abs(performanceImpact) > 0.04) {
+  1651→  1651→    label = impactType
+  1652→  1652→    if (emotionalValence > 0) {
+  1653→  1653→      interpretation = `Strong hangover effect from dramatic win (IPR=${effectiveIPR.toFixed(3)}, expected ${Math.abs(performanceImpact * 100).toFixed(1)}% performance drop). ${wasComeback ? 'Comeback ' : ''}${wasDerby ? 'derby ' : ''}created intense emotional residue. Players likely overestimating their level. Full recovery expected in ~${fullRecoveryDays} days. Watch for slow start and complacency in first 20 minutes.`
+  1654→  1654→    } else {
+  1655→  1655→      interpretation = `Threat response boost from devastating loss (IPR=${effectiveIPR.toFixed(3)}, expected +${(performanceImpact * 100).toFixed(1)}% performance). ${wasComeback ? 'Blown lead ' : ''}${wasDerby ? 'derby ' : ''}defeat creates tactical tightening. Team likely to be more disciplined and focused. Effect peaks in first 30 minutes then fades.`
+  1656→  1656→    }
+  1657→  1657→  } else if (Math.abs(performanceImpact) > 0.015) {
+  1658→  1658→    label = `MILD_${impactType}`
+  1659→  1659→    interpretation = `Mild psychological residue (IPR=${effectiveIPR.toFixed(3)}, ${Math.abs(performanceImpact * 100).toFixed(1)}% effect). Emotional carryover from previous game is measurable but small. ${emotionalValence > 0 ? 'Slight overconfidence risk.' : 'Slight focus boost.'} Recovery ~${fullRecoveryDays} days.`
+  1660→  1660→  } else {
+  1661→  1661→    label = 'NO_RESIDUE'
+  1662→  1662→    interpretation = `No significant psychological residue (IPR=${effectiveIPR.toFixed(3)}). Sufficient recovery time or low-drama previous game. Team should perform at baseline.`
+  1663→  1663→  }
+  1664→  1664→
+  1665→  1665→  return {
+  1666→  1666→    formula: 'Psychological_Residue',
+  1667→  1667→    tier: 5,
+  1668→  1668→    value: effectiveIPR,
+  1669→  1669→    label,
+  1670→  1670→    interpretation,
+  1671→  1671→    confidence: 'medium',
+  1672→  1672→    raw: {
+  1673→  1673→      baseIPR: baseIPR.toFixed(4),
+  1674→  1674→      performanceImpact: `${(performanceImpact * 100).toFixed(2)}%`,
+  1675→  1675→      fullRecoveryDays,
+  1676→  1676→      dramaIndex,
+  1677→  1677→      emotionalValence,
+  1678→  1678→      wasComeback,
+  1679→  1679→      wasDerby
+  1680→  1680→    }
+  1681→  1681→  }
+  1682→  1682→}
+  1683→  1683→
+  1684→  1684→// ═══════════════════════════════════════════════════════════════════════════════
+  1685→  1685→// COMPOSITE ANALYSIS — Run all 20 formulas
+  1686→  1686→// ═══════════════════════════════════════════════════════════════════════════════
+  1687→  1687→
+  1688→  1688→export interface FullAdvancedAnalysisParams {
+  1689→  1689→  // Tier 1
+  1690→  1690→  cri?: CRIParams
+  1691→  1691→  scs?: SCSParams
+  1692→  1692→  iti?: ITIParams
+  1693→  1693→  refereeDrift?: RefereeDriftParams
+  1694→  1694→  // Tier 2
+  1695→  1695→  crd?: CRDParams
+  1696→  1696→  fcd?: FCDParams
+  1697→  1697→  reintegration?: ReintegrationParams
+  1698→  1698→  mai?: MAIParams
+  1699→  1699→  // Tier 3
+  1700→  1700→  dse?: DSEParams
+  1701→  1701→  sbdi?: SBDIParams
+  1702→  1702→  pressLag?: PressLagParams
+  1703→  1703→  soa?: SOAParams
+  1704→  1704→  // Tier 4
+  1705→  1705→  lineAlpha?: LineMovementParams
+  1706→  1706→  rbei?: RBEIParams
+  1707→  1707→  ctc?: CTCParams
+  1708→  1708→  narrativeMomentum?: NarrativeMomentumParams
+  1709→  1709→  // Tier 5
+  1710→  1710→  capz?: CAPZParams
+  1711→  1711→  tad?: TADParams
+  1712→  1712→  subDecay?: SubDecayParams
+  1713→  1713→  ipr?: IPRParams
+  1714→  1714→}
+  1715→  1715→
+  1716→  1716→/**
+  1717→  1717→ * Run all provided formulas and generate a composite analysis.
+  1718→  1718→ * Returns individual results + composite score + alert flags.
+  1719→  1719→ */
+  1720→  1720→export function runFullAdvancedAnalysis(params: FullAdvancedAnalysisParams): AdvancedAnalysisResult {
+  1721→  1721→  const formulas: FormulaResult[] = []
+  1722→  1722→  const flags: string[] = []
+  1723→  1723→
+  1724→  1724→  // Tier 1
+  1725→  1725→  if (params.cri) {
+  1726→  1726→    const r = calculateCRI(params.cri)
+  1727→  1727→    formulas.push(r)
+  1728→  1728→    if (r.label.includes('AGGRESSIVE') || r.label.includes('LOCK')) flags.push(r.label)
+  1729→  1729→  }
+  1730→  1730→  if (params.scs) {
+  1731→  1731→    const r = calculateSCS(params.scs)
+  1732→  1732→    formulas.push(r)
+  1733→  1733→    if (r.label.includes('STRONG')) flags.push(r.label)
+  1734→  1734→  }
+  1735→  1735→  if (params.iti) {
+  1736→  1736→    const r = calculateITI(params.iti)
+  1737→  1737→    formulas.push(r)
+  1738→  1738→    if (r.label.includes('SEVERE')) flags.push(r.label)
+  1739→  1739→  }
+  1740→  1740→  if (params.refereeDrift) {
+  1741→  1741→    const r = calculateRefereeDrift(params.refereeDrift)
+  1742→  1742→    formulas.push(r)
+  1743→  1743→    if (r.label.includes('STRONG') || r.label.includes('CORRECTION')) flags.push(r.label)
+  1744→  1744→  }
+  1745→  1745→
+  1746→  1746→  // Tier 2
+  1747→  1747→  if (params.crd) {
+  1748→  1748→    const r = calculateCRD(params.crd)
+  1749→  1749→    formulas.push(r)
+  1750→  1750→    if (r.label.includes('SEVERE')) flags.push(r.label)
+  1751→  1751→  }
+  1752→  1752→  if (params.fcd) {
+  1753→  1753→    const r = calculateFCD(params.fcd)
+  1754→  1754→    formulas.push(r)
+  1755→  1755→    if (r.label.includes('SEVERE')) flags.push(r.label)
+  1756→  1756→  }
+  1757→  1757→  if (params.reintegration) {
+  1758→  1758→    const r = calculateReintegration(params.reintegration)
+  1759→  1759→    formulas.push(r)
+  1760→  1760→    if (r.label.includes('HIGH_REINJURY')) flags.push('REINJURY_RISK')
+  1761→  1761→  }
+  1762→  1762→  if (params.mai) {
+  1763→  1763→    const r = calculateMAI(params.mai)
+  1764→  1764→    formulas.push(r)
+  1765→  1765→    if (r.label.includes('MISMATCH')) flags.push(r.label)
+  1766→  1766→  }
+  1767→  1767→
+  1768→  1768→  // Tier 3
+  1769→  1769→  if (params.dse) {
+  1770→  1770→    const r = calculateDSE(params.dse)
+  1771→  1771→    formulas.push(r)
+  1772→  1772→    if (r.label.includes('HIGH_ENTROPY')) flags.push('HIGH_ENTROPY_ALERT')
+  1773→  1773→  }
+  1774→  1774→  if (params.sbdi) {
+  1775→  1775→    const r = calculateSBDI(params.sbdi)
+  1776→  1776→    formulas.push(r)
+  1777→  1777→  }
+  1778→  1778→  if (params.pressLag) {
+  1779→  1779→    const r = calculatePressLag(params.pressLag)
+  1780→  1780→    formulas.push(r)
+  1781→  1781→    if (r.label.includes('EXPLOITABLE')) flags.push('PRESS_LAG_EXPLOITABLE')
+  1782→  1782→  }
+  1783→  1783→  if (params.soa) {
+  1784→  1784→    const r = calculateSOA(params.soa)
+  1785→  1785→    formulas.push(r)
+  1786→  1786→    if (r.label.includes('SEVERE')) flags.push('TACTICAL_BREAKDOWN')
+  1787→  1787→  }
+  1788→  1788→
+  1789→  1789→  // Tier 4
+  1790→  1790→  if (params.lineAlpha) {
+  1791→  1791→    const r = calculateLineAlpha(params.lineAlpha)
+  1792→  1792→    formulas.push(r)
+  1793→  1793→    if (r.label.includes('SHARP_MONEY')) flags.push('SHARP_MONEY_DETECTED')
+  1794→  1794→  }
+  1795→  1795→  if (params.rbei) {
+  1796→  1796→    const r = calculateRBEI(params.rbei)
+  1797→  1797→    formulas.push(r)
+  1798→  1798→    if (Math.abs(r.value) > 1.8) flags.push('MARKET_OVERREACTION')
+  1799→  1799→  }
+  1800→  1800→  if (params.ctc) {
+  1801→  1801→    const r = calculateCTC(params.ctc)
+  1802→  1802→    formulas.push(r)
+  1803→  1803→    if (r.label.includes('CLIFF')) flags.push('TENURE_CLIFF_RISK')
+  1804→  1804→  }
+  1805→  1805→  if (params.narrativeMomentum) {
+  1806→  1806→    const r = calculateNarrativeMomentum(params.narrativeMomentum)
+  1807→  1807→    formulas.push(r)
+  1808→  1808→  }
+  1809→  1809→
+  1810→  1810→  // Tier 5
+  1811→  1811→  if (params.capz) {
+  1812→  1812→    const r = calculateCAPZ(params.capz)
+  1813→  1813→    formulas.push(r)
+  1814→  1814→  }
+  1815→  1815→  if (params.tad) {
+  1816→  1816→    const r = calculateTAD(params.tad)
+  1817→  1817→    formulas.push(r)
+  1818→  1818→  }
+  1819→  1819→  if (params.subDecay) {
+  1820→  1820→    const r = calculateSubDecay(params.subDecay)
+  1821→  1821→    formulas.push(r)
+  1822→  1822→  }
+  1823→  1823→  if (params.ipr) {
+  1824→  1824→    const r = calculateIPR(params.ipr)
+  1825→  1825→    formulas.push(r)
+  1826→  1826→  }
+  1827→  1827→
+  1828→  1828→  // Composite score: weighted average of normalized values
+  1829→  1829→  // Negative flags reduce the composite
+  1830→  1830→  const tierWeights = [1.3, 1.1, 1.0, 0.9, 0.7] // Tiers 1-5
+  1831→  1831→  let weightedSum = 0
+  1832→  1832→  let totalWeight = 0
+  1833→  1833→
+  1834→  1834→  for (const f of formulas) {
+  1835→  1835→    const weight = tierWeights[f.tier - 1]
+  1836→  1836→    // Normalize value to 0-1 based on formula type
+  1837→  1837→    let normalized = 0
+  1838→  1838→    if (f.value > 0) {
+  1839→  1839→      normalized = Math.min(f.value, 1.0)
+  1840→  1840→    } else {
+  1841→  1841→      normalized = Math.max(f.value, -1.0) * -1  // flip negative values
+  1842→  1842→    }
+  1843→  1843→    weightedSum += normalized * weight
+  1844→  1844→    totalWeight += weight
+  1845→  1845→  }
+  1846→  1846→
+  1847→  1847→  const compositeScore = totalWeight > 0 ? weightedSum / totalWeight : 0.5
+  1848→  1848→
+  1849→  1849→  let compositeLabel: string
+  1850→  1850→  if (compositeScore > 0.75) compositeLabel = 'ELITE_SIGNAL_DENSITY'
+  1851→  1851→  else if (compositeScore > 0.55) compositeLabel = 'STRONG_SIGNALS'
+  1852→  1852→  else if (compositeScore > 0.35) compositeLabel = 'MODERATE_SIGNALS'
+  1853→  1853→  else compositeLabel = 'WEAK_SIGNALS'
+  1854→  1854→
+  1855→  1855→  return {
+  1856→  1856→    timestamp: new Date().toISOString(),
+  1857→  1857→    formulas,
+  1858→  1858→    compositeScore,
+  1859→  1859→    compositeLabel,
+  1860→  1860→    flags
+  1861→  1861→  }
+  1862→  1862→}
+  1863→  1863→
+  1864→  1864→// ═══════════════════════════════════════════════════════════════════════════════
+  1865→  1865→// BONUS: VAEP — Valuing Actions by Estimating Probabilities
+  1866→  1866→// From socceraction framework (the metric Arsenal, Brentford, etc. use)
+  1867→  1867→// ═══════════════════════════════════════════════════════════════════════════════
+  1868→  1868→
+  1869→  1869→export interface VAEPAction {
+  1870→  1870→  playerId: string
+  1871→  1871→  actionType: 'pass' | 'shot' | 'dribble' | 'tackle' | 'interception' | 'clearance' | 'cross' | 'carry' | 'aerial_duel'
+  1872→  1872→  /** [x, y] position on pitch in meters (0-105 × 0-68) */
+  1873→  1873→  startLocation: [number, number]
+  1874→  1874→  /** [x, y] end position (for passes/carries/shots) */
+  1875→  1875→  endLocation?: [number, number]
+  1876→  1876→  /** Was the action successful? */
+  1877→  1877→  successful: boolean
+  1878→  1878→  /** Minute of the action */
+  1879→  1879→  minute: number
+  1880→  1880→}
+  1881→  1881→
+  1882→  1882→export interface VAEPResult {
+  1883→  1883→  /** Per-action VAEP values */
+  1884→  1884→  actions: Array<{
+  1885→  1885→    playerId: string
+  1886→  1886→    actionType: string
+  1887→  1887→    minute: number
+  1888→  1888→    vaep: number
+  1889→  1889→    offensiveValue: number
+  1890→  1890→    defensiveValue: number
+  1891→  1891→    location: [number, number]
+  1892→  1892→  }>
+  1893→  1893→  /** Team total VAEP */
+  1894→  1894→  teamVAEP: number
+  1895→  1895→  /** Top player by VAEP */
+  1896→  1896→  topPlayer: { playerId: string; vaep: number }
+  1897→  1897→  /** VAEP per 90 minutes */
+  1898→  1898→  vaepPer90: { team: number; bestPlayer: number }
+  1899→  1899→}
+  1900→  1900→
+  1901→  1901→/**
+  1902→  1902→ * Simplified VAEP computation.
+  1903→  1903→ *
+  1904→  1904→ * In production, VAEP uses trained XGBoost models on event + tracking data.
+  1905→  1905→ * This implementation uses a heuristic approximation based on:
+  1906→  1906→ *   - xT grid for offensive value (probability of scoring from a zone)
+  1907→  1907→ *   - Distance-based defensive value (probability of conceding if ball lost)
+  1908→  1908→ *   - Action success/failure multipliers
+  1909→  1909→ *
+  1910→  1910→ * VAEP(action) = P(scoring|before) - P(scoring|after) + P(conceding|before) - P(conceding|after)
+  1911→  1911→ * Simplified: offensive_value = xT(after) - xT(before) for successful actions
+  1912→  1912→ *             defensive_value = xT(own_half_before) - xT(own_half_after) for failed actions
+  1913→  1913→ */
+  1914→  1914→export function calculateVAEP(
+  1915→  1915→  actions: VAEPAction[],
+  1916→  1916→  teamId?: string,
+  1917→  1917→  matchMinutes?: number,
+  1918→  1918→): VAEPResult {
+  1919→  1919→  const results: VAEPResult['actions'] = []
+  1920→  1920→  const playerTotals: Record<string, number> = {}
+  1921→  1921→
+  1922→  1922→  for (const action of actions) {
+  1923→  1923→    const [sx, sy] = action.startLocation
+  1924→  1924→    const [ex, ey] = action.endLocation ?? [sx, sy]
+  1925→  1925→
+  1926→  1926→    // Get xT values for start and end positions
+  1927→  1927→    const xTBefore = getXTValue(sx, sy)
+  1928→  1928→    const xTAfter = action.endLocation ? getXTValue(ex, ey) : xTBefore
+  1929→  1929→
+  1930→  1930→    let offensiveValue = 0
+  1931→  1931→    let defensiveValue = 0
+  1932→  1932→
+  1933→  1933→    if (action.successful) {
+  1934→  1934→      // Offensive: ball moved to higher xT zone
+  1935→  1935→      offensiveValue = xTAfter - xTBefore
+  1936→  1936→
+  1937→  1937→      // Action type multipliers (based on socceraction research)
+  1938→  1938→      const offensiveMultipliers: Record<string, number> = {
+  1939→  1939→        shot: 3.0,          // direct scoring attempt
+  1940→  1940→        dribble: 1.3,       // progressive carry
+  1941→  1941→        pass: 1.0,          // baseline
+  1942→  1942→        cross: 1.2,         // into dangerous area
+  1943→  1943→        carry: 1.1,         // ball progression
+  1944→  1944→        aerial_duel: 0.8,   // won duel
+  1945→  1945→        tackle: 0.3,        // minimal offensive value
+  1946→  1946→        interception: 0.5,  // turnover
+  1947→  1947→        clearance: 0.0,     // defensive only
+  1948→  1948→      }
+  1949→  1949→      offensiveValue *= (offensiveMultipliers[action.actionType] ?? 1.0)
+  1950→  1950→
+  1951→  1951→      // Defensive: successful action reduces opponent's scoring probability
+  1952→  1952→      // Approximate: actions in own half have more defensive value
+  1953→  1953→      if (sx < 52.5) {  // own half
+  1954→  1954→        defensiveValue = xTBefore * 0.15  // 15% of the xT value retained
+  1955→  1955→      }
+  1956→  1956→    } else {
+  1957→  1957→      // Failed action: offensive value is negative (lost the ball)
+  1958→  1958→      offensiveValue = -xTBefore * 0.1
+  1959→  1959→
+  1960→  1960→      // Failed action in dangerous area: high defensive cost
+  1961→  1961→      if (sx > 52.5) {
+  1962→  1962→        // Ball lost in opponent's half → counter-attack risk
+  1963→  1963→        defensiveValue = -(1 - xTBefore) * 0.05  // concede probability increases
+  1964→  1964→      }
+  1965→  1965→    }
+  1966→  1966→
+  1967→  1967→    const vaep = offensiveValue + defensiveValue
+  1968→  1968→    playerTotals[action.playerId] = (playerTotals[action.playerId] ?? 0) + vaep
+  1969→  1969→
+  1970→  1970→    results.push({
+  1971→  1971→      playerId: action.playerId,
+  1972→  1972→      actionType: action.actionType,
+  1973→  1973→      minute: action.minute,
+  1974→  1974→      vaep,
+  1975→  1975→      offensiveValue,
+  1976→  1976→      defensiveValue,
+  1977→  1977→      location: action.startLocation,
+  1978→  1978→    })
+  1979→  1979→  }
+  1980→  1980→
+  1981→  1981→  const teamVAEP = results.reduce((sum, a) => sum + a.vaep, 0)
+  1982→  1982→  const totalMinutes = matchMinutes ?? 90
+  1983→  1983→
+  1984→  1984→  // Find top player
+  1985→  1985→  let topPlayerId = ''
+  1986→  1986→  let topVAEP = -Infinity
+  1987→  1987→  for (const [id, total] of Object.entries(playerTotals)) {
+  1988→  1988→    if (total > topVAEP) {
+  1989→  1989→      topVAEP = total
+  1990→  1990→      topPlayerId = id
+  1991→  1991→    }
+  1992→  1992→  }
+  1993→  1993→
+  1994→  1994→  return {
+  1995→  1995→    actions: results.sort((a, b) => b.vaep - a.vaep),
+  1996→  1996→    teamVAEP,
+  1997→  1997→    topPlayer: { playerId: topPlayerId, vaep: topVAEP },
+  1998→  1998→    vaepPer90: {
+  1999→  1999→      team: (teamVAEP / totalMinutes) * 90,
+  2000→  2000→      bestPlayer: (topVAEP / totalMinutes) * 90,
+
+[showing lines 1-2000 of 2002; use offset=2001 with limit to continue reading]

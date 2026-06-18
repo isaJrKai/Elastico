@@ -1,17 +1,35 @@
 import { NextResponse } from 'next/server'
+import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 import { DEFAULT_CONFIG, type EngineConfig } from '@/lib/prediction-engine'
 
-// In-memory config store (would be database-backed in production)
-let currentConfig: EngineConfig = { ...DEFAULT_CONFIG }
+// Config is persisted in the database. Falls back to defaults if not set.
+async function getConfig(): Promise<EngineConfig> {
+  try {
+    const setting = await db.systemSetting.findUnique({ where: { key: 'prediction_engine_config' } })
+    if (setting?.type === 'json') {
+      return { ...DEFAULT_CONFIG, ...JSON.parse(setting.value) }
+    }
+  } catch { /* fall through to default */ }
+  return { ...DEFAULT_CONFIG }
+}
+
+async function setConfig(config: EngineConfig): Promise<void> {
+  await db.systemSetting.upsert({
+    where: { key: 'prediction_engine_config' },
+    update: { value: JSON.stringify(config), type: 'json' },
+    create: { key: 'prediction_engine_config', value: JSON.stringify(config), type: 'json' },
+  })
+}
 
 // ── GET /api/prediction-engine/config ──────────────────────────────────────────
 // Get current engine configuration
 
 export async function GET() {
+  const config = await getConfig()
   return NextResponse.json({
     success: true,
-    config: currentConfig,
+    config,
     defaults: DEFAULT_CONFIG,
   })
 }
@@ -43,11 +61,13 @@ export async function PATCH(request: Request) {
       updates.maxBankrollRisk = Math.min(0.25, Math.max(0.01, updates.maxBankrollRisk))
     }
 
-    currentConfig = { ...currentConfig, ...updates }
+    const currentConfig = await getConfig()
+    const newConfig = { ...currentConfig, ...updates }
+    await setConfig(newConfig)
 
     return NextResponse.json({
       success: true,
-      config: currentConfig,
+      config: newConfig,
       message: 'Engine configuration updated',
     })
   } catch (error: unknown) {

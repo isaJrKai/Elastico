@@ -155,6 +155,12 @@ export async function POST(request: Request) {
 
     const replyUrl = body?.webhook_url || body?.response_url
     if (replyUrl && typeof replyUrl === 'string') {
+      // SECURITY: Only allow Discord webhook URLs to prevent SSRF
+      const allowedUrlPrefix = 'https://discord.com/api/webhooks/'
+      const allowedUrlPrefix2 = 'https://discordapp.com/api/webhooks/'
+      if (!replyUrl.startsWith(allowedUrlPrefix) && !replyUrl.startsWith(allowedUrlPrefix2)) {
+        return NextResponse.json({ error: 'Invalid reply URL — only Discord webhook URLs are allowed' }, { status: 400 })
+      }
       await sendDiscordMessage(replyUrl, responseText)
       return NextResponse.json({ success: true, command: commandText, replied: true })
     }

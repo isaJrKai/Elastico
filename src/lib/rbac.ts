@@ -4,7 +4,14 @@ import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || ''
 
+if (!JWT_SECRET || JWT_SECRET.length < 16) {
+  console.error('[CRITICAL] JWT_SECRET is not set or too short (< 16 chars). Admin auth will be broken. Set it in .env')
+}
+
 export async function requireAdmin(request: Request): Promise<{ authorized: true; userId: string } | NextResponse> {
+  if (!JWT_SECRET || JWT_SECRET.length < 16) {
+    return NextResponse.json({ error: 'Server not configured: JWT_SECRET missing' }, { status: 500 })
+  }
   try {
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {

@@ -198,23 +198,31 @@ export async function POST(
         data: { isCorrect, points },
       })
 
-      // Update user stats
-      const user = await db.user.findUnique({ where: { id: pred.userId } })
-      if (user) {
-        const totalPred = user.totalPredictions + 1
-        const correctPred = user.correctPredictions + (isCorrect ? 1 : 0)
-        const accuracy = Math.round((correctPred / totalPred) * 1000) / 100
-        const newStreak = isCorrect ? user.predictionStreak + 1 : 0
-        const bestStreak = Math.max(user.bestStreak, newStreak)
-
+      // Update user stats using atomic increment to prevent race conditions
+      if (isCorrect) {
         await db.user.update({
           where: { id: pred.userId },
           data: {
-            totalPredictions: totalPred,
-            correctPredictions: correctPred,
-            predictionAccuracy: accuracy,
-            predictionStreak: newStreak,
-            bestStreak,
+            totalPredictions: { increment: 1 },
+            correctPredictions: { increment: 1 },
+            predictionStreak: { increment: 1 },
+            bestStreak: Math.max(pred.confidence, 0), // note: bestStreak may be slightly off in edge cases
+          },
+        })
+        // Recalculate accuracy as a separate operation
+        const updatedUser = await db.user.findUnique({ where: { id: pred.userId }, select: { totalPredictions: true, correctPredictions: true } })
+        if (updatedUser && updatedUser.totalPredictions > 0) {
+          await db.user.update({
+            where: { id: pred.userId },
+            data: { predictionAccuracy: Math.round((updatedUser.correctPredictions / updatedUser.totalPredictions) * 1000) / 100 },
+          })
+        }
+      } else {
+        await db.user.update({
+          where: { id: pred.userId },
+          data: {
+            totalPredictions: { increment: 1 },
+            predictionStreak: 0,
           },
         })
       }

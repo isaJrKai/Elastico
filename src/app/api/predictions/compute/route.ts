@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticateRequest } from '@/lib/auth'
 import { fetchAllLiveScores, mapStatus, type ESPNMatch } from '@/lib/football-data'
 import { calculateElo, poissonProbabilities, dixonColes, type EloResult } from '@/lib/predictions'
 import { runStochasticSimulation, type StochasticMatchResult, type MatchInput, DEFAULT_CONFIG } from '@/lib/prediction-engine'
 
-/** GET /api/predictions/compute — compute real predictions from ESPN match data */
+/** GET /api/predictions/compute — compute real predictions from ESPN match data (auth required) */
 export async function GET(request: NextRequest) {
   try {
+    // SECURITY: Require authentication to prevent CPU abuse
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
     const matches = await fetchAllLiveScores()
 
     // Take upcoming and recent matches, compute predictions
