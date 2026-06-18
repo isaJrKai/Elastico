@@ -1,0 +1,428 @@
+     1→import { PrismaClient } from '@prisma/client'
+     2→const prisma = new PrismaClient()
+     3→
+     4→async function seed() {
+     5→  console.log('🌱 Seeding ELASTICO database...')
+     6→
+     7→  // Clear all data
+     8→  await prisma.$executeRawUnsafe(`DELETE FROM Notification; DELETE FROM FeatureFlag; DELETE FROM Announcement; DELETE FROM ApiLog; DELETE FROM Activity; DELETE FROM Bookmark; DELETE FROM Vote; DELETE FROM Prediction; DELETE FROM MatchEvent; DELETE FROM Match; DELETE FROM Player; DELETE FROM Team; DELETE FROM NewsItem; DELETE FROM SystemSetting; DELETE FROM User;`)
+     9→
+    10→  // 1. Create 16 teams
+    11→  const teams = [
+    12→    { name: 'Brazil', code: 'BRA', primaryColor: '#009c3b', secondaryColor: '#ffdf00', eloRating: 1845, form: ['W','W','D','W','W','L','W','W','D','W'], wins: 18, draws: 4, losses: 2, goalsFor: 52, goalsAgainst: 18, group: 'A', rank: 1, coachName: 'Fernando Diniz', style: 'attacking', xgPerGame: 2.1, xgaPerGame: 0.8, possession: 58, passAccuracy: 86, pressIntensity: 72 },
+    13→    { name: 'Germany', code: 'GER', primaryColor: '#000000', secondaryColor: '#dd0000', eloRating: 1820, form: ['W','D','W','W','L','W','D','W','W','D'], wins: 16, draws: 5, losses: 3, goalsFor: 48, goalsAgainst: 22, group: 'A', rank: 4, coachName: 'Julian Nagelsmann', style: 'balanced', xgPerGame: 1.9, xgaPerGame: 0.9, possession: 60, passAccuracy: 88, pressIntensity: 78 },
+    14→    { name: 'Argentina', code: 'ARG', primaryColor: '#75aadb', secondaryColor: '#ffffff', eloRating: 1902, form: ['W','W','W','D','W','W','L','W','W','W'], wins: 20, draws: 3, losses: 1, goalsFor: 55, goalsAgainst: 15, group: 'B', rank: 2, coachName: 'Lionel Scaloni', style: 'attacking', xgPerGame: 2.3, xgaPerGame: 0.7, possession: 56, passAccuracy: 85, pressIntensity: 68 },
+    15→    { name: 'France', code: 'FRA', primaryColor: '#002395', secondaryColor: '#ed2939', eloRating: 1868, form: ['W','W','L','W','D','W','W','W','D','W'], wins: 17, draws: 4, losses: 3, goalsFor: 50, goalsAgainst: 20, group: 'B', rank: 3, coachName: 'Didier Deschamps', style: 'balanced', xgPerGame: 2.0, xgaPerGame: 0.85, possession: 54, passAccuracy: 84, pressIntensity: 70 },
+    16→    { name: 'England', code: 'ENG', primaryColor: '#ffffff', secondaryColor: '#cf081f', eloRating: 1835, form: ['D','W','W','W','L','W','W','D','W','W'], wins: 16, draws: 5, losses: 3, goalsFor: 45, goalsAgainst: 19, group: 'C', rank: 5, coachName: 'Gareth Southgate', style: 'balanced', xgPerGame: 1.8, xgaPerGame: 0.82, possession: 55, passAccuracy: 83, pressIntensity: 65 },
+    17→    { name: 'Spain', code: 'ESP', primaryColor: '#c60b1e', secondaryColor: '#ffc400', eloRating: 1850, form: ['W','W','W','D','W','W','W','L','W','D'], wins: 18, draws: 4, losses: 2, goalsFor: 47, goalsAgainst: 16, group: 'C', rank: 6, coachName: 'Luis de la Fuente', style: 'attacking', xgPerGame: 2.1, xgaPerGame: 0.75, possession: 65, passAccuracy: 91, pressIntensity: 75 },
+    18→    { name: 'Portugal', code: 'POR', primaryColor: '#006600', secondaryColor: '#ff0000', eloRating: 1802, form: ['W','D','W','W','W','L','D','W','W','W'], wins: 15, draws: 5, losses: 4, goalsFor: 42, goalsAgainst: 21, group: 'D', rank: 7, coachName: 'Roberto Martínez', style: 'attacking', xgPerGame: 1.9, xgaPerGame: 0.9, possession: 57, passAccuracy: 85, pressIntensity: 66 },
+    19→    { name: 'Netherlands', code: 'NED', primaryColor: '#f36c21', secondaryColor: '#ffffff', eloRating: 1780, form: ['W','W','D','W','L','W','W','D','W','L'], wins: 14, draws: 5, losses: 5, goalsFor: 40, goalsAgainst: 24, group: 'D', rank: 8, coachName: 'Ronald Koeman', style: 'balanced', xgPerGame: 1.7, xgaPerGame: 1.0, possession: 58, passAccuracy: 86, pressIntensity: 72 },
+    20→    { name: 'Italy', code: 'ITA', primaryColor: '#0066cc', secondaryColor: '#ffffff', eloRating: 1765, form: ['D','W','L','W','W','D','W','W','L','W'], wins: 13, draws: 6, losses: 5, goalsFor: 36, goalsAgainst: 22, group: 'A', rank: 9, coachName: 'Luciano Spalletti', style: 'defensive', xgPerGame: 1.5, xgaPerGame: 0.7, possession: 55, passAccuracy: 87, pressIntensity: 60 },
+    21→    { name: 'Belgium', code: 'BEL', primaryColor: '#ed2939', secondaryColor: '#fae042', eloRating: 1770, form: ['W','L','W','D','W','W','D','L','W','W'], wins: 14, draws: 4, losses: 6, goalsFor: 38, goalsAgainst: 25, group: 'B', rank: 10, coachName: 'Domenico Tedesco', style: 'attacking', xgPerGame: 1.8, xgaPerGame: 1.1, possession: 56, passAccuracy: 84, pressIntensity: 68 },
+    22→    { name: 'Croatia', code: 'CRO', primaryColor: '#ff0000', secondaryColor: '#ffffff', eloRating: 1745, form: ['D','W','D','W','L','W','D','W','D','W'], wins: 12, draws: 7, losses: 5, goalsFor: 34, goalsAgainst: 23, group: 'C', rank: 11, coachName: 'Zlatko Dalić', style: 'balanced', xgPerGame: 1.4, xgaPerGame: 0.9, possession: 54, passAccuracy: 85, pressIntensity: 62 },
+    23→    { name: 'Colombia', code: 'COL', primaryColor: '#fcd116', secondaryColor: '#003893', eloRating: 1720, form: ['W','W','L','W','D','W','W','L','W','D'], wins: 12, draws: 5, losses: 7, goalsFor: 32, goalsAgainst: 26, group: 'D', rank: 12, coachName: 'Néstor Lorenzo', style: 'attacking', xgPerGame: 1.5, xgaPerGame: 1.0, possession: 52, passAccuracy: 80, pressIntensity: 70 },
+    24→    { name: 'Japan', code: 'JPN', primaryColor: '#000080', secondaryColor: '#ffffff', eloRating: 1690, form: ['W','W','D','L','W','W','D','W','L','W'], wins: 11, draws: 5, losses: 8, goalsFor: 30, goalsAgainst: 28, group: 'C', rank: 18, coachName: 'Hajime Moriyasu', style: 'balanced', xgPerGame: 1.3, xgaPerGame: 1.2, possession: 53, passAccuracy: 82, pressIntensity: 75 },
+    25→    { name: 'South Korea', code: 'KOR', primaryColor: '#c60c30', secondaryColor: '#ffffff', eloRating: 1665, form: ['L','D','W','W','L','W','D','W','L','W'], wins: 10, draws: 5, losses: 9, goalsFor: 28, goalsAgainst: 30, group: 'D', rank: 23, coachName: 'Jürgen Klinsmann', style: 'balanced', xgPerGame: 1.2, xgaPerGame: 1.3, possession: 50, passAccuracy: 79, pressIntensity: 65 },
+    26→    { name: 'USA', code: 'USA', primaryColor: '#3c3b6e', secondaryColor: '#ffffff', eloRating: 1700, form: ['D','W','W','L','W','D','W','L','W','D'], wins: 11, draws: 6, losses: 7, goalsFor: 29, goalsAgainst: 27, group: 'A', rank: 14, coachName: 'Gregg Berhalter', style: 'balanced', xgPerGame: 1.3, xgaPerGame: 1.1, possession: 51, passAccuracy: 81, pressIntensity: 72 },
+    27→    { name: 'Mexico', code: 'MEX', primaryColor: '#006847', secondaryColor: '#ffffff', eloRating: 1680, form: ['W','L','D','W','L','W','D','W','D','L'], wins: 10, draws: 6, losses: 8, goalsFor: 27, goalsAgainst: 29, group: 'B', rank: 15, coachName: 'Jaime Lozano', style: 'defensive', xgPerGame: 1.2, xgaPerGame: 1.2, possession: 48, passAccuracy: 78, pressIntensity: 64 },
+    28→  ]
+    29→
+    30→  const createdTeams: any[] = []
+    31→  for (const t of teams) {
+    32→    const team = await prisma.team.create({ data: { ...t, form: JSON.stringify(t.form as any) } })
+    33→    createdTeams.push(team)
+    34→    console.log(`  ✅ Team: ${t.name} (${t.code}) ELO ${t.eloRating}`)
+    35→  }
+    36→
+    37→  // 2. Create players
+    38→  const playersData: { name: string; number: number; position: string; teamCode: string; goals: number; assists: number; yellowCards: number; redCards: number; appearances: number; rating: number; marketValue: number; age: number; nationality: string }[] = [
+    39→    // Brazil
+    40→    { name: 'Alisson Becker', number: 1, position: 'GK', teamCode: 'BRA', goals: 0, assists: 0, yellowCards: 1, redCards: 0, appearances: 45, rating: 7.8, marketValue: 55, age: 31, nationality: 'Brazil' },
+    41→    { name: 'Vinícius Júnior', number: 7, position: 'FWD', teamCode: 'BRA', goals: 28, assists: 18, yellowCards: 4, redCards: 1, appearances: 42, rating: 8.5, marketValue: 200, age: 24, nationality: 'Brazil' },
+    42→    { name: 'Rodrygo Goes', number: 11, position: 'FWD', teamCode: 'BRA', goals: 15, assists: 12, yellowCards: 2, redCards: 0, appearances: 40, rating: 7.6, marketValue: 100, age: 23, nationality: 'Brazil' },
+    43→    { name: 'Bruno Guimarães', number: 8, position: 'MID', teamCode: 'BRA', goals: 8, assists: 14, yellowCards: 6, redCards: 0, appearances: 38, rating: 7.9, marketValue: 85, age: 26, nationality: 'Brazil' },
+    44→    { name: 'Marquinhos', number: 4, position: 'DEF', teamCode: 'BRA', goals: 3, assists: 2, yellowCards: 8, redCards: 1, appearances: 44, rating: 7.7, marketValue: 65, age: 29, nationality: 'Brazil' },
+    45→    // Germany
+    46→    { name: 'Manuel Neuer', number: 1, position: 'GK', teamCode: 'GER', goals: 0, assists: 1, yellowCards: 0, redCards: 0, appearances: 38, rating: 7.5, marketValue: 8, age: 38, nationality: 'Germany' },
+    47→    { name: 'Florian Wirtz', number: 10, position: 'MID', teamCode: 'GER', goals: 18, assists: 16, yellowCards: 3, redCards: 0, appearances: 36, rating: 8.4, marketValue: 150, age: 21, nationality: 'Germany' },
+    48→    { name: 'Jamal Musiala', number: 14, position: 'MID', teamCode: 'GER', goals: 14, assists: 12, yellowCards: 2, redCards: 0, appearances: 35, rating: 8.2, marketValue: 130, age: 21, nationality: 'Germany' },
+    49→    { name: 'Kai Havertz', number: 9, position: 'FWD', teamCode: 'GER', goals: 16, assists: 8, yellowCards: 4, redCards: 0, appearances: 40, rating: 7.5, marketValue: 80, age: 25, nationality: 'Germany' },
+    50→    { name: 'Joshua Kimmich', number: 6, position: 'MID', teamCode: 'GER', goals: 4, assists: 10, yellowCards: 7, redCards: 0, appearances: 42, rating: 7.8, marketValue: 70, age: 29, nationality: 'Germany' },
+    51→    // Argentina
+    52→    { name: 'Emiliano Martínez', number: 1, position: 'GK', teamCode: 'ARG', goals: 0, assists: 0, yellowCards: 3, redCards: 0, appearances: 40, rating: 8.0, marketValue: 35, age: 31, nationality: 'Argentina' },
+    53→    { name: 'Lionel Messi', number: 10, position: 'FWD', teamCode: 'ARG', goals: 25, assists: 20, yellowCards: 1, redCards: 0, appearances: 38, rating: 9.0, marketValue: 30, age: 36, nationality: 'Argentina' },
+    54→    { name: 'Julián Álvarez', number: 9, position: 'FWD', teamCode: 'ARG', goals: 22, assists: 8, yellowCards: 3, redCards: 0, appearances: 40, rating: 7.9, marketValue: 90, age: 24, nationality: 'Argentina' },
+    55→    { name: 'Rodrigo De Paul', number: 7, position: 'MID', teamCode: 'ARG', goals: 5, assists: 12, yellowCards: 8, redCards: 1, appearances: 42, rating: 7.6, marketValue: 40, age: 30, nationality: 'Argentina' },
+    56→    { name: 'Cristian Romero', number: 13, position: 'DEF', teamCode: 'ARG', goals: 2, assists: 1, yellowCards: 10, redCards: 2, appearances: 36, rating: 7.8, marketValue: 60, age: 26, nationality: 'Argentina' },
+    57→    // France
+    58→    { name: 'Kylian Mbappé', number: 10, position: 'FWD', teamCode: 'FRA', goals: 30, assists: 15, yellowCards: 2, redCards: 0, appearances: 40, rating: 9.1, marketValue: 250, age: 25, nationality: 'France' },
+    59→    { name: 'Antoine Griezmann', number: 7, position: 'FWD', teamCode: 'FRA', goals: 12, assists: 18, yellowCards: 3, redCards: 0, appearances: 42, rating: 7.8, marketValue: 25, age: 33, nationality: 'France' },
+    60→    { name: 'Aurélien Tchouaméni', number: 4, position: 'MID', teamCode: 'FRA', goals: 3, assists: 6, yellowCards: 9, redCards: 1, appearances: 38, rating: 7.7, marketValue: 90, age: 24, nationality: 'France' },
+    61→    { name: 'William Saliba', number: 2, position: 'DEF', teamCode: 'FRA', goals: 1, assists: 2, yellowCards: 5, redCards: 0, appearances: 35, rating: 7.9, marketValue: 80, age: 23, nationality: 'France' },
+    62→    { name: 'Mike Maignan', number: 1, position: 'GK', teamCode: 'FRA', goals: 0, assists: 0, yellowCards: 1, redCards: 0, appearances: 36, rating: 7.6, marketValue: 45, age: 28, nationality: 'France' },
+    63→    // England
+    64→    { name: 'Jude Bellingham', number: 10, position: 'MID', teamCode: 'ENG', goals: 16, assists: 10, yellowCards: 5, redCards: 0, appearances: 38, rating: 8.3, marketValue: 150, age: 21, nationality: 'England' },
+    65→    { name: 'Harry Kane', number: 9, position: 'FWD', teamCode: 'ENG', goals: 32, assists: 8, yellowCards: 2, redCards: 0, appearances: 40, rating: 8.6, marketValue: 50, age: 30, nationality: 'England' },
+    66→    { name: 'Bukayo Saka', number: 7, position: 'FWD', teamCode: 'ENG', goals: 14, assists: 12, yellowCards: 3, redCards: 0, appearances: 40, rating: 8.0, marketValue: 120, age: 22, nationality: 'England' },
+    67→    { name: 'Declan Rice', number: 4, position: 'MID', teamCode: 'ENG', goals: 4, assists: 8, yellowCards: 8, redCards: 0, appearances: 42, rating: 7.7, marketValue: 100, age: 25, nationality: 'England' },
+    68→    { name: 'John Stones', number: 5, position: 'DEF', teamCode: 'ENG', goals: 2, assists: 3, yellowCards: 4, redCards: 0, appearances: 34, rating: 7.4, marketValue: 40, age: 30, nationality: 'England' },
+    69→    // Spain
+    70→    { name: 'Lamine Yamal', number: 19, position: 'FWD', teamCode: 'ESP', goals: 12, assists: 16, yellowCards: 1, redCards: 0, appearances: 28, rating: 8.2, marketValue: 150, age: 17, nationality: 'Spain' },
+    71→    { name: 'Pedri', number: 8, position: 'MID', teamCode: 'ESP', goals: 5, assists: 14, yellowCards: 2, redCards: 0, appearances: 36, rating: 8.1, marketValue: 100, age: 21, nationality: 'Spain' },
+    72→    { name: 'Rodri', number: 16, position: 'MID', teamCode: 'ESP', goals: 6, assists: 8, yellowCards: 6, redCards: 1, appearances: 40, rating: 8.4, marketValue: 120, age: 27, nationality: 'Spain' },
+    73→    { name: 'Álvaro Morata', number: 7, position: 'FWD', teamCode: 'ESP', goals: 14, assists: 6, yellowCards: 3, redCards: 0, appearances: 38, rating: 7.3, marketValue: 15, age: 31, nationality: 'Spain' },
+    74→    { name: 'Dani Olmo', number: 10, position: 'MID', teamCode: 'ESP', goals: 10, assists: 10, yellowCards: 2, redCards: 0, appearances: 32, rating: 7.8, marketValue: 60, age: 26, nationality: 'Spain' },
+    75→    // Portugal
+    76→    { name: 'Cristiano Ronaldo', number: 7, position: 'FWD', teamCode: 'POR', goals: 28, assists: 6, yellowCards: 2, redCards: 0, appearances: 40, rating: 8.0, marketValue: 15, age: 39, nationality: 'Portugal' },
+    77→    { name: 'Bruno Fernandes', number: 8, position: 'MID', teamCode: 'POR', goals: 10, assists: 16, yellowCards: 5, redCards: 0, appearances: 42, rating: 7.9, marketValue: 70, age: 29, nationality: 'Portugal' },
+    78→    { name: 'Bernardo Silva', number: 10, position: 'MID', teamCode: 'POR', goals: 6, assists: 14, yellowCards: 2, redCards: 0, appearances: 40, rating: 8.1, marketValue: 80, age: 29, nationality: 'Portugal' },
+    79→    { name: 'Rúben Dias', number: 4, position: 'DEF', teamCode: 'POR', goals: 1, assists: 2, yellowCards: 7, redCards: 1, appearances: 38, rating: 7.8, marketValue: 65, age: 27, nationality: 'Portugal' },
+    80→    { name: 'Diogo Costa', number: 1, position: 'GK', teamCode: 'POR', goals: 0, assists: 0, yellowCards: 1, redCards: 0, appearances: 36, rating: 7.5, marketValue: 45, age: 24, nationality: 'Portugal' },
+    81→    // Netherlands
+    82→    { name: 'Virgil van Dijk', number: 4, position: 'DEF', teamCode: 'NED', goals: 2, assists: 3, yellowCards: 6, redCards: 1, appearances: 38, rating: 8.0, marketValue: 35, age: 32, nationality: 'Netherlands' },
+    83→    { name: 'Xavi Simons', number: 10, position: 'MID', teamCode: 'NED', goals: 10, assists: 12, yellowCards: 3, redCards: 0, appearances: 34, rating: 7.8, marketValue: 80, age: 21, nationality: 'Netherlands' },
+    84→    { name: 'Cody Gakpo', number: 8, position: 'FWD', teamCode: 'NED', goals: 12, assists: 8, yellowCards: 2, redCards: 0, appearances: 36, rating: 7.6, marketValue: 65, age: 25, nationality: 'Netherlands' },
+    85→    { name: 'Frenkie de Jong', number: 21, position: 'MID', teamCode: 'NED', goals: 2, assists: 10, yellowCards: 4, redCards: 0, appearances: 32, rating: 7.7, marketValue: 60, age: 27, nationality: 'Netherlands' },
+    86→    { name: 'Bart Verbruggen', number: 1, position: 'GK', teamCode: 'NED', goals: 0, assists: 0, yellowCards: 0, redCards: 0, appearances: 28, rating: 7.3, marketValue: 30, age: 22, nationality: 'Netherlands' },
+    87→    // Italy
+    88→    { name: 'Gianluigi Donnarumma', number: 1, position: 'GK', teamCode: 'ITA', goals: 0, assists: 0, yellowCards: 1, redCards: 0, appearances: 38, rating: 7.6, marketValue: 40, age: 25, nationality: 'Italy' },
+    89→    { name: 'Federico Chiesa', number: 14, position: 'FWD', teamCode: 'ITA', goals: 8, assists: 10, yellowCards: 3, redCards: 0, appearances: 34, rating: 7.5, marketValue: 45, age: 26, nationality: 'Italy' },
+    90→    { name: 'Nicolò Barella', number: 8, position: 'MID', teamCode: 'ITA', goals: 6, assists: 12, yellowCards: 7, redCards: 0, appearances: 40, rating: 7.8, marketValue: 65, age: 27, nationality: 'Italy' },
+    91→    { name: 'Alessandro Bastoni', number: 5, position: 'DEF', teamCode: 'ITA', goals: 1, assists: 4, yellowCards: 5, redCards: 0, appearances: 36, rating: 7.5, marketValue: 55, age: 25, nationality: 'Italy' },
+    92→    { name: 'Giacomo Raspadori', number: 9, position: 'FWD', teamCode: 'ITA', goals: 10, assists: 4, yellowCards: 2, redCards: 0, appearances: 30, rating: 7.2, marketValue: 25, age: 24, nationality: 'Italy' },
+    93→    // Belgium
+    94→    { name: 'Kevin De Bruyne', number: 10, position: 'MID', teamCode: 'BEL', goals: 8, assists: 18, yellowCards: 2, redCards: 0, appearances: 36, rating: 8.3, marketValue: 35, age: 33, nationality: 'Belgium' },
+    95→    { name: 'Romelu Lukaku', number: 9, position: 'FWD', teamCode: 'BEL', goals: 20, assists: 4, yellowCards: 4, redCards: 1, appearances: 38, rating: 7.5, marketValue: 25, age: 31, nationality: 'Belgium' },
+    96→    { name: 'Leandro Trossard', number: 11, position: 'FWD', teamCode: 'BEL', goals: 10, assists: 8, yellowCards: 2, redCards: 0, appearances: 36, rating: 7.4, marketValue: 40, age: 29, nationality: 'Belgium' },
+    97→    { name: 'Jeremy Doku', number: 7, position: 'FWD', teamCode: 'BEL', goals: 4, assists: 12, yellowCards: 1, redCards: 0, appearances: 32, rating: 7.3, marketValue: 65, age: 22, nationality: 'Belgium' },
+    98→    { name: 'Jan Vertonghen', number: 4, position: 'DEF', teamCode: 'BEL', goals: 1, assists: 2, yellowCards: 8, redCards: 1, appearances: 34, rating: 7.1, marketValue: 5, age: 37, nationality: 'Belgium' },
+    99→    // Croatia
+   100→    { name: 'Luka Modrić', number: 10, position: 'MID', teamCode: 'CRO', goals: 4, assists: 10, yellowCards: 3, redCards: 0, appearances: 38, rating: 8.0, marketValue: 5, age: 38, nationality: 'Croatia' },
+   101→    { name: 'Joško Gvardiol', number: 2, position: 'DEF', teamCode: 'CRO', goals: 3, assists: 4, yellowCards: 6, redCards: 0, appearances: 34, rating: 7.7, marketValue: 70, age: 22, nationality: 'Croatia' },
+   102→    { name: 'Andrej Kramarić', number: 9, position: 'FWD', teamCode: 'CRO', goals: 14, assists: 6, yellowCards: 2, redCards: 0, appearances: 36, rating: 7.5, marketValue: 15, age: 28, nationality: 'Croatia' },
+   103→    { name: 'Lovro Majer', number: 8, position: 'MID', teamCode: 'CRO', goals: 5, assists: 8, yellowCards: 4, redCards: 0, appearances: 30, rating: 7.3, marketValue: 25, age: 26, nationality: 'Croatia' },
+   104→    { name: 'Dominik Livaković', number: 1, position: 'GK', teamCode: 'CRO', goals: 0, assists: 0, yellowCards: 2, redCards: 0, appearances: 36, rating: 7.5, marketValue: 30, age: 29, nationality: 'Croatia' },
+   105→    // Colombia
+   106→    { name: 'Luis Díaz', number: 7, position: 'FWD', teamCode: 'COL', goals: 12, assists: 8, yellowCards: 3, redCards: 0, appearances: 34, rating: 7.8, marketValue: 75, age: 27, nationality: 'Colombia' },
+   107→    { name: 'James Rodríguez', number: 10, position: 'MID', teamCode: 'COL', goals: 6, assists: 14, yellowCards: 2, redCards: 0, appearances: 32, rating: 7.6, marketValue: 8, age: 33, nationality: 'Colombia' },
+   108→    { name: 'Davinson Sánchez', number: 4, position: 'DEF', teamCode: 'COL', goals: 1, assists: 1, yellowCards: 9, redCards: 2, appearances: 34, rating: 7.2, marketValue: 15, age: 28, nationality: 'Colombia' },
+   109→    { name: 'Rafael Santos Borré', number: 9, position: 'FWD', teamCode: 'COL', goals: 10, assists: 4, yellowCards: 3, redCards: 0, appearances: 30, rating: 7.1, marketValue: 10, age: 29, nationality: 'Colombia' },
+   110→    { name: 'David Ospina', number: 1, position: 'GK', teamCode: 'COL', goals: 0, assists: 0, yellowCards: 1, redCards: 0, appearances: 28, rating: 7.3, marketValue: 3, age: 35, nationality: 'Colombia' },
+   111→    // Japan
+   112→    { name: 'Kaoru Mitoma', number: 11, position: 'FWD', teamCode: 'JPN', goals: 8, assists: 12, yellowCards: 1, redCards: 0, appearances: 32, rating: 7.6, marketValue: 45, age: 27, nationality: 'Japan' },
+   113→    { name: 'Takefusa Kubo', number: 10, position: 'MID', teamCode: 'JPN', goals: 6, assists: 10, yellowCards: 2, redCards: 0, appearances: 34, rating: 7.5, marketValue: 50, age: 23, nationality: 'Japan' },
+   114→    { name: 'Wataru Endo', number: 6, position: 'MID', teamCode: 'JPN', goals: 2, assists: 4, yellowCards: 8, redCards: 0, appearances: 36, rating: 7.2, marketValue: 15, age: 31, nationality: 'Japan' },
+   115→    { name: 'Ritsu Doan', number: 8, position: 'MID', teamCode: 'JPN', goals: 5, assists: 6, yellowCards: 2, redCards: 0, appearances: 30, rating: 7.1, marketValue: 12, age: 26, nationality: 'Japan' },
+   116→    { name: 'Shuichi Gonda', number: 1, position: 'GK', teamCode: 'JPN', goals: 0, assists: 0, yellowCards: 1, redCards: 0, appearances: 34, rating: 7.4, marketValue: 3, age: 39, nationality: 'Japan' },
+   117→    // South Korea
+   118→    { name: 'Son Heung-min', number: 7, position: 'FWD', teamCode: 'KOR', goals: 14, assists: 10, yellowCards: 2, redCards: 0, appearances: 38, rating: 7.9, marketValue: 30, age: 32, nationality: 'South Korea' },
+   119→    { name: 'Lee Kang-in', number: 10, position: 'MID', teamCode: 'KOR', goals: 6, assists: 12, yellowCards: 1, redCards: 0, appearances: 32, rating: 7.6, marketValue: 40, age: 23, nationality: 'South Korea' },
+   120→    { name: 'Hwang Hee-chan', number: 9, position: 'FWD', teamCode: 'KOR', goals: 10, assists: 4, yellowCards: 4, redCards: 0, appearances: 34, rating: 7.3, marketValue: 18, age: 28, nationality: 'South Korea' },
+   121→    { name: 'Kim Min-jae', number: 4, position: 'DEF', teamCode: 'KOR', goals: 1, assists: 2, yellowCards: 7, redCards: 1, appearances: 36, rating: 7.5, marketValue: 50, age: 27, nationality: 'South Korea' },
+   122→    { name: 'Jo Hyeon-woo', number: 1, position: 'GK', teamCode: 'KOR', goals: 0, assists: 0, yellowCards: 1, redCards: 0, appearances: 32, rating: 7.2, marketValue: 3, age: 32, nationality: 'South Korea' },
+   123→    // USA
+   124→    { name: 'Christian Pulisic', number: 10, position: 'FWD', teamCode: 'USA', goals: 10, assists: 12, yellowCards: 3, redCards: 0, appearances: 36, rating: 7.7, marketValue: 55, age: 25, nationality: 'USA' },
+   125→    { name: 'Tyler Adams', number: 6, position: 'MID', teamCode: 'USA', goals: 1, assists: 4, yellowCards: 10, redCards: 0, appearances: 34, rating: 7.4, marketValue: 30, age: 25, nationality: 'USA' },
+   126→    { name: 'Giovanni Reyna', number: 7, position: 'MID', teamCode: 'USA', goals: 6, assists: 10, yellowCards: 1, redCards: 0, appearances: 28, rating: 7.3, marketValue: 20, age: 21, nationality: 'USA' },
+   127→    { name: 'Weston McKennie', number: 8, position: 'MID', teamCode: 'USA', goals: 4, assists: 8, yellowCards: 8, redCards: 0, appearances: 36, rating: 7.2, marketValue: 25, age: 25, nationality: 'USA' },
+   128→    { name: 'Matt Turner', number: 1, position: 'GK', teamCode: 'USA', goals: 0, assists: 0, yellowCards: 1, redCards: 0, appearances: 34, rating: 7.1, marketValue: 8, age: 30, nationality: 'USA' },
+   129→    // Mexico
+   130→    { name: 'Santi Giménez', number: 9, position: 'FWD', teamCode: 'MEX', goals: 10, assists: 4, yellowCards: 3, redCards: 0, appearances: 30, rating: 7.3, marketValue: 20, age: 23, nationality: 'Mexico' },
+   131→    { name: 'Edson Álvarez', number: 4, position: 'MID', teamCode: 'MEX', goals: 2, assists: 4, yellowCards: 9, redCards: 1, appearances: 34, rating: 7.4, marketValue: 30, age: 26, nationality: 'Mexico' },
+   132→    { name: 'Hirving Lozano', number: 7, position: 'FWD', teamCode: 'MEX', goals: 8, assists: 6, yellowCards: 2, redCards: 0, appearances: 32, rating: 7.2, marketValue: 15, age: 29, nationality: 'Mexico' },
+   133→    { name: 'Uriel Antuna', number: 8, position: 'MID', teamCode: 'MEX', goals: 4, assists: 8, yellowCards: 3, redCards: 0, appearances: 30, rating: 7.0, marketValue: 8, age: 27, nationality: 'Mexico' },
+   134→    { name: 'Guillermo Ochoa', number: 1, position: 'GK', teamCode: 'MEX', goals: 0, assists: 0, yellowCards: 2, redCards: 0, appearances: 30, rating: 7.2, marketValue: 2, age: 39, nationality: 'Mexico' },
+   135→  ]
+   136→
+   137→  for (const p of playersData) {
+   138→    const team = createdTeams.find(t => t.code === p.teamCode)!
+   139→    await prisma.player.create({
+   140→      data: {
+   141→        name: p.name, number: p.number, position: p.position,
+   142→        teamId: team.id, goals: p.goals, assists: p.assists,
+   143→        yellowCards: p.yellowCards, redCards: p.redCards,
+   144→        appearances: p.appearances, rating: p.rating,
+   145→        marketValue: p.marketValue, age: p.age, nationality: p.nationality
+   146→      }
+   147→    })
+   148→  }
+   149→  console.log(`  ✅ Created ${playersData.length} players`)
+   150→
+   151→  // 3. Create matches
+   152→  const teamMap: Record<string, string> = {}
+   153→  createdTeams.forEach(t => { teamMap[t.code] = t.id })
+   154→
+   155→  const matchesData = [
+   156→    // Group A
+   157→    { home: 'BRA', away: 'CRO', group: 'A', stage: 'Group Stage', status: 'finished', homeScore: 3, awayScore: 1, date: '2026-06-12T18:00:00Z', venue: 'SoFi Stadium, LA', weather: 'sunny', temperature: 28, homeEvents: [{min:12,type:'goal',player:'Vinícius Júnior',team:'home'},{min:34,type:'goal',player:'Rodrygo Goes',team:'home'},{min:67,type:'goal',player:'Bruno Guimarães',team:'home'},{min:55,type:'yellow_card',player:'Marquinhos',team:'home'}], awayEvents: [{min:45,type:'goal',player:'Andrej Kramarić',team:'away'},{min:30,type:'yellow_card',player:'Lovro Majer',team:'away'}] },
+   158→    { home: 'GER', away: 'MEX', group: 'A', stage: 'Group Stage', status: 'finished', homeScore: 2, awayScore: 0, date: '2026-06-12T21:00:00Z', venue: 'MetLife Stadium, NJ', weather: 'cloudy', temperature: 24, homeEvents: [{min:22,type:'goal',player:'Florian Wirtz',team:'home'},{min:78,type:'goal',player:'Kai Havertz',team:'home'}], awayEvents: [{min:60,type:'yellow_card',player:'Edson Álvarez',team:'away'}] },
+   159→    { home: 'BRA', away: 'MEX', group: 'A', stage: 'Group Stage', status: 'finished', homeScore: 2, awayScore: 1, date: '2026-06-17T18:00:00Z', venue: 'Rose Bowl, Pasadena', weather: 'sunny', temperature: 32, homeEvents: [{min:8,type:'goal',player:'Vinícius Júnior',team:'home'},{min:72,type:'goal',player:'Rodrygo Goes',team:'home'}], awayEvents: [{min:55,type:'goal',player:'Santi Giménez',team:'away'}] },
+   160→    { home: 'GER', away: 'CRO', group: 'A', stage: 'Group Stage', status: 'live', homeScore: 1, awayScore: 1, date: '2026-06-17T21:00:00Z', venue: 'Gillette Stadium, Boston', weather: 'cloudy', temperature: 22, homeEvents: [{min:35,type:'goal',player:'Jamal Musiala',team:'home'}], awayEvents: [{min:58,type:'goal',player:'Luka Modrić',team:'away'},{min:40,type:'yellow_card',player:'Joško Gvardiol',team:'away'}] },
+   161→    // Group B
+   162→    { home: 'ARG', away: 'KOR', group: 'B', stage: 'Group Stage', status: 'finished', homeScore: 4, awayScore: 1, date: '2026-06-13T18:00:00Z', venue: 'AT&T Stadium, Dallas', weather: 'sunny', temperature: 30, homeEvents: [{min:15,type:'goal',player:'Lionel Messi',team:'home'},{min:33,type:'goal',player:'Julián Álvarez',team:'home'},{min:62,type:'goal',player:'Lionel Messi',team:'home'},{min:80,type:'goal',player:'Rodrigo De Paul',team:'home'}], awayEvents: [{min:50,type:'goal',player:'Son Heung-min',team:'away'},{min:25,type:'yellow_card',player:'Kim Min-jae',team:'away'}] },
+   163→    { home: 'FRA', away: 'ITA', group: 'B', stage: 'Group Stage', status: 'finished', homeScore: 2, awayScore: 2, date: '2026-06-13T21:00:00Z', venue: 'Lumen Field, Seattle', weather: 'rainy', temperature: 18, homeEvents: [{min:20,type:'goal',player:'Kylian Mbappé',team:'home'},{min:88,type:'goal',player:'Kylian Mbappé',team:'home'}], awayEvents: [{min:45,type:'goal',player:'Nicolò Barella',team:'away'},{min:70,type:'goal',player:'Federico Chiesa',team:'away'},{min:55,type:'red_card',player:'Alessandro Bastoni',team:'away'}] },
+   164→    { home: 'ARG', away: 'ITA', group: 'B', stage: 'Group Stage', status: 'finished', homeScore: 1, awayScore: 0, date: '2026-06-18T18:00:00Z', venue: 'Hard Rock Stadium, Miami', weather: 'hot', temperature: 34, homeEvents: [{min:44,type:'goal',player:'Lionel Messi',team:'home'},{min:38,type:'yellow_card',player:'Cristian Romero',team:'home'}], awayEvents: [] },
+   165→    { home: 'FRA', away: 'KOR', group: 'B', stage: 'Group Stage', status: 'halftime', homeScore: 2, awayScore: 0, date: '2026-06-18T21:00:00Z', venue: 'Mercedes-Benz Stadium, Atlanta', weather: 'cloudy', temperature: 26, homeEvents: [{min:18,type:'goal',player:'Kylian Mbappé',team:'home'},{min:42,type:'goal',player:'Antoine Griezmann',team:'home'}], awayEvents: [{min:30,type:'yellow_card',player:'Kim Min-jae',team:'away'}] },
+   166→    // Group C
+   167→    { home: 'ENG', away: 'JPN', group: 'C', stage: 'Group Stage', status: 'finished', homeScore: 3, awayScore: 0, date: '2026-06-14T18:00:00Z', venue: 'SoFi Stadium, LA', weather: 'sunny', temperature: 27, homeEvents: [{min:25,type:'goal',player:'Harry Kane',team:'home'},{min:50,type:'goal',player:'Bukayo Saka',team:'home'},{min:75,type:'goal',player:'Jude Bellingham',team:'home'}], awayEvents: [{min:62,type:'yellow_card',player:'Wataru Endo',team:'away'}] },
+   168→    { home: 'ESP', away: 'COL', group: 'C', stage: 'Group Stage', status: 'finished', homeScore: 2, awayScore: 1, date: '2026-06-14T21:00:00Z', venue: 'Lincoln Financial Field, Philadelphia', weather: 'sunny', temperature: 29, homeEvents: [{min:30,type:'goal',player:'Lamine Yamal',team:'home'},{min:65,type:'goal',player:'Rodri',team:'home'}], awayEvents: [{min:52,type:'goal',player:'Luis Díaz',team:'away'}] },
+   169→    { home: 'ENG', away: 'COL', group: 'C', stage: 'Group Stage', status: 'finished', homeScore: 1, awayScore: 1, date: '2026-06-19T18:00:00Z', venue: 'MetLife Stadium, NJ', weather: 'rainy', temperature: 20, homeEvents: [{min:40,type:'goal',player:'Harry Kane',team:'home'}], awayEvents: [{min:82,type:'goal',player:'James Rodríguez',team:'away'}] },
+   170→    { home: 'ESP', away: 'JPN', group: 'C', stage: 'Group Stage', status: 'live', homeScore: 1, awayScore: 0, date: '2026-06-19T21:00:00Z', venue: 'NRG Stadium, Houston', weather: 'sunny', temperature: 31, homeEvents: [{min:28,type:'goal',player:'Pedri',team:'home'}], awayEvents: [] },
+   171→    // Group D
+   172→    { home: 'POR', away: 'BEL', group: 'D', stage: 'Group Stage', status: 'finished', homeScore: 2, awayScore: 1, date: '2026-06-15T18:00:00Z', venue: 'Gillette Stadium, Boston', weather: 'cloudy', temperature: 23, homeEvents: [{min:20,type:'goal',player:'Cristiano Ronaldo',team:'home'},{min:75,type:'goal',player:'Bruno Fernandes',team:'home'}], awayEvents: [{min:60,type:'goal',player:'Kevin De Bruyne',team:'away'},{min:35,type:'yellow_card',player:'Jan Vertonghen',team:'away'}] },
+   173→    { home: 'NED', away: 'USA', group: 'D', stage: 'Group Stage', status: 'finished', homeScore: 1, awayScore: 1, date: '2026-06-15T21:00:00Z', venue: 'Rose Bowl, Pasadena', weather: 'sunny', temperature: 30, homeEvents: [{min:55,type:'goal',player:'Cody Gakpo',team:'home'}], awayEvents: [{min:38,type:'goal',player:'Christian Pulisic',team:'away'}] },
+   174→    { home: 'POR', away: 'USA', group: 'D', stage: 'Group Stage', status: 'finished', homeScore: 3, awayScore: 0, date: '2026-06-20T18:00:00Z', venue: 'SoFi Stadium, LA', weather: 'sunny', temperature: 29, homeEvents: [{min:10,type:'goal',player:'Cristiano Ronaldo',team:'home'},{min:45,type:'goal',player:'Bernardo Silva',team:'home'},{min:70,type:'goal',player:'Bruno Fernandes',team:'home'}], awayEvents: [{min:80,type:'red_card',player:'Tyler Adams',team:'away'}] },
+   175→    { home: 'NED', away: 'BEL', group: 'D', stage: 'Group Stage', status: 'upcoming', homeScore: 0, awayScore: 0, date: '2026-06-20T21:00:00Z', venue: 'AT&T Stadium, Dallas', weather: null, temperature: null, homeEvents: [], awayEvents: [] },
+   176→    // Knockout stage (upcoming)
+   177→    { home: 'BRA', away: 'ESP', group: null, stage: 'Quarter Final', status: 'upcoming', homeScore: 0, awayScore: 0, date: '2026-06-25T18:00:00Z', venue: 'SoFi Stadium, LA', weather: null, temperature: null, homeEvents: [], awayEvents: [] },
+   178→    { home: 'ARG', away: 'ENG', group: null, stage: 'Quarter Final', status: 'upcoming', homeScore: 0, awayScore: 0, date: '2026-06-25T21:00:00Z', venue: 'MetLife Stadium, NJ', weather: null, temperature: null, homeEvents: [], awayEvents: [] },
+   179→    { home: 'FRA', away: 'POR', group: null, stage: 'Quarter Final', status: 'upcoming', homeScore: 0, awayScore: 0, date: '2026-06-26T18:00:00Z', venue: 'Hard Rock Stadium, Miami', weather: null, temperature: null, homeEvents: [], awayEvents: [] },
+   180→    { home: 'GER', away: 'NED', group: null, stage: 'Quarter Final', status: 'upcoming', homeScore: 0, awayScore: 0, date: '2026-06-26T21:00:00Z', venue: 'Mercedes-Benz Stadium, Atlanta', weather: null, temperature: null, homeEvents: [], awayEvents: [] },
+   181→    { home: 'BRA', away: 'ARG', group: null, stage: 'Semi Final', status: 'upcoming', homeScore: 0, awayScore: 0, date: '2026-06-30T21:00:00Z', venue: 'SoFi Stadium, LA', weather: null, temperature: null, homeEvents: [], awayEvents: [] },
+   182→    { home: 'FRA', away: 'GER', group: null, stage: 'Semi Final', status: 'upcoming', homeScore: 0, awayScore: 0, date: '2026-07-01T21:00:00Z', venue: 'MetLife Stadium, NJ', weather: null, temperature: null, homeEvents: [], awayEvents: [] },
+   183→    { home: 'ARG', away: 'FRA', group: null, stage: 'Final', status: 'upcoming', homeScore: 0, awayScore: 0, date: '2026-07-05T21:00:00Z', venue: 'SoFi Stadium, LA', weather: null, temperature: null, homeEvents: [], awayEvents: [] },
+   184→    { home: 'BRA', away: 'GER', group: null, stage: 'Third Place', status: 'upcoming', homeScore: 0, awayScore: 0, date: '2026-07-04T18:00:00Z', venue: 'Hard Rock Stadium, Miami', weather: null, temperature: null, homeEvents: [], awayEvents: [] },
+   185→  ]
+   186→
+   187→  const createdMatches: any[] = []
+   188→  for (const m of matchesData) {
+   189→    const homeTeam = createdTeams.find(t => t.code === m.home)!
+   190→    const awayTeam = createdTeams.find(t => t.code === m.away)!
+   191→
+   192→    const match = await prisma.match.create({
+   193→      data: {
+   194→        homeTeamId: homeTeam.id,
+   195→        awayTeamId: awayTeam.id,
+   196→        competition: 'World Cup 2026',
+   197→        stage: m.stage,
+   198→        group: m.group,
+   199→        date: new Date(m.date),
+   200→        status: m.status,
+   201→        homeScore: m.homeScore,
+   202→        awayScore: m.awayScore,
+   203→        homeEloBefore: homeTeam.eloRating,
+   204→        awayEloBefore: awayTeam.eloRating,
+   205→        venue: m.venue,
+   206→        weather: m.weather,
+   207→        temperature: m.temperature,
+   208→        shotsHome: m.status !== 'upcoming' ? Math.floor(Math.random() * 15) + 5 : 0,
+   209→        shotsAway: m.status !== 'upcoming' ? Math.floor(Math.random() * 12) + 3 : 0,
+   210→        shotsOnTargetHome: m.status !== 'upcoming' ? Math.floor(Math.random() * 6) + 2 : 0,
+   211→        shotsOnTargetAway: m.status !== 'upcoming' ? Math.floor(Math.random() * 5) + 1 : 0,
+   212→        cornersHome: m.status !== 'upcoming' ? Math.floor(Math.random() * 8) + 2 : 0,
+   213→        cornersAway: m.status !== 'upcoming' ? Math.floor(Math.random() * 7) + 1 : 0,
+   214→        foulsHome: m.status !== 'upcoming' ? Math.floor(Math.random() * 12) + 3 : 0,
+   215→        foulsAway: m.status !== 'upcoming' ? Math.floor(Math.random() * 10) + 3 : 0,
+   216→        possessionHome: m.status !== 'upcoming' ? 45 + Math.floor(Math.random() * 20) : 50,
+   217→        homeXg: m.status !== 'upcoming' ? parseFloat((Math.random() * 2.5 + 0.5).toFixed(2)) : 0,
+   218→        awayXg: m.status !== 'upcoming' ? parseFloat((Math.random() * 2 + 0.3).toFixed(2)) : 0,
+   219→      }
+   220→    })
+   221→    createdMatches.push(match)
+   222→
+   223→    // Create events
+   224→    const allEvents = [
+   225→      ...m.homeEvents.map(e => ({ ...e, team: 'home' })),
+   226→      ...m.awayEvents.map(e => ({ ...e, team: 'away' }))
+   227→    ]
+   228→    for (const evt of allEvents) {
+   229→      await prisma.matchEvent.create({
+   230→        data: {
+   231→          matchId: match.id,
+   232→          minute: evt.min,
+   233→          type: evt.type,
+   234→          team: evt.team,
+   235→          playerName: evt.player,
+   236→          description: `${evt.type === 'goal' ? '⚽ Goal' : evt.type === 'yellow_card' ? '🟨 Yellow Card' : '🟥 Red Card'} by ${evt.player} (${evt.min}')`
+   237→        }
+   238→      })
+   239→    }
+   240→  }
+   241→  console.log(`  ✅ Created ${matchesData.length} matches with events`)
+   242→
+   243→  // 4. Create news items
+   244→  const newsItems = [
+   245→    { title: 'Mbappé Scores Brace in France vs Korea World Cup Clash', summary: 'Kylian Mbappé continues his World Cup dominance with two first-half goals against South Korea.', content: 'The French captain opened the scoring in the 18th minute with a trademark run from the left flank...', source: 'ESPN FC', category: 'match', isBreaking: true, sentiment: 'positive', relatedTeams: '["FRA","KOR"]' },
+   246→    { title: 'Messi Magic: Argentina Edge Italy in Tactical Battle', summary: 'Lionel Messi\'s first-half free kick proved decisive as Argentina secured a 1-0 victory over Italy.', content: 'In a game of few clear chances, Messi once again proved his ability to decide big moments...', source: 'Sky Sports', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["ARG","ITA"]' },
+   247→    { title: 'Brazil Firepower: Three Goals Sink Croatia', summary: 'Vinícius Júnior and Rodrygo Goes starred as Brazil overwhelmed Croatia 3-1 in their Group A opener.', content: 'Brazil\'s attacking trident was too much for Croatia as they ran out comfortable 3-1 winners...', source: 'BBC Sport', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["BRA","CRO"]' },
+   248→    { title: 'Transfer Rumor: Wirtz to Real Madrid for €180M', summary: 'Sources indicate Real Madrid are preparing a record bid for Florian Wirtz after his World Cup performances.', content: 'Real Madrid are reportedly ready to trigger Wirtz\'s release clause following his stellar displays...', source: 'Transfer Market', category: 'transfer', isBreaking: true, sentiment: 'neutral', relatedTeams: '["GER"]' },
+   249→    { title: 'Injury Alert: Gvardiol Doubtful for Next Match', summary: 'Croatia defender Joško Gvardiol picked up a hamstring concern during the Germany match.', content: 'Croatia face an anxious wait on Gvardiol\'s fitness after he was seen holding his hamstring...', source: 'The Guardian', category: 'injury', isBreaking: false, sentiment: 'negative', relatedTeams: '["CRO"]' },
+   250→    { title: 'Tactical Analysis: Spain\'s Possession Revolution', summary: 'How Luis de la Fuente\'s Spain are redefining tiki-taka for the modern era.', content: 'Spain\'s 91% pass accuracy and 65% average possession tell only part of the story...', source: 'The Athletic', category: 'tactical', isBreaking: false, sentiment: 'positive', relatedTeams: '["ESP"]' },
+   251→    { title: 'Breaking: Tyler Adams Sees Red in Portugal Defeat', summary: 'USA midfielder Tyler Adams was sent off in the 80th minute as Portugal ran out 3-0 winners.', content: 'Adams received a second yellow card for a cynical foul on Bernardo Silva...', source: 'Fox Sports', category: 'match', isBreaking: true, sentiment: 'negative', relatedTeams: '["USA","POR"]' },
+   252→    { title: 'England\'s Bellingham Shines with Goal and Assist', summary: 'Jude Bellingham continues to justify the hype with another man-of-the-match performance.', content: 'Bellingham\'s 75th-minute goal sealed a comfortable 3-0 win for England against Japan...', source: 'ITV Sport', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["ENG"]' },
+   253→    { title: 'Ronaldo Defies Age with Double Against USA', summary: 'Cristiano Ronaldo scored twice to lead Portugal to a 3-0 victory over the United States.', content: 'At 39 years old, Ronaldo showed no signs of slowing down with two clinical finishes...', source: 'SPORT TV', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["POR","USA"]' },
+   254→    { title: 'De Bruyne Masterclass Not Enough vs Portugal', summary: 'Kevin De Bruyne provided an assist but Belgium fell 2-1 to a determined Portuguese side.', content: 'Despite De Bruyne\'s best efforts, Belgium\'s defensive frailties were exposed again...', source: 'VRT Sport', category: 'match', isBreaking: false, sentiment: 'neutral', relatedTeams: '["BEL","POR"]' },
+   255→    { title: 'Bastoni Red Card Changes France-Italy Dynamic', summary: 'Italy played 35 minutes with 10 men after Alessandro Bastoni\'s dismissal but held on for a 2-2 draw.', content: 'Bastoni\'s 55th-minute red card for a last-man foul on Mbappé changed the entire complexion...', source: 'RAI Sport', category: 'match', isBreaking: false, sentiment: 'negative', relatedTeams: '["ITA","FRA"]' },
+   256→    { title: 'Yamal: The 17-Year-Old Rewriting World Cup History', summary: 'Lamine Yamal became the youngest goal scorer in World Cup knockout stage history.', content: 'At just 17 years and 56 days, Yamal\'s goal against Colombia sent shockwaves through football...', source: 'Marca', category: 'match', isBreaking: true, sentiment: 'positive', relatedTeams: '["ESP","COL"]' },
+   257→    { title: 'Weather Disruption: Rain Affects Multiple Matches', summary: 'Heavy rain in the northeastern US has led to difficult playing conditions at multiple venues.', content: 'The Lumen Field pitch in Seattle was particularly affected, with standing water visible...', source: 'Weather Channel', category: 'match', isBreaking: false, sentiment: 'neutral', relatedTeams: '[]' },
+   258→    { title: 'Tactical Preview: Brazil vs Spain Quarter Final', summary: 'An in-depth look at the tactical battle that awaits in the quarter final between two footballing giants.', content: 'When Brazil\'s attacking flair meets Spain\'s possession dominance, the tactical nuances will be fascinating...', source: 'FourFourTwo', category: 'tactical', isBreaking: false, sentiment: 'neutral', relatedTeams: '["BRA","ESP"]' },
+   259→    { title: 'Son Heung-min Keeps Korea\'s Hopes Alive', summary: 'Despite the 4-1 defeat to Argentina, Son\'s goal gave Korean fans something to cheer about.', content: 'Son\'s 50th-minute strike was a moment of quality in an otherwise difficult afternoon for Korea...', source: 'KFA', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["KOR","ARG"]' },
+   260→    { title: 'James Rodríguez Still Has the Magic', summary: 'Colombia\'s James Rodríguez scored a late equalizer against England with a trademark left-foot strike.', content: 'Rodríguez showed he can still deliver on the biggest stage with a superb 82nd-minute equalizer...', source: 'Caracol TV', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["COL","ENG"]' },
+   261→    { title: 'Rodri: The Silent Engine of Spain\'s Midfield', summary: 'A deep dive into how Rodri controls the tempo and provides defensive stability for Spain.', content: 'While Yamal and Pedri grab the headlines, it is Rodri who makes Spain tick...', source: 'The Athletic', category: 'tactical', isBreaking: false, sentiment: 'positive', relatedTeams: '["ESP"]' },
+   262→    { title: 'Group A Standings: Brazil and Germany Dominate', summary: 'Brazil and Germany both have maximum points after two matches in Group A.', content: 'With two wins each, Brazil and Germany have already secured qualification from Group A...', source: 'FIFA.com', category: 'match', isBreaking: false, sentiment: 'neutral', relatedTeams: '["BRA","GER","CRO","MEX"]' },
+   263→    { title: 'Van Dijk Leads Dutch Resilience', summary: 'Virgil van Dijk\'s leadership was key as Netherlands came from behind to draw 1-1 with USA.', content: 'Van Dijk organized the Dutch defense expertly after Pulisic\'s early opener...', source: 'NOS', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["NED","USA"]' },
+   264→    { title: 'Modrić at 38: Still Pulling the Strings', summary: 'Luka Modrić scored Croatia\'s equalizer against Germany, showing age is just a number.', content: 'The 38-year-old midfielder scored with a brilliant curling effort from outside the box...', source: 'HNS', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["CRO","GER"]' },
+   265→    { title: 'Transfer: Yamal Price Tag Reaches €200M', summary: 'Barcelona have reportedly set an asking price of €200M for wonderkid Lamine Yamal.', content: 'Following his World Cup heroics, Barcelona are determined to keep Yamal at any cost...', source: 'Mundo Deportivo', category: 'transfer', isBreaking: false, sentiment: 'neutral', relatedTeams: '["ESP"]' },
+   266→    { title: 'Saka\'s World Cup: From Promise to Delivery', summary: 'Bukayo Saka is fulfilling his potential on the biggest stage with consistent performances.', content: 'Saka\'s goal against Japan was his fifth in three World Cup matches, cementing his status...', source: 'The Independent', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["ENG"]' },
+   267→    { title: 'Injury Update: Neuer Confirms Fitness for Knockouts', summary: 'Manuel Neuer has been declared fit for Germany\'s quarter final clash.', content: 'The veteran goalkeeper missed training on Tuesday but has been cleared to play...', source: 'Kicker', category: 'injury', isBreaking: false, sentiment: 'positive', relatedTeams: '["GER"]' },
+   268→    { title: 'Attendance Record: 95,000 Watch Brazil vs Mexico', summary: 'The Rose Bowl recorded a World Cup record attendance for Brazil\'s 2-1 win over Mexico.', content: 'A capacity crowd of 95,000 created an incredible atmosphere at the iconic Rose Bowl...', source: 'CONCACAF', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["BRA","MEX"]' },
+   269→    { title: 'Referee Controversy in Italy vs France', summary: 'Multiple decisions by the referee have come under scrutiny after the 2-2 draw.', content: 'Italy coach Spalletti expressed frustration with several decisions, particularly the red card...', source: 'Gazzetta dello Sport', category: 'match', isBreaking: false, sentiment: 'negative', relatedTeams: '["ITA","FRA"]' },
+   270→    { title: 'Mitoma: Japan\'s Secret Weapon Exposed', summary: 'Kaoru Mitoma\'s dribbling ability has made him one of the most fouled players at the tournament.', content: 'Mitoma has been fouled 18 times in three matches, more than any other player...', source: 'Japan Times', category: 'tactical', isBreaking: false, sentiment: 'neutral', relatedTeams: '["JPN"]' },
+   271→    { title: 'Diniz: Brazil Are Peaking at the Right Time', summary: 'Brazil coach Fernando Diniz believes his team are reaching their best form ahead of the knockout stages.', content: 'With two comfortable wins and a squad firing on all cylinders, Diniz is optimistic...', source: 'Globo', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["BRA"]' },
+   272→    { title: 'Kimmich: Germany\'s Midfield General', summary: 'Joshua Kimmich has been instrumental in Germany\'s impressive tournament campaign.', content: 'Kimmich\'s passing range and defensive work rate have been the foundation of Germany\'s play...', source: 'Bild', category: 'tactical', isBreaking: false, sentiment: 'positive', relatedTeams: '["GER"]' },
+   273→    { title: 'Pulisic Impact: USA\'s Creative Force', summary: 'Christian Pulisic has been the standout player for the USA despite mixed team results.', content: 'Pulisic\'s goal against Netherlands and assist vs South Korea highlight his importance...', source: 'US Soccer', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["USA"]' },
+   274→    { title: 'Simons: Netherlands\' Next Big Star', summary: 'Xavi Simons is announcing himself on the world stage with mature performances beyond his years.', content: 'The 21-year-old has been one of the tournament\'s standout performers with 3 goals and 2 assists...', source: 'AD', category: 'match', isBreaking: false, sentiment: 'positive', relatedTeams: '["NED"]' },
+   275→    { title: 'Scaloni: No complacency from Argentina', summary: 'Lionel Scaloni insists Argentina will not underestimate England in the quarter finals.', content: 'Despite being favorites, Scaloni knows England\'s quality and is preparing his side accordingly...', source: 'TyC Sports', category: 'match', isBreaking: false, sentiment: 'neutral', relatedTeams: '["ARG","ENG"]' },
+   276→  ]
+   277→
+   278→  for (const n of newsItems) {
+   279→    await prisma.newsItem.create({
+   280→      data: {
+   281→        ...n,
+   282→        publishedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+   283→        reactions: JSON.stringify({ like: Math.floor(Math.random() * 500), fire: Math.floor(Math.random() * 200), think: Math.floor(Math.random() * 100) })
+   284→      }
+   285→    })
+   286→  }
+   287→  console.log(`  ✅ Created ${newsItems.length} news items`)
+   288→
+   289→  // 5. System settings
+   290→  const settings = [
+   291→    { key: 'registrationOpen', value: 'true', type: 'boolean' },
+   292→    { key: 'maintenanceMode', value: 'false', type: 'boolean' },
+   293→    { key: 'gameSpeedMultiplier', value: '1', type: 'number' },
+   294→    { key: 'aiLearningEnabled', value: 'true', type: 'boolean' },
+   295→    { key: 'aiLearningRate', value: '0.01', type: 'number' },
+   296→    { key: 'maxFreeSimulations', value: '1', type: 'number' },
+   297→    { key: 'predictionPointsReward', value: '10', type: 'number' },
+   298→    { key: 'streakBonus', value: '5', type: 'number' },
+   299→    { key: 'siteName', value: 'ELASTICO AI Analyst', type: 'string' },
+   300→    { key: 'siteDescription', value: 'AI-Powered Football Analytics Platform', type: 'string' },
+   301→  ]
+   302→  for (const s of settings) {
+   303→    await prisma.systemSetting.upsert({ where: { key: s.key }, update: { value: s.value }, create: s })
+   304→  }
+   305→  console.log('  ✅ Created system settings')
+   306→
+   307→  // 6. Feature flags
+   308→  const flags = [
+   309→    { name: 'darkMode', isEnabled: true, description: 'Enable dark mode theme', rollout: 100, targetRoles: '["all"]' },
+   310→    { name: 'liveSimulation', isEnabled: true, description: 'Allow live match simulation', rollout: 100, targetRoles: '["pro","elite","admin"]' },
+   311→    { name: 'aiChat', isEnabled: true, description: 'AI chat panel', rollout: 100, targetRoles: '["all"]' },
+   312→    { name: 'dixonColes', isEnabled: true, description: 'Dixon-Coles model predictions', rollout: 100, targetRoles: '["pro","elite","admin"]' },
+   313→    { name: 'monteCarlo', isEnabled: true, description: 'Monte Carlo simulations', rollout: 100, targetRoles: '["elite","admin"]' },
+   314→    { name: 'exportPDF', isEnabled: true, description: 'PDF report export', rollout: 100, targetRoles: '["pro","elite","admin"]' },
+   315→    { name: 'tacticalAnalysis', isEnabled: true, description: 'Tactical analysis panel', rollout: 100, targetRoles: '["pro","elite","admin"]' },
+   316→    { name: 'halftimePredictions', isEnabled: true, description: 'Halftime custom predictions', rollout: 100, targetRoles: '["pro","elite","admin"]' },
+   317→    { name: 'advancedStats', isEnabled: true, description: 'Advanced statistics dashboard', rollout: 100, targetRoles: '["elite","admin"]' },
+   318→    { name: 'betaFeatures', isEnabled: false, description: 'Enable beta features', rollout: 10, targetRoles: '["admin"]' },
+   319→  ]
+   320→  for (const f of flags) {
+   321→    await prisma.featureFlag.create({ data: f })
+   322→  }
+   323→  console.log('  ✅ Created feature flags')
+   324→
+   325→  // 7. Announcements
+   326→  const announcements = [
+   327→    { title: 'Welcome to World Cup 2026!', content: 'ELASTICO is your AI-powered companion for the biggest football tournament on earth. Get live predictions, tactical analysis, and real-time insights.', type: 'info', targetRole: 'all', expiresAt: new Date('2026-07-15') },
+   328→    { title: 'Pro Plan: 50% Off Launch Special', content: 'Upgrade to Pro for unlimited simulations, Dixon-Coles models, and priority AI chat. Limited time offer!', type: 'success', targetRole: 'user', expiresAt: new Date('2026-06-30') },
+   329→    { title: 'Scheduled Maintenance', content: 'Brief maintenance window on June 22, 02:00-04:00 UTC for performance improvements.', type: 'warning', targetRole: 'all', expiresAt: new Date('2026-06-22') },
+   330→    { title: 'New: Monte Carlo Simulations', content: 'Elite users can now run 2000-iteration Monte Carlo simulations for any match. Access from the match detail panel.', type: 'info', targetRole: 'elite', expiresAt: new Date('2026-07-05') },
+   331→    { title: 'Admin: New Analytics Dashboard', content: 'Admins now have access to 25+ management tools including real-time user tracking, revenue analytics, and security monitoring.', type: 'info', targetRole: 'admin', expiresAt: new Date('2026-08-01') },
+   332→  ]
+   333→  for (const a of announcements) {
+   334→    await prisma.announcement.create({ data: a })
+   335→  }
+   336→  console.log('  ✅ Created announcements')
+   337→
+   338→  // 8. Demo users
+   339→  const bcrypt = require('bcryptjs')
+   340→  const adminPass = await bcrypt.hash('Admin@2026!', 10)
+   341→  const proPass = await bcrypt.hash('ProUser2026!', 10)
+   342→  const elitePass = await bcrypt.hash('EliteUser2026!', 10)
+   343→  const free1Pass = await bcrypt.hash('FreeUser2026!', 10)
+   344→  const free2Pass = await bcrypt.hash('Guest2026!', 10)
+   345→
+   346→  const users = [
+   347→    { email: 'admin@elastico.ai', passwordHash: adminPass, name: 'Admin', displayName: 'ELASTICO Admin', role: 'admin', plan: 'elite', predictionAccuracy: 78.5, predictionStreak: 5, bestStreak: 12, totalPredictions: 145, correctPredictions: 114 },
+   348→    { email: 'pro@elastico.ai', passwordHash: proPass, name: 'Pro Analyst', displayName: 'ProAnalyst', role: 'pro', plan: 'pro', predictionAccuracy: 68.2, predictionStreak: 3, bestStreak: 8, totalPredictions: 89, correctPredictions: 61 },
+   349→    { email: 'elite@elastico.ai', passwordHash: elitePass, name: 'Elite Predictor', displayName: 'ElitePred', role: 'user', plan: 'elite', predictionAccuracy: 72.1, predictionStreak: 7, bestStreak: 15, totalPredictions: 200, correctPredictions: 144 },
+   350→    { email: 'user@elastico.ai', passwordHash: free1Pass, name: 'Free User', displayName: 'SoccerFan', role: 'user', plan: 'free', predictionAccuracy: 55.0, predictionStreak: 0, bestStreak: 4, totalPredictions: 20, correctPredictions: 11 },
+   351→    { email: 'guest@elastico.ai', passwordHash: free2Pass, name: 'Guest', displayName: 'GuestUser', role: 'user', plan: 'free', predictionAccuracy: 0, predictionStreak: 0, bestStreak: 0, totalPredictions: 0, correctPredictions: 0 },
+   352→  ]
+   353→
+   354→  const createdUsers: any[] = []
+   355→  for (const u of users) {
+   356→    const user = await prisma.user.create({
+   357→      data: {
+   358→        email: u.email, passwordHash: u.passwordHash, name: u.name, displayName: u.displayName,
+   359→        role: u.role, plan: u.plan, predictionAccuracy: u.predictionAccuracy,
+   360→        predictionStreak: u.predictionStreak, bestStreak: u.bestStreak,
+   361→        totalPredictions: u.totalPredictions, correctPredictions: u.correctPredictions,
+   362→        lastLoginAt: new Date(), loginCount: Math.floor(Math.random() * 50) + 5,
+   363→        favoriteTeams: '["BRA","ARG","FRA"]',
+   364→        achievements: JSON.stringify(['first_login', 'first_prediction', 'streak_5']),
+   365→        notificationPrefs: JSON.stringify({ goals: true, cards: true, kickoff: true, predictions: true, system: false }),
+   366→        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${u.displayName}`,
+   367→      }
+   368→    })
+   369→    createdUsers.push(user)
+   370→  }
+   371→  console.log('  ✅ Created demo users')
+   372→
+   373→  // 9. Create some predictions and votes
+   374→  const finishedMatches = createdMatches.filter(m => m.status === 'finished')
+   375→  for (const match of finishedMatches.slice(0, 6)) {
+   376→    for (let u = 0; u < 3; u++) {
+   377→      const outcomes = ['home', 'draw', 'away']
+   378→      const actualOutcome = match.homeScore > match.awayScore ? 'home' : match.homeScore < match.awayScore ? 'away' : 'draw'
+   379→      const predicted = outcomes[Math.floor(Math.random() * 3)]
+   380→      const isCorrect = predicted === actualOutcome
+   381→
+   382→      await prisma.prediction.create({
+   383→        data: {
+   384→          userId: createdUsers[u].id,
+   385→          matchId: match.id,
+   386→          predictedHomeGoals: Math.floor(Math.random() * 4),
+   387→          predictedAwayGoals: Math.floor(Math.random() * 3),
+   388→          predictedOutcome: predicted,
+   389→          confidence: 50 + Math.random() * 45,
+   390→          model: ['elo', 'poisson', 'user'][Math.floor(Math.random() * 3)],
+   391→          isCorrect,
+   392→          points: isCorrect ? 10 : 0,
+   393→        }
+   394→      })
+   395→
+   396→      await prisma.vote.create({
+   397→        data: {
+   398→          userId: createdUsers[u].id,
+   399→          matchId: match.id,
+   400→          choice: predicted,
+   401→        }
+   402→      })
+   403→    }
+   404→  }
+   405→  console.log('  ✅ Created predictions and votes')
+   406→
+   407→  // 10. Create some activities
+   408→  for (const u of createdUsers.slice(0, 3)) {
+   409→    await prisma.activity.createMany({
+   410→      data: [
+   411→        { userId: u.id, type: 'login', metadata: JSON.stringify({ ip: '192.168.1.' + Math.floor(Math.random() * 255) }) },
+   412→        { userId: u.id, type: 'prediction', metadata: JSON.stringify({ matchId: createdMatches[0]?.id, outcome: 'home' }) },
+   413→        { userId: u.id, type: 'achievement', metadata: JSON.stringify({ achievement: 'first_prediction' }) },
+   414→      ]
+   415→    })
+   416→  }
+   417→  console.log('  ✅ Created activities')
+   418→
+   419→  console.log('\n🏆 ELASTICO database seeded successfully!')
+   420→  console.log('\n📝 Demo Accounts:')
+   421→  console.log('  Admin: admin@elastico.ai / Admin@2026!')
+   422→  console.log('  Pro:   pro@elastico.ai / ProUser2026!')
+   423→  console.log('  Elite: elite@elastico.ai / EliteUser2026!')
+   424→  console.log('  Free:  user@elastico.ai / FreeUser2026!')
+   425→  console.log('  Guest: guest@elastico.ai / Guest2026!')
+   426→}
+   427→
+   428→seed().catch(console.error).finally(() => prisma.$disconnect())

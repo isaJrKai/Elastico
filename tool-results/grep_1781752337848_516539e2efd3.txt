@@ -1,0 +1,252 @@
+/home/z/my-project/skills/image-search/SKILL.md:31:- Caption a set of images in Chinese or English.
+/home/z/my-project/skills/image-search/SKILL.md:77:# Chinese query — captions come back in Chinese.
+/home/z/my-project/skills/image-search/SKILL.md:85:  Match the language to the audience: Chinese queries produce Chinese
+/home/z/my-project/skills/image-search/SKILL.md:153:4. **Region matters.** `gl=cn` biases toward Chinese-language sources;
+/home/z/my-project/skills/xlsx/engines/design.md:190:# openpyxl can only set one name; use the CJK font for Chinese tables (it also covers ASCII characters)
+/home/z/my-project/skills/xlsx/engines/design.md:268:    'name_cn': 16,        # Chinese name (2-4 chars)
+/home/z/my-project/skills/xlsx/engines/chart-templates.md:101:### Chinese Font Setup
+/home/z/my-project/skills/xlsx/engines/chart-templates.md:107:_font_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'fonts', 'truetype', 'chinese', 'SimHei.ttf')
+/home/z/my-project/skills/xlsx/engines/chart-templates.md:110:    _font_path = os.path.expanduser('/usr/share/fonts/truetype/chinese/SimHei.ttf')
+/home/z/my-project/skills/pdf/SKILL.md:42:2. **CJK Check** - Chinese/Japanese/Korean content needs font coverage. Report brief must register CJK fonts - **probe first** with `ls /usr/share/fonts/truetype/chinese/` (Linux) or check `$FONT_DIR` (macOS) to confirm which fonts exist, then register accordingly (prefer NotoSerifSC > Noto Sans SC; never hardcode a font name without verifying it exists). Creative Fixed-Canvas and Creative Flow briefs must load Google Fonts Noto Sans SC with `font-display: swap`; Academic brief must use `\usepackage{ctex}`.
+/home/z/my-project/skills/pdf/SKILL.md:44:4. **Character Safety Check** - Before writing any content string, scan for Japanese kana (の、が、は etc.), unusual Unicode symbols, or non-CJK characters that may corrupt during encoding transit ( Especially when code is written via heredoc/base64/LLM output). Replace with plain Chinese equivalents: `の`→`之/的/缔`, `々`→omit or write full character. **If content must preserve Japanese, use only standard CJK Unified Ideographs (U+4E00-U+9FFF) and common kana; avoid rare/private-use codepoints.**
+/home/z/my-project/skills/pdf/SKILL.md:199:- **Language**: Match user's query language. Chinese query → Chinese PDF.
+/home/z/my-project/skills/pdf/SKILL.md:202:- **Citations**: No fabrication. Chinese → GB/T 7714, English → APA. Search to verify.
+/home/z/my-project/skills/pdf/SKILL.md:266:- **Cover page**: All text on the cover (title, subtitle, tags, author, footer) MUST match the user's prompt language. Chinese prompt → Chinese cover; English prompt → English cover. Mixing is forbidden.
+/home/z/my-project/skills/pdf/SKILL.md:441:3. **Rendering before fonts are loaded** → Chinese text displays as squares or falls back to wrong font
+/home/z/my-project/skills/xlsx/engines/chart.md:69:6. **Chinese Font**: Must configure SimHei before any matplotlib plotting
+/home/z/my-project/skills/design/portfolio.md:169:- `horizontal-craft/chinese-typography.md` — substantial Chinese text. **If the page has Chinese, its font rules are mandatory**: any named font must actually be loaded (`<link>` or `@font-face`), and a Chinese page's `font-family` must contain a CJK font name — never let a Latin font fall straight to `system-ui`. Font choice/loading: `horizontal-craft/fonts.md`.
+/home/z/my-project/skills/pdf/configs/fonts.md:31:ReportLab requires registered fonts. Primary Chinese font is **Noto Serif SC** (思源宋体, serif with sharp elegant strokes):
+/home/z/my-project/skills/pdf/configs/fonts.md:38:# Primary Chinese font — Noto Serif SC (serif, high quality, OFL licensed)
+/home/z/my-project/skills/pdf/configs/fonts.md:44:# Fallback / legacy Chinese fonts (sans-serif, static weight)
+/home/z/my-project/skills/pdf/configs/fonts.md:45:pdfmetrics.registerFont(TTFont('Noto Sans SC', f'{FONT_DIR}/truetype/chinese/NotoSansSC-Regular.ttf'))  # sans-serif fallback
+/home/z/my-project/skills/pdf/configs/fonts.md:46:pdfmetrics.registerFont(TTFont('Noto Sans SC Bold', f'{FONT_DIR}/truetype/chinese/NotoSansSC-Bold.ttf'))
+/home/z/my-project/skills/design/quality-gate.md:52:- `chinese-typography` — substantial Chinese text exists
+/home/z/my-project/skills/design/quality-gate.md:157:| Substantial Chinese text, including typography-led titles/covers/reports | `horizontal-craft/chinese-typography.md` (+ `horizontal-craft/reference/fonts.md` when font choice materially affects visual direction) |
+/home/z/my-project/skills/design/quality-gate.md:262:[ ] no Chinese AI cliché copy that weakens credibility
+/home/z/my-project/skills/design/quality-gate.md:303:  - chinese-typography: pass / not relevant
+/home/z/my-project/skills/design/quality-gate.md:339:[ ] Chinese output with obvious typography failure                  → §5 (chinese-typography)
+/home/z/my-project/skills/design/web-tool.md:128:- `horizontal-craft/chinese-typography.md` — substantial Chinese text.
+/home/z/my-project/skills/design/social-card.md:109:- `horizontal-craft/chinese-typography.md` when the output contains Chinese.
+/home/z/my-project/skills/design/social-card.md:355:- Prefer 4–14 Chinese characters when possible.
+/home/z/my-project/skills/design/social-card.md:500:- Chinese title breaks intentionally;
+/home/z/my-project/skills/design/social-card.md:518:- using tiny Chinese text on mobile images;
+/home/z/my-project/skills/design/landing-page.md:101:- `horizontal-craft/chinese-typography.md` — substantial Chinese text, or custom Chinese webfont loading (preload + fetchpriority / print-onload non-blocking / unicode-range subset / system fallback).
+/home/z/my-project/skills/design/landing-page.md:125:- For Chinese pages: webfont loaded non-blockingly with system fallback; no FOIT on slow networks.
+/home/z/my-project/skills/xlsx/scenes/convert.md:120:| Chinese data from Windows | `gbk` or `gb2312` | Try gbk first |
+/home/z/my-project/skills/xlsx/scenes/convert.md:124:| Output CSV for Excel | Write with `utf-8-sig` | Prevents garbled Chinese in Excel |
+/home/z/my-project/skills/pdf/typesetting/charts.md:101:**Hard rule**: When X-axis label average length exceeds **5 Chinese characters** (or 10 Latin characters), automatically convert to a horizontal bar chart.
+/home/z/my-project/skills/pdf/typesetting/cover.md:10:2. **Unified cover system.** All routes (Report, Creative, Academic) use the HTML/Playwright cover system. **Template 01** is general-purpose (also covers government/bidding scenarios); **Template 07 is Crystal Blue (dark cover + light-blue body)**; **Templates 03-04** are academic-specific (dark backgrounds, scholarly typography; 04 also covers Chinese journal/keyword scenarios); **Template 06 is institutional (white bg, black border frame, structured fields)**. All routes generate covers via Playwright and merge via pypdf.
+/home/z/my-project/skills/pdf/typesetting/cover.md:970:| Chinese thesis, journal with keywords | **04** (Symmetric) | Classic symmetry + keyword support via subtitle/summary slots |
+/home/z/my-project/skills/pdf/briefs/academic.md:170:- ** Quotation marks (Chinese — CRITICAL):** Chinese quoted text like "北漂" MUST use Unicode smart quotes "…" (U+201C/U+201D) directly in the `.tex` source. **NEVER use ASCII `"` for Chinese quotes** — LaTeX interprets `"` as a right double quote (`"`), so `"北漂"` renders as `"北漂"` (two right quotes, no left quote). The correct LaTeX source is: `"北漂"` (literal Unicode characters). `\usepackage{csquotes}` is a safety net but does NOT fix raw ASCII `"` in Chinese text.
+/home/z/my-project/skills/pdf/briefs/academic.md:171:  - **Scope:** This rule applies ONLY to Chinese-language body text. Do NOT replace `"` in English paragraphs (use ` ``...'' ` instead), `verbatim`/`lstlisting`/`minted` environments, `\texttt{}`/`\verb||`/`\url{}`/`\href{}{}` arguments, or BibTeX `.bib` field values.
+/home/z/my-project/skills/pdf/briefs/academic.md:901:| Chinese-only, simple format | **Report brief** - ReportLab (best CJK support) |
+/home/z/my-project/skills/pdf/briefs/academic.md:1073:- [ ] **Curly quotes (Chinese)**: Chinese quoted text MUST use Unicode smart quotes `“…”` (U+201C/U+201D) directly — NEVER ASCII `"` adjacent to CJK characters
+/home/z/my-project/skills/pdf/briefs/resume.md:19:- **Font**: FreeSerif (English) or Noto Sans SC (Chinese)
+/home/z/my-project/skills/pdf/briefs/resume.md:27:- **Chinese/CJK**: Break allowed between any two CJK characters. Never break between a CJK character and its adjacent punctuation (、。,)》 etc. must stay with the preceding character.
+/home/z/my-project/skills/pdf/briefs/resume.md:64:# For Chinese resumes, also register Noto Sans SC:
+/home/z/my-project/skills/pdf/briefs/resume.md:65:# pdfmetrics.registerFont(TTFont('Noto Sans SC', '/usr/share/fonts/truetype/chinese/NotoSansSC-Regular.ttf'))
+/home/z/my-project/skills/pdf/briefs/resume.md:66:# pdfmetrics.registerFont(TTFont('Noto Sans SC Bold', '/usr/share/fonts/truetype/chinese/NotoSansSC-Bold.ttf'))
+/home/z/my-project/skills/pdf/briefs/report.md:310:**c) Font fallback for mixed CJK/Latin text (MANDATORY)**: After registering fonts, you **MUST** call `install_font_fallback()` once. This automatically wraps missing-glyph characters in `<font>` tags inside every `Paragraph()`. No manual `<font name="...">` wrapping needed for mixed Chinese-English text. **Skipping this call is the #1 cause of Helvetica garbled text in CJK documents.**
+/home/z/my-project/skills/pdf/briefs/report.md:312:**d) canvas.drawString / drawRightString CJK font rule (MANDATORY)**: `install_font_fallback()` only works on `Paragraph()` objects. It does NOT affect `canvas.drawString()` / `canvas.drawRightString()` / `canvas.drawCentredString()`. If the text passed to any `canvas.draw*String()` call contains CJK characters (Chinese/Japanese/Korean), you **MUST** call `canvas.setFont('NotoSerifSC', size)` (or another registered CJK font) before drawing. Using FreeSerif / Helvetica / Times for CJK canvas text = garbled output.
+/home/z/my-project/skills/pdf/briefs/report.md:351:# CJK Body (Chinese documents)
+/home/z/my-project/skills/pdf/briefs/report.md:388:> If YES → REPLACE with safe plain Chinese equivalents. Japanese kana (Hiragana U+3040-U+309F, Katakana U+30A0-U+30FF) frequently corrupt to U+FFFD (�) when code passes through LLM output, heredoc, or terminal encoding layers.
+/home/z/my-project/skills/pdf/briefs/report.md:401:| `NotoSerifSC` | **Chinese body text (primary)** |  `/usr/share/fonts/truetype/noto-serif-sc/NotoSerifSC-Regular.ttf` |
+/home/z/my-project/skills/pdf/briefs/report.md:402:| `NotoSerifSC-Bold` | **Chinese headings (primary)** |  `/usr/share/fonts/truetype/noto-serif-sc/NotoSerifSC-Bold.ttf` |
+/home/z/my-project/skills/pdf/briefs/report.md:403:| `Noto Sans SC` | Chinese fallback / sans-serif | `/usr/share/fonts/truetype/chinese/NotoSansSC-Regular.ttf` |
+/home/z/my-project/skills/pdf/briefs/report.md:404:| `Noto Sans SC Bold` | Chinese headings (sans-serif) | `/usr/share/fonts/truetype/chinese/NotoSansSC-Bold.ttf` |
+/home/z/my-project/skills/pdf/briefs/report.md:405:| `SarasaMonoSC` | Chinese code blocks | `/usr/share/fonts/truetype/chinese/SarasaMonoSC-Regular.ttf` |
+/home/z/my-project/skills/pdf/briefs/report.md:430:# Chinese fonts — Noto Serif SC (primary, serif, high quality)
+/home/z/my-project/skills/pdf/briefs/report.md:433:# Chinese fonts — fallback / sans-serif (static weight files, NOT variable font)
+/home/z/my-project/skills/pdf/briefs/report.md:434:pdfmetrics.registerFont(TTFont('Noto Sans SC', f'{FONT_DIR}/truetype/chinese/NotoSansSC-Regular.ttf'))
+/home/z/my-project/skills/pdf/briefs/report.md:435:pdfmetrics.registerFont(TTFont('Noto Sans SC Bold', f'{FONT_DIR}/truetype/chinese/NotoSansSC-Bold.ttf'))
+/home/z/my-project/skills/pdf/briefs/report.md:436:pdfmetrics.registerFont(TTFont('SarasaMonoSC', f'{FONT_DIR}/truetype/chinese/SarasaMonoSC-Regular.ttf'))
+/home/z/my-project/skills/pdf/briefs/report.md:456:**For Chinese PDFs:**
+/home/z/my-project/skills/pdf/briefs/report.md:458:- Headings: `NotoSerifSC-Bold` (MUST use for Chinese headings) — same family, bolder weight for clear hierarchy
+/home/z/my-project/skills/pdf/briefs/report.md:461:- **In tables: ALL Chinese content MUST use `NotoSerifSC`, numbers use `FreeSerif`**
+/home/z/my-project/skills/pdf/briefs/report.md:470:**For Mixed Chinese-English PDFs:**
+/home/z/my-project/skills/pdf/briefs/report.md:493:**How it works:** `install_font_fallback()` monkey-patches `Paragraph.__init__` to scan each character against the font's `charToGlyph` table. Characters missing from the base font are automatically wrapped in `<font name="FallbackFont">`. The fallback chain is: English fonts → NotoSerifSC (primary) or Noto Sans SC (legacy), Chinese fonts → FreeSerif. For aesthetic optimization, Cyrillic text in NotoSerifSC/Noto Sans SC is automatically routed to FreeSerif (serif looks better for Cyrillic).
+/home/z/my-project/skills/pdf/briefs/report.md:495:### Chinese Plot PNG Method
+/home/z/my-project/skills/pdf/briefs/report.md:499:matplotlib.font_manager.fontManager.addfont('/usr/share/fonts/truetype/chinese/NotoSansSC-Regular.ttf')
+/home/z/my-project/skills/pdf/briefs/report.md:501:# Noto Sans SC for Chinese, DejaVu Sans catches symbols Noto Sans SC lacks (²³♠ etc.)
+/home/z/my-project/skills/pdf/briefs/report.md:508:- `/usr/share/fonts/truetype/chinese/`
+/home/z/my-project/skills/pdf/briefs/report.md:752:    * Chinese content: None or negligible
+/home/z/my-project/skills/pdf/briefs/report.md:754:  - For Chinese text, always add `wordWrap='CJK'` to ParagraphStyle
+/home/z/my-project/skills/pdf/briefs/report.md:761:* **CRITICAL**: For Chinese text, always add `wordWrap='CJK'` to ParagraphStyle
+/home/z/my-project/skills/pdf/briefs/report.md:998:# Use wordWrap='CJK' for proper Chinese typography
+/home/z/my-project/skills/pdf/briefs/report.md:1635:- [ ] **Chinese text**: `wordWrap='CJK'` in ParagraphStyle
+/home/z/my-project/skills/pdf/briefs/poster.md:411:**For Chinese posters (serious/formal scenes):**
+/home/z/my-project/skills/pdf/briefs/poster.md:416:| CJK title (alt) | Douyin Sans / Alimama FangYuanTi VF Bold | Via CDN | Modern Chinese |
+/home/z/my-project/skills/pdf/briefs/process.md:336:- Missing Chinese fonts → squares. Ensure Noto Sans SC/Noto Serif SC are installed
+/home/z/my-project/skills/pdf/briefs/creative.md:671:When writing raw HTML/CSS for Playwright (bypassing the JSON Blueprint pipeline - e.g., resumes, menus, invitations, business cards, certificates, Japanese/Chinese vertical layouts):
+/home/z/my-project/skills/pdf/briefs/creative.md:749:1. **Character Encoding Safety**: Never use Japanese kana (の, が, は), rare symbols, or Private Use Area characters in content strings. They corrupt to U+FFFD (�) during LLM→file write→read transit. Replace with plain Chinese equivalents: `の`→`之/的/缔/省略`.
+/home/z/my-project/skills/pdf/briefs/creative.md:750:2. **Vertical Chinese Text** - When using `writing-mode: vertical-rl` for CJK, you MUST include:
+/home/z/my-project/skills/pdf/briefs/creative-fixed-canvas.md:677:When writing raw HTML/CSS for Playwright (bypassing the JSON Blueprint pipeline - e.g., resumes, menus, invitations, business cards, certificates, Japanese/Chinese vertical layouts):
+/home/z/my-project/skills/pdf/briefs/creative-fixed-canvas.md:787:1. **Character Encoding Safety**: Never use Japanese kana (の, が, は), rare symbols, or Private Use Area characters in content strings. They corrupt to U+FFFD (�) during LLM→file write→read transit. Replace with plain Chinese equivalents: `の`→`之/的/缔/省略`.
+/home/z/my-project/skills/pdf/briefs/creative-fixed-canvas.md:788:2. **Vertical Chinese Text** - When using `writing-mode: vertical-rl` for CJK, you MUST include:
+/home/z/my-project/skills/pdf/briefs/creative-flow.md:188:Never use Japanese kana (の, が, は), rare symbols, or Private Use Area characters. They corrupt to U+FFFD (�) during LLM→file write→read transit. Replace with plain Chinese equivalents: `の`→`之/的/缔`.
+/home/z/my-project/skills/pdf/briefs/creative-flow.md:190:### Vertical Chinese Text
+/home/z/my-project/skills/pdf/env_setup/setup.md:57:| Font | CJK fonts (from CDN) | Chinese text in PDFs |
+/home/z/my-project/skills/pdf/env_setup/setup.md:119:| `truetype/lxgw-wenkai/` | 6 | LXGW WenKai — Chinese handwriting style |
+/home/z/my-project/skills/pdf/env_setup/setup.md:120:| `truetype/noto-serif-sc/` | 9 | Noto Serif SC — Chinese serif (variable + 8 static weights) |
+/home/z/my-project/skills/pdf/env_setup/setup.md:121:| `chinese/` | 14 | Noto Sans SC, Sarasa Mono SC, Liberation fallbacks |
+/home/z/my-project/skills/pdf/env_setup/setup.md:146:curl -fSLO "https://z-cdn.chatglm.cn/office-skill/fonts/chinese/NotoSansSC-Regular.ttf"
+/home/z/my-project/skills/finance/SKILL.md:40:- **Company Name (Chinese)**: 北京智谱华章科技股份有限公司
+/home/z/my-project/skills/finance/SKILL.md:42:Zhipu AI is a leading Chinese large language model company specializing in AI foundational model research and development.
+/home/z/my-project/skills/design/design-systems/style-skills/parchment/SKILL.md:3:description: Warm editorial, print-leaning document design system — parchment background, single ink-blue accent, serif-led hierarchy (LXGW WenKai for Chinese, Charter for English). For résumés, reports, white papers, letters, and editorial reading pages that should feel authored and published. Not a product-UI / component system.
+/home/z/my-project/skills/design/design-systems/style-skills/parchment/SKILL.md:34:- load the Chinese serif online via the @import in DESIGN.md
+/home/z/my-project/skills/design/design-systems/style-skills/parchment/SKILL.md:65:- Chinese serif actually loaded (@import), with system-serif fallback
+/home/z/my-project/skills/design/design-systems/style-skills/parchment/DESIGN.md:41:- **Typography fonts:** primary=LXGW WenKai Screen (霞鹜文楷, Chinese), display=Charter (English serif), mono=JetBrains Mono
+/home/z/my-project/skills/design/design-systems/style-skills/parchment/DESIGN.md:62:Chinese serif loads online (no bundled font files):
+/home/z/my-project/skills/design/design-systems/style-skills/parchment/DESIGN.md:70:When exporting to PDF, the online Chinese font may fall back to a system CJK serif; install LXGW WenKai locally if exact rendering is required, otherwise the fallback is acceptable.
+/home/z/my-project/skills/docx/SKILL.md:105:For Chinese font size table and common margins, see `references/common-rules.md`.
+/home/z/my-project/skills/docx/SKILL.md:119:- [ ] **⚠️ CRITICAL — Quotation marks in JS strings properly escaped.** Chinese curly quotes (`""` `''`) MUST use Unicode escapes (`\u201c` `\u201d` `\u2018` `\u2019`); straight quotes (`"` `'`) use `\"` `\'` or alternate delimiters. **This is the #1 most common code generation bug.** Chinese text frequently contains `""` for emphasis or proper nouns (e.g., "双11", "前低后高", "618") — every occurrence MUST be escaped. Failure to escape produces JS syntax errors that silently break document generation.
+/home/z/my-project/skills/docx/references/docx-js-core.md:212:The example below is for **Chinese documents** (default). For **English documents**, replace `font` with `"Times New Roman"` throughout.
+/home/z/my-project/skills/docx/references/design-system.md:184:### Chinese Fonts
+/home/z/my-project/skills/docx/references/design-system.md:205:For **English text within Chinese documents**, use the Chinese document's ascii font (Calibri by default).
+/home/z/my-project/skills/docx/references/design-system.md:768: * Smart Chinese title line-breaking — breaks at semantic boundaries, never mid-word.
+/home/z/my-project/skills/docx/references/design-system.md:1464:// ── Width-aware title layout (handles mixed Chinese + English) ──
+/home/z/my-project/skills/docx/references/design-system.md:1477:// to prevent mid-word breaks in mixed Chinese+English titles like "基于Transformer架构的..."
+/home/z/my-project/skills/docx/references/design-system.md:1560:  // ★ Width-aware title layout for mixed Chinese+English
+/home/z/my-project/skills/docx/references/design-system.md:1674:## Chinese Plot PNG Method (matplotlib)
+/home/z/my-project/skills/docx/references/docx-js-advanced.md:148:Bare Chinese curly quotation marks (`""` `''`) in JS string literals **WILL break syntax and crash document generation**. This bug occurs most often in **Chinese body text** where curly quotes are used for emphasis, proper nouns, event names, or quoted speech — e.g., `"双11"`, `"前低后高"`, `"618"大促`. **Every single occurrence** of `""''` in text content MUST be Unicode-escaped. No exceptions.
+/home/z/my-project/skills/docx/references/docx-js-advanced.md:150:**MANDATORY RULE: Before writing ANY `TextRun`, `para()`, or string containing Chinese text, scan the text for `""''` characters and replace ALL of them with `\u201c \u201d \u2018 \u2019`.**
+/home/z/my-project/skills/docx/references/docx-js-advanced.md:160:// ❌ WRONG — curly quotes in Chinese text break JS syntax (VERY COMMON MISTAKE)
+/home/z/my-project/skills/design/design-systems/brand-inspiration/kami/DESIGN.md:19:kami compresses into one sentence: **warm parchment canvas, ink-blue accent, serif carries hierarchy, no cool grays, no hard shadows.** It is not a UI framework — it is a constraint system for the page, designed to keep deliverables stable, clear, and unmistakably *printed*. The name reads as **kami / 紙 / 纸** — the same word for "paper" across Japanese and Chinese — and the system is co-designed across English, Simplified Chinese, and Japanese typesetting from the ground up, not retrofitted.
+/home/z/my-project/skills/design/design-systems/brand-inspiration/kami/DESIGN.md:89:/* Chinese */
+/home/z/my-project/skills/docx/references/faq.md:58:## Bug: User requests Chinese font size name (e.g. Wu Hao) but output is wrong
+/home/z/my-project/skills/docx/references/faq.md:60:**Symptom**: Font size doesn't match expected Chinese size name.
+/home/z/my-project/skills/docx/references/faq.md:85:## Bug: Chinese characters garbled in matplotlib charts
+/home/z/my-project/skills/docx/references/faq.md:87:**Symptom**: Chinese text shows as empty boxes □□□ in generated PNG charts.
+/home/z/my-project/skills/docx/references/faq.md:135:**This is the single most frequent code generation error.** Chinese text routinely uses curly quotes `""` for emphasis, proper nouns, and event names (e.g., "双11", "前低后高", "618"大促). These MUST be Unicode-escaped — bare curly quotes silently break JS syntax.
+/home/z/my-project/skills/docx/references/faq.md:137:**Rule: scan ALL Chinese text for `""''` and replace with `\u201c \u201d \u2018 \u2019` BEFORE writing the string.**
+/home/z/my-project/skills/docx/references/faq.md:140:// ❌ WRONG — curly quotes in Chinese text break syntax (extremely common)
+/home/z/my-project/skills/docx/references/chart-templates.md:27:    "/usr/share/fonts/truetype/chinese/SimHei.ttf",        # custom install
+/home/z/my-project/skills/docx/references/chart-templates.md:256:    categories: ["Chinese", "Math", "English", "Physics", "Chemistry"]
+/home/z/my-project/skills/docx/references/common-rules.md:73:## Chinese Font Size Reference
+/home/z/my-project/skills/docx/references/common-rules.md:313:For mixed Chinese+English titles (e.g., "基于Transformer架构的..."), use `estimateTextWidth()` instead of character count for line break calculation. Chinese characters are ~2× wider than English characters at the same font size.
+/home/z/my-project/skills/docx/routes/create.md:14:   ⚠️ **BEFORE writing any string**: scan ALL Chinese text for curly quotes `""''` and replace with `\u201c \u201d \u2018 \u2019` — bare curly quotes break JS syntax (see docx-js-advanced.md § Quotes Escaping)
+/home/z/my-project/skills/docx/routes/create.md:69:⚠️ **Thesis proposal report (开题报告):** Use `buildProposalCover()` from `scenes/academic.md`. Cover MUST be an independent section. Keywords: "开题报告" (Chinese), "thesis proposal", "research proposal" — NOT the same as business proposals (which use R4).
+/home/z/my-project/skills/docx/routes/format.md:42:Typical Chinese university thesis requirements:
+/home/z/my-project/skills/docx/routes/format.md:90:When user requests a Chinese font size name:
+/home/z/my-project/skills/docx/scenes/academic.md:138:Section 2: Chinese Abstract → Roman numerals starting from i
+/home/z/my-project/skills/docx/scenes/academic.md:233:- Chinese abstract, English abstract, TOC each in their own section
+/home/z/my-project/skills/docx/scenes/academic.md:443:### Chinese Abstract
+/home/z/my-project/skills/docx/scenes/academic.md:462:- **Must be consistent with Chinese abstract** — no significant shrinkage
+/home/z/my-project/skills/docx/scenes/academic.md:759:- [ ] English abstract consistent with Chinese abstract
+/home/z/my-project/skills/docx/scenes/resume.md:235:// Full-width bar background + white Chinese text + lighter English text
+/home/z/my-project/skills/docx/scenes/contract.md:282:Use stable, consistent, pure-text numbering suitable for Chinese legal documents.
+/home/z/my-project/skills/docx/scenes/contract.md:414:Contracts must show amounts in **both uppercase Chinese and numeric format**:
+/home/z/my-project/skills/docx/scenes/exam.md:176:| Chinese reading / composition | ❌ Not suitable |
+/home/z/my-project/skills/docx/scenes/exam.md:184:- **Major sections:** I, II, III, IV... (Chinese: 一、二、三、四…)
+/home/z/my-project/skills/docx/scenes/exam.md:267:- Chinese questions use Chinese punctuation; English materials use English punctuation
+/home/z/my-project/skills/docx/scenes/exam.md:406:### Chinese Composition Grid
+/home/z/my-project/skills/docx/scenes/exam.md:452:4. Chinese composition uses grid (`compositionGrid`), English uses lines (`writingLines`) — never mix them up
+/home/z/my-project/skills/docx/scenes/exam.md:633:### Chinese Language
+/home/z/my-project/skills/docx/scenes/official-doc.md:200:Official document body must strictly follow the standard Chinese government numbering system:
+/home/z/my-project/skills/docx/scenes/official-doc.md:209:Original Chinese numbering:
+/home/z/my-project/skills/docx/scenes/official-doc.md:246:3. Formal document dates must use Chinese numeral format with proper "〇" character
+/home/z/my-project/skills/docx/scenes/official-doc.md:408:- [ ] Date uses Chinese numerals with proper "〇" character
+/home/z/my-project/skills/charts/SKILL.md:150:| Any node text > **12 Chinese characters** | → CSS flowchart |
+/home/z/my-project/skills/charts/SKILL.md:250:6. **Font discipline.** Max 2 fonts. Chinese: SimHei/PingFang SC. Always explicitly set fonts in code. Font size follows hierarchy (title 18-24px → body 13-15px → annotation 11-13px). Never go below 10px floor. When text overflows: condense text → enlarge canvas → last resort: shrink font (but never below floor).
+/home/z/my-project/skills/charts/references/radial-grid.md:550:2. **Bullet text: max 15 Chinese characters per line** — longer text wraps naturally (word-break: break-word)
+/home/z/my-project/skills/charts/references/radial-grid.md:551:3. **Center node text: max 8 Chinese characters** — keep it a short label, not a sentence
+/home/z/my-project/skills/charts/references/radial-grid.md:552:4. **Dimension title: max 10 Chinese characters** — concise category name
+/home/z/my-project/skills/charts/references/matplotlib.md:14:# ═══ Chinese Font Setup ═══
+/home/z/my-project/skills/charts/references/echarts.md:6:ECharts strengths: interactivity (tooltip/zoom/linking), big data (Canvas renders millions of points smoothly), strong Chinese community.
+/home/z/my-project/skills/charts/references/echarts.md:646:| Chinese docs | ✅ Official | ❌ English | ❌ English |
+/home/z/my-project/skills/charts/references/seaborn.md:18:# ═══ Chinese Font Setup ═══
+/home/z/my-project/skills/aminer-free-academic/references/api-catalog.md:41:| title_zh | Paper title in Chinese |
+/home/z/my-project/skills/aminer-free-academic/references/api-catalog.md:124:| name_zh | Chinese name |
+/home/z/my-project/skills/aminer-free-academic/references/api-catalog.md:127:| org_zh | Institution in Chinese |
+/home/z/my-project/skills/aminer-free-academic/references/api-catalog.md:197:| name_zh | Venue Chinese name |
+/home/z/my-project/skills/aminer-free-academic/references/api-catalog.md:236:| title_zh | Patent title in Chinese |
+/home/z/my-project/skills/aminer-free-academic/evals/evals.json:61:        "Output includes venue_id, standard name (English and/or Chinese), and venue_type",
+/home/z/my-project/skills/design/design-systems/brand-inspiration/xiaohongshu/DESIGN.md:94:**Chinese (display + body, all levels):**
+/home/z/my-project/skills/design/design-systems/brand-inspiration/xiaohongshu/DESIGN.md:171:| State | Background | Label (Chinese / English) | Text | Shape |
+/home/z/my-project/skills/design/design-systems/brand-inspiration/xiaohongshu/DESIGN.md:320:- ❌ Don't use Inter, Helvetica, or Roboto as the Chinese display face. PingFang SC is the system — Latin fallback chains use `-apple-system` first.
+/home/z/my-project/skills/design/design-systems/brand-inspiration/xiaohongshu/DESIGN.md:322:- ❌ Don't ship light / thin weights at body sizes. Notes carry dense Chinese text; light weights destroy mobile legibility.
+/home/z/my-project/skills/design/design-systems/brand-inspiration/xiaohongshu/DESIGN.md:327:- ❌ Don't write hero CTAs in all-caps Latin. Sentence-case Chinese, sentence-case Latin, no exceptions.
+/home/z/my-project/skills/design/design-systems/brand-inspiration/xiaohongshu/DESIGN.md:360:- Body sizes do not shrink below 14px. Small captions stay at 12px to preserve density without becoming illegible on Chinese characters.
+/home/z/my-project/skills/design/design-systems/brand-inspiration/xiaohongshu/DESIGN.md:411:6. **Second person Chinese voice.** Even Latin copy should read like a friend talking, not a vendor pitching.
+/home/z/my-project/skills/design/horizontal-craft/anti-ai-slop.md:102:- Chinese body text that is too light on dark backgrounds
+/home/z/my-project/skills/design/horizontal-craft/anti-ai-slop.md:103:- Chinese display text without an intentional display font or accepted fallback
+/home/z/my-project/skills/design/horizontal-craft/anti-ai-slop.md:181:## Chinese copy smells that affect design quality
+/home/z/my-project/skills/design/horizontal-craft/README.md:10:    # Always for Chinese artifacts
+/home/z/my-project/skills/design/horizontal-craft/README.md:11:    - horizontal-craft/chinese-typography.md
+/home/z/my-project/skills/design/horizontal-craft/README.md:35:### Baseline for Chinese visual design
+/home/z/my-project/skills/design/horizontal-craft/README.md:37:- Read `chinese-typography.md` whenever the artifact contains meaningful Chinese text.
+/home/z/my-project/skills/design/horizontal-craft/README.md:39:- Do not read `reference/fonts.md` for every Chinese task; for ordinary Web/App/Dashboard output without font intent, use a safe system font stack.
+/home/z/my-project/skills/design/horizontal-craft/README.md:47:- `chinese-typography.md` — read for all Chinese-language artifacts.
+/home/z/my-project/skills/design/horizontal-craft/README.md:67:There is no standalone `chinese-copy.md`. Copywriting is not a core design craft. Only short copy-related failure smells that visibly affect design quality remain in `anti-ai-slop.md`.
+/home/z/my-project/skills/design/horizontal-craft/README.md:85:`reference/` lives inside `horizontal-craft/` because these files are deep typography and layout references used primarily by `chinese-typography.md`. Keep them here instead of the design root.
+/home/z/my-project/skills/design/horizontal-craft/state-coverage.md:54:| Detail view | missing optional metadata, mixed Chinese / Latin / long words |
+/home/z/my-project/skills/design/horizontal-craft/reference/fonts.md:1:# 字体选择与搭配 Chinese Font Selection
+/home/z/my-project/skills/design/design-systems/brand-inspiration/minimax/DESIGN.md:383:MiniMax stages itself as a Chinese AI infrastructure brand with a sophisticated dual identity. Marketing surfaces and platform pages anchor in stark white canvas with deep-black typographic emphasis — the brand voice is confident, technical, almost editorial. But each model release gets its own vibrant gradient identity card: M2.7 in volcanic coral-red, Music 2.6 in magenta-pink, Hailuo in deep blue, Speech 2.8 in saturated orange-purple. Together these vibrant tiles read like album covers laid out on the homepage — each one declaring its own product personality.
+/home/z/my-project/skills/design/horizontal-craft/chinese-typography.md:2:name: chinese-typography
+/home/z/my-project/skills/design/horizontal-craft/chinese-typography.md:6:# 中文字体排版 Chinese Typography
+/home/z/my-project/skills/design/horizontal-craft/laws-of-ux.md:33:(`accessibility.md`, `state-coverage.md`, `chinese-typography.md`,
+/home/z/my-project/skills/design/horizontal-craft/laws-of-ux.md:46:`chinese-typography.md`, the indigo / gradient / emoji-icon list in
+/home/z/my-project/skills/design/horizontal-craft/laws-of-ux.md:267:  three-weight typography rhythm in `chinese-typography.md`, P0 anti-default
+/home/z/my-project/skills/design/prototype.md:495:- `design-system-reference.md` · `horizontal-craft/chinese-typography.md` · `export.md` · `version-management/SKILL.md`
+/home/z/my-project/skills/design/canvas-and-device.md:79:### User-provided Chinese social media presets
+/home/z/my-project/skills/design/INDEX.md:67:| `horizontal-craft/chinese-typography.md` | Substantial Chinese text or Chinese reading comfort matters. |
+/home/z/my-project/skills/design/INDEX.md:68:| `horizontal-craft/reference/title-and-breaking.md` | Titles, covers, slides, social-card headings, or line-break-sensitive Chinese. |
+/home/z/my-project/skills/design/INDEX.md:69:| `horizontal-craft/reference/punctuation.md` | Punctuation-heavy Chinese long text. |
+/home/z/my-project/skills/design/INDEX.md:73:| `horizontal-craft/reference/directions.md` | Vertical text, classical Chinese, regional typography differences, or traditional layouts. |
+/home/z/my-project/skills/design/INDEX.md:88:- `chinese-copy.md` — removed from core craft. Lightweight AI-flavored copy checks belong in `anti-ai-slop.md` when they affect design quality.
+/home/z/my-project/skills/design/export.md:437:## Chinese Typography Reference
+/home/z/my-project/skills/design/export.md:439:Use `horizontal-craft/chinese-typography.md` when the artifact contains substantial Chinese / Chinese / CJK text, Chinese editorial layout, public-account formatting, Xiaohongshu content, Chinese deck typography, Chinese UI labels, or print-design-inspired HTML.
+/home/z/my-project/skills/design/export.md:472:When substantial Chinese text is present, use `horizontal-craft/chinese-typography.md` Mandatory Runtime Baseline. Read deeper typography references only for typography-heavy tasks such as 版心、网格、模数、出版感、诊断 or formal report layout.
+/home/z/my-project/skills/design/export.md:489:If the task contains substantial Chinese text, also apply `horizontal-craft/chinese-typography.md` and its required reference-loading matrix.
+/home/z/my-project/skills/design/SKILL.md:161:- If the user writes in Chinese, all visible text in the artifact (headings, body copy, labels, CTAs, microcopy, navigation, placeholders, alt text) must be in Chinese.
+/home/z/my-project/skills/design/SKILL.md:167:- When Chinese / CJK content is detected (by this rule or by user request), also load `horizontal-craft/chinese-typography.md` as a shared reference. **Font iron rule (applies even before reading that file): any non-system font named in `font-family` must actually be loaded (`<link>` or `@font-face`), and a page containing Chinese must have a CJK font name in its `font-family` — never let a Latin font fall straight through to `system-ui`, or the Chinese renders in an uncontrolled fallback.** Font selection/loading detail: `horizontal-craft/fonts.md`.
+/home/z/my-project/skills/design/SKILL.md:449:horizontal-craft/chinese-typography.md       → substantial Chinese text / Chinese reading comfort (apply its Mandatory Runtime Baseline)
+/home/z/my-project/skills/design/SKILL.md:451:  → reference/punctuation.md                 → punctuation-heavy long Chinese copy
+/home/z/my-project/skills/design/SKILL.md:501:## Chinese Typography Execution Rule
+/home/z/my-project/skills/design/SKILL.md:503:With substantial Chinese text, apply `horizontal-craft/chinese-typography.md` — the **Mandatory Runtime Baseline** for normal artifacts; baseline + the Reference Escalation Matrix files for typography-heavy ones. Don't block normal generation on reading every reference. Don't claim Chinese typography was applied unless the CSS makes concrete decisions for: font stack, display strategy, font size, line-height, measure/max-width, letter-spacing, paragraph rhythm, punctuation, mixed CN-Latin-number handling.
+/home/z/my-project/skills/design/design-system-generation.md:773:## Chinese Typography Reference
+/home/z/my-project/skills/design/design-system-generation.md:775:Use `horizontal-craft/chinese-typography.md` when the artifact contains substantial Chinese / Chinese / CJK text, Chinese editorial layout, public-account formatting, Xiaohongshu content, Chinese deck typography, Chinese UI labels, or print-design-inspired HTML.
+/home/z/my-project/skills/design/info-interactive.md:202:- `horizontal-craft/chinese-typography.md` — substantial Chinese text or Chinese reading comfort.
+/home/z/my-project/skills/design/design-templates/dashboard/SKILL.md:3:description: Chinese-first internal-tool / ops dashboard template — light-mode Linear-grade layout with serif headlines, tabular Inter numerals, KPI hero, pulse bars, progress rings, team-presence grid, activity timeline, and CJK-aware typography.
+/home/z/my-project/skills/design/design-templates/dashboard/SKILL.md:20:Use this template when the artifact is a **Chinese-language internal tool / ops / project dashboard** that needs to look designed-in-Chinese, not translated.
+/home/z/my-project/skills/design/design-templates/dashboard/SKILL.md:25:- The dashboard is **CJK-primary** — Latin and numerals serve the Chinese hierarchy, not the other way around.
+/home/z/my-project/skills/design/design-templates/dashboard/SKILL.md:40:Read `stack-dashboard-zh.html` only when you need concrete component geometry (ring sizes, pulse-bar segment widths, tab-grid spacing, status-dot sizing) or the Chinese font-stack ordering. Extract patterns; do not copy DOM, classnames, placeholder team names, or color tokens wholesale.
+/home/z/my-project/skills/design/design-templates/dashboard/SKILL.md:86:- treating Latin labels as primary when the audience reads Chinese
+/home/z/my-project/skills/design/design-templates/html-ppt-xhs-post/SKILL.md:30:- Distinctive moves: mint→cream vertical gradient, Songti SC Chinese headline + Times New Roman italic English lead, ink-green (#2d4a3e) accents, hand-drawn SVG clouds / grass tufts, soft-glow photography.
+/home/z/my-project/skills/design/design-templates/html-ppt-xhs-post/SKILL.md:74:- bilingual stacking (English lead + Chinese headline) only when both have meaning
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/style-system.md:79:Chinese titles are visually dense. Shorten first, then reduce size. Do not solve overflow by shrinking body text below readability.
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/platform-specs.md:45:- 12-30 Chinese characters for the title when possible.
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/platform-specs.md:86:- Keep it to roughly 4-10 Chinese characters, or 2 short lines when needed.
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/title-shortener.md:28:**3. Compress to 4-10 Chinese characters.** That is the readable band for 88-120px type on a 1080×1080 canvas. Outside that band, you either need 2 lines (still OK), 3+ lines (almost certainly wrong), or a typographic stunt (one giant character + meta — see Big Word recipe below).
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/title-shortener.md:30:**4. Drop English unless it carries the verb.** Mixed CJK + Latin at large size is a Swiss/Editorial trick that takes a lot of practice. For 1:1 short titles, prefer pure Chinese. Exceptions: brand names (`AI`, `Mac`, `iOS`), domain terms with no Chinese equivalent (`PPT`, `MCP`).
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/title-shortener.md:90:- **English-only titles when the content is Chinese.** Looks like stock template. Mix only when the English carries the actual headline (e.g. brand launch).
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/title-shortener.md:104:If a single-line short title is ≤ 4 Chinese chars on Swiss square, you can push `.h-hero` to 240px without overflow.
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/image-overlay.md:102:Never place display titles **across** the face. A 90 px Chinese title cutting through a person's eyes is destructive even with a mask.
+/home/z/my-project/skills/design/design-templates/pricing-page/SKILL.md:3:description: Chinese-market SaaS pricing page template — soft sky-blue glass-morphism, 4-tier card grid with one elevated "recommended" tier, monthly/annual toggle, FAQ accordion, ¥ pricing with Inter numerals, careful CJK linebreaking, ICP filing footer.
+/home/z/my-project/skills/design/design-templates/pricing-page/SKILL.md:21:Use this template when the artifact is a **Chinese-market SaaS / product pricing page** that needs to feel premium, calm, and design-led — not a generic 3-tier feature-checklist grid.
+/home/z/my-project/skills/design/design-templates/pricing-page/SKILL.md:25:- The product is sold to a Chinese audience (¥, 元/月, ICP filing, 微信/支付宝 implied).
+/home/z/my-project/skills/design/design-templates/pricing-page/SKILL.md:68:- forcing English tier names when the audience reads Chinese
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/layout-recipes.md:171:- One large serif `h-display` naming the section (3-6 Chinese characters).
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/layout-recipes.md:233:Title length cap: 3 lines, each <= 6 Chinese characters at default size. If the question is longer, shorten it; do not shrink the `h-display`.
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/layout-recipes.md:398:| Mode | Max Chinese chars | Max lines |
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/layout-recipes.md:671:- Each row: `.row-lbl` (Chinese item name), `.row-track` containing `.row-fill`, `.row-val` (mono number).
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/layout-recipes.md:726:- Each row: `.ledger-num` (large mono-feel sans number), `.ledger-lbl` (Chinese label + optional `.sub` secondary line), `.ledger-icn` (Lucide icon).
+/home/z/my-project/skills/design/design-templates/social-card-swiss/references/layout-recipes.md:778:- `.matrix-fill` grid of 8-12 `.matrix-cell`s. Each cell: `.cell-nb` (numbered mono label like `01`) and `.cell-title` (one short Chinese phrase).
+/home/z/my-project/skills/design/design-templates/ppt/html-ppt-zhangzara-grove/template.json:43:    "style": "transitional serif headlines + clean geometric sans body + technical mono; full Chinese serif/sans support"
+/home/z/my-project/skills/design/design-templates/portfolio-detail/SKILL.md:3:description: Generate a single-file Chinese atelier-style portfolio website (horizontal-row list + hover-reveal thumb interaction, art lishu typography "Alimama DaoLiTi" via CDN, light/dark theme, hash-routed detail pages). Takes a natural-language description of the studio (name, director, discipline, works) and outputs ONE working .html file. Runs in BOTH Claude Code (writes to ~/Desktop) and GLM / online chat (outputs HTML inline). Trigger phrases include "做个中式工作室作品集", "做个隶书作品集", "lishu-portfolio-gen ...", "做个白屋风格的作品集", or when user drags this skill folder into chat asking for an atelier-style site.
+/home/z/my-project/skills/design/design-templates/blog-post/SKILL.md:3:description: Long-form Chinese article / blog-post template — two voices: a wildstay-style lifestyle launch piece with editorial grid + oversized display type, and a WeChat-公众号-style serif beauty/longform with measured prose and quiet hairlines.
+/home/z/my-project/skills/design/design-templates/blog-post/SKILL.md:21:Use this template for **single-page long-form Chinese articles** — brand stories, lifestyle features, beauty / wellness deep-reads, cultural essays, 公众号-style long posts rendered as standalone web pages.
+/home/z/my-project/skills/design/design-templates/blog-post/SKILL.md:82:- captions and metadata in small caps / mono / Latin to break the Chinese rhythm
+/home/z/my-project/skills/design/design-templates/social-card-quote/SKILL.md:42:- Use `reference/title-and-breaking.md` for Chinese line breaks.
+/home/z/my-project/skills/design/design-system-reference.md:576:## Chinese Typography Reference
+/home/z/my-project/skills/design/design-system-reference.md:578:Use `horizontal-craft/chinese-typography.md` when the artifact contains substantial Chinese / Chinese / CJK text, Chinese editorial layout, public-account formatting, Xiaohongshu content, Chinese deck typography, Chinese UI labels, or print-design-inspired HTML.
+/home/z/my-project/skills/design/content-page.md:106:| Public Account / WeChat Article | mobile-first Chinese reading | single-column rhythm, strong title breaking, paragraph breathing, image captions |
+/home/z/my-project/skills/design/content-page.md:118:- Body text must have a controlled measure — but bounded on *both* sides. Target roughly **30–45 Chinese characters / 60–75 Latin characters per line**, i.e. a reading column around **wide: clamp(0, ~42em, ~760px)**. Don't run full-width across a desktop viewport, and equally don't over-narrow it into a cramped ~480px ribbon with huge empty margins. If the layout has no side rail/figures, the column can sit toward the upper end (~46em); a too-narrow column is as much a failure as a full-width one.
+/home/z/my-project/skills/design/content-page.md:134:A page that is only title + paragraphs + a few cards is the flat failure mode, even if it reads fine. Commit to visible rhythm: alternate dense reading zones with lighter pause zones (quote, figure, data insert, divider), and pick at least one editorial device below so the page has a memory point — don't ship an even, paragraph-after-paragraph wall. For Chinese content specifically, actively use the **表现力手法** in `horizontal-craft/chinese-typography.md` (oversized title contrast, weight contrast, drop-cap/opening ritual, vertical-in-horizontal title/quote, pulled-out 金句 blocks) so the typography itself carries character — not just correct, but expressive. Keep it in service of reading, not decoration.
+/home/z/my-project/skills/design/content-page.md:265:Use for Chinese mobile reading and WeChat-like publishing.
+/home/z/my-project/skills/design/content-page.md:277:For Chinese content, apply `horizontal-craft/chinese-typography.md`.
+/home/z/my-project/skills/design/content-page.md:282:- `horizontal-craft/reference/title-and-breaking.md` — headlines, decks, section titles, Chinese line breaks.
+/home/z/my-project/skills/design/content-page.md:283:- `horizontal-craft/reference/punctuation.md` — punctuation-heavy Chinese, quotations, lists, notes, captions.
+/home/z/my-project/skills/design/content-page.md:287:Do not read `fonts.md` for every Chinese article. Most web content can use a safe system font stack unless the typography itself is part of the visual direction.
+
+[Showing results with pagination = limit: 250]
