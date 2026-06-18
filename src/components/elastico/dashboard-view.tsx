@@ -1,95 +1,30 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useElasticoStore, type Match, type Team, type NewsItem } from '@/store/use-elastico-store'
+import React, { useCallback, useMemo, useRef } from 'react'
+import { useElasticoStore } from '@/store/use-elastico-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
-  ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
+  ResponsiveContainer, BarChart, Bar,
 } from 'recharts'
 import {
-  TrendingUp, Target, Zap, Activity, Users, Trophy, Swords, Clock,
-  ArrowRight, Star, Flame, Brain, BarChart3, Network, Gamepad2,
-  CalendarDays, MapPin, Cloud, Thermometer, Newspaper, MessageSquare,
-  ChevronRight, Sparkles, Eye, Wind, Droplets, Shield, Award,
+  TrendingUp, Target, Zap, Users, Trophy, Swords, Clock,
+  Star, Newspaper, MessageSquare,
+  ChevronRight, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TYPES & MOCK DATA
+// TYPES
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface TickerMatch {
   id: string; homeCode: string; awayCode: string; homeColor: string; awayColor: string
   homeScore: number; awayScore: number; status: string; minute?: number
 }
-
-const MOCK_TICKER: TickerMatch[] = [
-  { id: '1', homeCode: 'BRA', awayCode: 'GER', homeColor: '#009c3b', awayColor: '#000000', homeScore: 2, awayScore: 1, status: 'finished' },
-  { id: '2', homeCode: 'ARG', awayCode: 'FRA', homeColor: '#75aadb', awayColor: '#002395', homeScore: 3, awayScore: 3, status: 'live', minute: 78 },
-  { id: '3', homeCode: 'ESP', awayCode: 'ENG', homeColor: '#c60b1e', awayColor: '#cf081f', homeScore: 1, awayScore: 0, status: 'finished' },
-  { id: '4', homeCode: 'POR', awayCode: 'NED', homeColor: '#006600', awayColor: '#ff6600', homeScore: 0, awayScore: 0, status: 'upcoming' },
-  { id: '5', homeCode: 'ITA', awayCode: 'JPN', homeColor: '#008c45', awayColor: '#bc002d', homeScore: 2, awayScore: 2, status: 'finished' },
-]
-
-const MOCK_TOP_PERFORMERS = [
-  { name: 'Kylian Mbappé', code: 'FRA', rating: 8.7, goals: 3, assists: 2, position: 'FW' },
-  { name: 'Jude Bellingham', code: 'ENG', rating: 8.4, goals: 2, assists: 3, position: 'MF' },
-  { name: 'Vinícius Jr', code: 'BRA', rating: 8.2, goals: 2, assists: 1, position: 'FW' },
-]
-
-const MOCK_COMMUNITY_PIES = [
-  { name: 'Home', value: 45, fill: '#00e676' },
-  { name: 'Draw', value: 25, fill: '#ffd700' },
-  { name: 'Away', value: 30, fill: '#ff4757' },
-]
-
-const MOCK_ELO_TEAMS = [
-  { name: 'Brazil', code: 'BRA', elo: 2085, change: +12 },
-  { name: 'Argentina', code: 'ARG', elo: 2071, change: +8 },
-  { name: 'France', code: 'FRA', elo: 2058, change: -3 },
-  { name: 'Spain', code: 'ESP', elo: 2042, change: +5 },
-  { name: 'England', code: 'ENG', elo: 2035, change: -1 },
-]
-
-const MOCK_RECENT_ACTIVITY = [
-  { match: 'BRA vs GER', prediction: 'Home Win', result: 'W' as const, points: 10 },
-  { match: 'ESP vs ENG', prediction: 'Home Win', result: 'W' as const, points: 10 },
-  { match: 'ITA vs JPN', prediction: 'Home Win', result: 'D' as const, points: 3 },
-  { match: 'POR vs NED', prediction: 'Draw', result: 'P' as const, points: 0 },
-  { match: 'ARG vs FRA', prediction: 'Away Win', result: 'P' as const, points: 0 },
-]
-
-const MOCK_XG_DATA = [
-  { match: 'BRA-GER', xg: 2.4, goals: 2 },
-  { match: 'ARG-FRA', xg: 1.8, goals: 3 },
-  { match: 'ESP-ENG', xg: 1.2, goals: 1 },
-  { match: 'ITA-JPN', xg: 2.1, goals: 2 },
-  { match: 'POR-NED', xg: 1.5, goals: 0 },
-]
-
-const MOCK_FORM_TABLE = [
-  { pos: 1, team: 'BRA', code: 'BRA', color: '#009c3b', p: 3, w: 3, d: 0, l: 0, gd: +5, pts: 9, form: 'WWW' },
-  { pos: 2, team: 'ARG', code: 'ARG', color: '#75aadb', p: 3, w: 2, d: 1, l: 0, gd: +3, pts: 7, form: 'WDW' },
-  { pos: 3, team: 'FRA', code: 'FRA', color: '#002395', p: 3, w: 1, d: 2, l: 0, gd: +2, pts: 5, form: 'DWD' },
-  { pos: 4, team: 'GER', code: 'GER', color: '#000000', p: 3, w: 0, d: 1, l: 2, gd: -3, pts: 1, form: 'LDL' },
-]
-
-const MOCK_NEWS = [
-  { title: 'Mbappé scores hat-trick in group stage', category: 'Performance', time: '2h ago' },
-  { title: 'VAR controversy in Spain vs England match', category: 'Controversy', time: '4h ago' },
-  { title: 'Brazil secures top spot in Group A', category: 'Tournament', time: '6h ago' },
-]
-
-const MOCK_WEATHER = [
-  { match: 'POR vs NED', condition: 'Partly Cloudy', temp: 22, wind: 12, humidity: 65 },
-  { match: 'JPN vs KOR', condition: 'Sunny', temp: 28, wind: 8, humidity: 45 },
-]
 
 // Simple deterministic hash for probability estimation
 function hashCode(str: string): number {
@@ -161,7 +96,7 @@ export default function DashboardView() {
       awayScore: m.awayScore,
       status: m.status,
     }))
-    return real.length > 0 ? real : MOCK_TICKER
+    return real
   }, [liveMatches, matches])
 
   // xG chart data — use real match data from ESPN
@@ -179,19 +114,19 @@ export default function DashboardView() {
       xg: ((m.homeXg || 0) + (m.awayXg || 0)).toFixed(1),
       goals: m.homeScore + m.awayScore,
     }))
-    return db.length > 0 ? db : MOCK_XG_DATA
+    return db
   }, [liveMatches, finishedMatches])
 
-  // News data
+  // News data — real from DB or football-data.org
   const newsItems = useMemo(() => {
     if (news.length > 0) {
-      return news.slice(0, 3).map((n) => ({
+      return news.slice(0, 5).map((n) => ({
         title: n.title,
         category: n.category,
         time: n.publishedAt ? new Date(n.publishedAt).toLocaleDateString() : 'Recent',
       }))
     }
-    return MOCK_NEWS
+    return []
   }, [news])
 
   // ── Handlers ─────────────────────────────────────────────────────────────
