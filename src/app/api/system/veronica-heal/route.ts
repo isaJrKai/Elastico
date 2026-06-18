@@ -249,11 +249,12 @@ export async function POST(request: Request) {
 
         if (testResult.passed) {
           // Step 3: Hot-swap — write healed code to disk
-          // SECURITY: Only allow writing to files within the project directory
+          // SECURITY: Only allow writing to a patches/ subdirectory, never source files
           const projectRoot = process.cwd()
-          const targetPath = path.resolve(projectRoot, filename)
-          if (!targetPath.startsWith(projectRoot)) {
-            return NextResponse.json({ error: 'Path traversal blocked' }, { status: 403 })
+          const patchesDir = path.join(projectRoot, 'patches')
+          const targetPath = path.resolve(patchesDir, filename)
+          if (!targetPath.startsWith(patchesDir + path.sep) && targetPath !== patchesDir) {
+            return NextResponse.json({ error: 'Writes restricted to patches/ directory only' }, { status: 403 })
           }
           await writeFile(targetPath, synthesizedPatch, 'utf-8')
 

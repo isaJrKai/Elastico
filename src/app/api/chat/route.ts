@@ -192,7 +192,11 @@ async function streamNvidiaResponse(
     },
   })
 
-  return response.body!.pipeThrough(transformStream)
+  if (!response.body) {
+    throw new Error('No response body received from NVIDIA API')
+  }
+
+  return response.body.pipeThrough(transformStream)
 }
 
 // ── NVIDIA NIM Non-Streaming Call ─────────────────────────────────────────────

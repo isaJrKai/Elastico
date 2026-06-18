@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { authenticateRequest } from '@/lib/auth'
 import { fetchAllLiveScores, mapStatus, ESPN_LEAGUES, type ESPNMatch } from '@/lib/football-data'
 
-/** GET /api/sync — fetch live data from ESPN and upsert into DB */
+/** GET /api/sync — fetch live data from ESPN and upsert into DB (admin only) */
 export async function GET(request: NextRequest) {
   try {
+    // SECURITY: Require authentication to prevent unauthenticated DB writes
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
+    if (auth.user?.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
     const { searchParams } = new URL(request.url)
     const leagueParam = searchParams.get('league') // optional: sync single league
 

@@ -419,8 +419,14 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    // SECURITY: Require a setup token to prevent unauthorized database resets
+    const setupToken = request.headers.get('x-setup-token')
+    if (setupToken !== process.env.SETUP_TOKEN) {
+      return NextResponse.json({ error: 'Invalid or missing setup token. Set SETUP_TOKEN in .env and pass it via x-setup-token header.' }, { status: 403 })
+    }
+
     const dbUrl = process.env.DATABASE_URL
     if (!dbUrl || dbUrl.startsWith('file:')) {
       return NextResponse.json({ error: 'DATABASE_URL not configured' }, { status: 400 })

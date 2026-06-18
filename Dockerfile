@@ -4,7 +4,7 @@ FROM node:20-alpine AS base
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-COPY package.json bun.lock ./
+COPY package.json package-lock.json ./
 RUN npm install --legacy-peer-deps
 
 # Build the app
@@ -33,4 +33,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["node", "server.js"]  # Note: start script uses bun for local dev only; Docker uses node directly

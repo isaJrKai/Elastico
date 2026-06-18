@@ -23,8 +23,12 @@ export function generateCSV(data: Record<string, unknown>[], filename: string): 
       const val = row[header]
       if (val === null || val === undefined) return '""'
       const str = String(val)
-      // Escape double quotes and wrap in quotes
-      return `"${str.replace(/"/g, '""')}"`
+      // Escape double quotes by doubling them, wrap in quotes
+      const needsQuoting = str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')
+      if (needsQuoting) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
     })
     csvRows.push(values.join(','))
   }
