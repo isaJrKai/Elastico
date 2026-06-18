@@ -339,8 +339,8 @@ export function MatchesView() {
       if (groupFilter !== 'all') params.set('group', groupFilter)
       const headers: Record<string, string> = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch(`/api/matches?${params.toString()}`, { headers })
-      const data: MatchesApiResponse = await res.json()
+      const res = await fetch(`/api/fixtures?${params.toString()}`, { headers })
+      const data: any = await res.json()
       setMatchesData(data.matches || [])
     } catch (err) {
       console.error('Failed to fetch matches:', err)
