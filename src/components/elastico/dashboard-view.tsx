@@ -97,9 +97,11 @@ const MOCK_WEATHER = [
 
 export default function DashboardView() {
   const user = useElasticoStore(s => s.user)
+  const token = useElasticoStore(s => s.token)
   const matches = useElasticoStore(s => s.matches)
   const teams = useElasticoStore(s => s.teams)
   const news = useElasticoStore(s => s.news)
+  const fetchMatches = useElasticoStore(s => s.fetchMatches)
   const setView = useElasticoStore(s => s.setView)
   const selectMatch = useElasticoStore(s => s.selectMatch)
   const tickerRef = useRef<HTMLDivElement>(null)
@@ -165,16 +167,16 @@ export default function DashboardView() {
     if (!nextMatch) return
     fetch('/api/predictions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${store.token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         matchId: nextMatch.id,
         predictedOutcome: choice === 'home' ? 'home_win' : choice === 'draw' ? 'draw' : 'away_win',
         confidence: 75,
       }),
     }).then(() => {
-      store.fetchMatches()
+      fetchMatches()
     }).catch(() => {})
-  }, [nextMatch, store])
+  }, [nextMatch, token, fetchMatches])
 
   // ═══════════════════════════════════════════════════════════════════════════
   return (
