@@ -10,6 +10,8 @@ import {
   LogOut,
   Zap,
   Crown,
+  Minus,
+  Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,6 +80,8 @@ export function Header() {
   const setView = useElasticoStore(s => s.setView)
   const logout = useElasticoStore(s => s.logout)
   const toggleCommandPalette = useElasticoStore(s => s.toggleCommandPalette)
+  const zoomLevel = useElasticoStore(s => s.zoomLevel)
+  const setZoomLevel = useElasticoStore(s => s.setZoomLevel)
 
   const isMobile = useIsMobile()
 
@@ -231,6 +235,35 @@ export function Header() {
               </span>
             )}
           </Button>
+        )}
+
+        {/* ── Zoom Controls ─────────────────────────────────────────────────── */}
+        {user && currentView !== 'login' && (
+          <div className="hidden md:flex items-center gap-0.5 rounded-lg border border-border bg-muted/50">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 rounded-r-none"
+              onClick={() => setZoomLevel(zoomLevel - 10)}
+              disabled={zoomLevel <= 50}
+              aria-label="Zoom out"
+            >
+              <Minus className="size-3" />
+            </Button>
+            <span className="text-[11px] font-mono text-muted-foreground w-10 text-center select-none">
+              {zoomLevel}%
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 rounded-l-none"
+              onClick={() => setZoomLevel(zoomLevel + 10)}
+              disabled={zoomLevel >= 150}
+              aria-label="Zoom in"
+            >
+              <Plus className="size-3" />
+            </Button>
+          </div>
         )}
 
         {/* ── User Avatar Dropdown ──────────────────────────────────────────── */}

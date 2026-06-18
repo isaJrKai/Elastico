@@ -187,6 +187,7 @@ interface ElasticoStore {
   isLoading: boolean
   loadingMessage: string
   theme: 'dark' | 'light'
+  zoomLevel: number
 
   // Actions - Auth
   setUser: (user: User | null, token: string | null) => void
@@ -212,15 +213,12 @@ interface ElasticoStore {
   // Actions - UI
   setLoading: (loading: boolean, message?: string) => void
   setTheme: (theme: 'dark' | 'light') => void
+  setZoomLevel: (level: number) => void
 
   // Actions - Real-time updates
   updateMatch: (match: Partial<Match> & { id: string }) => void
   addNotification: (notification: Notification) => void
   markNotificationRead: (id: string) => void
-
-  // Live scores from ESPN
-  liveMatches: [] as any[],
-  isLiveLoading: false,
 
   // Actions - Data Fetching
   fetchMatches: () => Promise<void>
@@ -260,6 +258,7 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
   isLoading: false,
   loadingMessage: '',
   theme: 'dark',
+  zoomLevel: typeof window !== 'undefined' ? Number(localStorage.getItem('elastico_zoom') || 100) : 100,
 
   // ── Actions — Auth ────────────────────────────────────────────────────────
 
@@ -338,6 +337,12 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
     set({ isLoading: loading, loadingMessage: message }),
 
   setTheme: (theme) => set({ theme }),
+
+  setZoomLevel: (level) => {
+    const clamped = Math.min(150, Math.max(50, level))
+    if (typeof window !== 'undefined') localStorage.setItem('elastico_zoom', String(clamped))
+    set({ zoomLevel: clamped })
+  },
 
   // ── Actions — Real-time Updates ───────────────────────────────────────────
 
