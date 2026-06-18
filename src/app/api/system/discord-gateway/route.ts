@@ -7,8 +7,15 @@ import { requireAdmin } from '@/lib/rbac'
 
 // ── Discord Webhook Dispatch ─────────────────────────────────────────────────
 
+const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK_URL || ''
+
 async function sendDiscordMessage(webhookUrl: string, message: string): Promise<void> {
-  await fetch(webhookUrl, {
+  const url = webhookUrl || DISCORD_WEBHOOK
+  if (!url) {
+    console.warn('[Discord] No webhook URL configured')
+    return
+  }
+  await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
