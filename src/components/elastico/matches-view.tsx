@@ -332,16 +332,30 @@ export function MatchesView() {
   const fetchMatches = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (activeTab !== 'all') params.set('status', activeTab)
-      if (searchQuery) params.set('search', searchQuery)
-      if (stageFilter !== 'all') params.set('stage', stageFilter)
-      if (groupFilter !== 'all') params.set('group', groupFilter)
       const headers: Record<string, string> = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch(`/api/fixtures?${params.toString()}`, { headers })
+
+      // Map activeTab to football-data.org status
+      let statusParam = 'FINISHED'
+      if (activeTab === 'upcoming') statusParam = 'SCHEDULED,TIMED'
+      else if (activeTab === 'live') statusParam = 'IN_PLAY,PAUSED'
+      else if (activeTab === 'all') statusParam = 'FINISHED'
+
+      const res = await fetch(`/api/football-data?action=matches&competition=PL&status=${statusParam}`, { headers })
       const data: any = await res.json()
-      setMatchesData(data.matches || [])
+      const matches = (data.data || []).map((m: any) => ({
+        ...m,
+        id: m.id || `fd-${Math.random().toString(36).slice(2)}`,
+        competition: m.competition,
+        homeTeam: m.homeTeam,
+        awayTeam: m.awayTeam,
+        homeScore: m.homeScore,
+        awayScore: m.awayScore,
+        status: m.status,
+        date: m.date,
+        matchday: m.matchday,
+      }))
+      setMatchesData(matches)
     } catch (err) {
       console.error('Failed to fetch matches:', err)
     } finally {
