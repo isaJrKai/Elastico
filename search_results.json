@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://www.api-football.com",
+    "name": "API-Football - Restful API for Football data",
+    "snippet": "Livescore, standings, Our free plan gives you access to all API endpoints, simply by registering on our dashboard. No credit card is required for this plan !",
+    "host_name": "www.api-football.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.reddit.com/r/webdev/comments/xqemro/free_sports_api",
+    "name": "Free sports Api? : r/webdev - Reddit",
+    "snippet": "Are there any free sports apis available for use? I've seen some lists but they seem unreliable and many make false claims of costs and reliability.",
+    "host_name": "www.reddit.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://rapidapi.com/Creativesdev/api/free-api-live-football-data",
+    "name": "Free API Live Football Data - RapidAPI",
+    "snippet": "We offers Free Football API for Free which access to a variety of endpoints including 2100+ football leagues, Livescores, players, Teams, Statistics, Standings ...",
+    "host_name": "rapidapi.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://api-sports.io",
+    "name": "API-Sports - Restful API for Sports data",
+    "snippet": "Our APIs have everything you need to take your app to the next level. No hidden fees. Free plan available for ever including 100 requests per day for each API.",
+    "host_name": "api-sports.io",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com/topics/football-api",
+    "name": "football-api · GitHub Topics",
+    "snippet": "An unofficial api client for pulling player Stats, Fixtures, Tables and Results data. Get the live football scores, results & fixtures over all leagues. Live ...",
+    "host_name": "github.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  }
+]
