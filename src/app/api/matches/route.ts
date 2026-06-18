@@ -32,26 +32,36 @@ export async function GET(req: NextRequest) {
     else if (status === 'live') fdStatus = 'IN_PLAY,PAUSED'
     else if (status === 'finished') fdStatus = 'FINISHED'
 
+    // When no status specified, try SCHEDULED first, then fall back to FINISHED (off-season)
+    const fetchWithStatusFallback = async (code: string) => {
+      let raw = await fetchMatches(code, undefined, fdStatus)
+      if (raw.length === 0 && !fdStatus && !status) {
+        // Off-season: no scheduled matches, show last finished results
+        raw = await fetchMatches(code, undefined, 'FINISHED')
+      }
+      return raw
+    }
+
     if (fdCode) {
       // Fetch for specific league
-      const raw = await fetchMatches(fdCode, undefined, fdStatus)
+      const raw = await fetchWithStatusFallback(fdCode)
       liveMatches = raw.map(normalizeFDMatch)
     } else {
       // Default: fetch PL (most popular), then add from other leagues if under limit
       try {
-        const raw = await fetchMatches('PL', undefined, fdStatus)
+        const raw = await fetchWithStatusFallback('PL')
         liveMatches = raw.map(normalizeFDMatch)
       } catch { /* skip */ }
       // Add 1-2 more leagues if needed (respect 10 req/min rate limit)
       if (liveMatches.length < limit) {
         try {
-          const raw = await fetchMatches('CL', undefined, fdStatus)
+          const raw = await fetchWithStatusFallback('CL')
           liveMatches.push(...raw.map(normalizeFDMatch))
         } catch { /* skip */ }
       }
       if (liveMatches.length < limit) {
         try {
-          const raw = await fetchMatches('PD', undefined, fdStatus)
+          const raw = await fetchWithStatusFallback('PD')
           liveMatches.push(...raw.map(normalizeFDMatch))
         } catch { /* skip */ }
       }
