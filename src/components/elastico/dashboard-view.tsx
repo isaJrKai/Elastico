@@ -99,6 +99,7 @@ export default function DashboardView() {
   const user = useElasticoStore(s => s.user)
   const token = useElasticoStore(s => s.token)
   const matches = useElasticoStore(s => s.matches)
+  const liveMatches = useElasticoStore(s => s.liveMatches) as any[]
   const teams = useElasticoStore(s => s.teams)
   const news = useElasticoStore(s => s.news)
   const fetchMatches = useElasticoStore(s => s.fetchMatches)
@@ -107,7 +108,7 @@ export default function DashboardView() {
   const tickerRef = useRef<HTMLDivElement>(null)
 
   // ── Derived data ─────────────────────────────────────────────────────────
-  const liveMatches = useMemo(() => matches.filter((m) => m.status === 'live' || m.status === 'halftime'), [matches])
+  const dbLiveMatches = useMemo(() => matches.filter((m) => m.status === 'live' || m.status === 'halftime'), [matches])
   const upcomingMatches = useMemo(() => matches.filter((m) => m.status === 'upcoming').slice(0, 5), [matches])
   const finishedMatches = useMemo(() => matches.filter((m) => m.status === 'finished').slice(0, 5), [matches])
   const nextMatch = upcomingMatches[0] || null
@@ -125,8 +126,21 @@ export default function DashboardView() {
     }
   }, [nextMatch])
 
-  // Build ticker items from real + mock data
+  // Build ticker items from ESPN live data + DB matches
   const tickerItems: TickerMatch[] = useMemo(() => {
+    // Prefer ESPN live data for the ticker
+    if (liveMatches && liveMatches.length > 0) {
+      return liveMatches.slice(0, 10).map((m: any) => ({
+        id: m.id,
+        homeCode: m.homeTeam?.abbreviation ?? '???',
+        awayCode: m.awayTeam?.abbreviation ?? '???',
+        homeColor: m.homeTeam?.color ?? '#555',
+        awayColor: m.awayTeam?.color ?? '#555',
+        homeScore: m.homeScore ?? 0,
+        awayScore: m.awayScore ?? 0,
+        status: m.status,
+      }))
+    }
     const real = matches.slice(0, 5).map((m) => ({
       id: m.id,
       homeCode: m.homeTeam?.code ?? '???',
@@ -138,7 +152,7 @@ export default function DashboardView() {
       status: m.status,
     }))
     return real.length > 0 ? real : MOCK_TICKER
-  }, [matches])
+  }, [liveMatches, matches])
 
   // xG chart data
   const xgChartData = useMemo(() => {
@@ -236,6 +250,57 @@ export default function DashboardView() {
 
           {/* ─── LEFT COLUMN ─── */}
           <div className="lg:col-span-2 space-y-5">
+
+            {/* LIVE SCORES FROM ESPN */}
+            {liveMatches && liveMatches.length > 0 && (
+              <Card className="glass-card-premium rounded-xl">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <span className="relative flex size-2">
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+                      </span>
+                      Live Scores — All Leagues
+                    </CardTitle>
+                    <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30">
+                      ESPN Live
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1">
+                    {liveMatches.slice(0, 8).map((m: any) => (
+                      <div key={m.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-[10px] text-muted-foreground w-20 truncate">{m.competition}</span>
+                          <span className="text-xs font-medium truncate">{m.homeTeam?.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-3">
+                          <span className="text-sm font-bold tabular-nums">{m.homeScore}</span>
+                          <span className="text-xs text-muted-foreground">-</span>
+                          <span className="text-sm font-bold tabular-nums">{m.awayScore}</span>
+                        </div>
+                        <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                          <span className="text-xs font-medium truncate">{m.awayTeam?.name}</span>
+                          {m.status === 'live' && (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-red-500/15 text-red-400 border-red-500/30 shrink-0">
+                              {m.minute ? `${m.minute}'` : 'LIVE'}
+                            </Badge>
+                          )}
+                          {m.status === 'finished' && (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-zinc-400 border-zinc-700 shrink-0">FT</Badge>
+                          )}
+                          {m.status === 'halftime' && (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-amber-400 border-amber-500/30 shrink-0">HT</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 2. QUICK PREDICT WIDGET + 5. MATCH PROBABILITIES */}
             {nextMatch && (

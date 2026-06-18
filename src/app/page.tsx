@@ -143,6 +143,7 @@ export default function Home() {
   const fetchTeams = useElasticoStore(s => s.fetchTeams)
   const fetchNews = useElasticoStore(s => s.fetchNews)
   const fetchNotifications = useElasticoStore(s => s.fetchNotifications)
+  const fetchLiveScores = useElasticoStore(s => s.fetchLiveScores)
 
   // Initial data fetch
   useEffect(() => {
@@ -151,8 +152,16 @@ export default function Home() {
       fetchTeams()
       fetchNews()
       fetchNotifications()
+      fetchLiveScores() // Fetch live scores from ESPN
     }
-  }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications])
+  }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications, fetchLiveScores])
+
+  // Auto-refresh live scores every 60 seconds
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const interval = setInterval(() => { fetchLiveScores() }, 60000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated, fetchLiveScores])
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {

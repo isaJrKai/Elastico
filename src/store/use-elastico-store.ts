@@ -218,12 +218,17 @@ interface ElasticoStore {
   addNotification: (notification: Notification) => void
   markNotificationRead: (id: string) => void
 
+  // Live scores from ESPN
+  liveMatches: [] as any[],
+  isLiveLoading: false,
+
   // Actions - Data Fetching
   fetchMatches: () => Promise<void>
   fetchTeams: () => Promise<void>
   fetchNews: () => Promise<void>
   fetchNotifications: () => Promise<void>
   fetchAnnouncements: () => Promise<void>
+  fetchLiveScores: (league?: string) => Promise<void>
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────
@@ -248,6 +253,8 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
   news: [],
   notifications: [],
   chatMessages: [],
+  liveMatches: [],
+  isLiveLoading: false,
 
   // UI State
   isLoading: false,
@@ -430,8 +437,24 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
       const res = await fetch('/api/admin/announcements')
       if (res.ok) {
         const data = await res.json()
-        // Announcements are fetched but stored in a separate state if needed
       }
     } catch (e) { /* silent */ }
+  },
+
+  fetchLiveScores: async (league?: string) => {
+    set({ isLiveLoading: true })
+    try {
+      const url = league ? `/api/live?league=${league}` : '/api/live'
+      const res = await fetch(url)
+      if (res.ok) {
+        const data = await res.json()
+        set({ liveMatches: data.matches || [], isLiveLoading: false })
+      } else {
+        set({ isLiveLoading: false })
+      }
+    } catch (e) {
+      console.error('Failed to fetch live scores:', e)
+      set({ isLiveLoading: false })
+    }
   },
 }))
