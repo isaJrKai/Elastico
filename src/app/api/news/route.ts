@@ -21,34 +21,10 @@ export async function GET(req: NextRequest) {
     const topic = searchParams.get('topic') || undefined
     const league = searchParams.get('league') || undefined
 
-    // ── Primary: Newsdata.io (real news) ──────────────────────────────────
-    if (process.env.NEWSDATA_API_KEY) {
-      try {
-        const query = search || topic || 'football soccer premier league champions league'
-        const { articles, total } = await fetchFootballNews(query, page, limit)
-
-        if (articles.length > 0) {
-          const footballArticles = articles.filter(a => {
-            const text = `${a.title} ${a.description} ${a.content}`.toLowerCase()
-            return /football|soccer|premier|la liga|serie a|bundesliga|ligue|champions league|europa|goal|match|transfer|player|manager|coach|club|team|fixture|score|kickoff|derby/i.test(text)
-          })
-
-          const newsItems = footballArticles.map(normalizeNDArticle)
-          return NextResponse.json({
-            news: newsItems,
-            source: 'newsdata.io',
-            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-          })
-        }
-      } catch (err) {
-        console.error('[News] Newsdata.io fetch failed:', err)
-      }
-    }
-
-    // ── Secondary: ESPN league news ───────────────────────────────────────
+    // ── Primary: ESPN league news (no API key needed — always available) ──
     try {
       const { fetchLeagueNews } = await import('@/lib/football-data')
-      const newsLeague = league || 'PL' // default to Premier League
+      const newsLeague = league || 'PL'
       const espnNews = await fetchLeagueNews(newsLeague)
 
       if (espnNews.length > 0) {
@@ -76,28 +52,65 @@ export async function GET(req: NextRequest) {
       console.error('[News] ESPN news fetch failed:', err)
     }
 
-    // ── Tertiary: DB news ─────────────────────────────────────────────────
-    const { db } = await import('@/lib/db')
-    const category = searchParams.get('category') || undefined
+    // ── Secondary: Newsdata.io (real news from thousands of sources) ──────
+    if (process.env.NEWSDATA_API_KEY) {
+      try {
+        const query = search || topic || 'football soccer premier league champions league'
+        const { articles, total } = await fetchFootballNews(query, page, limit)
 
-    const where: Record<string, unknown> = {}
-    if (category) where.category = category
-    if (search) where.title = { contains: search, mode: 'insensitive' }
+        if (articles.length > 0) {
+          const footballArticles = articles.filter(a => {
+            const text = `${a.title} ${a.description} ${a.content}`.toLowerCase()
+            return /football|soccer|premier|la liga|serie a|bundesliga|ligue|champions league|europa|goal|match|transfer|player|manager|coach|club|team|fixture|score|kickoff|derby/i.test(text)
+          })
 
-    const [newsItems, total] = await Promise.all([
-      db.newsItem.findMany({
-        where,
-        orderBy: [{ isBreaking: 'desc' }, { publishedAt: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      db.newsItem.count({ where }),
-    ])
+          const newsItems = footballArticles.map(normalizeNDArticle)
+          return NextResponse.json({
+            news: newsItems,
+            source: 'newsdata.io',
+            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+          })
+        }
+      } catch (err) {
+        console.error('[News] Newsdata.io fetch failed:', err)
+      }
+    }
 
+    // ── Tertiary: DB news (seeded / user-created) ─────────────────────────
+    try {
+      const { db } = await import('@/lib/db')
+      const category = searchParams.get('category') || undefined
+
+      const where: Record<string, unknown> = {}
+      if (category) where.category = category
+      if (search) where.title = { contains: search, mode: 'insensitive' }
+
+      const [newsItems, total] = await Promise.all([
+        db.newsItem.findMany({
+          where,
+          orderBy: [{ isBreaking: 'desc' }, { publishedAt: 'desc' }],
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        db.newsItem.count({ where }),
+      ])
+
+      if (newsItems.length > 0) {
+        return NextResponse.json({
+          news: newsItems,
+          source: 'database',
+          pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        })
+      }
+    } catch (err) {
+      console.error('[News] DB news fetch failed:', err)
+    }
+
+    // ── Nothing available ─────────────────────────────────────────────────
     return NextResponse.json({
-      news: newsItems,
-      source: 'database',
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      news: [],
+      source: 'none',
+      pagination: { page, limit, total: 0, totalPages: 0 },
     })
   } catch (error) {
     console.error('News error:', error)
