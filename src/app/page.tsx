@@ -144,6 +144,7 @@ export default function Home() {
   const fetchNews = useElasticoStore(s => s.fetchNews)
   const fetchNotifications = useElasticoStore(s => s.fetchNotifications)
   const fetchLiveScores = useElasticoStore(s => s.fetchLiveScores)
+  const zoomLevel = useElasticoStore(s => s.zoomLevel)
 
   // Initial data fetch
   useEffect(() => {
@@ -178,6 +179,9 @@ export default function Home() {
     if (cmd && e.key === 'n') { e.preventDefault(); store.setView('news') }
     if (cmd && e.key === ',') { e.preventDefault(); store.setView('settings') }
     if (cmd && e.key === 'b') { e.preventDefault(); store.setView('notifications') }
+    if (cmd && (e.key === '=' || e.key === '+')) { e.preventDefault(); store.setZoomLevel(store.zoomLevel + 10) }
+    if (cmd && e.key === '-') { e.preventDefault(); store.setZoomLevel(store.zoomLevel - 10) }
+    if (cmd && e.key === '0') { e.preventDefault(); store.setZoomLevel(100) }
   }, [isAuthenticated])
 
   useEffect(() => {
@@ -279,13 +283,17 @@ export default function Home() {
       <Sidebar />
       <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'md:ml-[240px]' : 'md:ml-[64px]'}`}>
         <Header />
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <ErrorBoundary>{renderView()}</ErrorBoundary>
-        </main>
-        <footer className="border-t border-border/30 px-6 py-3 flex items-center justify-between text-xs text-muted-foreground">
-          <span>© 2026 ELASTICO — AI-Powered Analytics Platform</span>
-          <span className="hidden sm:inline">Powered by ELO · Poisson · Dixon-Coles · Merton Jump-Diffusion · GARCH · Kelly Criterion · NVIDIA AI</span>
-        </footer>
+        <div className="flex-1 overflow-auto">
+          <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left', width: `${10000 / zoomLevel}%`, minHeight: '100%' }}>
+            <main className="p-4 md:p-6">
+              <ErrorBoundary>{renderView()}</ErrorBoundary>
+            </main>
+            <footer className="border-t border-border/30 px-6 py-3 flex items-center justify-between text-xs text-muted-foreground">
+              <span>© 2026 ELASTICO — AI-Powered Analytics Platform</span>
+              <span className="hidden sm:inline">Powered by ELO · Poisson · Dixon-Coles · Merton Jump-Diffusion · GARCH · Kelly Criterion · NVIDIA AI</span>
+            </footer>
+          </div>
+        </div>
       </div>
       <CommandPalette />
       <Toaster />
