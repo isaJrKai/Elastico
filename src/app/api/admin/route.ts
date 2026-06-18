@@ -5,10 +5,11 @@ import { authenticateRequest } from '@/lib/auth'
 async function requireAdmin(req: NextRequest) {
   const auth = await authenticateRequest(req)
   if (auth instanceof Response) return auth
-  if (auth.user.role !== 'admin') {
+  const { user } = auth
+  if (!user || user.role !== 'admin') {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
   }
-  return auth
+  return { user, req: auth.req }
 }
 
 export async function GET(req: NextRequest) {
@@ -72,7 +73,8 @@ export async function POST(req: NextRequest) {
     const auth = await requireAdmin(req)
     if (auth instanceof Response) return auth
 
-    const { action } = await req.json()
+    const body = await req.json()
+    const { action } = body
 
     if (!action) {
       return NextResponse.json({ error: 'Action is required' }, { status: 400 })
@@ -103,7 +105,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'broadcast') {
-      const { message, title, type } = await req.json()
+      const { message, title, type } = body
       if (!message) {
         return NextResponse.json({ error: 'Message is required for broadcast' }, { status: 400 })
       }

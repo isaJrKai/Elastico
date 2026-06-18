@@ -197,8 +197,6 @@ export interface TSDEvent {
   strAwayLineupForward: string | null
   strAwayLineupSubstitutes: string | null
   strAwayFormation: string | null
-  intHomeShots: string | null
-  intAwayShots: string | null
   strHomeTeamBadge: string | null
   strAwayTeamBadge: string | null
   strVenue: string | null

@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     const model = url.get('model') || 'all'
     const startDate = url.get('startDate')
 
-    const where: Record<string, unknown> = { isCorrect: { not: null } }
+    const where: Record<string, unknown> = {}
     if (model !== 'all') where.model = model
     if (startDate) {
       where.createdAt = { gte: new Date(startDate) }
@@ -31,16 +31,31 @@ export async function GET(req: NextRequest) {
     // Aggregate accuracy by model
     const modelStats = await db.prediction.groupBy({
       by: ['model'],
-      where: { isCorrect: { not: null } },
-      _count: { id: true, isCorrect: true },
-      _sum: { isCorrect: true },
+      _count: { id: true },
     })
 
-    const accuracy = modelStats.map((m) => ({
-      model: m.model,
-      total: m._count.id,
-      correct: m._sum.isCorrect || 0,
-      accuracy: m._count.id > 0 ? ((m._sum.isCorrect || 0) / m._count.id) * 100 : 0,
+    // Count correct predictions per model
+    const accuracyData: Record<string, { total: number; correct: number }> = {}
+    for (const stat of modelStats) {
+      const modelKey = stat.model || 'unknown'
+      accuracyData[modelKey] = { total: stat._count.id, correct: 0 }
+    }
+
+    // Count correct predictions from fetched predictions (where isCorrect is true)
+    for (const p of predictions) {
+      if (p.isCorrect === true && p.model) {
+        if (!accuracyData[p.model]) {
+          accuracyData[p.model] = { total: 0, correct: 0 }
+        }
+        accuracyData[p.model].correct++
+      }
+    }
+
+    const accuracy = Object.entries(accuracyData).map(([modelKey, data]) => ({
+      model: modelKey,
+      total: data.total,
+      correct: data.correct,
+      accuracy: data.total > 0 ? (data.correct / data.total) * 100 : 0,
     }))
 
     // Overall accuracy

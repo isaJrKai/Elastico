@@ -68,12 +68,12 @@ const COMPACT_MAP: Record<string, string> = {
   // Team fields
   primaryColor: 'pC', secondaryColor: 'sC', eloRating: 'elo',
   goalsFor: 'gF', goalsAgainst: 'gA', coachName: 'coN',
-  xgPerGame: 'xgG', xgaPerGame: 'xag', passAccuracy: 'pA',
+  xgPerGame: 'xgG', xgaPerGame: 'xag', passAccuracy: 'psA',
   pressIntensity: 'pI',
   // Player fields
   marketValue: 'mV', yellowCards: 'yC', redCards: 'rC',
   // Common
-  predictionAccuracy: 'pA', predictionStreak: 'pS', bestStreak: 'bS',
+  predictionAccuracy: 'prA', predictionStreak: 'pS', bestStreak: 'bS',
   totalPredictions: 'tP', correctPredictions: 'cP', twoFactorEnabled: '2f',
   lastLoginAt: 'lL', loginCount: 'lC', publishedAt: 'pAt',
   isBreaking: 'iB', createdAt: 'cAt', updatedAt: 'uAt',
