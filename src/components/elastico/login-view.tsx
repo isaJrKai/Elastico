@@ -95,7 +95,19 @@ export default function LoginView() {
     } catch { setRegError('Network error.') } finally { setRegLoading(false) }
   }
 
-  const fillDemo = (account: DemoAccount) => { setLoginEmail(account.email); setLoginPassword(account.password); setLoginError('') }
+  const fillDemo = async (account: DemoAccount) => {
+    setLoginEmail(account.email); setLoginPassword(account.password); setLoginError('')
+    // Auto-login
+    setLoginLoading(true)
+    try {
+      const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: account.email, password: account.password }) })
+      const data = await res.json()
+      if (!res.ok) { setLoginLoading(false); return }
+      if (data.token) localStorage.setItem('elastico_token', data.token)
+      if (data.user) localStorage.setItem('elastico_user', JSON.stringify(data.user))
+      setUser(data.user, data.token); setView('dashboard')
+    } catch { setLoginError('Network error.') } finally { setLoginLoading(false) }
+  }
   const handleSocialLogin = (provider: string) => { toast({ title: `${provider} login`, description: 'Coming soon!', variant: 'default' }) }
 
   return (
@@ -206,10 +218,10 @@ export default function LoginView() {
 
                   {/* Demo Accounts */}
                   <div className="mt-5 space-y-2.5">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground/70"><div className="h-px flex-1 bg-border/50" /><span>Quick Demo Access</span><div className="h-px flex-1 bg-border/50" /></div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground/70"><div className="h-px flex-1 bg-border/50" /><span>Click to Enter Instantly</span><div className="h-px flex-1 bg-border/50" /></div>
                     <div className="grid grid-cols-4 gap-2">
                       {DEMO_ACCOUNTS.map(account => (
-                        <button key={account.label} type="button" onClick={() => fillDemo(account)} className={cn('flex flex-col items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-2.5 text-xs transition-all active:scale-95', account.hoverColor, 'hover:bg-white/[0.05]')}>
+                        <button key={account.label} type="button" onClick={() => fillDemo(account)} disabled={loginLoading} className={cn('flex flex-col items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.03] px-2 py-3 text-xs transition-all active:scale-95 hover:bg-white/[0.06] hover:border-white/10', account.hoverColor)}>
                           <span className={account.color}>{account.icon}</span>
                           <span className="text-muted-foreground/80 font-medium">{account.label}</span>
                           <Badge variant="outline" className="text-[8px] h-3 px-1 border-border/50 text-muted-foreground">{account.plan}</Badge>

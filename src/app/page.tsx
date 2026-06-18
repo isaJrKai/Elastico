@@ -220,7 +220,7 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [isAuthenticated, fetchMatches])
 
-  // Check database on mount (production only)
+  // Check database on mount (production only) — non-blocking
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') return
     fetch('/api/setup')
@@ -228,11 +228,10 @@ export default function Home() {
       .then(data => {
         if (data.status === 'ready') {
           setDbReady(true)
-        } else {
-          setDbReady(false)
         }
+        // Don't block on needs_database / needs_setup — let user log in with demo account
       })
-      .catch(() => setDbReady(true)) // if setup endpoint fails, assume local dev
+      .catch(() => {}) // silently continue
   }, [])
 
   // Show setup view if DB not ready
