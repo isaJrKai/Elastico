@@ -2,17 +2,41 @@
  * ELASTICO — Multi-Provider AI Gateway
  *
  * Routes AI calls through Vercel's US/EU servers, bypassing geo-restrictions.
- * All API calls are server-side — the user's location never matters.
+ * All API calls are server-side only — the user's location never matters.
+ * API keys are embedded as server-side fallbacks when env vars are not set.
+ * These keys are NEVER sent to the browser (this file only runs in API routes).
  *
- * Priority order:
+ * Priority order (7 providers):
  * 1. Google Gemini (best quality, 1M context)
  * 2. Groq (ultra-fast, ~200ms)
- * 3. Mistral (huge daily limit)
- * 4. NVIDIA (if key available)
- * 5. OpenRouter (last resort)
+ * 3. Cerebras (insanely fast, ~2K tokens/sec)
+ * 4. Mistral (huge daily token limit)
+ * 5. NVIDIA (if key available)
+ * 6. GitHub Models (GPT-4o-mini free)
+ * 7. OpenRouter (last resort, free models)
  *
  * Automatic failover: if #1 fails, tries #2, then #3, etc.
  */
+
+// ── Embedded API Keys (server-side only, never exposed to browser) ──────────
+// These are used as fallbacks when environment variables are not set.
+
+const EMBEDDED_KEYS: Record<string, string> = {
+  GOOGLE_AI_API_KEY: 'AQ.Ab8RN6Imu8y_NzgY_2MMu8EoHw6fhAlLQ-VBn2rzcGfz-ehO9A',
+  GROQ_API_KEY: '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',
+  // CEREBRAS_API_KEY, MISTRAL_API_KEY, NVIDIA_API_KEY, GITHUB_TOKEN, OPENROUTER_API_KEY
+  // — set via env vars or add here when available
+}
+
+/**
+ * Resolve an API key: env var takes priority, then embedded fallback.
+ * This ensures the gateway works on Vercel without setting env vars in dashboard.
+ */
+function resolveKey(envKey: string): string {
+  const envVal = process.env[envKey]
+  if (envVal && envVal.length > 5) return envVal
+  return EMBEDDED_KEYS[envKey] || ''
+}
 
 // ── Provider Configs ──────────────────────────────────────────────────────────
 
@@ -43,6 +67,14 @@ const PROVIDERS: Provider[] = [
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
   },
   {
+    name: 'Cerebras',
+    baseUrl: 'https://api.cerebras.ai/v1/chat/completions',
+    model: 'llama-4-scout-17b-16e-instruct',
+    maxTokens: 4096,
+    envKey: 'CEREBRAS_API_KEY',
+    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
+  },
+  {
     name: 'Mistral',
     baseUrl: 'https://api.mistral.ai/v1/chat/completions',
     model: 'mistral-small-latest',
@@ -57,6 +89,18 @@ const PROVIDERS: Provider[] = [
     maxTokens: 4096,
     envKey: 'NVIDIA_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
+  },
+  {
+    name: 'GitHub Models',
+    baseUrl: 'https://models.github.ai/inference/chat/completions',
+    model: 'openai/gpt-4o-mini',
+    maxTokens: 4096,
+    envKey: 'GITHUB_TOKEN',
+    headers: (key) => ({
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
   },
   {
     name: 'OpenRouter',
@@ -129,9 +173,9 @@ export async function callAi(
     }
   }
 
-  // Filter to only those with API keys configured
+  // Filter to only those with API keys configured (env var OR embedded fallback)
   const available = providers.filter(p => {
-    const key = process.env[p.envKey]
+    const key = resolveKey(p.envKey)
     return !!key && key.length > 5
   })
 
@@ -152,7 +196,7 @@ export async function callAi(
       continue
     }
 
-    const apiKey = process.env[provider.envKey]!
+    const apiKey = resolveKey(provider.envKey)
     const start = Date.now()
 
     try {
@@ -246,7 +290,7 @@ export async function callAiStream(
   }
 
   const available = providers.filter(p => {
-    const key = process.env[p.envKey]
+    const key = resolveKey(p.envKey)
     return !!key && key.length > 5
   })
 
@@ -256,7 +300,7 @@ export async function callAiStream(
   for (const provider of available) {
     if (isCoolingDown(provider.name)) continue
 
-    const apiKey = process.env[provider.envKey]!
+    const apiKey = resolveKey(provider.envKey)
     const body: Record<string, unknown> = {
       model: provider.model,
       messages,
@@ -316,18 +360,27 @@ export async function callAiStream(
 }
 
 /**
- * Get status of all configured AI providers
+ * Get status of all configured AI providers.
+ * Checks both env vars and embedded fallback keys.
  */
 export function getProviderStatus(): Array<{
   name: string
   model: string
   configured: boolean
   coolingDown: boolean
+  source: string
 }> {
-  return PROVIDERS.map(p => ({
-    name: p.name,
-    model: p.model,
-    configured: !!(process.env[p.envKey] && process.env[p.envKey]!.length > 5),
-    coolingDown: isCoolingDown(p.name),
-  }))
+  return PROVIDERS.map(p => {
+    const envVal = process.env[p.envKey]
+    const embeddedVal = EMBEDDED_KEYS[p.envKey]
+    const hasEnv = !!envVal && envVal.length > 5
+    const hasEmbedded = !!embeddedVal && embeddedVal.length > 5
+    return {
+      name: p.name,
+      model: p.model,
+      configured: hasEnv || hasEmbedded,
+      coolingDown: isCoolingDown(p.name),
+      source: hasEnv ? 'env' : hasEmbedded ? 'embedded' : 'none',
+    }
+  })
 }

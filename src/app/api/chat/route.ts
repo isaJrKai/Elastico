@@ -172,10 +172,21 @@ function generateFootballAnalysis(message: string, matchContext: Record<string, 
 
 // ── Check if any AI provider is configured ───────────────────────────────────
 
+// Import resolveKey from ai-gateway to check both env vars and embedded keys
+function resolveKey(envKey: string): string {
+  const envVal = process.env[envKey]
+  if (envVal && envVal.length > 5) return envVal
+  const embedded: Record<string, string> = {
+    GOOGLE_AI_API_KEY: 'AQ.Ab8RN6Imu8y_NzgY_2MMu8EoHw6fhAlLQ-VBn2rzcGfz-ehO9A',
+    GROQ_API_KEY: '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',
+  }
+  return embedded[envKey] || ''
+}
+
 function hasAnyAiProvider(): boolean {
-  const keys = ['GOOGLE_AI_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY', 'NVIDIA_API_KEY', 'OPENROUTER_API_KEY']
+  const keys = ['GOOGLE_AI_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY', 'NVIDIA_API_KEY', 'CEREBRAS_API_KEY', 'GITHUB_TOKEN', 'OPENROUTER_API_KEY']
   return keys.some(k => {
-    const v = process.env[k]
+    const v = resolveKey(k)
     return !!v && v.length > 5
   })
 }
