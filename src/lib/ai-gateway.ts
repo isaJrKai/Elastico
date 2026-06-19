@@ -3,8 +3,10 @@
  *
  * Routes AI calls through Vercel's US/EU servers, bypassing geo-restrictions.
  * All API calls are server-side only — the user's location never matters.
- * API keys are embedded as server-side fallbacks when env vars are not set.
- * These keys are NEVER sent to the browser (this file only runs in API routes).
+ *
+ * ⚠️  SECURITY: All API keys MUST be set via environment variables.
+ *     Never hardcode secrets in source code. This file is server-only
+ *     and keys are never sent to the browser.
  *
  * Priority order (7 providers):
  * 1. Google Gemini (best quality, 1M context)
@@ -18,24 +20,14 @@
  * Automatic failover: if #1 fails, tries #2, then #3, etc.
  */
 
-// ── Embedded API Keys (server-side only, never exposed to browser) ──────────
-// These are used as fallbacks when environment variables are not set.
-
-const EMBEDDED_KEYS: Record<string, string> = {
-  GOOGLE_AI_API_KEY: 'AQ.Ab8RN6Imu8y_NzgY_2MMu8EoHw6fhAlLQ-VBn2rzcGfz-ehO9A',
-  GROQ_API_KEY: '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',
-  // CEREBRAS_API_KEY, MISTRAL_API_KEY, NVIDIA_API_KEY, GITHUB_TOKEN, OPENROUTER_API_KEY
-  // — set via env vars or add here when available
-}
-
 /**
- * Resolve an API key: env var takes priority, then embedded fallback.
- * This ensures the gateway works on Vercel without setting env vars in dashboard.
+ * Resolve an API key from environment variables only.
+ * Set keys in .env (local) or Vercel Environment Variables (production).
  */
-function resolveKey(envKey: string): string {
+export function resolveKey(envKey: string): string {
   const envVal = process.env[envKey]
   if (envVal && envVal.length > 5) return envVal
-  return EMBEDDED_KEYS[envKey] || ''
+  return ''
 }
 
 // ── Provider Configs ──────────────────────────────────────────────────────────
@@ -173,7 +165,7 @@ export async function callAi(
     }
   }
 
-  // Filter to only those with API keys configured (env var OR embedded fallback)
+  // Filter to only those with API keys configured via environment variables
   const available = providers.filter(p => {
     const key = resolveKey(p.envKey)
     return !!key && key.length > 5
@@ -361,7 +353,7 @@ export async function callAiStream(
 
 /**
  * Get status of all configured AI providers.
- * Checks both env vars and embedded fallback keys.
+ * Checks environment variables only.
  */
 export function getProviderStatus(): Array<{
   name: string
@@ -372,15 +364,13 @@ export function getProviderStatus(): Array<{
 }> {
   return PROVIDERS.map(p => {
     const envVal = process.env[p.envKey]
-    const embeddedVal = EMBEDDED_KEYS[p.envKey]
     const hasEnv = !!envVal && envVal.length > 5
-    const hasEmbedded = !!embeddedVal && embeddedVal.length > 5
     return {
       name: p.name,
       model: p.model,
-      configured: hasEnv || hasEmbedded,
+      configured: hasEnv,
       coolingDown: isCoolingDown(p.name),
-      source: hasEnv ? 'env' : hasEmbedded ? 'embedded' : 'none',
+      source: hasEnv ? 'env' : 'none',
     }
   })
 }
