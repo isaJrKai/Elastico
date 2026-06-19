@@ -1,6 +1,6 @@
 # ELASTICO Design System v1.0
 
-## 📦 Component Library
+## 🎨 Component Library
 
 A comprehensive collection of 38 production-grade UI components with:
 - ✨ Smooth animations & transitions
@@ -11,7 +11,7 @@ A comprehensive collection of 38 production-grade UI components with:
 
 ---
 
-## 🗂️ Component Categories
+## 📋 Component Categories
 
 ### Animations (10)
 - `ScrollReveal` — Elements reveal on scroll
@@ -94,7 +94,7 @@ export default function Page() {
 
 ---
 
-## 📚 Hooks
+## 🧠 Hooks
 
 - `useScrollTrigger()` — Detect scroll intersection
 - `useMousePosition()` — Track mouse position

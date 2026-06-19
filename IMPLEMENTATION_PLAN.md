@@ -316,9 +316,9 @@ If you have questions or hit blockers:
 
 ```
 Week 1 ████░░░░░░░░░░░░░░░░░░░░░
-Week 2 ████████████░░░░░░░░░░░░░░░
-Week 3 ████████████████░░░░░░░░░░░░
-Week 4 ████████████████████░░░░░░░░
+Week 2 ██████████░░░░░░░░░░░░░░░░░░░
+Week 3 ████████████████░░░░░░░░░░░░░░░░░░░
+Week 4 ████████████████████░░░░░░░░░░░░░░░░
 
 Target Launch: 28 days from start
 Production Ready: 90%+ confidence
