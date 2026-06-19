@@ -154,9 +154,16 @@ export function MatchDetailView() {
     setSimulating(true)
     try {
       const res = await fetch(`/api/matches/${selectedMatchId}/simulate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Simulation failed' }))
+        toast({ title: 'Simulation failed', description: err.error || 'Unknown error', variant: 'destructive' })
+        return
+      }
+      toast({ title: 'Simulation complete', description: 'Match has been simulated with events and stats' })
       fetchMatch()
-    } catch { /* silent */ } finally { setSimulating(false) }
+    } catch (e: any) {
+      toast({ title: 'Simulation error', description: e.message || 'Failed to run simulation', variant: 'destructive' })
+    } finally { setSimulating(false) }
   }, [selectedMatchId, token, fetchMatch])
 
   const handleCopySummary = useCallback(() => {
