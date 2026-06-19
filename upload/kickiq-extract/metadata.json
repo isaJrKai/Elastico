@@ -1,6 +1,0 @@
-{
-  "name": "KickIQ AI Analyst",
-  "description": "An expert full-stack football analytics assistant and intelligence engine for the FIFA World Cup 2026, featuring live simulations, Poisson predictive modeling, and ELO-based interactive insights.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
