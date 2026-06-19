@@ -37,7 +37,7 @@ export async function GET() {
 // ── PATCH /api/prediction-engine/config ────────────────────────────────────────
 // Update engine configuration (admin only)
 
-export async function PATCH(request: Request) {
+async function handleConfigUpdate(request: Request) {
   try {
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth; if (auth.user?.role !== 'admin') {
@@ -75,3 +75,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
+
+// Support both PATCH and PUT for config updates
+export async function PATCH(request: Request) { return handleConfigUpdate(request) }
+export async function PUT(request: Request) { return handleConfigUpdate(request) }

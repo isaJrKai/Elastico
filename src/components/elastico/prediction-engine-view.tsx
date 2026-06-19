@@ -101,8 +101,8 @@ export default function PredictionEngineView() {
 
   // ── Config state ──────────────────────────────────────────────────────────────
   const [config, setConfig] = useState<EngineConfig>({
-    simulationRuns: 150000, kellyFraction: 25, garchEnabled: true,
-    jumpDiffusionEnabled: true, minEdgeThreshold: 2, maxBankrollRisk: 5,
+    simulationRuns: 150000, kellyFraction: 0.25, garchEnabled: true,
+    jumpDiffusionEnabled: true, minEdgeThreshold: 0.02, maxBankrollRisk: 0.05,
   })
   const [configLoading, setConfigLoading] = useState(false)
 
@@ -123,10 +123,14 @@ export default function PredictionEngineView() {
         injuries: injuries.length ? injuries : undefined,
       }
       const res = await fetch('/api/prediction-engine/simulate', {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify({ input, bankroll: +bankroll, simulationRuns: +simRuns }),
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ matchInput: input, config: { simulationRuns: +simRuns }, bankroll: +bankroll }),
       })
-      if (!res.ok) throw new Error('Simulation failed')
-      const data: FullMatchAnalysis = await res.json()
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Simulation failed' }))
+        throw new Error(err.error || 'Simulation failed')
+      }
+      const json = await res.json()
+      const data: FullMatchAnalysis = json.data || json
       setAnalysis(data)
       toast.success('Simulation complete', { icon: <Sparkles className="text-emerald-400" /> })
     } catch (e: any) {
@@ -141,13 +145,23 @@ export default function PredictionEngineView() {
     if (!analysis) { toast.error('Run a simulation first'); return }
     setKellyLoading(true)
     try {
+      // Map portfolio outcomes to the format calculatePortfolioAllocation expects
+      const outcomes = (analysis.portfolioAllocation?.outcomes || []).map(o => ({
+        label: o.label,
+        modelProb: o.modelProb,
+        odds: o.marketOdds,
+      }))
       const res = await fetch('/api/prediction-engine/kelly', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ analysis, bankroll: +kellyBankroll }),
+        body: JSON.stringify({
+          mode: 'portfolio',
+          outcomes,
+          bankroll: +kellyBankroll,
+        }),
       })
       if (!res.ok) throw new Error('Kelly calculation failed')
-      const data = await res.json()
-      setKellyResult(data)
+      const json = await res.json()
+      setKellyResult(json.data || json)
       toast.success('Kelly analysis complete')
     } catch (e: any) {
       toast.error(e.message || 'Kelly error')
@@ -170,8 +184,8 @@ export default function PredictionEngineView() {
         }),
       })
       if (!res.ok) throw new Error('Signal analysis failed')
-      const data = await res.json()
-      setSignalResult(data)
+      const json = await res.json()
+      setSignalResult(json.data || json)
       toast.success('Market signals analyzed')
     } catch (e: any) {
       toast.error(e.message || 'Signal error')
@@ -185,7 +199,7 @@ export default function PredictionEngineView() {
     setConfigLoading(true)
     try {
       const res = await fetch('/api/prediction-engine/config', {
-        method: 'PUT', headers: authHeaders(), body: JSON.stringify(config),
+        method: 'PATCH', headers: authHeaders(), body: JSON.stringify(config),
       })
       if (!res.ok) throw new Error('Save failed')
       toast.success('Configuration saved')
@@ -200,7 +214,8 @@ export default function PredictionEngineView() {
     try {
       const res = await fetch('/api/prediction-engine/config', { headers: authHeaders() })
       if (res.ok) {
-        const data: EngineConfig = await res.json()
+        const json = await res.json()
+        const data: EngineConfig = json.config || json.defaults || json
         setConfig(data)
         toast.success('Configuration reset')
       }
@@ -917,12 +932,12 @@ export default function PredictionEngineView() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm text-zinc-300">Kelly Fraction</Label>
-                    <span className="text-xs font-mono text-emerald-400">{config.kellyFraction}%</span>
+                    <span className="text-xs font-mono text-emerald-400">{(config.kellyFraction * 100).toFixed(0)}%</span>
                   </div>
                   <Slider
-                    value={[config.kellyFraction]}
+                    value={[config.kellyFraction * 100]}
                     min={5} max={100} step={5}
-                    onValueChange={([v]) => setConfig(p => ({ ...p, kellyFraction: v }))}
+                    onValueChange={([v]) => setConfig(p => ({ ...p, kellyFraction: v / 100 }))}
                   />
                   <div className="flex justify-between text-[10px] text-zinc-600"><span>5% (Quarter)</span><span>100% (Full)</span></div>
                 </div>
@@ -933,12 +948,12 @@ export default function PredictionEngineView() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm text-zinc-300">Min Edge Threshold</Label>
-                    <span className="text-xs font-mono text-emerald-400">{config.minEdgeThreshold}%</span>
+                    <span className="text-xs font-mono text-emerald-400">{(config.minEdgeThreshold * 100).toFixed(1)}%</span>
                   </div>
                   <Slider
-                    value={[config.minEdgeThreshold]}
+                    value={[config.minEdgeThreshold * 100]}
                     min={0} max={10} step={0.5}
-                    onValueChange={([v]) => setConfig(p => ({ ...p, minEdgeThreshold: v }))}
+                    onValueChange={([v]) => setConfig(p => ({ ...p, minEdgeThreshold: v / 100 }))}
                   />
                   <div className="flex justify-between text-[10px] text-zinc-600"><span>0%</span><span>10%</span></div>
                 </div>
@@ -949,12 +964,12 @@ export default function PredictionEngineView() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm text-zinc-300">Max Bankroll Risk</Label>
-                    <span className="text-xs font-mono text-emerald-400">{config.maxBankrollRisk}%</span>
+                    <span className="text-xs font-mono text-emerald-400">{(config.maxBankrollRisk * 100).toFixed(0)}%</span>
                   </div>
                   <Slider
-                    value={[config.maxBankrollRisk]}
+                    value={[config.maxBankrollRisk * 100]}
                     min={1} max={25} step={1}
-                    onValueChange={([v]) => setConfig(p => ({ ...p, maxBankrollRisk: v }))}
+                    onValueChange={([v]) => setConfig(p => ({ ...p, maxBankrollRisk: v / 100 }))}
                   />
                   <div className="flex justify-between text-[10px] text-zinc-600"><span>1%</span><span>25%</span></div>
                 </div>
