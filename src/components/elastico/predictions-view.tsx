@@ -146,7 +146,7 @@ export default function PredictionsView() {
     if (!token) return
     fetch('/api/predictions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ matchId, predictedOutcome: choice === 'home' ? 'home_win' : choice === 'draw' ? 'draw' : 'away_win', confidence: 70 }),
+      body: JSON.stringify({ matchId, predictedOutcome: choice, confidence: 70 }),
     }).then(() => { fetchPredictions(); toast({ title: 'Prediction submitted!' }) }).catch(() => toast({ title: 'Error', description: 'Failed', variant: 'destructive' }))
   }, [token, fetchPredictions])
 
@@ -213,7 +213,7 @@ export default function PredictionsView() {
                       </div>
                       <div className="flex items-center gap-1">
                         {(['home', 'draw', 'away'] as const).map((c) => (
-                          <Button key={c} size="sm" variant={existing?.predictedOutcome === (c === 'home' ? 'home_win' : c === 'draw' ? 'draw' : 'away_win') ? 'default' : 'outline'} className={cn('h-6 w-14 text-[10px] px-0',
+                          <Button key={c} size="sm" variant={existing?.predictedOutcome === c ? 'default' : 'outline'} className={cn('h-6 w-14 text-[10px] px-0',
                             !existing && c === 'home' ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10' : !existing && c === 'draw' ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10' : !existing && c === 'away' ? 'border-red-500/30 text-red-400 hover:bg-red-500/10' : ''
                           )} onClick={() => handleQuickPredict(m.id, c)} disabled={!!existing}>
                             {c === 'home' ? 'H' : c === 'draw' ? 'D' : 'A'}

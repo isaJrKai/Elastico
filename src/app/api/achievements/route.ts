@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     const achievements = ALL_ACHIEVEMENTS.map((a) => ({
       ...a,
       unlocked: userAchievements.includes(a.id),
-      unlockedAt: userAchievements.includes(a.id) ? '2026-01-15T00:00:00.000Z' : null,
+      unlockedAt: userAchievements.includes(a.id) ? new Date().toISOString() : null,
     }))
 
     // Calculate XP

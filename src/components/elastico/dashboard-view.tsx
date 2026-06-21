@@ -137,7 +137,7 @@ export default function DashboardView() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         matchId: nextMatch.id,
-        predictedOutcome: choice === 'home' ? 'home_win' : choice === 'draw' ? 'draw' : 'away_win',
+        predictedOutcome: choice, // 'home' | 'draw' | 'away'
         confidence: 75,
       }),
     }).then(() => {

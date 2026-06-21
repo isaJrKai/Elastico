@@ -197,13 +197,16 @@ export async function POST(
 
       // Update user stats using atomic increment to prevent race conditions
       if (isCorrect) {
+        // Fetch current bestStreak to compare
+        const currentUser = await db.user.findUnique({ where: { id: pred.userId }, select: { bestStreak: true, predictionStreak: true } })
+        const newStreak = (currentUser?.predictionStreak || 0) + 1
         await db.user.update({
           where: { id: pred.userId },
           data: {
             totalPredictions: { increment: 1 },
             correctPredictions: { increment: 1 },
             predictionStreak: { increment: 1 },
-            bestStreak: Math.max(pred.confidence, 0), // note: bestStreak may be slightly off in edge cases
+            bestStreak: Math.max(newStreak, currentUser?.bestStreak || 0),
           },
         })
         // Recalculate accuracy as a separate operation

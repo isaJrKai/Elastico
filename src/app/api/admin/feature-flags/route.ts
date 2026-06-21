@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
     const flags = await db.featureFlag.findMany({
       orderBy: { name: 'asc' },
     })

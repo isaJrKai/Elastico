@@ -33,8 +33,8 @@ import { cn } from '@/lib/utils'
 // ── Model Options ──────────────────────────────────────────────────────────────
 
 const MODEL_OPTIONS = [
-  { value: 'pro', label: 'ELASTICO Pro (NVIDIA Llama 3.1 405B)', icon: Cpu },
-  { value: 'fast', label: 'ELASTICO Fast (NVIDIA Llama 3.1 70B)', icon: Cpu },
+  { value: 'pro', label: 'ELASTICO Pro (Best Quality)', icon: Cpu },
+  { value: 'fast', label: 'ELASTICO Fast (Low Latency)', icon: Cpu },
   { value: 'local', label: 'ELASTICO Local (Offline Mode)', icon: WifiOff },
 ] as const
 
@@ -372,13 +372,13 @@ export function ChatView() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-semibold text-foreground">AI Chat</h1>
-              {/* NVIDIA Badge */}
+              {/* AI Provider Badge */}
               <Badge
                 variant="outline"
                 className="gap-1.5 border-primary/30 bg-primary/5 px-2 py-0 text-[10px] font-medium text-primary"
               >
                 <Cpu className="size-3" />
-                Powered by NVIDIA AI
+                Powered by Multi-Provider AI Gateway
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">

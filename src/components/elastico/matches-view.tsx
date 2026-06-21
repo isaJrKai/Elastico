@@ -78,7 +78,7 @@ function MatchCard({ match }: { match: Match }) {
     fetch('/api/predictions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ matchId: match.id, predictedOutcome: choice === 'home' ? 'home_win' : choice === 'draw' ? 'draw' : 'away_win', confidence: 70 }),
+      body: JSON.stringify({ matchId: match.id, predictedOutcome: choice, confidence: 70 }),
     }).then(() => toast({ title: 'Prediction submitted!', description: `${choice} predicted for ${match.homeTeam?.name} vs ${match.awayTeam?.name}` }))
       .catch(() => toast({ title: 'Error', description: 'Failed to submit prediction', variant: 'destructive' }))
   }, [match, token])

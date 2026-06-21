@@ -120,7 +120,7 @@ function SectionCard({ title, icon: Icon, children, className = '' }: { title: s
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">{children}</CardContent>
+      <CardContent className="px-4 pb-4 pt-0 overflow-hidden">{children}</CardContent>
     </Card>
   )
 }

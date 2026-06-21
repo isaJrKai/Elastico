@@ -27,10 +27,10 @@ interface DemoAccount {
 }
 
 const DEMO_ACCOUNTS: DemoAccount[] = [
-  { label: 'Admin', email: 'admin@elastico.ai', password: 'Admin@2026!', icon: <ShieldCheck className="size-3.5" />, color: 'text-red-400', hoverColor: 'hover:border-red-500/40 hover:text-red-300', plan: 'admin' },
-  { label: 'Pro', email: 'pro@elastico.ai', password: 'ProUser2026!', icon: <Crown className="size-3.5" />, color: 'text-amber-400', hoverColor: 'hover:border-amber-500/40 hover:text-amber-300', plan: 'pro' },
-  { label: 'Elite', email: 'elite@elastico.ai', password: 'EliteUser2026!', icon: <Trophy className="size-3.5" />, color: 'text-emerald-400', hoverColor: 'hover:border-emerald-500/40 hover:text-emerald-300', plan: 'elite' },
-  { label: 'Free', email: 'user@elastico.ai', password: 'FreeUser2026!', icon: <UserCheck className="size-3.5" />, color: 'text-sky-400', hoverColor: 'hover:border-sky-500/40 hover:text-sky-300', plan: 'free' },
+  { label: 'Admin', email: 'admin@elastico.ai', password: '', icon: <ShieldCheck className="size-3.5" />, color: 'text-red-400', hoverColor: 'hover:border-red-500/40 hover:text-red-300', plan: 'admin' },
+  { label: 'Pro', email: 'pro@elastico.ai', password: '', icon: <Crown className="size-3.5" />, color: 'text-amber-400', hoverColor: 'hover:border-amber-500/40 hover:text-amber-300', plan: 'pro' },
+  { label: 'Elite', email: 'elite@elastico.ai', password: '', icon: <Trophy className="size-3.5" />, color: 'text-emerald-400', hoverColor: 'hover:border-emerald-500/40 hover:text-emerald-300', plan: 'elite' },
+  { label: 'Free', email: 'user@elastico.ai', password: '', icon: <UserCheck className="size-3.5" />, color: 'text-sky-400', hoverColor: 'hover:border-sky-500/40 hover:text-sky-300', plan: 'free' },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -96,13 +96,13 @@ export default function LoginView() {
   }
 
   const fillDemo = async (account: DemoAccount) => {
-    setLoginEmail(account.email); setLoginPassword(account.password); setLoginError('')
-    // Auto-login
+    setLoginEmail(account.email); setLoginError('')
+    // Demo login via server-side endpoint (no password in client bundle)
     setLoginLoading(true)
     try {
-      const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: account.email, password: account.password }) })
+      const res = await fetch('/api/auth/demo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: account.email, role: account.plan }) })
       const data = await res.json()
-      if (!res.ok) { setLoginLoading(false); return }
+      if (!res.ok) { setLoginLoading(false); setLoginError(data.error || 'Demo unavailable'); return }
       if (data.token) localStorage.setItem('elastico_token', data.token)
       if (data.user) localStorage.setItem('elastico_user', JSON.stringify(data.user))
       setUser(data.user, data.token); setView('dashboard')
