@@ -1,0 +1,252 @@
+/home/z/my-project/agent-ctx/6a-6b-new-features-agent.md:32:- All use glass-card, Framer Motion, Recharts, shadcn/ui, dark theme with emerald accent
+/home/z/my-project/src/components/elastico/news-view.tsx:253:          className="h-10 pl-10 glass-card border-border bg-secondary/30 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-primary/30"
+/home/z/my-project/src/components/elastico/news-view.tsx:283:                className="glass-card border-border overflow-hidden"
+/home/z/my-project/src/components/elastico/news-view.tsx:327:                      'glass-card glass-card-hover cursor-pointer overflow-hidden transition-all duration-200',
+/home/z/my-project/src/components/elastico/news-view.tsx:431:                  className="glass-card border-border text-sm text-muted-foreground hover:text-foreground"
+/home/z/my-project/src/components/elastico/news-view.tsx:456:        <DialogContent className="glass-card max-h-[85vh] overflow-y-auto border-border sm:max-w-2xl">
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:310:        <Card className="glass-card-premium rounded-xl overflow-hidden">
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:418:          <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:433:            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:459:            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5 space-y-4">
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:467:            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:486:            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:520:            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:562:              <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:582:              <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:155:        <div className="glass-card-premium rounded-xl overflow-hidden">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:209:              <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:260:              <Card className="glass-card-premium card-hover-lift rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:351:            <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:377:            <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:399:            <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:446:            <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:490:            <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:516:            <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:551:            <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:573:            <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:599:            <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:622:            <Card className="glass-card-premium rounded-xl ring-glow-emerald">
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:642:                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:650:                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:658:                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+/home/z/my-project/src/components/elastico/dashboard-view.tsx:667:            <Card className="glass-card-premium rounded-xl border-primary/20">
+/home/z/my-project/src/components/elastico/compare-view.tsx:210:        <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:221:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:243:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:281:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:317:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:337:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:363:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:400:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:422:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:447:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:474:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/compare-view.tsx:488:                    <div key={item.label} className="glass-card p-4 rounded-lg border border-border/30 text-center space-y-2">
+/home/z/my-project/src/components/elastico/compare-view.tsx:504:          <Card className="glass-card border-primary/20 bg-primary/5">
+/home/z/my-project/src/components/elastico/header.tsx:122:        'glass-card border-border',
+/home/z/my-project/src/components/elastico/header.tsx:292:              className="w-56 glass-card border-border"
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:434:   434→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:470:   470→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:506:   506→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:544:   544→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:590:   590→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:625:   625→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:667:   667→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:706:   706→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:760:   760→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:778:   778→                <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:800:   800→                <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:827:   827→                <Card className="glass-card-premium sm:col-span-2">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:849:   849→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:896:   896→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:945:   945→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:997:   997→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:1049:  1049→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722330007_047acbc402af.txt:1086:  1086→              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/player-view.tsx:372:                <Card className="glass-card h-full overflow-hidden">
+/home/z/my-project/src/components/elastico/player-view.tsx:433:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:482:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:494:                    <Card key={player.id} className="glass-card border-border/30">
+/home/z/my-project/src/components/elastico/player-view.tsx:520:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:540:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:562:            <Card className="glass-card mt-4">
+/home/z/my-project/src/components/elastico/player-view.tsx:600:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:630:                <Card key={pos} className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:657:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:679:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:704:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:737:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:767:            <Card className="glass-card lg:col-span-1">
+/home/z/my-project/src/components/elastico/player-view.tsx:787:            <Card className="glass-card lg:col-span-2">
+/home/z/my-project/src/components/elastico/player-view.tsx:820:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/player-view.tsx:882:                  <Card key={item.label} className="glass-card">
+/home/z/my-project/src/components/elastico/subscription-view.tsx:150:            <Card key={plan.id} className={cn('glass-card-premium card-hover-lift relative flex flex-col overflow-hidden rounded-xl', plan.borderClass, isCurrent && 'scale-[1.02]')}>
+/home/z/my-project/src/components/elastico/subscription-view.tsx:200:            <Card key={i} className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/subscription-view.tsx:218:        <Card className="glass-card-premium overflow-hidden rounded-xl">
+/home/z/my-project/src/components/elastico/subscription-view.tsx:243:        <Card className="glass-card-premium overflow-hidden rounded-xl">
+/home/z/my-project/src/components/elastico/tournament-view.tsx:224:      <div key={m.id} onClick={() => !isUp && selectMatch(m.id)} className={cn('glass-card-premium rounded-lg border border-border/50 p-3 transition-all cursor-pointer', isLive && 'border-red-500/20')}>
+/home/z/my-project/src/components/elastico/tournament-view.tsx:265:            <Card key={s.label} className="glass-card-premium card-hover-lift rounded-xl"><CardContent className="flex items-center gap-3 p-4">
+/home/z/my-project/src/components/elastico/tournament-view.tsx:273:        <Card className="glass-card-premium rounded-xl"><CardContent className="p-4">
+/home/z/my-project/src/components/elastico/tournament-view.tsx:284:        <Card className="glass-card-premium rounded-xl"><CardContent className="p-4">
+/home/z/my-project/src/components/elastico/tournament-view.tsx:312:                <Card key={g} className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/tournament-view.tsx:323:          <Card className="glass-card-premium rounded-xl border-primary/20 animate-scale-in">
+/home/z/my-project/src/components/elastico/tournament-view.tsx:345:          <Card className="glass-card-premium rounded-xl">
+/home/z/my-project/src/components/elastico/tournament-view.tsx:363:            <Card className="glass-card-premium rounded-xl"><CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground"><Trophy className="mb-3 size-10 opacity-30" /><p className="text-sm font-medium">Knockout matches not yet set</p></CardContent></Card>
+/home/z/my-project/src/components/elastico/tournament-view.tsx:365:            <Card className="glass-card-premium rounded-xl overflow-hidden"><CardContent className="p-4 md:p-6">
+/home/z/my-project/tool-results/read_1781714165367_56c81248f963.txt:157:   157→        'glass-card cursor-pointer transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 animate-fade-in-up group',
+/home/z/my-project/tool-results/read_1781714165367_56c81248f963.txt:314:   314→    <Card className="glass-card animate-fade-in-up">
+/home/z/my-project/tool-results/read_1781714165367_56c81248f963.txt:475:   475→      <div className="glass-card rounded-xl p-4">
+/home/z/my-project/tool-results/read_1781714165367_56c81248f963.txt:494:   494→            <SelectContent className="glass-card border-border">
+/home/z/my-project/tool-results/read_1781714165367_56c81248f963.txt:509:   509→            <SelectContent className="glass-card border-border">
+/home/z/my-project/tool-results/read_1781714165367_56c81248f963.txt:539:   539→        <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:282:        <TabsList className="glass-card border-0 bg-transparent p-1 gap-1">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:302:              <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:384:              <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:447:                <Card className="glass-card border-zinc-800/50 h-full min-h-[500px] flex items-center justify-center">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:472:                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:491:                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:520:                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:541:                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:559:                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:588:                  <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:624:              <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:645:                  <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:674:                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:704:              <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:756:            <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:800:                <Card className="glass-card border-zinc-800/50 h-full min-h-[400px] flex items-center justify-center">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:811:                  <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:842:                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:880:                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/prediction-engine-view.tsx:907:            <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:267:   267→        <TabsList className="glass-card border-0 bg-transparent p-1 gap-1">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:287:   287→              <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:369:   369→              <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:432:   432→                <Card className="glass-card border-zinc-800/50 h-full min-h-[500px] flex items-center justify-center">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:457:   457→                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:476:   476→                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:505:   505→                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:526:   526→                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:544:   544→                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:573:   573→                  <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:609:   609→              <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:630:   630→                  <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:659:   659→                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:689:   689→              <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:741:   741→            <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:785:   785→                <Card className="glass-card border-zinc-800/50 h-full min-h-[400px] flex items-center justify-center">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:796:   796→                  <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:827:   827→                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:865:   865→                    <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/tool-results/read_1781852041489_98d1b33db9a0.txt:892:   892→            <Card className="glass-card border-zinc-800/50">
+/home/z/my-project/src/components/elastico/settings-view.tsx:281:    <Card className="glass-card border-border">
+/home/z/my-project/src/components/elastico/settings-view.tsx:580:      <Card className="glass-card border-border">
+/home/z/my-project/src/components/elastico/settings-view.tsx:683:      <Card className="glass-card border-border">
+/home/z/my-project/src/components/elastico/settings-view.tsx:786:      <Card className="glass-card border-border">
+/home/z/my-project/src/components/elastico/settings-view.tsx:882:      <Card className="glass-card border-border">
+/home/z/my-project/src/components/elastico/settings-view.tsx:1050:                <AlertDialogContent className="glass-card border-border">
+/home/z/my-project/src/components/elastico/settings-view.tsx:1082:      <Card className="glass-card border-border">
+/home/z/my-project/src/components/elastico/settings-view.tsx:1193:      <Card className="glass-card border-border">
+/home/z/my-project/src/components/elastico/settings-view.tsx:1227:      <Card className="glass-card border-border">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:223:            <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:249:        <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:274:        <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:315:        <Card className="glass-card-premium border-primary/20">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:409:          <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:455:          <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:507:          <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:544:          <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:627:        <Card className="glass-card-premium border-yellow-500/20">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:925:              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:961:              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:997:              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1035:            <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1081:              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1116:              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1158:            <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1197:            <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1251:              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1269:                <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1291:                <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1318:                <Card className="glass-card-premium sm:col-span-2">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1340:            <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1387:            <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1436:              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1488:              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1540:              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/system-monitor-view.tsx:1577:              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:434:   434→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:470:   470→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:506:   506→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:544:   544→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:590:   590→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:625:   625→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:667:   667→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:706:   706→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:760:   760→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:778:   778→                <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:800:   800→                <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:827:   827→                <Card className="glass-card-premium sm:col-span-2">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:849:   849→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:896:   896→            <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:945:   945→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:997:   997→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:1049:  1049→              <Card className="glass-card-premium">
+/home/z/my-project/tool-results/read_1781722465113_047acbc402af.txt:1086:  1086→              <Card className="glass-card-premium">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:263:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:312:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:355:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:394:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:448:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:495:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:551:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:595:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:620:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:633:                  className="glass-card p-3 rounded-lg border border-border/50"
+/home/z/my-project/src/components/elastico/tactical-view.tsx:672:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:707:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:732:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:757:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:782:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:805:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:814:                  <div key={team.team} className="glass-card p-4 rounded-lg border border-border/50 space-y-3">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:844:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:879:                <div className="absolute bottom-3 left-3 right-3 glass-card p-2 rounded border border-border/30">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:892:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:917:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:943:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:951:                <div className="glass-card p-4 rounded-lg border border-primary/20 bg-primary/5">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:956:                <div className="glass-card p-4 rounded-lg border border-orange-500/20 bg-orange-500/5">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:961:                <div className="glass-card p-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5">
+/home/z/my-project/src/components/elastico/tactical-view.tsx:966:                <div className="glass-card p-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:240:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:277:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:347:                      ? 'glass-card border-primary/30 bg-primary/5'
+/home/z/my-project/src/components/elastico/achievements-view.tsx:410:                    'glass-card p-4 rounded-xl border space-y-3',
+/home/z/my-project/src/components/elastico/achievements-view.tsx:444:          <Card className="glass-card">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:457:                      entry.isUser ? 'glass-card border-primary/30 bg-primary/5' : 'bg-card/50 border-border/30'
+/home/z/my-project/src/components/elastico/achievements-view.tsx:480:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:486:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:492:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:498:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:514:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:530:            <Card className="glass-card">
+/home/z/my-project/src/components/elastico/achievements-view.tsx:541:          <Card className="glass-card">
+/home/z/my-project/tool-results/read_1781716554009_76390a4ea3c3.txt:157:   157→        'glass-card cursor-pointer transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 animate-fade-in-up group',
+/home/z/my-project/tool-results/read_1781716554009_76390a4ea3c3.txt:314:   314→    <Card className="glass-card animate-fade-in-up">
+/home/z/my-project/tool-results/read_1781716554009_76390a4ea3c3.txt:475:   475→      <div className="glass-card rounded-xl p-4">
+/home/z/my-project/tool-results/read_1781716554009_76390a4ea3c3.txt:494:   494→            <SelectContent className="glass-card border-border">
+/home/z/my-project/tool-results/read_1781716554009_76390a4ea3c3.txt:509:   509→            <SelectContent className="glass-card border-border">
+/home/z/my-project/tool-results/read_1781716554009_76390a4ea3c3.txt:539:   539→        <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
+/home/z/my-project/src/components/elastico/notifications-view.tsx:296:      <div className="glass-card flex flex-wrap gap-1 rounded-xl p-1.5">
+/home/z/my-project/src/components/elastico/notifications-view.tsx:332:      <Card className="glass-card overflow-hidden rounded-xl">
+/home/z/my-project/tool-results/read_1781714803340_023c12c2d014.txt:35:    35→    35→    <Card className="glass-card glass-card-hover animate-fade-in-up">
+/home/z/my-project/tool-results/read_1781714803340_023c12c2d014.txt:61:    61→    61→    <Card className="glass-card animate-fade-in-up">
+/home/z/my-project/tool-results/read_1781714803340_023c12c2d014.txt:246:   246→   246→        <Card className="glass-card p-8 text-center max-w-md">
+/home/z/my-project/tool-results/read_1781714803340_023c12c2d014.txt:295:   295→   295→                <Card className="glass-card animate-fade-in-up">
+/home/z/my-project/tool-results/read_1781714803340_023c12c2d014.txt:310:   310→   310→                <Card className="glass-card animate-fade-in-up">
+/home/z/my-project/tool-results/read_1781714803340_023c12c2d014.txt:329:   329→   329→                <Card className="glass-card animate-fade-in-up">
+/home/z/my-project/tool-results/read_1781714803340_023c12c2d014.txt:343:   343→   343→                <Card className="glass-card animate-fade-in-up">
+/home/z/my-project/tool-results/read_1781714803340_023c12c2d014.txt:374:   374→   374→          <Card className="glass-card">
+
+[Showing results with pagination = limit: 250]
