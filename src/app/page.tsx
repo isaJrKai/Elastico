@@ -278,20 +278,18 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <Sidebar />
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'md:ml-[240px]' : 'md:ml-[64px]'}`}>
+    <div className="min-h-screen bg-background flex aurora-bg noise-overlay">
+      <div className="relative z-[1]"><Sidebar /></div>
+      <div className={`relative z-[1] flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'md:ml-[240px]' : 'md:ml-[64px]'}`}>
         <Header />
         <div className="flex-1 overflow-auto">
-          <div style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left', width: `${10000 / zoomLevel}%`, minHeight: '100%' }}>
-            <main className="p-4 md:p-6">
-              <ErrorBoundary>{renderView()}</ErrorBoundary>
-            </main>
-            <footer className="border-t border-border/30 px-6 py-3 flex items-center justify-between text-xs text-muted-foreground">
-              <span>© 2026 ELASTICO — AI-Powered Analytics Platform</span>
-              <span className="hidden sm:inline">Powered by ELO · Poisson · Dixon-Coles · Merton Jump-Diffusion · GARCH · Kelly Criterion · NVIDIA AI</span>
-            </footer>
-          </div>
+          <main className="p-4 md:p-6">
+            <ErrorBoundary>{renderView()}</ErrorBoundary>
+          </main>
+          <footer className="border-t border-border/30 px-6 py-3 flex items-center justify-between text-xs text-muted-foreground">
+            <span>© 2026 ELASTICO — AI-Powered Analytics Platform</span>
+            <span className="hidden sm:inline">Powered by ELO · Poisson · Dixon-Coles · Merton Jump-Diffusion · GARCH · Kelly Criterion · NVIDIA AI</span>
+          </footer>
         </div>
       </div>
       <CommandPalette />

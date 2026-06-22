@@ -111,13 +111,13 @@ export default function LoginView() {
   const handleSocialLogin = (provider: string) => { toast({ title: `${provider} login`, description: 'Coming soon!', variant: 'default' }) }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background aurora-bg noise-overlay px-4 py-8">
       {/* Background Effects */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/4 top-1/4 size-[500px] rounded-full bg-[#00e676]/[0.04] blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 size-[400px] rounded-full bg-[#00e676]/[0.03] blur-[100px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[600px] rounded-full bg-[#00bfa5]/[0.02] blur-[150px]" />
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute left-1/4 top-1/4 size-[500px] rounded-full bg-[#00e676]/[0.12] blur-[120px]" />
+        <div className="absolute bottom-1/4 right-1/4 size-[400px] rounded-full bg-[#00b4d8]/[0.10] blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[600px] rounded-full bg-[#a855f7]/[0.06] blur-[150px]" />
+        <div className="absolute inset-0 opacity-[0.04] z-0" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
       </div>
 
       <div className="relative z-10 flex w-full max-w-md flex-col items-center gap-5">
@@ -151,11 +151,9 @@ export default function LoginView() {
         </div>
 
         {/* Auth Card with animated gradient border */}
-        <Card className="relative w-full overflow-hidden rounded-2xl shadow-2xl shadow-[#00e676]/[0.05]">
-          {/* Animated gradient border effect */}
-          <div className="absolute inset-0 rounded-2xl p-[1px] bg-gradient-to-br from-[#00e676]/30 via-transparent to-[#00bfa5]/30 animate-spin-slow" style={{ animationDuration: '8s' }}>
-            <div className="w-full h-full rounded-2xl bg-[#0a0f1c]" />
-          </div>
+        <Card className="relative z-[1] w-full overflow-hidden rounded-2xl shadow-2xl shadow-[#00e676]/[0.05] !bg-transparent glass-card-premium">
+          {/* Animated gradient border glow */}
+          <div className="absolute inset-0 rounded-2xl p-[1px] pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(0,230,118,0.25), transparent 40%, transparent 60%, rgba(0,180,216,0.2))' }} />
 
           <div className="relative z-10">
             <Tabs defaultValue="login" className="w-full">
