@@ -67,7 +67,7 @@ function SetupView({ onReady }: { onReady: () => void }) {
       setMessage(data.message)
     } catch {
       setStatus('error')
-      setMessage('Cannot reach server')
+      setMessage('Service temporarily unavailable — database is waking up')
     }
   }
 
@@ -75,21 +75,21 @@ function SetupView({ onReady }: { onReady: () => void }) {
   checkAndSetupRef.current = checkAndSetup
   useEffect(() => {
     checkAndSetupRef.current()
-    const interval = setInterval(() => checkAndSetupRef.current(), 5000)
+    const interval = setInterval(() => checkAndSetupRef.current(), 8000) // poll every 8s
     return () => clearInterval(interval)
   }, [])
 
   const isNeedsDatabase = status === 'needs_database'
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 aurora-bg noise-overlay">
+      <div className="relative z-[1] max-w-md w-full">
         <div className="text-center mb-8">
           <div className="text-4xl font-black tracking-tighter text-white mb-2">ELASTICO</div>
           <p className="text-sm text-zinc-500">AI-Powered Football Analytics</p>
         </div>
 
-        <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-8 backdrop-blur-xl">
+        <div className="glass-card-premium rounded-2xl p-8">
           {isNeedsDatabase ? (
             <>
               <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
@@ -118,12 +118,16 @@ function SetupView({ onReady }: { onReady: () => void }) {
             </div>
           ) : (
             <div className="text-center py-4">
-              <p className="text-sm text-red-400">{message}</p>
+              <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+              </div>
+              <p className="text-sm text-amber-300 mb-1">{message || 'Connection issue'}</p>
+              <p className="text-xs text-zinc-500 mb-4">Auto-retrying every 8 seconds...</p>
               <button
                 onClick={checkAndSetup}
-                className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm text-zinc-300 transition-colors"
+                className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-sm text-emerald-400 transition-colors"
               >
-                Retry
+                Retry Now
               </button>
             </div>
           )}
@@ -134,7 +138,7 @@ function SetupView({ onReady }: { onReady: () => void }) {
 }
 
 export default function Home() {
-  const [dbReady, setDbReady] = useState(true) // assume ready, check on mount
+  const [dbReady, setDbReady] = useState<'checking' | 'ready' | 'down'>('checking') // three-state: checking, ready, down
   const isAuthenticated = useElasticoStore(s => s.isAuthenticated)
   const currentView = useElasticoStore(s => s.currentView)
   const sidebarOpen = useElasticoStore(s => s.sidebarOpen)
@@ -220,23 +224,25 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [isAuthenticated, fetchMatches])
 
-  // Check database on mount (production only) — non-blocking
+  // Check database on mount — determine state
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') return
+    if (process.env.NODE_ENV === 'development') { setDbReady('ready'); return }
     fetch('/api/setup')
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === 'ready') {
-          setDbReady(true)
-        }
-        // Don't block on needs_database / needs_setup — let user log in with demo account
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
       })
-      .catch(() => {}) // silently continue
+      .then(data => {
+        setDbReady(data.status === 'ready' ? 'ready' : 'down')
+      })
+      .catch(() => {
+        setDbReady('down')
+      })
   }, [])
 
-  // Show setup view if DB not ready
-  if (!dbReady) {
-    return <SetupView onReady={() => setDbReady(true)} />
+  // Database is down — show reconnect screen
+  if (dbReady === 'down' || dbReady === 'checking') {
+    return <SetupView onReady={() => setDbReady('ready')} />
   }
 
   // Not authenticated - show login
