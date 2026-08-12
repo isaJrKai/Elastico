@@ -306,22 +306,22 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
+    <div className="h-screen bg-[#0B0E14] flex overflow-hidden">
       {/* Sidebar */}
       <div className="shrink-0"><Sidebar /></div>
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <main className="w-full max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-5">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0B0E14]">
+          <main className="w-full max-w-[1600px] mx-auto px-6 md:px-8 py-6">
             <ErrorBoundary>
               <Suspense fallback={<ViewSkeleton />}>
                 {renderView()}
               </Suspense>
             </ErrorBoundary>
           </main>
-          <footer className="shrink-0 border-t border-border/30 px-4 md:px-6 lg:px-8 py-3 flex items-center justify-between text-xs text-muted-foreground">
+          <footer className="shrink-0 border-t border-white/[0.06] px-6 md:px-8 py-3 flex items-center justify-between text-xs text-[#475569]">
             <span>2026 ELASTICO</span>
             <span className="hidden sm:inline truncate">ELO / Poisson / Dixon-Coles / Merton Jump-Diffusion / GARCH / Kelly Criterion</span>
           </footer>
