@@ -18,14 +18,14 @@ function headers(): Record<string, string> {
 // ── Competition Codes (football-data.org) ──────────────────────────────────────
 
 export const FD_COMPETITIONS = [
-  { code: 'PL', fdCode: 'PL', name: 'Premier League' },
-  { code: 'PD', fdCode: 'PD', name: 'La Liga' },
-  { code: 'SA', fdCode: 'SA', name: 'Serie A' },
-  { code: 'BL1', fdCode: 'BL1', name: 'Bundesliga' },
-  { code: 'FL1', fdCode: 'FL1', name: 'Ligue 1' },
-  { code: 'CL', fdCode: 'CL', name: 'Champions League' },
-  { code: 'EL', fdCode: 'EL', name: 'Europa League' },
-  { code: 'DED', fdCode: 'DED', name: 'Eredivisie' },
+  { code: 'PL',  fdCode: 'PL',  name: 'Premier League' },
+  { code: 'LIGA', fdCode: 'PD',  name: 'La Liga' },
+  { code: 'SA',  fdCode: 'SA',  name: 'Serie A' },
+  { code: 'BL',  fdCode: 'BL1', name: 'Bundesliga' },
+  { code: 'L1',  fdCode: 'FL1', name: 'Ligue 1' },
+  { code: 'UCL', fdCode: 'CL',  name: 'Champions League' },
+  { code: 'UEL', fdCode: 'EL',  name: 'Europa League' },
+  { code: 'ERE', fdCode: 'DED', name: 'Eredivisie' },
   { code: 'PPL', fdCode: 'PPL', name: 'Primeira Liga' },
   { code: 'BL2', fdCode: 'BL2', name: '2. Bundesliga' },
 ]
@@ -120,10 +120,17 @@ export async function fetchCompetitions(): Promise<FDCompetition[]> {
   }
 }
 
+/** Resolve a unified code (LIGA, UCL, etc.) to the football-data.org API code (PD, CL, etc.) */
+function resolveFdCode(competitionCode: string): string {
+  const entry = FD_COMPETITIONS.find(c => c.code === competitionCode)
+  return entry ? entry.fdCode : competitionCode
+}
+
 /** Fetch standings for a competition */
 export async function fetchStandings(competitionCode: string): Promise<FDStanding[]> {
+  const fdCode = resolveFdCode(competitionCode)
   try {
-    const res = await fetch(`${BASE}/competitions/${competitionCode}/standings`, {
+    const res = await fetch(`${BASE}/competitions/${fdCode}/standings`, {
       headers: headers(),
       next: { revalidate: 300 }, // cache 5 min
     })
@@ -145,8 +152,9 @@ export async function fetchMatches(
   matchday?: number,
   statusFilter?: string
 ): Promise<FDMatch[]> {
+  const fdCode = resolveFdCode(competitionCode)
   try {
-    let url = `${BASE}/competitions/${competitionCode}/matches`
+    let url = `${BASE}/competitions/${fdCode}/matches`
     const params: string[] = []
     if (matchday) params.push(`matchday=${matchday}`)
     if (statusFilter) params.push(`status=${statusFilter}`)
@@ -170,8 +178,9 @@ export async function fetchMatches(
 
 /** Fetch matches with odds (only available on paid tier, graceful fallback) */
 export async function fetchMatchesWithOdds(competitionCode: string): Promise<FDMatch[]> {
+  const fdCode = resolveFdCode(competitionCode)
   try {
-    const res = await fetch(`${BASE}/competitions/${competitionCode}/matches?status=SCHEDULED,TIMED`, {
+    const res = await fetch(`${BASE}/competitions/${fdCode}/matches?status=SCHEDULED,TIMED`, {
       headers: headers(),
       next: { revalidate: 120 },
     })
@@ -190,8 +199,9 @@ export async function fetchMatchesWithOdds(competitionCode: string): Promise<FDM
 
 /** Fetch top scorers for a competition */
 export async function fetchScorers(competitionCode: string, limit = 10): Promise<any[]> {
+  const fdCode = resolveFdCode(competitionCode)
   try {
-    const res = await fetch(`${BASE}/competitions/${competitionCode}/scorers?limit=${limit}`, {
+    const res = await fetch(`${BASE}/competitions/${fdCode}/scorers?limit=${limit}`, {
       headers: headers(),
       next: { revalidate: 3600 },
     })

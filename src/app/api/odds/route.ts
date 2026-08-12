@@ -64,8 +64,10 @@ export async function GET(request: Request) {
     // ── Source 3: football-data.org ───────────────────────────────────────
     if (process.env.FOOTBALL_DATA_API_KEY && results.length === 0) {
       try {
-        const { fetchMatchesWithOdds, normalizeFDMatch } = await import('@/lib/football-data-org')
-        const matches = await fetchMatchesWithOdds(competition)
+        const { fetchMatchesWithOdds, normalizeFDMatch, FD_COMPETITIONS } = await import('@/lib/football-data-org')
+        const fdEntry = FD_COMPETITIONS.find(c => c.code === competition)
+        const fdCode = fdEntry ? fdEntry.fdCode : competition
+        const matches = await fetchMatchesWithOdds(fdCode)
         for (const m of matches) {
           results.push({
             source: 'football-data.org',

@@ -41,6 +41,29 @@ const STATUS_TABS: { value: MatchTab; label: string }[] = [
 const STAGES = ['Group Stage', 'Round of 16', 'Quarter-Final', 'Semi-Final', 'Final', 'Third Place']
 const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
+const LEAGUES = [
+  { code: 'PL',    name: 'Premier League' },
+  { code: 'LIGA',  name: 'La Liga' },
+  { code: 'SA',    name: 'Serie A' },
+  { code: 'BL',    name: 'Bundesliga' },
+  { code: 'L1',    name: 'Ligue 1' },
+  { code: 'MLS',   name: 'MLS' },
+  { code: 'UCL',   name: 'Champions League' },
+  { code: 'UEL',   name: 'Europa League' },
+  { code: 'ERE',   name: 'Eredivisie' },
+  { code: 'PPL',   name: 'Primeira Liga' },
+  { code: 'BL2',   name: '2. Bundesliga' },
+  { code: 'ECH',   name: 'Championship' },
+  { code: 'WC',    name: 'World Cup' },
+  { code: 'CA',    name: 'Copa America' },
+  { code: 'EURO',  name: 'Euro Championship' },
+  { code: 'BRA',   name: 'Serie A Brazil' },
+  { code: 'ARG',   name: 'Liga Profesional' },
+  { code: 'MX',    name: 'Liga MX' },
+  { code: 'CAFCL', name: 'CAF Champions League' },
+  { code: 'AFCCL', name: 'AFC Champions League' },
+]
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getStatusConfig(status: string) {
@@ -321,6 +344,7 @@ function MatchCardSkeleton() {
 export function MatchesView() {
   const token = useElasticoStore(s => s.token)
   const [activeTab, setActiveTab] = useState<MatchTab>('all')
+  const [leagueFilter, setLeagueFilter] = useState('PL')
   const [searchQuery, setSearchQuery] = useState('')
   const [stageFilter, setStageFilter] = useState('all')
   const [groupFilter, setGroupFilter] = useState('all')
@@ -341,7 +365,8 @@ export function MatchesView() {
       else if (activeTab === 'live') statusParam = 'IN_PLAY,PAUSED'
       else if (activeTab === 'all') statusParam = 'FINISHED'
 
-      const res = await fetch(`/api/football-data?action=matches&competition=PL&status=${statusParam}`, { headers })
+      const leagueParam = leagueFilter === 'all' ? 'PL' : leagueFilter
+      const res = await fetch(`/api/football-data?action=matches&competition=${leagueParam}&status=${statusParam}`, { headers })
       const data: any = await res.json()
       const matches = (data.data || []).map((m: any) => ({
         ...m,
@@ -362,7 +387,7 @@ export function MatchesView() {
       setLoading(false)
       setLastRefresh(new Date())
     }
-  }, [activeTab, searchQuery, stageFilter, groupFilter, token])
+  }, [activeTab, leagueFilter, searchQuery, stageFilter, groupFilter, token])
 
   useEffect(() => { fetchMatches() }, [fetchMatches])
 
@@ -401,6 +426,14 @@ export function MatchesView() {
       {/* Filter Bar */}
       <div className="glass-card-premium rounded-xl p-4 space-y-3">
         <div className="flex flex-col sm:flex-row gap-3">
+          <Select value={leagueFilter} onValueChange={setLeagueFilter}>
+            <SelectTrigger className="h-9 w-full sm:w-[180px] bg-muted/50 border-border text-sm">
+              <Trophy className="size-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="League" />
+            </SelectTrigger>
+            <SelectContent className="glass-card border-border max-h-[280px]">
+              {LEAGUES.map((l) => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input placeholder="Search by team name..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 bg-muted/50 border-border text-sm" />
@@ -481,7 +514,7 @@ export function MatchesView() {
                   {searchQuery || stageFilter !== 'all' || groupFilter !== 'all' ? 'Try adjusting your filters.' : 'No matches available. Check back later!'}
                 </p>
                 {(searchQuery || stageFilter !== 'all' || groupFilter !== 'all') && (
-                  <Button variant="outline" size="sm" className="mt-4 h-8 text-xs border-border" onClick={() => { setSearchQuery(''); setStageFilter('all'); setGroupFilter('all') }}>Clear Filters</Button>
+                  <Button variant="outline" size="sm" className="mt-4 h-8 text-xs border-border" onClick={() => { setLeagueFilter('PL'); setSearchQuery(''); setStageFilter('all'); setGroupFilter('all') }}>Clear Filters</Button>
                 )}
               </div>
             )}
