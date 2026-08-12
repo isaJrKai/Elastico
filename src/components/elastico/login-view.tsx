@@ -142,11 +142,11 @@ export default function LoginView() {
               <div className="absolute -inset-3 -z-10 rounded-3xl bg-[#00e676]/5 blur-xl animate-pulse" />
             </div>
           </div>
-          <h1 className={cn('text-4xl font-black tracking-tight sm:text-5xl text-gradient-primary transition-all duration-700 delay-200', logoAnim ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
+          <h1 className={cn('text-4xl font-extrabold tracking-tighter sm:text-5xl text-gradient-primary transition-all duration-700 delay-200', logoAnim ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
             ELASTICO
           </h1>
-          <p className={cn('flex items-center gap-1.5 text-sm text-muted-foreground transition-all duration-700 delay-300', logoAnim ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
-            <Zap className="size-3.5 text-[#00e676]" />AI-Powered Football Analytics
+          <p className={cn('flex items-center gap-1.5 text-[13px] font-medium tracking-wide text-muted-foreground transition-all duration-700 delay-300', logoAnim ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
+            <Zap className="size-3 text-[#00e676]" />AI-Powered Football Analytics
           </p>
         </div>
 
@@ -159,8 +159,8 @@ export default function LoginView() {
             <Tabs defaultValue="login" className="w-full">
               <CardHeader className="pb-0 bg-transparent">
                 <TabsList className="mx-auto grid w-full grid-cols-2 bg-white/5 p-1 rounded-xl">
-                  <TabsTrigger value="login" className="data-[state=active]:bg-[#00e676]/15 data-[state=active]:text-[#00e676] transition-all rounded-lg">Sign In</TabsTrigger>
-                  <TabsTrigger value="register" className="data-[state=active]:bg-[#00e676]/15 data-[state=active]:text-[#00e676] transition-all rounded-lg">Create Account</TabsTrigger>
+                  <TabsTrigger value="login" className="text-[13px] font-semibold data-[state=active]:bg-[#00e676]/15 data-[state=active]:text-[#00e676] transition-all rounded-lg">Sign In</TabsTrigger>
+                  <TabsTrigger value="register" className="text-[13px] font-semibold data-[state=active]:bg-[#00e676]/15 data-[state=active]:text-[#00e676] transition-all rounded-lg">Create Account</TabsTrigger>
                 </TabsList>
               </CardHeader>
 
@@ -171,14 +171,14 @@ export default function LoginView() {
                     {loginError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{loginError}</div>}
 
                     <div className="space-y-2">
-                      <Label htmlFor="login-email" className="text-muted-foreground"><Mail className="mr-1.5 inline size-3.5" />Email</Label>
+                      <Label htmlFor="login-email" className="text-xs font-medium text-muted-foreground"><Mail className="mr-1.5 inline size-3" />Email</Label>
                       <Input id="login-email" type="email" placeholder="you@example.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required autoComplete="email" className="border-white/10 bg-white/5 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-[#00e676]/50 focus-visible:ring-[#00e676]/20" />
                     </div>
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="login-password" className="text-muted-foreground"><Lock className="mr-1.5 inline size-3.5" />Password</Label>
-                        <button type="button" className="text-[11px] text-primary/70 hover:text-primary transition-colors">Forgot password?</button>
+                        <Label htmlFor="login-password" className="text-xs font-medium text-muted-foreground"><Lock className="mr-1.5 inline size-3" />Password</Label>
+                        <button type="button" className="text-[11px] font-medium text-primary/60 hover:text-primary transition-colors">Forgot password?</button>
                       </div>
                       <div className="relative">
                         <Input id="login-password" type={showLoginPassword ? 'text' : 'password'} placeholder="••••••••" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required autoComplete="current-password" className="border-white/10 bg-white/5 pr-10 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-[#00e676]/50 focus-visible:ring-[#00e676]/20" />
@@ -194,8 +194,8 @@ export default function LoginView() {
                       <Label htmlFor="remember" className="text-xs text-muted-foreground cursor-pointer">Remember me</Label>
                     </div>
 
-                    <Button type="submit" disabled={loginLoading || !loginEmail || !loginPassword} className="h-10 w-full bg-[#00e676] font-semibold text-black shadow-lg shadow-[#00e676]/20 transition-all hover:bg-[#00c864] hover:shadow-[#00e676]/30 active:scale-[0.98] disabled:opacity-50">
-                      {loginLoading ? <><Loader2 className="size-4 animate-spin" />Signing In...</> : <>Sign In<ChevronRight className="size-4" /></>}
+                    <Button type="submit" disabled={loginLoading || !loginEmail || !loginPassword} className="h-10 w-full bg-[#00e676] text-sm font-semibold text-black shadow-lg shadow-[#00e676]/20 transition-all hover:bg-[#00c864] hover:shadow-[#00e676]/30 active:scale-[0.98] disabled:opacity-50">
+                      {loginLoading ? <><Loader2 className="size-4 animate-spin" />Signing in...</> : <>Sign in<ChevronRight className="size-4" /></>}
                     </Button>
                   </form>
 
@@ -234,29 +234,29 @@ export default function LoginView() {
                   <form onSubmit={handleRegister} className="space-y-4">
                     {regError && <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{regError}</div>}
                     <div className="space-y-2">
-                      <Label htmlFor="reg-name" className="text-muted-foreground"><User className="mr-1.5 inline size-3.5" />Full Name</Label>
+                      <Label htmlFor="reg-name" className="text-xs font-medium text-muted-foreground"><User className="mr-1.5 inline size-3" />Full Name</Label>
                       <Input id="reg-name" type="text" placeholder="John Doe" value={regName} onChange={(e) => setRegName(e.target.value)} required autoComplete="name" className="border-white/10 bg-white/5 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-[#00e676]/50 focus-visible:ring-[#00e676]/20" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="reg-email" className="text-muted-foreground"><Mail className="mr-1.5 inline size-3.5" />Email</Label>
+                      <Label htmlFor="reg-email" className="text-xs font-medium text-muted-foreground"><Mail className="mr-1.5 inline size-3" />Email</Label>
                       <Input id="reg-email" type="email" placeholder="you@example.com" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} required autoComplete="email" className="border-white/10 bg-white/5 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-[#00e676]/50 focus-visible:ring-[#00e676]/20" />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="reg-password" className="text-muted-foreground"><Lock className="mr-1.5 inline size-3.5" />Password</Label>
+                      <Label htmlFor="reg-password" className="text-xs font-medium text-muted-foreground"><Lock className="mr-1.5 inline size-3" />Password</Label>
                       <div className="relative">
                         <Input id="reg-password" type={showRegPassword ? 'text' : 'password'} placeholder="Min. 6 characters" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} required autoComplete="new-password" className="border-white/10 bg-white/5 pr-10 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-[#00e676]/50 focus-visible:ring-[#00e676]/20" />
                         <button type="button" onClick={() => setShowRegPassword(!showRegPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground" tabIndex={-1}>{showRegPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="reg-confirm" className="text-muted-foreground"><Lock className="mr-1.5 inline size-3.5" />Confirm Password</Label>
+                      <Label htmlFor="reg-confirm" className="text-xs font-medium text-muted-foreground"><Lock className="mr-1.5 inline size-3" />Confirm Password</Label>
                       <div className="relative">
                         <Input id="reg-confirm" type={showRegConfirm ? 'text' : 'password'} placeholder="Re-enter your password" value={regConfirmPassword} onChange={(e) => setRegConfirmPassword(e.target.value)} required autoComplete="new-password" className="border-white/10 bg-white/5 pr-10 text-foreground placeholder:text-muted-foreground/50 focus-visible:border-[#00e676]/50 focus-visible:ring-[#00e676]/20" />
                         <button type="button" onClick={() => setShowRegConfirm(!showRegConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground" tabIndex={-1}>{showRegConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
                       </div>
                     </div>
-                    <Button type="submit" disabled={regLoading || !regName || !regEmail || !regPassword || !regConfirmPassword} className="h-10 w-full bg-[#00e676] font-semibold text-black shadow-lg shadow-[#00e676]/20 transition-all hover:bg-[#00c864] hover:shadow-[#00e676]/30 active:scale-[0.98] disabled:opacity-50">
-                      {regLoading ? <><Loader2 className="size-4 animate-spin" />Creating Account...</> : <>Create Account<ChevronRight className="size-4" /></>}
+                    <Button type="submit" disabled={regLoading || !regName || !regEmail || !regPassword || !regConfirmPassword} className="h-10 w-full bg-[#00e676] text-sm font-semibold text-black shadow-lg shadow-[#00e676]/20 transition-all hover:bg-[#00c864] hover:shadow-[#00e676]/30 active:scale-[0.98] disabled:opacity-50">
+                      {regLoading ? <><Loader2 className="size-4 animate-spin" />Creating account...</> : <>Create account<ChevronRight className="size-4" /></>}
                     </Button>
                   </form>
                 </TabsContent>
