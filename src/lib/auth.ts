@@ -2,9 +2,13 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET || ''
+const JWT_MIN_LENGTH = 32
+const isProduction = process.env.NODE_ENV === 'production'
 
-if (!JWT_SECRET || JWT_SECRET.length < 16) {
-  console.error('[CRITICAL] JWT_SECRET is not set or too short (< 16 chars). Authentication will be broken. Set it in .env')
+// Log warning at import time, but only throw at actual usage time
+// (Next.js evaluates modules during build, so we can't throw here)
+if (!JWT_SECRET || JWT_SECRET.length < (isProduction ? JWT_MIN_LENGTH : 16)) {
+  console.error(`[CRITICAL] JWT_SECRET must be >= ${isProduction ? JWT_MIN_LENGTH : 16} chars. Current: ${JWT_SECRET.length}. Set it in env vars.`)
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -16,13 +20,15 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export function generateToken(payload: { userId: string; email: string; role: string; plan: string }): string {
-  if (!JWT_SECRET || JWT_SECRET.length < 16) throw new Error('JWT_SECRET environment variable is not set or too short (min 16 chars)')
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' })
+  const minLen = isProduction ? JWT_MIN_LENGTH : 16
+  if (!JWT_SECRET || JWT_SECRET.length < minLen) throw new Error('JWT_SECRET not configured or too short')
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' })
 }
 
 export function verifyToken(token: string): { userId: string; email: string; role: string; plan: string } {
-  if (!JWT_SECRET || JWT_SECRET.length < 16) throw new Error('JWT_SECRET environment variable is not set or too short')
-  return jwt.verify(token, JWT_SECRET) as { userId: string; email: string; role: string; plan: string }
+  const minLen = isProduction ? JWT_MIN_LENGTH : 16
+  if (!JWT_SECRET || JWT_SECRET.length < minLen) throw new Error('JWT_SECRET not configured or too short')
+  return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { userId: string; email: string; role: string; plan: string }
 }
 
 export async function authenticateRequest(req: Request): Promise<

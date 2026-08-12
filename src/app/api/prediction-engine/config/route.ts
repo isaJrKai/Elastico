@@ -25,7 +25,9 @@ async function setConfig(config: EngineConfig): Promise<void> {
 // ── GET /api/prediction-engine/config ──────────────────────────────────────────
 // Get current engine configuration
 
-export async function GET() {
+export async function GET(req: Request) {
+  const auth = await authenticateRequest(req)
+  if (auth instanceof Response) return auth
   const config = await getConfig()
   return NextResponse.json({
     success: true,

@@ -412,9 +412,10 @@ export async function GET() {
     })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
+    console.error('Database connection error:', error)
     return NextResponse.json({
       status: 'error',
-      message: `Database connection failed: ${msg}`,
+      message: 'Database connection failed.',
     }, { status: 503 })
   }
 }
@@ -447,9 +448,11 @@ export async function POST(request: Request) {
       })
     }
 
-    // Step 3: Create users
-    const adminHash = await bcrypt.hash('admin123', 10)
-    const demoHash = await bcrypt.hash('demo123', 10)
+    // Step 3: Create users (passwords from env or strong defaults)
+    const ADMIN_PW = process.env.SETUP_ADMIN_PASSWORD || 'Admin' + crypto.randomUUID().slice(0, 12)
+    const DEMO_PW = process.env.SETUP_DEMO_PASSWORD || 'Demo' + crypto.randomUUID().slice(0, 12)
+    const adminHash = await bcrypt.hash(ADMIN_PW, 10)
+    const demoHash = await bcrypt.hash(DEMO_PW, 10)
 
     await db.user.upsert({
       where: { email: 'admin@elastico.app' },
@@ -476,6 +479,14 @@ export async function POST(request: Request) {
         plan: 'free',
       },
     })
+
+    // Log generated passwords once to server console (never in response)
+    if (!process.env.SETUP_ADMIN_PASSWORD) {
+      console.warn(`[SETUP] Generated admin password: ${ADMIN_PW}`)
+    }
+    if (!process.env.SETUP_DEMO_PASSWORD) {
+      console.warn(`[SETUP] Generated demo password: ${DEMO_PW}`)
+    }
 
     // Step 4: Create teams and build ID map
     const teamMap = new Map<string, string>()
@@ -538,11 +549,10 @@ export async function POST(request: Request) {
       message: `Database set up! ${TEAMS.length} teams, ${MATCHES.length} matches, ${NEWS.length} news, 2 users created.`,
     })
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
     console.error('Setup error:', error)
     return NextResponse.json({
       status: 'error',
-      message: `Setup failed: ${msg}`,
+      message: 'Setup failed.',
     }, { status: 500 })
   }
 }

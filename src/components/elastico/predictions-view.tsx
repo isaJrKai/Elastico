@@ -35,27 +35,6 @@ interface PredictionRecord {
 
 interface LeaderboardEntry { rank: number; id: string; name: string | null; predictionAccuracy: number; predictionStreak: number; bestStreak: number; totalPredictions: number }
 
-// ── MOCK DATA ──────────────────────────────────────────────────────────────
-
-const MOCK_MODEL_COMPARISON = [
-  { model: 'ELO', home: 45, draw: 26, away: 29, accuracy: 68 },
-  { model: 'Poisson', home: 42, draw: 28, away: 30, accuracy: 65 },
-  { model: 'Dixon-Coles', home: 47, draw: 25, away: 28, accuracy: 72 },
-  { model: 'Monte Carlo', home: 44, draw: 27, away: 29, accuracy: 70 },
-]
-
-const MOCK_CALENDAR: Record<string, number> = {
-  '0-0': 2, '0-1': 3, '0-2': 1, '0-3': 4, '0-4': 0, '0-5': 2, '0-6': 3,
-  '1-0': 1, '1-1': 4, '1-2': 3, '1-3': 0, '1-4': 2, '1-5': 1, '1-6': 0,
-  '2-0': 3, '2-1': 0, '2-2': 2, '2-3': 1, '2-4': 4, '2-5': 3, '2-6': 2,
-  '3-0': 0, '3-1': 1, '3-2': 4, '3-3': 3, '3-4': 1, '3-5': 0, '3-6': 4,
-  '4-0': 4, '4-1': 2, '4-2': 0, '4-3': 2, '4-4': 3, '4-5': 1, '4-6': 0,
-  '5-0': 2, '5-1': 0, '5-2': 3, '5-3': 1, '5-4': 0, '5-5': 4, '5-6': 2,
-  '6-0': 1, '6-1': 3, '6-2': 0, '6-3': 4, '6-4': 2, '6-5': 1, '6-6': 3,
-  '7-0': 3, '7-1': 1, '7-2': 2, '7-3': 0, '7-4': 1, '7-5': 2, '7-6': 4,
-}
-const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export default function PredictionsView() {
@@ -300,22 +279,9 @@ export default function PredictionsView() {
           <Card className="glass-card-premium rounded-xl">
             <CardHeader className="pb-3"><CardTitle className="text-sm font-bold flex items-center gap-2"><Brain className="size-4 text-purple-400" />Model Comparison</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {MOCK_MODEL_COMPARISON.map(m => (
-                <div key={m.model} className="p-3 rounded-lg bg-muted/20 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold">{m.model}</span>
-                    <Badge variant="outline" className={cn('text-[10px]', m.accuracy >= 70 ? 'border-emerald-500/30 text-emerald-400' : 'border-border/50 text-muted-foreground')}>{m.accuracy}% acc</Badge>
-                  </div>
-                  <div className="flex h-2 rounded-full bg-muted overflow-hidden gap-px">
-                    <div className="bg-emerald-500 rounded-l-full" style={{ width: `${m.home}%` }} />
-                    <div className="bg-amber-500" style={{ width: `${m.draw}%` }} />
-                    <div className="bg-red-500 rounded-r-full" style={{ width: `${m.away}%` }} />
-                  </div>
-                  <div className="flex justify-between text-[9px] text-muted-foreground">
-                    <span>H {m.home}%</span><span>D {m.draw}%</span><span>A {m.away}%</span>
-                  </div>
-                </div>
-              ))}
+              <div className="flex items-center justify-center py-8">
+                <p className="text-sm text-muted-foreground">Run predictions to see model accuracy data.</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -343,19 +309,8 @@ export default function PredictionsView() {
           <Card className="glass-card-premium rounded-xl">
             <CardHeader className="pb-3"><CardTitle className="text-sm font-bold flex items-center gap-2"><Calendar className="size-4 text-amber-400" />Prediction Activity</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-7 gap-1">
-                {days.map(d => <div key={d} className="text-[8px] text-muted-foreground text-center">{d}</div>)}
-                {Array.from({ length: 56 }).map((_, i) => {
-                  const key = `${Math.floor(i / 7)}-${i % 7}`
-                  const count = MOCK_CALENDAR[key] || 0
-                  const intensity = count === 0 ? 'bg-muted/20' : count <= 1 ? 'bg-primary/20' : count <= 3 ? 'bg-primary/40' : 'bg-primary/70'
-                  return <div key={i} className={cn('aspect-square rounded-sm', intensity)} title={`${count} predictions`} />
-                })}
-              </div>
-              <div className="flex items-center justify-end gap-1 mt-2 text-[8px] text-muted-foreground">
-                <span>Less</span>
-                <div className="size-2.5 rounded-sm bg-muted/20" /><div className="size-2.5 rounded-sm bg-primary/20" /><div className="size-2.5 rounded-sm bg-primary/40" /><div className="size-2.5 rounded-sm bg-primary/70" />
-                <span>More</span>
+              <div className="flex items-center justify-center py-8">
+                <p className="text-sm text-muted-foreground">Prediction activity will appear here as you make predictions.</p>
               </div>
             </CardContent>
           </Card>

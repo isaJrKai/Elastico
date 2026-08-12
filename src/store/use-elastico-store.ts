@@ -185,6 +185,9 @@ interface ElasticoStore {
   liveMatches: any[]
   isLiveLoading: boolean
 
+  // Errors
+  errors: Record<string, string>
+
   // UI State
   isLoading: boolean
   loadingMessage: string
@@ -216,6 +219,9 @@ interface ElasticoStore {
   setLoading: (loading: boolean, message?: string) => void
   setTheme: (theme: 'dark' | 'light') => void
   setZoomLevel: (level: number) => void
+
+  // Actions - Errors
+  clearError: (key: string) => void
 
   // Actions - Real-time updates
   updateMatch: (match: Partial<Match> & { id: string }) => void
@@ -255,6 +261,9 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
   chatMessages: [],
   liveMatches: [],
   isLiveLoading: false,
+
+  // Errors
+  errors: {},
 
   // UI State
   isLoading: false,
@@ -333,6 +342,12 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
 
   clearChat: () => set({ chatMessages: [] }),
 
+  clearError: (key) =>
+    set((state) => {
+      const { [key]: _, ...rest } = state.errors
+      return { errors: rest }
+    }),
+
   // ── Actions — UI ──────────────────────────────────────────────────────────
 
   setLoading: (loading, message = '') =>
@@ -387,7 +402,11 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
         }
         set({ matches })
       }
-    } catch (e) { console.error('Failed to fetch matches:', e) }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      console.error('Failed to fetch matches:', e)
+      set((state) => ({ errors: { ...state.errors, fetchMatches: msg } }))
+    }
   },
 
   fetchTeams: async () => {
@@ -402,7 +421,11 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
         }
         set({ teams })
       }
-    } catch (e) { console.error('Failed to fetch teams:', e) }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      console.error('Failed to fetch teams:', e)
+      set((state) => ({ errors: { ...state.errors, fetchTeams: msg } }))
+    }
   },
 
   fetchNews: async () => {
@@ -417,7 +440,11 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
         }
         set({ news })
       }
-    } catch (e) { console.error('Failed to fetch news:', e) }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      console.error('Failed to fetch news:', e)
+      set((state) => ({ errors: { ...state.errors, fetchNews: msg } }))
+    }
   },
 
   fetchNotifications: async () => {
@@ -436,7 +463,11 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
         }
         set({ notifications })
       }
-    } catch (e) { console.error('Failed to fetch notifications:', e) }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
+      console.error('Failed to fetch notifications:', e)
+      set((state) => ({ errors: { ...state.errors, fetchNotifications: msg } }))
+    }
   },
 
   fetchAnnouncements: async () => {
@@ -460,8 +491,9 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
         set({ isLiveLoading: false })
       }
     } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error'
       console.error('Failed to fetch live scores:', e)
-      set({ isLiveLoading: false })
+      set((state) => ({ isLiveLoading: false, errors: { ...state.errors, fetchLiveScores: msg } }))
     }
   },
 }))

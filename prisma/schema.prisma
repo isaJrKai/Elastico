@@ -181,6 +181,9 @@ model Match {
   @@index([status])
   @@index([date])
   @@index([stage])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([competition])
 }
 
 model MatchEvent {
@@ -259,6 +262,9 @@ model NewsItem {
   reactions   String   @default("{}") // JSON {like: N, fire: N, think: N}
   publishedAt DateTime?
   createdAt   DateTime @default(now())
+
+  @@index([category])
+  @@index([publishedAt])
 }
 
 model Activity {

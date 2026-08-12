@@ -1,10 +1,20 @@
 import { PrismaClient } from '@prisma/client'
 
-// ── Neon Postgres for production, local Postgres/SQLite for dev ──────────
+// ── Neon Postgres for production with connection pooling ──────────
 
 function createPrismaClient() {
+  const isNeon = process.env.DATABASE_URL?.includes('neon.tech')
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+    datasources: isNeon
+      ? {
+          db: {
+            url: process.env.DATABASE_URL,
+          },
+        }
+      : undefined,
+    // Connection pooling for serverless — Prisma handles this via pgbouncer URL
+    // Set DATABASE_URL_POOLER in Vercel env for pooled connections
   })
 }
 

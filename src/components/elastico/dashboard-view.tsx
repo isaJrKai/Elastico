@@ -26,15 +26,6 @@ interface TickerMatch {
   homeScore: number; awayScore: number; status: string; minute?: number
 }
 
-// Simple deterministic hash for probability estimation
-function hashCode(str: string): number {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i)
-    hash |= 0
-  }
-  return hash
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD VIEW
@@ -99,19 +90,17 @@ export default function DashboardView() {
     return real
   }, [liveMatches, matches])
 
-  // xG chart data — use real match data from ESPN
+  // Goals chart data — use real match data from ESPN
   const xgChartData = useMemo(() => {
     const realMatches = liveMatches && liveMatches.filter((m: any) => m.status === 'finished').slice(0, 5)
     if (realMatches && realMatches.length > 0) {
       return realMatches.map((m: any) => ({
         match: `${m.homeTeam?.abbreviation || '?'}-${m.awayTeam?.abbreviation || '?'}`,
-        xg: Math.max(0.3, (m.homeScore + m.awayScore) * 0.9).toFixed(1),
         goals: m.homeScore + m.awayScore,
       }))
     }
     const db = finishedMatches.slice(0, 5).map((m) => ({
       match: `${m.homeTeam?.code ?? '?'}-${m.awayTeam?.code ?? '?'}`,
-      xg: ((m.homeXg || 0) + (m.awayXg || 0)).toFixed(1),
       goals: m.homeScore + m.awayScore,
     }))
     return db
@@ -373,12 +362,12 @@ export default function DashboardView() {
               </CardContent>
             </Card>
 
-            {/* 9. xG vs ACTUAL GOALS CHART */}
+            {/* 9. TOTAL GOALS CHART */}
             <Card className="glass-card-premium rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <Target className="size-4 text-cyan-400" />
-                  xG vs Actual Goals
+                  Total Goals per Match
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -388,7 +377,6 @@ export default function DashboardView() {
                     <XAxis dataKey="match" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
                     <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
                     <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
-                    <Bar dataKey="xg" fill="#00b4d8" name="xG" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="goals" fill="#00e676" name="Goals" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -486,64 +474,49 @@ export default function DashboardView() {
               </CardContent>
             </Card>
 
-            {/* 4. ASIAN HANDICAP & MARKETS */}
+            {/* 4. HANDICAP / MARKETS — requires selected match */}
             <Card className="glass-card-premium rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <Star className="size-4 text-amber-400" />
-                  Asian Handicap Lines
+                  Market Analysis
                 </CardTitle>
-                <p className="text-[10px] text-muted-foreground">From ELO + Poisson + Dixon-Coles + Stochastic models</p>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {liveMatches && liveMatches.filter((m: any) => m.status === 'upcoming' || m.status === 'live').slice(0, 5).map((m: any) => (
-                  <div key={m.id} className="p-2 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
-                    <p className="text-[10px] text-muted-foreground mb-1">{m.competition}</p>
-                    <p className="text-xs font-semibold">{m.homeTeam?.name} vs {m.awayTeam?.name}</p>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <Badge variant="outline" className="text-[9px] border-primary/30 text-primary">Over 2.5</Badge>
-                      <div className="flex-1 h-1.5 rounded-full bg-muted/50 overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400" style={{ width: '55%' }} />
-                      </div>
-                      <span className="text-[10px] font-bold">55%</span>
-                    </div>
-                  </div>
-                ))}
+              <CardContent className="flex flex-col items-center py-4">
+                <p className="text-xs text-muted-foreground text-center mb-3">
+                  Select a match to view handicap lines and market analysis.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-primary/30 text-primary text-xs"
+                  onClick={() => setView('matches')}
+                >
+                  Go to Matches
+                </Button>
               </CardContent>
             </Card>
 
-            {/* 6. MATCH PROBABILITIES (REAL) */}
+            {/* 6. PREDICTION MODELS — requires selected match */}
             <Card className="glass-card-premium rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <Users className="size-4 text-cyan-400" />
-                  Model Probabilities
+                  Prediction Models
                 </CardTitle>
-                <p className="text-[10px] text-muted-foreground">Ensemble: ELO + Poisson + Dixon-Coles + Stochastic</p>
               </CardHeader>
-              <CardContent>
-                {liveMatches && liveMatches.filter((m: any) => m.status === 'upcoming').slice(0, 3).map((m: any) => {
-                  const hP = 40 + Math.abs(hashCode(m.homeTeam?.name || '')) % 30
-                  const dP = 15 + Math.abs(hashCode(m.awayTeam?.name || '')) % 15
-                  const aP = 100 - hP - dP
-                  return (
-                    <div key={m.id} className="space-y-1.5 mb-3 last:mb-0">
-                      <p className="text-[10px] font-medium">{m.homeTeam?.name} vs {m.awayTeam?.name}</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] w-10 text-right text-emerald-400">{hP}%</span>
-                        <div className="flex-1 flex h-3 rounded-full overflow-hidden bg-muted/30">
-                          <div className="bg-emerald-500" style={{ width: `${hP}%` }} />
-                          <div className="bg-amber-500" style={{ width: `${dP}%` }} />
-                          <div className="bg-red-500" style={{ width: `${aP}%` }} />
-                        </div>
-                        <span className="text-[9px] w-10 text-red-400">{aP}%</span>
-                      </div>
-                      <div className="flex justify-between text-[9px] text-muted-foreground">
-                        <span>Home</span><span>Draw {dP}%</span><span>Away</span>
-                      </div>
-                    </div>
-                  )
-                })}
+              <CardContent className="flex flex-col items-center py-4">
+                <p className="text-xs text-muted-foreground text-center mb-3">
+                  Prediction models require a selected match. Go to Matches → select a match → run the Prediction Engine.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-primary/30 text-primary text-xs"
+                  onClick={() => setView('matches')}
+                >
+                  Go to Matches
+                </Button>
               </CardContent>
             </Card>
 
@@ -619,21 +592,35 @@ export default function DashboardView() {
             </Card>
 
             {/* 13. STREAK COUNTER */}
-            <Card className="glass-card-premium rounded-xl ring-glow-emerald">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex size-12 items-center justify-center rounded-xl bg-orange-500/15">
-                  <span className="text-2xl streak-fire">🔥</span>
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-primary">{streak}</p>
-                  <p className="text-[10px] text-muted-foreground">Current Streak</p>
-                </div>
-                <div className="ml-auto text-right">
-                  <p className="text-sm font-bold text-amber-400">Best: {bestStreak}</p>
-                  <p className="text-[10px] text-muted-foreground">All Time</p>
-                </div>
-              </CardContent>
-            </Card>
+            {(!user?.bestStreak && !user?.predictionStreak) ? (
+              <Card className="glass-card-premium rounded-xl">
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="flex size-12 items-center justify-center rounded-xl bg-primary/15">
+                    <Zap className="size-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Start Your Streak!</p>
+                    <p className="text-[10px] text-muted-foreground">Make your first prediction to begin tracking.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="glass-card-premium rounded-xl ring-glow-emerald">
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="flex size-12 items-center justify-center rounded-xl bg-orange-500/15">
+                    <span className="text-2xl streak-fire">🔥</span>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-primary">{streak}</p>
+                    <p className="text-[10px] text-muted-foreground">Current Streak</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className="text-sm font-bold text-amber-400">Best: {bestStreak}</p>
+                    <p className="text-[10px] text-muted-foreground">All Time</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 14. QUICK ACTIONS */}
             <div className="grid grid-cols-3 gap-2">
@@ -663,7 +650,7 @@ export default function DashboardView() {
               </Button>
             </div>
 
-            {/* 15. PERSONALIZED INSIGHT */}
+            {/* 15. AI CHAT CTA */}
             <Card className="glass-card-premium rounded-xl border-primary/20">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
@@ -672,13 +659,18 @@ export default function DashboardView() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-primary mb-1">AI Insight</p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      {accuracy > 70
-                        ? "You're on fire! Your prediction accuracy is above 70%. Focus on underdog matches where the community leans heavily toward favorites — you have an edge in spotting upsets."
-                        : accuracy > 50
-                        ? "Good progress! Try analyzing xG differentials before predicting draws — matches where both teams have similar xG often end in draws."
-                        : "Tip: Start by predicting matches with the highest ELO differentials. Favorites with a 150+ ELO advantage win 72% of the time."}
+                    <p className="text-[11px] text-muted-foreground leading-relaxed mb-2">
+                      Open AI Chat for match analysis and predictions.
                     </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-primary/30 text-primary text-[10px] h-7 px-2.5"
+                      onClick={() => setView('ai-chat')}
+                    >
+                      <MessageSquare className="size-3 mr-1" />
+                      Open AI Chat
+                    </Button>
                   </div>
                 </div>
               </CardContent>

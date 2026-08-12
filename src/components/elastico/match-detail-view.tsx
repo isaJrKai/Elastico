@@ -47,7 +47,22 @@ function computeEloProb(homeElo: number, awayElo: number, outcome: string): numb
   return Math.round(100 - expectedHome * 100 - (1 - expectedHome) * 100 * 0.75)
 }
 
-function StatBarRow({ label, homeValue, awayValue, homeColor, awayColor, suffix = '', decimals = 0 }: { label: string; homeValue: number; awayValue: number; homeColor?: string; awayColor?: string; suffix?: string; decimals?: number }) {
+function StatBarRow({ label, homeValue, awayValue, homeColor, awayColor, suffix = '', decimals = 0 }: { label: string; homeValue: number | null; awayValue: number | null; homeColor?: string; awayColor?: string; suffix?: string; decimals?: number }) {
+  if (homeValue === null || awayValue === null) {
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-semibold tabular-nums text-muted-foreground">N/A</span>
+          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
+          <span className="font-semibold tabular-nums text-muted-foreground">N/A</span>
+        </div>
+        <div className="flex h-2 rounded-full overflow-hidden bg-muted">
+          <div className="h-full w-1/2 rounded-full bg-muted-foreground/20" />
+          <div className="h-full w-1/2 rounded-full bg-muted-foreground/20 ml-auto" />
+        </div>
+      </div>
+    )
+  }
   const total = homeValue + awayValue || 1
   const hp = (homeValue / total) * 100
   const fmt = (v: number) => decimals > 0 ? v.toFixed(decimals) : String(Math.round(v))
@@ -134,6 +149,7 @@ export function MatchDetailView() {
       if (!res.ok) throw new Error(`Failed to fetch match`)
       const data = await res.json()
       setMatch(data.match)
+      setBookmarked((data.match._count?.bookmarks ?? 0) > 0)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load match')
     } finally { setLoading(false) }
@@ -148,6 +164,23 @@ export function MatchDetailView() {
       fetchMatch()
     } catch { /* silent */ }
   }, [selectedMatchId, token, fetchMatch])
+
+  const handleToggleBookmark = useCallback(async () => {
+    if (!selectedMatchId || !token) return
+    try {
+      if (bookmarked) {
+        await fetch(`/api/bookmarks?matchId=${selectedMatchId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+        setBookmarked(false)
+        toast({ title: 'Bookmark removed' })
+      } else {
+        const res = await fetch('/api/bookmarks', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ matchId: selectedMatchId }) })
+        if (res.ok) {
+          setBookmarked(true)
+          toast({ title: 'Match bookmarked' })
+        }
+      }
+    } catch { /* silent */ }
+  }, [selectedMatchId, token, bookmarked])
 
   const handleSimulate = useCallback(async () => {
     if (!selectedMatchId || !token) return
@@ -220,9 +253,14 @@ export function MatchDetailView() {
   const [sbSource, setSbSource] = useState<string>('')
 
   useEffect(() => {
-    // Try to fetch real shot data from StatsBomb for the 2022 World Cup Final as demo
-    // In production, match SB match IDs to DB matches
-    const demoMatchId = 3869151 // 2022 World Cup Final: Argentina vs France
+    // Only fetch StatsBomb shot data for the specific demo match (2022 World Cup Final)
+    // For all other matches, show a placeholder instead of loading wrong data
+    const demoMatchId = '3869151'
+    if (selectedMatchId !== demoMatchId) {
+      setSbShots([])
+      setSbSource('')
+      return
+    }
     setSbLoading(true)
     fetch(`/api/statsbomb?action=shots&match=${demoMatchId}`)
       .then(r => r.json())
@@ -234,13 +272,20 @@ export function MatchDetailView() {
       })
       .catch(() => {})
       .finally(() => setSbLoading(false))
-  }, [])
+  }, [selectedMatchId])
 
   // ── xT (Expected Threat) leaderboard from analytics engine ──────────────
   const [xtLeaderboard, setXtLeaderboard] = useState<Array<{ player: string; team: string; totalXtGained: number; totalActions: number; avgXtPerAction: number; progressiveActions: number }>>([])
   const [xtLoading, setXtLoading] = useState(false)
 
   useEffect(() => {
+    // Only fetch xT leaderboard for the specific demo match (2022 World Cup Final)
+    // For all other matches, show placeholder
+    const demoMatchId = '3869151'
+    if (selectedMatchId !== demoMatchId) {
+      setXtLeaderboard([])
+      return
+    }
     setXtLoading(true)
     fetch('/api/analytics?action=xt-match&match=3869151')
       .then(r => r.json())
@@ -251,13 +296,14 @@ export function MatchDetailView() {
       })
       .catch(() => {})
       .finally(() => setXtLoading(false))
-  }, [])
+  }, [selectedMatchId])
 
-  const shotMapData = useMemo(() => {
+  const shotMapData = useMemo((): ShotMapPoint[] | null => {
     if (sbShots.length > 0) return sbShots
-    if (match) return generateShotsFromEvents(match.events || [], match.homeXg, match.awayXg)
-    return []
-  }, [sbShots, match])
+    // Only show generated-from-events shots for the demo match; all others → null
+    if (selectedMatchId === '3869151' && match) return generateShotsFromEvents(match.events || [], match.homeXg, match.awayXg)
+    return null
+  }, [sbShots, match, selectedMatchId])
 
   // ── Loading ──
   if (loading) return (<div className="flex flex-col gap-4 animate-fade-in-up"><Skeleton className="h-44 w-full rounded-xl" /><div className="grid grid-cols-1 lg:grid-cols-2 gap-4"><Skeleton className="h-64 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div></div>)
@@ -275,8 +321,8 @@ export function MatchDetailView() {
     { label: 'Shots on Target', h: match.shotsOnTargetHome, a: match.shotsOnTargetAway },
     { label: 'Corners', h: match.cornersHome, a: match.cornersAway },
     { label: 'Fouls', h: match.foulsHome, a: match.foulsAway },
-    { label: 'Pass Accuracy', h: homeTeam?.passAccuracy ?? 78, a: awayTeam?.passAccuracy ?? 76, suffix: '%' },
-    { label: 'Press Intensity', h: homeTeam?.pressIntensity ?? 60, a: awayTeam?.pressIntensity ?? 55, suffix: '%' },
+    { label: 'Pass Accuracy', h: homeTeam?.passAccuracy ?? null, a: awayTeam?.passAccuracy ?? null, suffix: '%' },
+    { label: 'Press Intensity', h: homeTeam?.pressIntensity ?? null, a: awayTeam?.pressIntensity ?? null, suffix: '%' },
     { label: 'xG', h: match.homeXg, a: match.awayXg, decimals: 2 },
     { label: 'xG/Match', h: homeTeam?.xgPerGame ?? 1.5, a: awayTeam?.xgPerGame ?? 1.3, decimals: 2 },
   ]
@@ -288,7 +334,7 @@ export function MatchDetailView() {
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" className="h-8 gap-1.5 border-border text-xs" onClick={() => setView('matches')}><ArrowLeft className="size-3.5" />Back</Button>
           <div className="flex-1" />
-          <Button variant="ghost" size="sm" className={cn('h-8 gap-1.5 text-xs', bookmarked && 'text-primary')} onClick={() => setBookmarked(!bookmarked)}>
+          <Button variant="ghost" size="sm" className={cn('h-8 gap-1.5 text-xs', bookmarked && 'text-primary')} onClick={handleToggleBookmark}>
             {bookmarked ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />}{bookmarked ? 'Saved' : 'Bookmark'}
           </Button>
           <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleCopySummary}>
@@ -485,6 +531,13 @@ export function MatchDetailView() {
           <TabsContent value="shotmap" className="mt-4">
             <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Swords className="size-4 text-amber-400" />Shot Map {sbSource && <span className="text-[10px] font-normal text-muted-foreground">({sbSource})</span>}{sbLoading && <Loader2 className="size-3 animate-spin text-muted-foreground" />}</h3>
+              {shotMapData === null ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <Swords className="size-10 mb-3 opacity-40" />
+                  <p className="text-sm">Shot map data not available for this match</p>
+                </div>
+              ) : (
+              <>
               <div className="pitch-bg rounded-xl p-4 relative" style={{ aspectRatio: '3/2' }}>
                 {/* Pitch markings */}
                 <div className="absolute inset-0 border-2 border-emerald-500/20 rounded-xl" />
@@ -512,6 +565,8 @@ export function MatchDetailView() {
                 <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-amber-400" />Goal</span>
                 <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-cyan-500/50" />{awayTeam?.code} Shot</span>
               </div>
+              </>
+              )}
             </CardContent></Card>
           </TabsContent>
 

@@ -29,6 +29,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from '@/hooks/use-toast'
 
 // ── Categories ────────────────────────────────────────────────────────────────
 
@@ -528,27 +529,33 @@ export function NewsView() {
                   </div>
                 )}
 
-                {/* Related Teams (placeholder) */}
-                {selectedNews.content && (
-                  <div className="pt-3 border-t border-border/50">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Related Teams
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {['Team A', 'Team B'].map((team) => (
-                        <Badge
-                          key={team}
-                          variant="outline"
-                          className="rounded-md border-primary/30 text-primary text-xs"
-                        >
-                          {team}
-                        </Badge>
-                      ))}
+                {/* Related Teams — extracted from news content when available */}
+                {selectedNews.content && (() => {
+                  const content = selectedNews.title + ' ' + (selectedNews.content || '') + ' ' + (selectedNews.summary || '')
+                  const teamPatterns = content.match(/[A-Z][a-z]+\s+(?:FC|United|City|Town|County|Rovers|Athletic|Wanderers|Albion|Hotspur|Forest|Palace|Villa|Ham|Wolves|Burnley|Boro)|[A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g)
+                  const teams = teamPatterns ? [...new Set(teamPatterns)].slice(0, 4) : []
+                  if (teams.length === 0) return null
+                  return (
+                    <div className="pt-3 border-t border-border/50">
+                      <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Related Teams
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {teams.map((team) => (
+                          <Badge
+                            key={team}
+                            variant="outline"
+                            className="rounded-md border-primary/30 text-primary text-xs"
+                          >
+                            {team}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
 
-                {/* Reaction Buttons (visual only) */}
+                {/* Reaction Buttons */}
                 <div className="flex items-center gap-3 pt-3 border-t border-border/50">
                   <span className="text-xs text-muted-foreground mr-1">
                     Reactions:
@@ -557,21 +564,42 @@ export function NewsView() {
                     {
                       icon: ThumbsUp,
                       label: 'Like',
+                      type: 'like' as const,
                       count: parseReactions(selectedNews.reactions).like,
                     },
                     {
                       icon: Flame,
                       label: 'Fire',
+                      type: 'fire' as const,
                       count: parseReactions(selectedNews.reactions).fire,
                     },
                     {
                       icon: Brain,
                       label: 'Think',
+                      type: 'think' as const,
                       count: parseReactions(selectedNews.reactions).think,
                     },
                   ].map((reaction) => (
                     <button
                       key={reaction.label}
+                      onClick={async () => {
+                        // Optimistic update
+                        const currentReactions = parseReactions(selectedNews.reactions)
+                        const updatedReactions = { ...currentReactions, [reaction.type]: currentReactions[reaction.type] + 1 }
+                        setSelectedNews({ ...selectedNews, reactions: JSON.stringify(updatedReactions) })
+                        try {
+                          const res = await fetch(`/api/news/${selectedNews.id}/react`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: reaction.type }),
+                          })
+                          if (!res.ok) throw new Error('Failed')
+                        } catch {
+                          // Revert optimistic update
+                          setSelectedNews({ ...selectedNews, reactions: JSON.stringify(currentReactions) })
+                          toast({ title: 'Coming soon', description: 'Reactions will be available soon!' })
+                        }
+                      }}
                       className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
                     >
                       <reaction.icon className="size-3.5" />

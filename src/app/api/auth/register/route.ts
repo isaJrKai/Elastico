@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, generateToken } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
+    const { allowed } = rateLimit(`register:${ip}`, 5, 60_000)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many registration attempts. Try again later.' }, { status: 429 })
+    }
+
     const body = await req.json()
     const { email, password, name } = body
 

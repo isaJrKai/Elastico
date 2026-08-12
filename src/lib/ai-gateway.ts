@@ -151,6 +151,17 @@ export async function callAi(
     stream?: boolean
   }
 ): Promise<AiResult> {
+  // ── Input length validation ────────────────────────────────────────────────
+  const totalInputLength = messages.reduce((sum, m) => sum + m.content.length, 0)
+  if (totalInputLength > 10000) {
+    return {
+      text: '',
+      provider: 'none',
+      model: 'none',
+      latencyMs: 0,
+    }
+  }
+
   const maxTokens = options?.maxTokens || 4096
   const temperature = options?.temperature ?? 0.7
 
@@ -199,11 +210,14 @@ export async function callAi(
         temperature,
       }
 
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000)
       const resp = await fetch(provider.baseUrl, {
         method: 'POST',
         headers: provider.headers(apiKey),
         body: JSON.stringify(body),
-      })
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId))
 
       if (resp.status === 429) {
         markCooldown(provider.name, 120)
@@ -243,7 +257,13 @@ export async function callAi(
         } : undefined,
       }
     } catch (err) {
-      errors.push(`${provider.name}: ${err instanceof Error ? err.message : 'fetch failed'}`)
+      const msg = err instanceof Error ? err.message : 'fetch failed'
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        errors.push(`${provider.name}: timed out (10s)`)
+        markCooldown(provider.name, 30)
+      } else {
+        errors.push(`${provider.name}: ${msg}`)
+      }
       continue
     }
   }
@@ -270,6 +290,12 @@ export async function callAiStream(
     temperature?: number
   }
 ): Promise<{ stream: ReadableStream<Uint8Array>; provider: string; model: string } | null> {
+  // ── Input length validation ────────────────────────────────────────────────
+  const totalInputLength = messages.reduce((sum, m) => sum + m.content.length, 0)
+  if (totalInputLength > 10000) {
+    return null
+  }
+
   const maxTokens = options?.maxTokens || 4096
   const temperature = options?.temperature ?? 0.7
 
@@ -302,11 +328,14 @@ export async function callAiStream(
     }
 
     try {
+      const ac = new AbortController()
+      const timeoutId = setTimeout(() => ac.abort(), 10000)
       const resp = await fetch(provider.baseUrl, {
         method: 'POST',
         headers: provider.headers(apiKey),
         body: JSON.stringify(body),
-      })
+        signal: ac.signal,
+      }).finally(() => clearTimeout(timeoutId))
 
       if (!resp.ok || !resp.body) {
         if (resp.status === 429) markCooldown(provider.name, 120)
@@ -318,10 +347,16 @@ export async function callAiStream(
       const decoder = new TextDecoder()
       const encoder = new TextEncoder()
 
+      // Buffer for handling SSE lines split across multiple chunks
+      let lineBuffer = ''
+
       const transformStream = new TransformStream<Uint8Array, Uint8Array>({
-        async transform(chunk, controller) {
+        transform(chunk, controller) {
           const text = decoder.decode(chunk, { stream: true })
-          const lines = text.split('\n')
+          lineBuffer += text
+          const lines = lineBuffer.split('\n')
+          // Keep the last (potentially incomplete) segment in the buffer
+          lineBuffer = lines.pop() || ''
           for (const line of lines) {
             const trimmed = line.trim()
             if (!trimmed || !trimmed.startsWith('data: ')) continue
@@ -331,7 +366,20 @@ export async function callAiStream(
               const parsed = JSON.parse(data)
               const content = parsed.choices?.[0]?.delta?.content
               if (content) controller.enqueue(encoder.encode(content))
-            } catch { /* skip */ }
+            } catch { /* skip malformed JSON */ }
+          }
+        },
+        flush(controller) {
+          // Process any remaining data in the buffer
+          if (lineBuffer.trim()) {
+            const trimmed = lineBuffer.trim()
+            if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
+              try {
+                const parsed = JSON.parse(trimmed.slice(6))
+                const content = parsed.choices?.[0]?.delta?.content
+                if (content) controller.enqueue(encoder.encode(content))
+              } catch { /* skip */ }
+            }
           }
         },
       })
@@ -342,7 +390,13 @@ export async function callAiStream(
         model: provider.model,
       }
     } catch (err) {
-      errors.push(`${provider.name}: ${err instanceof Error ? err.message : 'fetch failed'}`)
+      const msg = err instanceof Error ? err.message : 'fetch failed'
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        errors.push(`${provider.name}: timed out (10s)`)
+        markCooldown(provider.name, 30)
+      } else {
+        errors.push(`${provider.name}: ${msg}`)
+      }
       continue
     }
   }

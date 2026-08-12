@@ -32,6 +32,15 @@ export async function POST(request: Request) {
     if (modelProbability === undefined || !bookmakerOdds) {
       return NextResponse.json({ error: 'modelProbability and bookmakerOdds are required' }, { status: 400 })
     }
+    if (typeof modelProbability !== 'number' || modelProbability < 0.01 || modelProbability > 0.99) {
+      return NextResponse.json({ error: 'modelProbability must be between 0.01 and 0.99' }, { status: 400 })
+    }
+    if (typeof bookmakerOdds !== 'number' || bookmakerOdds <= 1.01) {
+      return NextResponse.json({ error: 'bookmakerOdds must be greater than 1.01' }, { status: 400 })
+    }
+    if (bankroll !== undefined && (typeof bankroll !== 'number' || bankroll <= 0)) {
+      return NextResponse.json({ error: 'bankroll must be greater than 0' }, { status: 400 })
+    }
 
     const result: KellyResult = calculateKelly(
       modelProbability,

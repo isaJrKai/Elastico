@@ -182,7 +182,9 @@ function hasAnyAiProvider(): boolean {
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await authenticateRequest(req)
+  if (auth instanceof Response) return auth
   return NextResponse.json({ providers: getProviderStatus() })
 }
 

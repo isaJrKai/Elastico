@@ -22,8 +22,8 @@ import { toast } from '@/hooks/use-toast'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-interface PredictorEntry { rank: number; id: string; name: string | null; displayName: string | null; avatarUrl: string | null; plan: string; predictionAccuracy: number; predictionStreak: number; bestStreak: number; totalPredictions: number; correctPredictions: number; rankChange?: number }
-interface GoldenBootEntry { rank: number; id: string; name: string; number: number; position: string; goals: number; assists: number; team: { id: string; name: string; code: string; logo: string | null; primaryColor: string } | null }
+interface PredictorEntry { rank: number; id: string; name: string | null; displayName: string | null; avatarUrl: string | null; plan: string; predictionAccuracy: number; predictionStreak: number; bestStreak: number; totalPredictions: number; correctPredictions: number; rankChange?: number | null }
+// GoldenBootEntry removed — backend data not yet available
 
 type TimePeriod = 'all' | 'month' | 'week'
 
@@ -34,13 +34,7 @@ const PLAN_BADGE: Record<string, { label: string; cls: string }> = {
   free: { label: 'FREE', cls: 'bg-muted text-muted-foreground border-border' },
 }
 
-const MOCK_GOLDEN_BOOT: GoldenBootEntry[] = [
-  { rank: 1, id: '1', name: 'Kylian Mbappé', number: 10, position: 'FW', goals: 5, assists: 2, team: { id: '1', name: 'France', code: 'FRA', logo: null, primaryColor: '#002395' } },
-  { rank: 2, id: '2', name: 'Vinícius Jr', number: 7, position: 'FW', goals: 4, assists: 3, team: { id: '2', name: 'Brazil', code: 'BRA', logo: null, primaryColor: '#009c3b' } },
-  { rank: 3, id: '3', name: 'Jude Bellingham', number: 5, position: 'MF', goals: 3, assists: 4, team: { id: '3', name: 'England', code: 'ENG', logo: null, primaryColor: '#cf081f' } },
-  { rank: 4, id: '4', name: 'Lamine Yamal', number: 19, position: 'FW', goals: 3, assists: 2, team: { id: '4', name: 'Spain', code: 'ESP', logo: null, primaryColor: '#c60b1e' } },
-  { rank: 5, id: '5', name: 'Florian Wirtz', number: 10, position: 'MF', goals: 2, assists: 3, team: { id: '5', name: 'Germany', code: 'GER', logo: null, primaryColor: '#000000' } },
-]
+// MOCK_GOLDEN_BOOT removed — backend data not yet available
 
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -60,10 +54,10 @@ export default function LeaderboardView() {
       if (res.ok) {
         const data = await res.json()
         const entries: PredictorEntry[] = Array.isArray(data) ? data : data.leaderboard || []
-        // Add mock rank change
-        setPredictors(entries.map((e: PredictorEntry, i: number) => ({
+        // No rank change data available from backend
+        setPredictors(entries.map((e: PredictorEntry) => ({
           ...e,
-          rankChange: i === 0 ? 0 : Math.random() > 0.5 ? (Math.random() > 0.5 ? 1 : -1) * Math.ceil(Math.random() * 3) : 0,
+          rankChange: null,
         })))
       }
     } catch { /* silent */ } finally { setLoading(false) }
@@ -157,7 +151,6 @@ export default function LeaderboardView() {
       <Tabs defaultValue="predictors" className="w-full">
         <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
           <TabsTrigger value="predictors" className="flex-1 h-8 text-xs font-semibold rounded-md data-[state=active]:bg-primary/15 data-[state=active]:text-primary">🏆 Predictors</TabsTrigger>
-          <TabsTrigger value="golden-boot" className="flex-1 h-8 text-xs font-semibold rounded-md data-[state=active]:bg-primary/15 data-[state=active]:text-primary">⚽ Golden Boot</TabsTrigger>
           <TabsTrigger value="analytics" className="flex-1 h-8 text-xs font-semibold rounded-md data-[state=active]:bg-primary/15 data-[state=active]:text-primary">📊 Analytics</TabsTrigger>
         </TabsList>
 
@@ -169,6 +162,7 @@ export default function LeaderboardView() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input placeholder="Search users..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 bg-muted/50 border-border text-sm" />
             </div>
+            {/* TODO: Backend time period filtering not yet implemented */}
             <div className="flex gap-1 bg-muted/30 p-1 rounded-lg">
               {([['all', 'All Time'], ['month', 'This Month'], ['week', 'This Week']] as const).map(([val, label]) => (
                 <button key={val} onClick={() => setTimePeriod(val as TimePeriod)} className={cn('px-3 py-1.5 rounded-md text-xs font-medium transition-all', timePeriod === val ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground')}>{label}</button>
@@ -245,9 +239,15 @@ export default function LeaderboardView() {
                           </td>
                           <td className="py-2.5 px-4 text-center text-xs tabular-nums">{entry.correctPredictions}/{entry.totalPredictions}</td>
                           <td className="py-2.5 px-4 text-center">
-                            {(entry.rankChange ?? 0) > 0 ? <ArrowUp className="size-3.5 text-emerald-400 mx-auto" /> :
-                             (entry.rankChange ?? 0) < 0 ? <ArrowDown className="size-3.5 text-red-400 mx-auto" /> :
-                             <Minus className="size-3.5 text-muted-foreground mx-auto" />}
+                            {entry.rankChange == null ? (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            ) : entry.rankChange > 0 ? (
+                              <ArrowUp className="size-3.5 text-emerald-400 mx-auto" />
+                            ) : entry.rankChange < 0 ? (
+                              <ArrowDown className="size-3.5 text-red-400 mx-auto" />
+                            ) : (
+                              <Minus className="size-3.5 text-muted-foreground mx-auto" />
+                            )}
                           </td>
                         </tr>
                       )
@@ -262,44 +262,6 @@ export default function LeaderboardView() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* GOLDEN BOOT TAB */}
-        <TabsContent value="golden-boot" className="mt-4">
-          <Card className="glass-card-premium rounded-xl"><CardContent className="p-0">
-            <table className="w-full">
-              <thead><tr className="border-b border-border/30">
-                <th className="py-2.5 px-4 text-left text-[10px] font-semibold text-muted-foreground w-12">#</th>
-                <th className="py-2.5 px-4 text-left text-[10px] font-semibold text-muted-foreground">Player</th>
-                <th className="py-2.5 px-4 text-center text-[10px] font-semibold text-muted-foreground">Goals</th>
-                <th className="py-2.5 px-4 text-center text-[10px] font-semibold text-muted-foreground">Assists</th>
-                <th className="py-2.5 px-4 text-center text-[10px] font-semibold text-muted-foreground">G+A</th>
-                <th className="py-2.5 px-4 text-left text-[10px] font-semibold text-muted-foreground">Team</th>
-              </tr></thead>
-              <tbody>
-                {MOCK_GOLDEN_BOOT.map((p) => (
-                  <tr key={p.id} className="border-b border-border/10 hover:bg-muted/20">
-                    <td className="py-3 px-4 text-xs font-bold">{p.rank <= 3 ? <span className="text-lg">{p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : '🥉'}</span> : p.rank}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="flex size-7 items-center justify-center rounded-full bg-muted/50 text-[10px] font-bold">#{p.number}</div>
-                        <div><p className="text-xs font-semibold">{p.name}</p><p className="text-[10px] text-muted-foreground">{p.position}</p></div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm font-black text-primary">{p.goals}</td>
-                    <td className="py-3 px-4 text-center text-xs font-bold">{p.assists}</td>
-                    <td className="py-3 px-4 text-center text-xs font-bold text-amber-400">{p.goals + p.assists}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: p.team?.primaryColor }} />
-                        <span className="text-xs">{p.team?.code}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent></Card>
         </TabsContent>
 
         {/* ANALYTICS TAB */}

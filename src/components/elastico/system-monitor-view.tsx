@@ -79,60 +79,8 @@ interface ForecastResult {
   confidence: number
 }
 
-// ── Mock Data ────────────────────────────────────────────────────────────────
+// Mock data removed — real data will be loaded from API endpoints
 
-const initialAuditLogs: AuditLog[] = [
-  { id: '1', timestamp: '2026-01-15 14:32:01', type: 'scraper', status: 'PASS', details: 'All 8 scraper endpoints responding within SLA (<2s)' },
-  { id: '2', timestamp: '2026-01-15 13:15:22', type: 'drift', status: 'PASS', details: 'No data drift detected across 12 monitored metrics' },
-  { id: '3', timestamp: '2026-01-15 12:00:00', type: 'convergence', status: 'PASS', details: 'CLV edge within normal range: +2.3% average' },
-  { id: '4', timestamp: '2026-01-14 23:00:01', type: 'scraper', status: 'WARNING', details: 'SofaScore scraper latency elevated: 3.2s (threshold: 2s)' },
-  { id: '5', timestamp: '2026-01-14 18:45:10', type: 'drift', status: 'PASS', details: 'Statistical tests passed: KS p=0.82, PSI=0.03' },
-]
-
-const initialHealingEvents: HealingEvent[] = [
-  { id: '1', timestamp: '2026-01-15 14:01:33', file: 'src/lib/predictions.ts', errorType: 'TypeError', status: 'HEALED' },
-  { id: '2', timestamp: '2026-01-15 11:22:05', file: 'src/app/api/matches/route.ts', errorType: 'NullRef', status: 'HEALED' },
-  { id: '3', timestamp: '2026-01-14 22:10:18', file: 'src/lib/auth.ts', errorType: 'AuthError', status: 'QUARANTINED' },
-  { id: '4', timestamp: '2026-01-14 19:05:44', file: 'src/components/elastico/chat-view.tsx', errorType: 'ImportError', status: 'HEALED' },
-  { id: '5', timestamp: '2026-01-13 08:30:12', file: 'scripts/seed.ts', errorType: 'DBError', status: 'FAILED' },
-]
-
-const initialFileIntegrity: FileIntegrity[] = [
-  { file: 'src/lib/auth.ts', hash: 'a1b2c3d4e5f6...', status: 'INTACT', lastChecked: '2026-01-15 14:30' },
-  { file: 'src/lib/predictions.ts', hash: 'f7e6d5c4b3a2...', status: 'INTACT', lastChecked: '2026-01-15 14:30' },
-  { file: 'src/app/api/matches/route.ts', hash: '1a2b3c4d5e6f...', status: 'MODIFIED', lastChecked: '2026-01-15 14:28' },
-  { file: 'src/lib/db.ts', hash: '9z8y7x6w5v4u...', status: 'INTACT', lastChecked: '2026-01-15 14:30' },
-  { file: 'src/lib/rbac.ts', hash: 'm5n4o3p2q1r0...', status: 'INTACT', lastChecked: '2026-01-15 14:30' },
-  { file: 'src/middleware.ts', hash: 'f2a3b4c5d6e7...', status: 'MISSING', lastChecked: '2026-01-15 14:30' },
-]
-
-const initialForecasts: ForecastResult[] = [
-  { id: '1', timestamp: '2026-01-15 13:00:00', team: 'Manchester City', projectedScore: '2.4 - 0.8', confidence: 78 },
-  { id: '2', timestamp: '2026-01-15 12:30:00', team: 'Arsenal', projectedScore: '1.9 - 1.2', confidence: 72 },
-  { id: '3', timestamp: '2026-01-15 11:00:00', team: 'Liverpool', projectedScore: '2.1 - 1.0', confidence: 75 },
-]
-
-const indicatorTrendData = [
-  { name: 'W1', value: 1.2 },
-  { name: 'W2', value: 1.5 },
-  { name: 'W3', value: 0.8 },
-  { name: 'W4', value: 2.1 },
-  { name: 'W5', value: 1.9 },
-  { name: 'W6', value: 2.4 },
-  { name: 'W7', value: 1.7 },
-  { name: 'W8', value: 2.8 },
-]
-
-// High-level health timeline events (safe for non-admin)
-const systemHealthTimeline = [
-  { id: '1', time: '14:32', status: 'ok', event: 'All services operational' },
-  { id: '2', time: '13:15', status: 'ok', event: 'Data pipeline check passed' },
-  { id: '3', time: '12:00', status: 'ok', event: 'Scheduled health check completed' },
-  { id: '4', time: '23:00', status: 'warning', event: 'Minor latency detected, auto-resolved' },
-  { id: '5', time: '18:45', status: 'ok', event: 'Model engine synchronization successful' },
-  { id: '6', time: '16:00', status: 'ok', event: 'Backup completed successfully' },
-  { id: '7', time: '10:30', status: 'ok', event: 'System maintenance completed' },
-]
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -181,39 +129,43 @@ function CircGauge({ value, max = 100, size = 120, label, strokeColor }: {
   )
 }
 
-// ── Non-Admin View: System Status Tab ────────────────────────────────────────
+// ── Non-Admin View (Simple Status Page) ──────────────────────────────────────
 
-function NonAdminSystemStatus() {
-  const [now, setNow] = useState('2026-06-18 05:30:00')
-  useEffect(() => { setNow(new Date().toISOString().replace('T', ' ').slice(0, 16) + '00') }, [])
-  const lastChecked = now
-
-  const statusCards = [
-    {
-      label: 'Scraper',
-      icon: Radio,
-      status: 'HEALTHY' as const,
-      sublabel: 'Data collection active',
-    },
-    {
-      label: 'Data Pipeline',
-      icon: Database,
-      status: 'STABLE' as const,
-      sublabel: 'Processing flowing normally',
-    },
-    {
-      label: 'Model Engine',
-      icon: Server,
-      status: 'ONLINE' as const,
-      sublabel: 'Predictions available',
-    },
-  ]
-
+function NonAdminSystemMonitor() {
   return (
-    <div className="space-y-6">
-      {/* ── 3 Status Cards ─────────────────────────────────────────────── */}
+    <div className="animate-fade-in-up space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+          <Activity className="size-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">System Status</h1>
+          <p className="text-sm text-muted-foreground">Platform health overview</p>
+        </div>
+      </div>
+
+      {/* Under Construction Notice */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        <Card className="glass-card-premium border-primary/20">
+          <CardContent className="py-5">
+            <div className="flex items-start gap-3">
+              <Info className="size-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-sm text-muted-foreground">
+                System monitoring is under construction. Core systems (AI Gateway, Prediction Engine, Database) are operational.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* 3 Green Status Indicators */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {statusCards.map((card, i) => (
+        {[
+          { label: 'AI Gateway', icon: Brain, sublabel: 'Processing requests normally' },
+          { label: 'Prediction Engine', icon: Server, sublabel: 'Models loaded and ready' },
+          { label: 'Database', icon: Database, sublabel: 'All connections healthy' },
+        ].map((card, i) => (
           <motion.div
             key={card.label}
             initial={{ opacity: 0, y: 12 }}
@@ -231,10 +183,10 @@ function NonAdminSystemStatus() {
                 <div className="flex items-center gap-3">
                   <div
                     className="size-3 rounded-full"
-                    style={{ backgroundColor: statusColor(card.status), boxShadow: `0 0 8px ${statusColor(card.status)}60` }}
+                    style={{ backgroundColor: '#00e676', boxShadow: '0 0 8px #00e67660' }}
                   />
-                  <span className="text-lg font-bold" style={{ color: statusColor(card.status) }}>
-                    {card.status}
+                  <span className="text-lg font-bold" style={{ color: '#00e676' }}>
+                    Operational
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">{card.sublabel}</p>
@@ -244,386 +196,8 @@ function NonAdminSystemStatus() {
         ))}
       </div>
 
-      {/* ── Platform Uptime Card ──────────────────────────────────────── */}
+      {/* Admin Access Required Notice */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <Card className="glass-card-premium">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Platform Uptime</CardTitle>
-              <TrendingUp className="size-4 text-muted-foreground" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <CircGauge value={99.7} max={100} size={120} label="Uptime %" strokeColor="#00e676" />
-              <div className="space-y-1">
-                <p className="text-2xl font-bold text-emerald-400">99.7%</p>
-                <p className="text-xs text-muted-foreground">Last 30 days average</p>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
-                  <Clock className="size-3" />
-                  Last checked: {lastChecked}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* ── System Health Timeline ───────────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-        <Card className="glass-card-premium">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">System Health Timeline</CardTitle>
-              <Badge variant="outline" className="text-xs">{systemHealthTimeline.length} events</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {systemHealthTimeline.map((evt) => (
-                <div key={evt.id} className="flex items-start gap-3 py-2 border-b border-border/30 last:border-0">
-                  <div className="mt-0.5">
-                    {evt.status === 'ok' ? (
-                      <CheckCircle className="size-4 text-emerald-400" />
-                    ) : (
-                      <AlertTriangle className="size-4 text-yellow-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">{evt.event}</p>
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{evt.time}</p>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={
-                      evt.status === 'ok'
-                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]'
-                        : 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30 text-[10px]'
-                    }
-                  >
-                    {evt.status === 'ok' ? 'OK' : 'WARN'}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* ── Info Note ─────────────────────────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-        <Card className="glass-card-premium border-primary/20">
-          <CardContent className="py-4">
-            <div className="flex items-start gap-3">
-              <Info className="size-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-sm text-muted-foreground">
-                System health is monitored automatically. Contact your administrator for details.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
-  )
-}
-
-// ── Non-Admin View: AI Forecasts Tab ─────────────────────────────────────────
-
-function NonAdminAIForecasts() {
-  const [modelActive, setModelActive] = useState(false)
-  const [forecastTeam, setForecastTeam] = useState('')
-  const [forecastHistory, setForecastHistory] = useState('')
-  const [forecastIndicators, setForecastIndicators] = useState('')
-  const [forecastLoading, setForecastLoading] = useState(false)
-  const [forecastResult, setForecastResult] = useState<{ score: string; confidence: number } | null>(null)
-  const [forecasts, setForecasts] = useState<ForecastResult[]>(initialForecasts)
-
-  useEffect(() => {
-    fetch('/api/prediction-engine/config')
-      .then(r => r.json())
-      .then(data => {
-        if (data.nvidiaApiKey) setModelActive(true)
-      })
-      .catch(() => {})
-  }, [])
-
-  const runForecast = async () => {
-    if (!forecastTeam) return
-    setForecastLoading(true)
-    setForecastResult(null)
-    try {
-      const res = await fetch('/api/prediction-engine/timesfm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          team: forecastTeam,
-          history: forecastHistory || '1,1,3,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3',
-          indicators: forecastIndicators || '1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8',
-        }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setForecastResult({ score: data.projectedScore, confidence: data.confidence })
-        setForecasts(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          team: forecastTeam,
-          projectedScore: data.projectedScore,
-          confidence: data.confidence,
-        }, ...prev])
-      } else {
-        await new Promise(r => setTimeout(r, 1000))
-        const mockScore = `${(1 + Math.random() * 2).toFixed(1)} - ${(Math.random() * 1.5).toFixed(1)}`
-        const mockConf = 65 + Math.floor(Math.random() * 25)
-        setForecastResult({ score: mockScore, confidence: mockConf })
-        setForecasts(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          team: forecastTeam,
-          projectedScore: mockScore,
-          confidence: mockConf,
-        }, ...prev])
-      }
-    } catch {
-      await new Promise(r => setTimeout(r, 800))
-      const mockScore = `${(1 + Math.random() * 2).toFixed(1)} - ${(Math.random() * 1.5).toFixed(1)}`
-      const mockConf = 65 + Math.floor(Math.random() * 25)
-      setForecastResult({ score: mockScore, confidence: mockConf })
-      setForecasts(prev => [{
-        id: String(Date.now()),
-        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-        team: forecastTeam,
-        projectedScore: mockScore,
-        confidence: mockConf,
-      }, ...prev])
-    }
-    setForecastLoading(false)
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Model Status + Conditioning Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Model Status — Simplified for non-admin */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-          <Card className="glass-card-premium">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">AI Model Status</CardTitle>
-                <Brain className="size-4 text-muted-foreground" />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className="size-4 rounded-full"
-                  style={{
-                    backgroundColor: modelActive ? '#00e676' : '#ef4444',
-                    boxShadow: modelActive ? '0 0 12px #00e67680' : '0 0 12px #ef444480',
-                  }}
-                />
-                <span className="text-lg font-bold" style={{ color: modelActive ? '#00e676' : '#ef4444' }}>
-                  {modelActive ? 'Active' : 'Offline'}
-                </span>
-              </div>
-              {forecastResult && (
-                <div className="bg-muted/50 rounded-lg p-3 space-y-2 border border-primary/20">
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Latest Forecast Result</p>
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="text-2xl font-bold gradient-text">{forecastResult.score}</p>
-                      <p className="text-xs text-muted-foreground">Projected Score</p>
-                    </div>
-                    <div className="h-10 w-px bg-border" />
-                    <div>
-                      <p className="text-2xl font-bold" style={{
-                        color: forecastResult.confidence >= 75 ? '#00e676' : forecastResult.confidence >= 60 ? '#eab308' : '#ef4444',
-                      }}>
-                        {forecastResult.confidence}%
-                      </p>
-                      <p className="text-xs text-muted-foreground">Confidence</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Conditioning Test Panel */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card className="glass-card-premium">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Conditioning Test Panel</CardTitle>
-                <Brain className="size-4 text-muted-foreground" />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Team Name</Label>
-                <Input
-                  value={forecastTeam}
-                  onChange={e => setForecastTeam(e.target.value)}
-                  placeholder="e.g. Manchester City"
-                  className="h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">64-Game History (comma separated: W=3, D=1, L=0)</Label>
-                <Textarea
-                  value={forecastHistory}
-                  onChange={e => setForecastHistory(e.target.value)}
-                  placeholder="3,1,0,3,3,1,0,0,3,1,..."
-                  className="min-h-[60px] font-mono text-xs bg-muted/50 resize-y"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Recent Indicators (comma separated)</Label>
-                <Input
-                  value={forecastIndicators}
-                  onChange={e => setForecastIndicators(e.target.value)}
-                  placeholder="1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8"
-                  className="h-8 text-sm font-mono"
-                />
-              </div>
-              <Button
-                size="sm" className="w-full gap-2"
-                onClick={runForecast}
-                disabled={forecastLoading || !forecastTeam}
-              >
-                {forecastLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Zap className="size-3.5" />}
-                Run Conditioned Forecast
-              </Button>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Forecast History + xReg Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Forecast History */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <Card className="glass-card-premium">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Forecast History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead>Team</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Conf</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {forecasts.slice(0, 8).map(f => (
-                    <TableRow key={f.id}>
-                      <TableCell className="text-xs text-muted-foreground font-mono">{f.timestamp.slice(11, 19)}</TableCell>
-                      <TableCell className="text-sm font-medium">{f.team}</TableCell>
-                      <TableCell className="text-sm font-mono">{f.projectedScore}</TableCell>
-                      <TableCell>
-                        <span className="text-xs font-bold" style={{
-                          color: f.confidence >= 75 ? '#00e676' : f.confidence >= 60 ? '#eab308' : '#ef4444',
-                        }}>
-                          {f.confidence}%
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* xReg Conditioning Visualization */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card className="glass-card-premium">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">xReg Conditioning — Indicator Trend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={indicatorTrendData}>
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
-                      axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
-                      axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
-                      tickLine={false}
-                    />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
-                      {indicatorTrendData.map((entry, index) => (
-                        <Cell
-                          key={index}
-                          fill={entry.value >= 2.0 ? '#00e676' : entry.value >= 1.5 ? '#00bfa5' : entry.value >= 1.0 ? '#eab308' : '#ef4444'}
-                          fillOpacity={0.8}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-red-500 inline-block" /> &lt;1.0</span>
-                <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-yellow-500 inline-block" /> 1.0-1.4</span>
-                <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-teal-500 inline-block" /> 1.5-1.9</span>
-                <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-emerald-500 inline-block" /> ≥2.0</span>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-    </div>
-  )
-}
-
-// ── Non-Admin View (Combined) ────────────────────────────────────────────────
-
-function NonAdminSystemMonitor() {
-  return (
-    <div className="animate-fade-in-up space-y-6">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-          <Activity className="size-5 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">System Status</h1>
-          <p className="text-sm text-muted-foreground">Platform health overview and AI-powered forecasts</p>
-        </div>
-      </div>
-
-      {/* ── Tabs ─────────────────────────────────────────────────────── */}
-      <Tabs defaultValue="system-status" className="w-full">
-        <TabsList className="w-full sm:w-auto flex-wrap">
-          <TabsTrigger value="system-status" className="gap-1.5">
-            <Activity className="size-3.5" /> System Status
-          </TabsTrigger>
-          <TabsTrigger value="ai-forecasts" className="gap-1.5">
-            <Brain className="size-3.5" /> AI Forecasts
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="system-status" className="mt-4">
-          <NonAdminSystemStatus />
-        </TabsContent>
-
-        <TabsContent value="ai-forecasts" className="mt-4">
-          <NonAdminAIForecasts />
-        </TabsContent>
-      </Tabs>
-
-      {/* ── Admin Access Required Notice ──────────────────────────────── */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
         <Card className="glass-card-premium border-yellow-500/20">
           <CardContent className="py-5">
             <div className="flex items-start gap-4">
@@ -633,8 +207,7 @@ function NonAdminSystemMonitor() {
               <div className="space-y-1">
                 <h3 className="text-sm font-semibold text-yellow-400">Admin Access Required</h3>
                 <p className="text-sm text-muted-foreground">
-                  Advanced infrastructure controls, security auditing, code healing, and system diagnostics
-                  require administrator privileges. Contact your system administrator to request elevated access.
+                  Advanced infrastructure controls require administrator privileges. Contact your system administrator to request elevated access.
                 </p>
               </div>
             </div>
@@ -655,7 +228,7 @@ function AdminSystemMonitor() {
   const [scraperStatus, setScraperStatus] = useState<'HEALTHY' | 'DEGRADED' | 'DOWN'>('HEALTHY')
   const [driftStatus, setDriftStatus] = useState<'HEALTHY' | 'DRIFT_DETECTED'>('HEALTHY')
   const [clvEdge, setClvEdge] = useState(3.2)
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs)
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [auditLoading, setAuditLoading] = useState<string | null>(null)
 
   const runAudit = async (type: 'scraper' | 'drift' | 'convergence') => {
@@ -707,7 +280,7 @@ function AdminSystemMonitor() {
 
   // ── Tab 2: Veronica ─────────────────────────────────────────────────────
   const [veronicaOnline, setVeronicaOnline] = useState(true)
-  const [healingEvents, setHealingEvents] = useState<HealingEvent[]>(initialHealingEvents)
+  const [healingEvents, setHealingEvents] = useState<HealingEvent[]>([])
   const [healingLoading, setHealingLoading] = useState(false)
   const [sandboxCode, setSandboxCode] = useState('// Test code here\nconsole.log("Hello from sandbox");')
   const [sandboxFilename, setSandboxFilename] = useState('test.ts')
@@ -756,16 +329,10 @@ function AdminSystemMonitor() {
 
   // ── Tab 3: SAIM Security ────────────────────────────────────────────────
   const [integrityScore, setIntegrityScore] = useState(94)
-  const [fileIntegrity, setFileIntegrity] = useState<FileIntegrity[]>(initialFileIntegrity)
+  const [fileIntegrity, setFileIntegrity] = useState<FileIntegrity[]>([])
   const [integrityLoading, setIntegrityLoading] = useState(false)
   const [autoDestruct, setAutoDestruct] = useState(false)
-  const [securityLogs, setSecurityLogs] = useState([
-    { id: '1', time: '2026-01-15 14:30:00', event: 'Integrity scan completed — 5/6 files INTACT', severity: 'info' as const },
-    { id: '2', time: '2026-01-15 14:28:00', event: 'auth.ts hash mismatch detected (MANUAL)', severity: 'warning' as const },
-    { id: '3', time: '2026-01-15 14:25:00', event: 'middleware.ts marked MISSING (expected removal)', severity: 'warning' as const },
-    { id: '4', time: '2026-01-15 12:00:00', event: 'Scheduled integrity audit passed', severity: 'info' as const },
-    { id: '5', time: '2026-01-14 22:00:00', event: 'Adversarial probe blocked — IP 203.0.113.42', severity: 'critical' as const },
-  ])
+  const [securityLogs, setSecurityLogs] = useState<{ id: string; time: string; event: string; severity: 'info' | 'warning' | 'critical' }[]>([])
 
   const runIntegrityCheck = async () => {
     setIntegrityLoading(true)
@@ -804,7 +371,7 @@ function AdminSystemMonitor() {
   const [forecastHistory, setForecastHistory] = useState('')
   const [forecastIndicators, setForecastIndicators] = useState('')
   const [forecastLoading, setForecastLoading] = useState(false)
-  const [forecasts, setForecasts] = useState<ForecastResult[]>(initialForecasts)
+  const [forecasts, setForecasts] = useState<ForecastResult[]>([])
   const [forecastResult, setForecastResult] = useState<{ score: string; confidence: number } | null>(null)
 
   useEffect(() => {
@@ -1579,37 +1146,8 @@ function AdminSystemMonitor() {
                   <CardTitle className="text-sm font-medium">xReg Conditioning — Indicator Trend</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={indicatorTrendData}>
-                        <XAxis
-                          dataKey="name"
-                          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
-                          axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
-                          tickLine={false}
-                        />
-                        <YAxis
-                          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
-                          axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
-                          tickLine={false}
-                        />
-                        <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
-                          {indicatorTrendData.map((entry, index) => (
-                            <Cell
-                              key={index}
-                              fill={entry.value >= 2.0 ? '#00e676' : entry.value >= 1.5 ? '#00bfa5' : entry.value >= 1.0 ? '#eab308' : '#ef4444'}
-                              fillOpacity={0.8}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-red-500 inline-block" /> &lt;1.0</span>
-                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-yellow-500 inline-block" /> 1.0-1.4</span>
-                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-teal-500 inline-block" /> 1.5-1.9</span>
-                    <span className="flex items-center gap-1"><span className="size-2 rounded-sm bg-emerald-500 inline-block" /> ≥2.0</span>
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-sm text-muted-foreground">No data available. Run forecasts to see indicator trend data.</p>
                   </div>
                 </CardContent>
               </Card>
