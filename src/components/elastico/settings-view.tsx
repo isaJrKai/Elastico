@@ -397,7 +397,7 @@ function StatusPill({ label, value, active, icon: Icon }: { label: string; value
 
 // ── Settings View Component ───────────────────────────────────────────────────
 
-export function SettingsView() {
+export default function SettingsView() {
   const user = useElasticoStore(s => s.user)
   const setSidebarOpen = useElasticoStore(s => s.setSidebarOpen)
   const sidebarOpen = useElasticoStore(s => s.sidebarOpen)

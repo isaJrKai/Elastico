@@ -126,7 +126,7 @@ function generateShotsFromEvents(events: MatchEvent[], homeXg: number, awayXg: n
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function MatchDetailView() {
+export default function MatchDetailView() {
   const selectedMatchId = useElasticoStore(s => s.selectedMatchId)
   const setView = useElasticoStore(s => s.setView)
   const user = useElasticoStore(s => s.user)

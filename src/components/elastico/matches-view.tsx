@@ -341,7 +341,7 @@ function MatchCardSkeleton() {
 // MAIN MATCHES VIEW
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function MatchesView() {
+export default function MatchesView() {
   const token = useElasticoStore(s => s.token)
   const [activeTab, setActiveTab] = useState<MatchTab>('all')
   const [leagueFilter, setLeagueFilter] = useState('PL')

@@ -120,7 +120,7 @@ function parseReactions(reactionsStr: string): {
 
 // ── News View Component ───────────────────────────────────────────────────────
 
-export function NewsView() {
+export default function NewsView() {
   const setNews = useElasticoStore(s => s.setNews)
 
   const [newsItems, setNewsItems] = useState<NewsItem[]>([])

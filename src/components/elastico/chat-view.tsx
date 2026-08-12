@@ -140,7 +140,7 @@ function parseMarkdown(text: string) {
 
 // ── Chat View Component ───────────────────────────────────────────────────────
 
-export function ChatView() {
+export default function ChatView() {
   const chatMessages = useElasticoStore(s => s.chatMessages)
   const addChatMessage = useElasticoStore(s => s.addChatMessage)
   const updateChatMessage = useElasticoStore(s => s.updateChatMessage)
