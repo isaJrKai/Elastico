@@ -64,6 +64,12 @@ const FORMULA_CATALOG = [
 ]
 
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
+  const { allowed } = rateLimit(`advanced-analytics-get:${ip}`, 15, 60_000)
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const { searchParams } = new URL(request.url)
   const action = searchParams.get('action')
 

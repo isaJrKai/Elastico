@@ -60,7 +60,7 @@ interface ExportRecord {
   size?: string
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────────────────
+// ── Report Templates ──────────────────────────────────────────────────────────────
 
 const REPORT_TEMPLATES = [
   { id: 'match-report', name: 'Match Report', description: 'Comprehensive match analysis with xG, shots, possession, and key events', icon: 'file-text' as const, category: 'match' },
@@ -69,9 +69,6 @@ const REPORT_TEMPLATES = [
   { id: 'tournament-summary', name: 'Tournament Summary', description: 'Full tournament overview with standings, top scorers, and key stats', icon: 'trophy' as const, category: 'tournament' },
   { id: 'prediction-accuracy', name: 'Prediction Accuracy Report', description: 'Analysis of prediction model performance across all models', icon: 'target' as const, category: 'prediction' },
 ]
-
-const MOCK_EXPORT_HISTORY: ExportRecord[] = []
-
 
 const API_ENDPOINTS = [
   { method: 'GET', path: '/api/matches', description: 'List all matches with filters', params: 'status, stage, competition, limit, offset' },
@@ -94,11 +91,8 @@ export function ExportView() {
   const [exportType, setExportType] = useState('matches')
   const [exportFormat, setExportFormat] = useState('csv')
   const [exporting, setExporting] = useState(false)
-  const [exportHistory, setExportHistory] = useState<ExportRecord[]>(MOCK_EXPORT_HISTORY)
-  const [scheduledReports, setScheduledReports] = useState([
-    { id: 's1', name: 'Weekly Match Report', frequency: 'weekly', type: 'matches', format: 'CSV', active: true, nextRun: '2026-02-17' },
-    { id: 's2', name: 'Monthly Player Stats', frequency: 'monthly', type: 'players', format: 'CSV', active: true, nextRun: '2026-03-01' },
-  ])
+  const [exportHistory, setExportHistory] = useState<ExportRecord[]>([])
+  const [scheduledReports] = useState<{ id: string; name: string; frequency: string; type: string; format: string; active: boolean; nextRun: string }[]>([])
   const [chartRef, setChartRef] = useState<HTMLElement | null>(null)
 
   const handleExport = useCallback(async () => {
@@ -311,37 +305,32 @@ export function ExportView() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {scheduledReports.map(report => (
-                <div key={report.id} className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border/30">
-                  <div className="flex items-center gap-3">
-                    <div className={cn('w-3 h-3 rounded-full', report.active ? 'bg-primary' : 'bg-muted-foreground/30')} />
-                    <div>
-                      <div className="text-sm font-medium">{report.name}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {report.frequency} · {report.type} · {report.format} · Next: {report.nextRun}
+              {scheduledReports.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Clock className="size-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No scheduled reports yet.</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">Scheduled report automation is coming soon.</p>
+                </div>
+              ) : (
+                scheduledReports.map(report => (
+                  <div key={report.id} className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border/30">
+                    <div className="flex items-center gap-3">
+                      <div className={cn('w-3 h-3 rounded-full', report.active ? 'bg-primary' : 'bg-muted-foreground/30')} />
+                      <div>
+                        <div className="text-sm font-medium">{report.name}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {report.frequency} · {report.type} · {report.format} · Next: {report.nextRun}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={cn('text-[10px]', report.active ? 'text-primary border-primary/30' : 'text-muted-foreground')}>
+                        {report.active ? 'Active' : 'Paused'}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={cn('text-[10px]', report.active ? 'text-primary border-primary/30' : 'text-muted-foreground')}>
-                      {report.active ? 'Active' : 'Paused'}
-                    </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs h-7"
-                      onClick={() => {
-                        setScheduledReports(prev => prev.map(r =>
-                          r.id === report.id ? { ...r, active: !r.active } : r
-                        ))
-                        toast.success(`Report ${report.active ? 'paused' : 'activated'}`)
-                      }}
-                    >
-                      Toggle
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
               <Button variant="outline" className="w-full gap-2 text-xs" disabled>
                 <Calendar className="size-4" /> Schedule New Report
               </Button>
@@ -359,7 +348,13 @@ export function ExportView() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {exportHistory.map(record => (
+                {exportHistory.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <History className="size-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No exports yet.</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">Use the Custom Export tab to generate your first export.</p>
+                  </div>
+                ) : exportHistory.map(record => (
                   <div key={record.id} className="flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/30">
                     {record.status === 'completed' ? (
                       <CheckCircle2 className="size-4 text-primary shrink-0" />
@@ -525,7 +520,13 @@ export function ExportView() {
                 Generate shareable links for your exported reports. Links expire after 7 days.
               </p>
               <div className="space-y-2">
-                {exportHistory.filter(r => r.status === 'completed').map(record => (
+                {exportHistory.filter(r => r.status === 'completed').length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Share2 className="size-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No completed exports to share.</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">Complete an export first, then share it from here.</p>
+                  </div>
+                ) : exportHistory.filter(r => r.status === 'completed').map(record => (
                   <div key={record.id} className="flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/30">
                     <FileText className="size-4 text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
