@@ -71,31 +71,15 @@ export function CompareView() {
     return getEloProb(homeTeam.eloRating, awayTeam.eloRating)
   }, [homeTeam, awayTeam])
 
-  // ELO history mock
-  const eloHistory = useMemo(() => {
-    if (!homeTeam && !awayTeam) return []
-    return Array.from({ length: 12 }, (_, i) => {
-      const month = `M${i + 1}`
-      return {
-        month,
-        home: (homeTeam?.eloRating || 1500) + (Math.sin(i / 3) * 30) + ((i * 7 % 10) - 5) * 2,
-        away: (awayTeam?.eloRating || 1500) + (Math.cos(i / 3) * 25) + ((i * 7 % 10) - 5) * 2,
-      }
-    })
-  }, [homeTeam, awayTeam])
+  // ELO history — requires historical ELO data from API
+  const eloHistory: { month: string; home: number; away: number }[] = []
 
   // Form badges
-  const homeForm = homeTeam?.form ? JSON.parse(homeTeam.form) as string[] : ['W', 'D', 'W', 'L', 'W']
-  const awayForm = awayTeam?.form ? JSON.parse(awayTeam.form) as string[] : ['L', 'W', 'D', 'W', 'L']
+  const homeForm = homeTeam?.form ? JSON.parse(homeTeam.form) as string[] : []
+  const awayForm = awayTeam?.form ? JSON.parse(awayTeam.form) as string[] : []
 
-  // Scoring trends
-  const scoringTrends = useMemo(() => Array.from({ length: 6 }, (_, i) => ({
-    match: `M${i + 1}`,
-    homeScored: [1, 2, 0, 3, 1, 2][i] || 0,
-    homeConceded: [0, 1, 1, 0, 2, 1][i] || 0,
-    awayScored: [2, 1, 0, 1, 3, 0][i] || 0,
-    awayConceded: [1, 0, 2, 1, 1, 0][i] || 0,
-  })), [])
+  // Scoring trends — requires match-by-match data from API
+  const scoringTrends: { match: string; homeScored: number; homeConceded: number; awayScored: number; awayConceded: number }[] = []
 
   // Stat comparisons
   const statComparisons = useMemo(() => {
@@ -112,18 +96,20 @@ export function CompareView() {
       { label: 'Wins', home: homeTeam.wins, away: awayTeam.wins, higher: 'higher' },
       { label: 'Draws', home: homeTeam.draws, away: awayTeam.draws, higher: 'neutral' },
       { label: 'Losses', home: homeTeam.losses, away: awayTeam.losses, higher: 'lower' },
-      { label: 'Win Rate %', home: homeTeam.wins + homeTeam.draws + homeTeam.losses > 0 ? (homeTeam.wins / (homeTeam.wins + homeTeam.draws + homeTeam.losses)) * 100 : 50, away: awayTeam.wins + awayTeam.draws + awayTeam.losses > 0 ? (awayTeam.wins / (awayTeam.wins + awayTeam.draws + awayTeam.losses)) * 100 : 50, higher: 'higher' },
       { label: 'GD', home: homeTeam.goalsFor - homeTeam.goalsAgainst, away: awayTeam.goalsFor - awayTeam.goalsAgainst, higher: 'higher' },
       { label: 'Avg Goals/Game', home: +(homeTeam.goalsFor / Math.max(1, homeTeam.wins + homeTeam.draws + homeTeam.losses)).toFixed(2), away: +(awayTeam.goalsFor / Math.max(1, awayTeam.wins + awayTeam.draws + awayTeam.losses)).toFixed(2), higher: 'higher' },
-      { label: 'Shots per Game', home: 12.4, away: 10.8, higher: 'higher' },
-      { label: 'Corners per Game', home: 6.2, away: 5.5, higher: 'higher' },
-      { label: 'Fouls per Game', home: 11.3, away: 13.1, higher: 'lower' },
+      { label: 'Win Rate %', home: homeTeam.wins + homeTeam.draws + homeTeam.losses > 0 ? (homeTeam.wins / (homeTeam.wins + homeTeam.draws + homeTeam.losses)) * 100 : 0, away: awayTeam.wins + awayTeam.draws + awayTeam.losses > 0 ? (awayTeam.wins / (awayTeam.wins + awayTeam.draws + awayTeam.losses)) * 100 : 0, higher: 'higher' },
     ]
   }, [homeTeam, awayTeam])
 
-  // Squad depth — not available without real squad data
-  const squadDepth = useMemo(() => {
-    return { home: { GK: 0, DEF: 0, MID: 0, FWD: 0 }, away: { GK: 0, DEF: 0, MID: 0, FWD: 0 } }
+  // Style matchup — derived from real team data
+  const styleMatchup = useMemo(() => {
+    if (!homeTeam || !awayTeam) return []
+    return [
+      { label: 'Attacking vs Defensive', home: homeTeam.style || 'balanced', away: awayTeam.style || 'balanced', icon: Swords },
+      { label: 'High Press vs Low Block', home: homeTeam.pressIntensity > 60 ? 'High Press' : 'Standard', away: awayTeam.pressIntensity > 60 ? 'High Press' : 'Standard', icon: Shield },
+      { label: 'Possession vs Direct', home: homeTeam.possession > 55 ? 'Possession' : 'Direct', away: awayTeam.possession > 55 ? 'Possession' : 'Direct', icon: BarChart3 },
+    ]
   }, [homeTeam, awayTeam])
 
   // Tactical edge
@@ -309,18 +295,22 @@ export function CompareView() {
                 <CardTitle className="text-sm font-medium">ELO Rating History</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={eloHistory}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-                      <Line type="monotone" dataKey="home" stroke="#00e676" strokeWidth={2} dot={{ r: 3 }} name={homeTeam.name} />
-                      <Line type="monotone" dataKey="away" stroke="#ff5252" strokeWidth={2} dot={{ r: 3 }} name={awayTeam.name} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+                {eloHistory.length > 0 ? (
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={eloHistory}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                        <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                        <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                        <Line type="monotone" dataKey="home" stroke="#00e676" strokeWidth={2} dot={{ r: 3 }} name={homeTeam.name} />
+                        <Line type="monotone" dataKey="away" stroke="#ff5252" strokeWidth={2} dot={{ r: 3 }} name={awayTeam.name} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">Historical ELO data not yet available</div>
+                )}
               </CardContent>
             </Card>
 
@@ -329,20 +319,24 @@ export function CompareView() {
                 <CardTitle className="text-sm font-medium">Scoring Trends</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={scoringTrends}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="match" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-                      <Bar dataKey="homeScored" fill="#00e676" radius={[2, 2, 0, 0]} name={`${homeTeam.name} Scored`} />
-                      <Bar dataKey="homeConceded" fill="#00e67640" radius={[2, 2, 0, 0]} name={`${homeTeam.name} Conceded`} />
-                      <Bar dataKey="awayScored" fill="#ff5252" radius={[2, 2, 0, 0]} name={`${awayTeam.name} Scored`} />
-                      <Bar dataKey="awayConceded" fill="#ff525240" radius={[2, 2, 0, 0]} name={`${awayTeam.name} Conceded`} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                {scoringTrends.length > 0 ? (
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={scoringTrends}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="match" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                        <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                        <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                        <Bar dataKey="homeScored" fill="#00e676" radius={[2, 2, 0, 0]} name={`${homeTeam.name} Scored`} />
+                        <Bar dataKey="homeConceded" fill="#00e67640" radius={[2, 2, 0, 0]} name={`${homeTeam.name} Conceded`} />
+                        <Bar dataKey="awayScored" fill="#ff5252" radius={[2, 2, 0, 0]} name={`${awayTeam.name} Scored`} />
+                        <Bar dataKey="awayConceded" fill="#ff525240" radius={[2, 2, 0, 0]} name={`${awayTeam.name} Conceded`} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">Match-by-match scoring data not yet available</div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -356,33 +350,39 @@ export function CompareView() {
                   <Trophy className="size-4 text-primary" /> Head-to-Head Record
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-center gap-4">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-primary">{h2hRecord.home}</div>
-                    <div className="text-[10px] text-muted-foreground">{homeTeam.code} Wins</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-muted-foreground">{h2hRecord.draws}</div>
-                    <div className="text-[10px] text-muted-foreground">Draws</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-orange-400">{h2hRecord.away}</div>
-                    <div className="text-[10px] text-muted-foreground">{awayTeam.code} Wins</div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  {h2h.map((m, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 rounded bg-card/50 border border-border/30 text-sm">
-                      <span className="text-xs text-muted-foreground">{m.date}</span>
-                      <div className="flex items-center gap-2">
-                        <span className={cn('font-bold', m.result === 'H' ? 'text-primary' : '')}>{m.homeGoals}</span>
-                        <span className="text-muted-foreground">-</span>
-                        <span className={cn('font-bold', m.result === 'A' ? 'text-orange-400' : '')}>{m.awayGoals}</span>
+              <CardContent>
+                {h2h.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center gap-4">
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-primary">{h2hRecord.home}</div>
+                        <div className="text-[10px] text-muted-foreground">{homeTeam.code} Wins</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-muted-foreground">{h2hRecord.draws}</div>
+                        <div className="text-[10px] text-muted-foreground">Draws</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-orange-400">{h2hRecord.away}</div>
+                        <div className="text-[10px] text-muted-foreground">{awayTeam.code} Wins</div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="space-y-2">
+                      {h2h.map((m, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 rounded bg-card/50 border border-border/30 text-sm">
+                          <span className="text-xs text-muted-foreground">{m.date}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={cn('font-bold', m.result === 'H' ? 'text-primary' : '')}>{m.homeGoals}</span>
+                            <span className="text-muted-foreground">-</span>
+                            <span className={cn('font-bold', m.result === 'A' ? 'text-orange-400' : '')}>{m.awayGoals}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-sm text-muted-foreground">Head-to-head history requires shared match data</div>
+                )}
               </CardContent>
             </Card>
 
@@ -416,20 +416,7 @@ export function CompareView() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {Object.keys(squadDepth.home).map(pos => (
-                    <div key={pos} className="space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-muted-foreground">{pos}</span>
-                        <span><span className="text-primary">{squadDepth.home[pos as keyof typeof squadDepth.home]}</span> / <span className="text-orange-400">{squadDepth.away[pos as keyof typeof squadDepth.away]}</span></span>
-                      </div>
-                      <div className="flex h-2 rounded-full overflow-hidden bg-muted/50">
-                        <div className="bg-primary/70" style={{ width: `${(squadDepth.home[pos as keyof typeof squadDepth.home] / (squadDepth.home[pos as keyof typeof squadDepth.home] + squadDepth.away[pos as keyof typeof squadDepth.away])) * 100}%` }} />
-                        <div className="bg-orange-500/60" style={{ width: `${(squadDepth.away[pos as keyof typeof squadDepth.away] / (squadDepth.home[pos as keyof typeof squadDepth.home] + squadDepth.away[pos as keyof typeof squadDepth.away])) * 100}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <div className="py-8 text-center text-sm text-muted-foreground">Squad depth data requires player roster information</div>
               </CardContent>
             </Card>
 
@@ -440,22 +427,8 @@ export function CompareView() {
                   <Users className="size-4 text-primary" /> Key Player Matchups
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  { homePlayer: `${homeTeam.code} Best Striker`, awayPlayer: `${awayTeam.code} Best Striker`, metric: 'Goals' },
-                  { homePlayer: `${homeTeam.code} Playmaker`, awayPlayer: `${awayTeam.code} Playmaker`, metric: 'Assists' },
-                  { homePlayer: `${homeTeam.code} Key Defender`, awayPlayer: `${awayTeam.code} Key Defender`, metric: 'Tackles' },
-                ].map((matchup, i) => (
-                  <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-card/50 border border-border/30">
-                    <div className="flex-1 text-right">
-                      <div className="text-xs font-medium text-primary">{matchup.homePlayer}</div>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] shrink-0">{matchup.metric}</Badge>
-                    <div className="flex-1">
-                      <div className="text-xs font-medium text-orange-400">{matchup.awayPlayer}</div>
-                    </div>
-                  </div>
-                ))}
+              <CardContent>
+                <div className="py-8 text-center text-sm text-muted-foreground">Player matchup data requires detailed player statistics</div>
               </CardContent>
             </Card>
           </div>
@@ -466,13 +439,8 @@ export function CompareView() {
               <CardTitle className="text-sm font-medium">Style Matchup Analysis</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {[
-                  { label: 'Attacking vs Defensive', home: homeTeam.style || 'balanced', away: awayTeam.style || 'balanced', icon: Swords },
-                  { label: 'High Press vs Low Block', home: homeTeam.pressIntensity > 60 ? 'High Press' : 'Standard', away: awayTeam.pressIntensity > 60 ? 'High Press' : 'Standard', icon: Shield },
-                  { label: 'Possession vs Direct', home: homeTeam.possession > 55 ? 'Possession' : 'Direct', away: awayTeam.possession > 55 ? 'Possession' : 'Direct', icon: BarChart3 },
-                  { label: 'Wing Play vs Center', home: 'Mixed', away: 'Mixed', icon: Users },
-                ].map((item) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {styleMatchup.map((item) => {
                   const Icon = item.icon
                   return (
                     <div key={item.label} className="glass-card p-4 rounded-lg border border-border/30 text-center space-y-2">
@@ -502,7 +470,6 @@ export function CompareView() {
                 {homeTeam.name} ({homeTeam.eloRating.toFixed(0)} ELO) enters this matchup as {winProb.home > 50 ? 'the favorite' : 'the underdog'} with a {winProb.home}% win probability.
                 Their attacking output ({homeTeam.xgPerGame} xG/game) compares {homeTeam.xgPerGame > awayTeam.xgPerGame ? 'favorably' : 'unfavorably'} to {awayTeam.name}&apos;s ({awayTeam.xgPerGame} xG/game).
                 The tactical edge lies in {homeTeam.possession > awayTeam.possession ? homeTeam.name : awayTeam.name}&apos;s superior possession game ({Math.max(homeTeam.possession, awayTeam.possession)}% vs {Math.min(homeTeam.possession, awayTeam.possession)}%).
-                Recent form {h2hRecord.home > h2hRecord.away ? `favors ${homeTeam.name} with ${h2hRecord.home} wins in the last 5 meetings` : `shows ${awayTeam.name} has the historical edge`}.
                 Key battleground: the midfield transition zone, where {homeTeam.pressIntensity > awayTeam.pressIntensity ? homeTeam.name : awayTeam.name}&apos;s pressing could prove decisive.
               </p>
             </CardContent>

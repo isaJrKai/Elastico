@@ -34,7 +34,6 @@ const PLAN_BADGE: Record<string, { label: string; cls: string }> = {
   free: { label: 'FREE', cls: 'bg-muted text-muted-foreground border-border' },
 }
 
-// MOCK_GOLDEN_BOOT removed — backend data not yet available
 
 // ═══════════════════════════════════════════════════════════════════════════════
 
