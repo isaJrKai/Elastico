@@ -608,7 +608,7 @@ export default function DashboardView() {
               <Card className="glass-card-premium rounded-xl ring-glow-emerald">
                 <CardContent className="flex items-center gap-4 p-4">
                   <div className="flex size-12 items-center justify-center rounded-xl bg-orange-500/15">
-                    <span className="text-2xl streak-fire">🔥</span>
+                    <span className="text-2xl text-red-400 font-bold">W</span>
                   </div>
                   <div>
                     <p className="text-2xl font-black text-primary">{streak}</p>

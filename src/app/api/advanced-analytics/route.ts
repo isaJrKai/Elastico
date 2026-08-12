@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rate-limit'
 import {
   calculateCRI,
   calculateSCS,
@@ -403,6 +404,12 @@ export async function GET(request: NextRequest) {
 // POST for complex payloads (full analysis with all 20 params)
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
+    const { allowed } = rateLimit(`advanced-analytics:${ip}`, 5, 60_000)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const body = await request.json()
     const { action, ...params } = body
 

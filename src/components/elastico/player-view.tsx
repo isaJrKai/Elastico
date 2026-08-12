@@ -39,8 +39,6 @@ import {
 } from '@/components/ui/table'
 import { Progress } from '@/components/ui/progress'
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -53,7 +51,6 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
-  ReferenceLine,
 } from 'recharts'
 import { useElasticoStore, type Player } from '@/store/use-elastico-store'
 import { cn } from '@/lib/utils'
@@ -69,54 +66,16 @@ interface EnhancedPlayer extends Player {
   appearances?: number
   minutesPlayed?: number
 }
-
-// ── Mock Data ──────────────────────────────────────────────────────────────────
-
-const MOCK_PLAYERS: EnhancedPlayer[] = [
-  { id: 'p1', name: 'Kylian Mbappé', number: 10, position: 'FWD', goals: 8, assists: 4, yellowCards: 1, redCards: 0, rating: 8.4, marketValue: 180, age: 27, nationality: 'France', appearances: 7, minutesPlayed: 580, teamName: 'France', teamCode: 'FRA', teamColor: '#002395' },
-  { id: 'p2', name: 'Erling Haaland', number: 9, position: 'FWD', goals: 7, assists: 2, yellowCards: 0, redCards: 0, rating: 8.1, marketValue: 170, age: 24, nationality: 'Norway', appearances: 7, minutesPlayed: 560, teamName: 'Norway', teamCode: 'NOR', teamColor: '#EF2B2D' },
-  { id: 'p3', name: 'Vinicius Jr', number: 7, position: 'FWD', goals: 6, assists: 5, yellowCards: 2, redCards: 0, rating: 8.2, marketValue: 150, age: 24, nationality: 'Brazil', appearances: 7, minutesPlayed: 590, teamName: 'Brazil', teamCode: 'BRA', teamColor: '#009739' },
-  { id: 'p4', name: 'Kevin De Bruyne', number: 17, position: 'MID', goals: 2, assists: 7, yellowCards: 0, redCards: 0, rating: 7.9, marketValue: 75, age: 33, nationality: 'Belgium', appearances: 6, minutesPlayed: 480, teamName: 'Belgium', teamCode: 'BEL', teamColor: '#ED2939' },
-  { id: 'p5', name: 'Jude Bellingham', number: 5, position: 'MID', goals: 4, assists: 3, yellowCards: 1, redCards: 0, rating: 7.8, marketValue: 120, age: 21, nationality: 'England', appearances: 7, minutesPlayed: 600, teamName: 'England', teamCode: 'ENG', teamColor: '#CF081F' },
-  { id: 'p6', name: 'Rodri', number: 16, position: 'MID', goals: 1, assists: 3, yellowCards: 2, redCards: 0, rating: 7.6, marketValue: 90, age: 28, nationality: 'Spain', appearances: 7, minutesPlayed: 570, teamName: 'Spain', teamCode: 'ESP', teamColor: '#AA151B' },
-  { id: 'p7', name: 'Virgil van Dijk', number: 4, position: 'DEF', goals: 1, assists: 1, yellowCards: 1, redCards: 0, rating: 7.5, marketValue: 55, age: 33, nationality: 'Netherlands', appearances: 7, minutesPlayed: 630, teamName: 'Netherlands', teamCode: 'NED', teamColor: '#FF6C00' },
-  { id: 'p8', name: 'Alisson Becker', number: 1, position: 'GK', goals: 0, assists: 0, yellowCards: 0, redCards: 0, rating: 7.4, marketValue: 45, age: 32, nationality: 'Brazil', appearances: 7, minutesPlayed: 630, teamName: 'Brazil', teamCode: 'BRA', teamColor: '#009739' },
-  { id: 'p9', name: 'Luka Modrić', number: 10, position: 'MID', goals: 1, assists: 4, yellowCards: 1, redCards: 0, rating: 7.7, marketValue: 10, age: 38, nationality: 'Croatia', appearances: 6, minutesPlayed: 420, teamName: 'Croatia', teamCode: 'CRO', teamColor: '#171796' },
-  { id: 'p10', name: 'Mohamed Salah', number: 11, position: 'FWD', goals: 5, assists: 6, yellowCards: 0, redCards: 0, rating: 8.0, marketValue: 80, age: 32, nationality: 'Egypt', appearances: 7, minutesPlayed: 580, teamName: 'Egypt', teamCode: 'EGY', teamColor: '#C8102E' },
-  { id: 'p11', name: 'Ruben Dias', number: 3, position: 'DEF', goals: 0, assists: 1, yellowCards: 3, redCards: 0, rating: 7.3, marketValue: 65, age: 27, nationality: 'Portugal', appearances: 7, minutesPlayed: 610, teamName: 'Portugal', teamCode: 'POR', teamColor: '#006600' },
-  { id: 'p12', name: 'Pedri', number: 8, position: 'MID', goals: 2, assists: 5, yellowCards: 0, redCards: 0, rating: 7.8, marketValue: 100, age: 21, nationality: 'Spain', appearances: 7, minutesPlayed: 550, teamName: 'Spain', teamCode: 'ESP', teamColor: '#AA151B' },
-  { id: 'p13', name: 'Jamal Musiala', number: 14, position: 'MID', goals: 3, assists: 3, yellowCards: 1, redCards: 0, rating: 7.6, marketValue: 110, age: 22, nationality: 'Germany', appearances: 7, minutesPlayed: 500, teamName: 'Germany', teamCode: 'DEU', teamColor: '#DD0000' },
-  { id: 'p14', name: 'William Saliba', number: 2, position: 'DEF', goals: 1, assists: 0, yellowCards: 2, redCards: 0, rating: 7.4, marketValue: 70, age: 23, nationality: 'France', appearances: 7, minutesPlayed: 620, teamName: 'France', teamCode: 'FRA', teamColor: '#002395' },
-  { id: 'p15', name: 'Florian Wirtz', number: 10, position: 'MID', goals: 4, assists: 2, yellowCards: 0, redCards: 0, rating: 7.9, marketValue: 130, age: 22, nationality: 'Germany', appearances: 6, minutesPlayed: 480, teamName: 'Germany', teamCode: 'DEU', teamColor: '#DD0000' },
-  { id: 'p16', name: 'Thibaut Courtois', number: 1, position: 'GK', goals: 0, assists: 0, yellowCards: 0, redCards: 0, rating: 7.2, marketValue: 35, age: 32, nationality: 'Belgium', appearances: 7, minutesPlayed: 630, teamName: 'Belgium', teamCode: 'BEL', teamColor: '#ED2939' },
-  { id: 'p17', name: 'Declan Rice', number: 4, position: 'MID', goals: 1, assists: 2, yellowCards: 3, redCards: 0, rating: 7.3, marketValue: 85, age: 25, nationality: 'England', appearances: 7, minutesPlayed: 590, teamName: 'England', teamCode: 'ENG', teamColor: '#CF081F' },
-  { id: 'p18', name: 'Dani Olmo', number: 20, position: 'FWD', goals: 5, assists: 3, yellowCards: 1, redCards: 0, rating: 7.8, marketValue: 60, age: 26, nationality: 'Spain', appearances: 6, minutesPlayed: 430, teamName: 'Spain', teamCode: 'ESP', teamColor: '#AA151B' },
-  { id: 'p19', name: 'Kyle Walker', number: 2, position: 'DEF', goals: 0, assists: 2, yellowCards: 2, redCards: 0, rating: 7.0, marketValue: 15, age: 34, nationality: 'England', appearances: 7, minutesPlayed: 580, teamName: 'England', teamCode: 'ENG', teamColor: '#CF081F' },
-  { id: 'p20', name: 'Lamine Yamal', number: 19, position: 'FWD', goals: 3, assists: 4, yellowCards: 0, redCards: 0, rating: 7.7, marketValue: 100, age: 18, nationality: 'Spain', appearances: 7, minutesPlayed: 520, teamName: 'Spain', teamCode: 'ESP', teamColor: '#AA151B' },
-]
-
-const FORM_CHART_DATA = (name: string) => Array.from({ length: 8 }, (_, i) => ({
-  match: `M${i + 1}`,
-  rating: +(6.5 + Math.random() * 2.5 - (i === 4 ? 1 : 0)).toFixed(1),
-}))
-
-const RADAR_STATS = {
-  'Kylian Mbappé': { Pace: 97, Shooting: 91, Passing: 80, Defending: 36, Physical: 78, Dribbling: 94 },
-  'Erling Haaland': { Pace: 89, Shooting: 95, Passing: 65, Defending: 45, Physical: 92, Dribbling: 80 },
-  'Kevin De Bruyne': { Pace: 74, Shooting: 86, Passing: 94, Defending: 58, Physical: 72, Dribbling: 88 },
-  'Virgil van Dijk': { Pace: 78, Shooting: 62, Passing: 70, Defending: 92, Physical: 88, Dribbling: 55 },
-  'Alisson Becker': { Pace: 52, Shooting: 20, Passing: 72, Defending: 40, Physical: 80, Dribbling: 35 },
-}
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function generateRadarStats(p: EnhancedPlayer) {
-  if (RADAR_STATS[p.name]) return RADAR_STATS[p.name]
   return {
-    Pace: 50 + Math.round(Math.random() * 40),
-    Shooting: p.position === 'FWD' ? 70 + Math.round(Math.random() * 25) : 40 + Math.round(Math.random() * 30),
-    Passing: p.position === 'MID' ? 75 + Math.round(Math.random() * 20) : 50 + Math.round(Math.random() * 30),
-    Defending: p.position === 'DEF' ? 70 + Math.round(Math.random() * 25) : 30 + Math.round(Math.random() * 25),
-    Physical: 55 + Math.round(Math.random() * 35),
-    Dribbling: p.position === 'FWD' || p.position === 'MID' ? 65 + Math.round(Math.random() * 30) : 35 + Math.round(Math.random() * 25),
+    Pace: p.position === 'FWD' || p.position === 'MID' ? 75 : 55,
+    Shooting: p.position === 'FWD' ? 75 : 50,
+    Passing: p.position === 'MID' ? 75 : 55,
+    Defending: p.position === 'DEF' ? 75 : 45,
+    Physical: 65,
+    Dribbling: p.position === 'FWD' || p.position === 'MID' ? 72 : 50,
   }
 }
 
@@ -125,7 +84,7 @@ function generateRadarStats(p: EnhancedPlayer) {
 export function PlayerView() {
   const teams = useElasticoStore(s => s.teams)
   const token = useElasticoStore(s => s.token)
-  const [players, setPlayers] = useState<EnhancedPlayer[]>(MOCK_PLAYERS)
+  const [players, setPlayers] = useState<EnhancedPlayer[]>([])
   const [search, setSearch] = useState('')
   const [positionFilter, setPositionFilter] = useState<string>('all')
   const [teamFilter, setTeamFilter] = useState<string>('all')
@@ -160,7 +119,7 @@ export function PlayerView() {
           }
         }
       } catch {
-        // fallback to mock
+        // API error — players will remain empty
       }
     }
     fetchPlayers()
@@ -824,19 +783,11 @@ export function PlayerView() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={FORM_CHART_DATA(selectedPlayer?.name || 'Mbappé')}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="match" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                    <YAxis domain={[5, 10]} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-                    <Line type="monotone" dataKey="rating" stroke="#00e676" strokeWidth={2} dot={{ fill: '#00e676', r: 4 }} />
-                    <ReferenceLine y={7} stroke="hsl(var(--muted-foreground))" strokeDasharray="5 5" />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <TrendingUp className="size-8 text-muted-foreground/50 mb-3" />
+                <p className="text-sm font-medium text-foreground">Form Rating Data</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Per-match rating history is not available from the current data source.</p>
               </div>
-              <p className="text-xs text-muted-foreground text-center mt-2">Rating trend for {selectedPlayer?.name || 'selected player'}</p>
             </CardContent>
           </Card>
         </TabsContent>

@@ -55,17 +55,8 @@ export function CompareView() {
   const homeTeam = useMemo(() => teams.find(t => t.id === homeTeamId), [teams, homeTeamId])
   const awayTeam = useMemo(() => teams.find(t => t.id === awayTeamId), [teams, awayTeamId])
 
-  // Head-to-head mock data
-  const h2h = useMemo(() => {
-    if (!homeTeam || !awayTeam) return []
-    return [
-      { date: '2025-11', homeGoals: 2, awayGoals: 1, result: 'H' },
-      { date: '2025-06', homeGoals: 1, awayGoals: 1, result: 'D' },
-      { date: '2024-11', homeGoals: 3, awayGoals: 0, result: 'H' },
-      { date: '2024-06', homeGoals: 0, awayGoals: 2, result: 'A' },
-      { date: '2023-11', homeGoals: 1, awayGoals: 0, result: 'H' },
-    ]
-  }, [homeTeam, awayTeam])
+  // Head-to-head — requires match history between the two teams
+  const h2h: { date: string; homeGoals: number; awayGoals: number; result: string }[] = []
 
   const h2hRecord = useMemo(() => {
     const home = h2h.filter(m => m.result === 'H').length
@@ -130,10 +121,9 @@ export function CompareView() {
     ]
   }, [homeTeam, awayTeam])
 
-  // Squad depth by position
+  // Squad depth — not available without real squad data
   const squadDepth = useMemo(() => {
-    const getPos = () => ({ GK: 2 + Math.floor(Math.random() * 2), DEF: 5 + Math.floor(Math.random() * 4), MID: 5 + Math.floor(Math.random() * 4), FWD: 3 + Math.floor(Math.random() * 3) })
-    return { home: getPos(), away: getPos() }
+    return { home: { GK: 0, DEF: 0, MID: 0, FWD: 0 }, away: { GK: 0, DEF: 0, MID: 0, FWD: 0 } }
   }, [homeTeam, awayTeam])
 
   // Tactical edge

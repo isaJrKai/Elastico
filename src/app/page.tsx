@@ -1,33 +1,58 @@
 'use client'
-import { useEffect, useCallback, useState, useRef } from 'react'
+import { useEffect, useCallback, useState, useRef, lazy, Suspense } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Toaster } from '@/components/ui/sonner'
 import { Sidebar } from '@/components/elastico/sidebar'
 import { Header } from '@/components/elastico/header'
 import CommandPalette from '@/components/elastico/command-palette'
-import LoginView from '@/components/elastico/login-view'
-import DashboardView from '@/components/elastico/dashboard-view'
-import { MatchesView } from '@/components/elastico/matches-view'
-import { MatchDetailView } from '@/components/elastico/match-detail-view'
-import PredictionsView from '@/components/elastico/predictions-view'
-import TournamentView from '@/components/elastico/tournament-view'
-import LeaderboardView from '@/components/elastico/leaderboard-view'
-import { ChatView } from '@/components/elastico/chat-view'
-import { NewsView } from '@/components/elastico/news-view'
-import AdminView from '@/components/elastico/admin-view'
-import { SettingsView } from '@/components/elastico/settings-view'
-import NotificationsView from '@/components/elastico/notifications-view'
-import SubscriptionView from '@/components/elastico/subscription-view'
-import TacticalView from '@/components/elastico/tactical-view'
-import { PlayerView } from '@/components/elastico/player-view'
-import { CompareView } from '@/components/elastico/compare-view'
-import { AchievementsView } from '@/components/elastico/achievements-view'
-import { ExportView } from '@/components/elastico/export-view'
-import { SocialView } from '@/components/elastico/social-view'
-import PredictionEngineView from '@/components/elastico/prediction-engine-view'
-import SystemMonitorView from '@/components/elastico/system-monitor-view'
 import { OfflineIndicator } from '@/components/elastico/offline-indicator'
 import { ErrorBoundary } from '@/components/elastico/error-boundary'
+
+// ── Lazy-loaded views — only loaded when navigated to ─────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const lazyLoad = (importFn: () => Promise<any>) =>
+  lazy(() => importFn().then(m => ({ default: m.default })))
+
+const LoginView = lazyLoad(() => import('@/components/elastico/login-view'))
+const DashboardView = lazyLoad(() => import('@/components/elastico/dashboard-view'))
+const MatchesView = lazyLoad(() => import('@/components/elastico/matches-view'))
+const MatchDetailView = lazyLoad(() => import('@/components/elastico/match-detail-view'))
+const PredictionsView = lazyLoad(() => import('@/components/elastico/predictions-view'))
+const TournamentView = lazyLoad(() => import('@/components/elastico/tournament-view'))
+const LeaderboardView = lazyLoad(() => import('@/components/elastico/leaderboard-view'))
+const ChatView = lazyLoad(() => import('@/components/elastico/chat-view'))
+const NewsView = lazyLoad(() => import('@/components/elastico/news-view'))
+const AdminView = lazyLoad(() => import('@/components/elastico/admin-view'))
+const SettingsView = lazyLoad(() => import('@/components/elastico/settings-view'))
+const NotificationsView = lazyLoad(() => import('@/components/elastico/notifications-view'))
+const SubscriptionView = lazyLoad(() => import('@/components/elastico/subscription-view'))
+const TacticalView = lazyLoad(() => import('@/components/elastico/tactical-view'))
+const PlayerView = lazyLoad(() => import('@/components/elastico/player-view'))
+const CompareView = lazyLoad(() => import('@/components/elastico/compare-view'))
+const AchievementsView = lazyLoad(() => import('@/components/elastico/achievements-view'))
+const ExportView = lazyLoad(() => import('@/components/elastico/export-view'))
+const SocialView = lazyLoad(() => import('@/components/elastico/social-view'))
+const PredictionEngineView = lazyLoad(() => import('@/components/elastico/prediction-engine-view'))
+const SystemMonitorView = lazyLoad(() => import('@/components/elastico/system-monitor-view'))
+
+// ── View-level loading skeleton ─────────────────────────────────────────────
+function ViewSkeleton() {
+  return (
+    <div className="w-full max-w-6xl mx-auto space-y-6 animate-pulse">
+      <div className="h-8 w-48 bg-muted rounded" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 bg-muted/50 rounded-lg" />
+        ))}
+      </div>
+      <div className="h-64 bg-muted/50 rounded-lg" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="h-48 bg-muted/50 rounded-lg" />
+        <div className="h-48 bg-muted/50 rounded-lg" />
+      </div>
+    </div>
+  )
+}
 
 function SetupView({ onReady }: { onReady: () => void }) {
   const [status, setStatus] = useState<string>('checking')
@@ -67,7 +92,7 @@ function SetupView({ onReady }: { onReady: () => void }) {
       setMessage(data.message)
     } catch {
       setStatus('error')
-      setMessage('Service temporarily unavailable — database is waking up')
+      setMessage('Service temporarily unavailable')
     }
   }
 
@@ -75,36 +100,36 @@ function SetupView({ onReady }: { onReady: () => void }) {
   checkAndSetupRef.current = checkAndSetup
   useEffect(() => {
     checkAndSetupRef.current()
-    const interval = setInterval(() => checkAndSetupRef.current(), 8000) // poll every 8s
+    const interval = setInterval(() => checkAndSetupRef.current(), 8000)
     return () => clearInterval(interval)
   }, [])
 
   const isNeedsDatabase = status === 'needs_database'
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 aurora-bg noise-overlay">
-      <div className="relative z-[1] max-w-md w-full">
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <div className="text-4xl font-black tracking-tighter text-white mb-2">ELASTICO</div>
           <p className="text-sm text-zinc-500">AI-Powered Football Analytics</p>
         </div>
 
-        <div className="glass-card-premium rounded-2xl p-8">
+        <div className="bg-card/80 backdrop-blur-xl border border-border rounded-xl p-8">
           {isNeedsDatabase ? (
             <>
-              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
+              <div className="w-16 h-16 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
                 <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
               </div>
               <h2 className="text-lg font-semibold text-white text-center mb-2">Database Not Connected</h2>
               <p className="text-sm text-zinc-400 text-center mb-6">
-                Go to your Vercel project → <strong className="text-zinc-200">Storage</strong> → <strong className="text-zinc-200">Create Database</strong> → <strong className="text-zinc-200">Postgres (Neon)</strong>
+                Go to your Vercel project, then <strong className="text-zinc-200">Storage</strong>, then <strong className="text-zinc-200">Create Database</strong>, then <strong className="text-zinc-200">Postgres (Neon)</strong>
               </p>
-              <div className="bg-zinc-800/50 rounded-xl p-4 text-xs text-zinc-400 space-y-1">
-                <p>1. Open Vercel → elastico → <strong className="text-zinc-300">Storage</strong></p>
+              <div className="bg-zinc-800/50 rounded-lg p-4 text-xs text-zinc-400 space-y-1">
+                <p>1. Open Vercel project Settings</p>
                 <p>2. Click <strong className="text-zinc-300">Create Database</strong></p>
                 <p>3. Select <strong className="text-zinc-300">Postgres (Neon)</strong></p>
                 <p>4. Click <strong className="text-zinc-300">Create</strong></p>
-                <p className="text-emerald-400 pt-1">← This page will auto-detect and set up everything</p>
+                <p className="text-emerald-400 pt-1">This page will auto-detect and set up everything</p>
               </div>
               <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500">
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
@@ -138,7 +163,7 @@ function SetupView({ onReady }: { onReady: () => void }) {
 }
 
 export default function Home() {
-  const [dbReady, setDbReady] = useState<'checking' | 'ready' | 'down'>('checking') // three-state: checking, ready, down
+  const [dbReady, setDbReady] = useState<'checking' | 'ready' | 'down'>('checking')
   const isAuthenticated = useElasticoStore(s => s.isAuthenticated)
   const currentView = useElasticoStore(s => s.currentView)
   const sidebarOpen = useElasticoStore(s => s.sidebarOpen)
@@ -148,25 +173,30 @@ export default function Home() {
   const fetchNews = useElasticoStore(s => s.fetchNews)
   const fetchNotifications = useElasticoStore(s => s.fetchNotifications)
   const fetchLiveScores = useElasticoStore(s => s.fetchLiveScores)
-  const zoomLevel = useElasticoStore(s => s.zoomLevel)
 
-  // Initial data fetch
+  // Initial data fetch — only after authentication
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchMatches()
-      fetchTeams()
-      fetchNews()
-      fetchNotifications()
-      fetchLiveScores() // Fetch live scores from ESPN
-    }
+    if (!isAuthenticated) return
+    fetchMatches()
+    fetchTeams()
+    fetchNews()
+    fetchNotifications()
+    fetchLiveScores()
   }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications, fetchLiveScores])
 
-  // Auto-refresh live scores every 60 seconds
+  // Auto-refresh live scores every 60s
   useEffect(() => {
     if (!isAuthenticated) return
     const interval = setInterval(() => { fetchLiveScores() }, 60000)
     return () => clearInterval(interval)
   }, [isAuthenticated, fetchLiveScores])
+
+  // Auto-refresh matches every 30s
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const interval = setInterval(() => { fetchMatches() }, 30000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated, fetchMatches])
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -183,9 +213,6 @@ export default function Home() {
     if (cmd && e.key === 'n') { e.preventDefault(); store.setView('news') }
     if (cmd && e.key === ',') { e.preventDefault(); store.setView('settings') }
     if (cmd && e.key === 'b') { e.preventDefault(); store.setView('notifications') }
-    if (cmd && (e.key === '=' || e.key === '+')) { e.preventDefault(); store.setZoomLevel(store.zoomLevel + 10) }
-    if (cmd && e.key === '-') { e.preventDefault(); store.setZoomLevel(store.zoomLevel - 10) }
-    if (cmd && e.key === '0') { e.preventDefault(); store.setZoomLevel(100) }
   }, [isAuthenticated])
 
   useEffect(() => {
@@ -193,13 +220,13 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  // Restore session
+  // Restore session on mount
   useEffect(() => {
     const token = localStorage.getItem('elastico_token')
     const userStr = localStorage.getItem('elastico_user')
     if (token && userStr) {
       try {
-        JSON.parse(userStr) // validate it's valid JSON
+        JSON.parse(userStr)
         fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
           .then(r => { if (r.ok) return r.json(); throw new Error('Invalid token') })
           .then(data => {
@@ -217,14 +244,7 @@ export default function Home() {
     }
   }, [])
 
-  // Auto-refresh live data
-  useEffect(() => {
-    if (!isAuthenticated) return
-    const interval = setInterval(() => { fetchMatches() }, 30000)
-    return () => clearInterval(interval)
-  }, [isAuthenticated, fetchMatches])
-
-  // Check database on mount — determine state
+  // Check database on mount
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') { setDbReady('ready'); return }
     fetch('/api/setup')
@@ -245,17 +265,19 @@ export default function Home() {
     return <SetupView onReady={() => setDbReady('ready')} />
   }
 
-  // Not authenticated - show login
+  // Not authenticated — show login
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <LoginView />
+        <Suspense fallback={<ViewSkeleton />}>
+          <LoginView />
+        </Suspense>
         <Toaster />
       </div>
     )
   }
 
-  // Authenticated - show main app
+  // Authenticated — render current view with lazy loading
   const renderView = () => {
     switch (currentView) {
       case 'dashboard': return <DashboardView />
@@ -284,20 +306,28 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex aurora-bg noise-overlay">
-      <div className="relative z-[1]"><Sidebar /></div>
-      <div className={`relative z-[1] flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'md:ml-[240px]' : 'md:ml-[64px]'}`}>
+    <div className="h-screen bg-background flex overflow-hidden">
+      {/* Sidebar */}
+      <div className="shrink-0"><Sidebar /></div>
+
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
-        <div className="flex-1 overflow-auto">
-          <main className="p-4 md:p-6">
-            <ErrorBoundary>{renderView()}</ErrorBoundary>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <main className="w-full max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-5">
+            <ErrorBoundary>
+              <Suspense fallback={<ViewSkeleton />}>
+                {renderView()}
+              </Suspense>
+            </ErrorBoundary>
           </main>
-          <footer className="border-t border-border/30 px-6 py-3 flex items-center justify-between text-xs text-muted-foreground">
-            <span>© 2026 ELASTICO — AI-Powered Analytics Platform</span>
-            <span className="hidden sm:inline">Powered by ELO · Poisson · Dixon-Coles · Merton Jump-Diffusion · GARCH · Kelly Criterion · NVIDIA AI</span>
+          <footer className="shrink-0 border-t border-border/30 px-4 md:px-6 lg:px-8 py-3 flex items-center justify-between text-xs text-muted-foreground">
+            <span>2026 ELASTICO</span>
+            <span className="hidden sm:inline truncate">ELO / Poisson / Dixon-Coles / Merton Jump-Diffusion / GARCH / Kelly Criterion</span>
           </footer>
         </div>
       </div>
+
       <CommandPalette />
       <Toaster />
       <OfflineIndicator />

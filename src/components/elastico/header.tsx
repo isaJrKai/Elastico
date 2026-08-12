@@ -144,7 +144,7 @@ export function Header() {
         )}
         <h1 className="text-lg font-semibold tracking-tight truncate">
           {currentView === 'login' ? (
-            <span className="gradient-text">⚽ ELASTICO</span>
+            <span className="gradient-text">ELASTICO</span>
           ) : (
             pageTitle
           )}
@@ -173,7 +173,7 @@ export function Header() {
         <div className="hidden sm:block relative">
           <Button
             variant="outline"
-            className="h-8 gap-2 rounded-lg border-border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground px-3 text-sm w-[220px] lg:w-[280px] justify-start cursor-pointer"
+            className="h-8 gap-2 rounded-lg border-border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground px-3 text-sm max-w-[180px] lg:max-w-[220px] justify-start cursor-pointer"
             onClick={toggleCommandPalette}
             aria-label="Search"
           >

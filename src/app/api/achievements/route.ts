@@ -88,6 +88,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Achievement not found' }, { status: 404 })
     }
 
+    // ── Server-side verification: only allow claiming achievements with no prerequisites ──
+    // These are achievements that can be verified server-side without complex state checks.
+    // To add more achievements, implement verification logic below and add the ID to this set.
+    //
+    // TODO: Add verification for each achievement:
+    //   - streak_5/10/25: Query predictions table, check consecutive correct results
+    //   - predictions_10/50/100/500: COUNT user's predictions in DB
+    //   - accuracy_60/70/80: Compute (correct / total) from predictions table
+    //   - social_share: Check if user has any shared predictions
+    //   - follow_10: COUNT user's follows in DB
+    //   - comment_50: COUNT user's comments in DB
+    //   - daily_login_7/30: Check activity log for consecutive daily logins
+    //   - early_adopter: Check user.createdAt against beta cutoff date
+    //   - bookmark_10: COUNT user's bookmarks in DB
+    //   - export_report: Check if user has any export activity records
+    //   - tactical_view: COUNT tactical view activity records
+    const CLAIMABLE_WITHOUT_VERIFICATION = new Set([
+      'first_prediction', // Verified by checking if user has any predictions
+      'first_login',      // Verified by the fact the user is authenticated
+    ])
+
+    if (!CLAIMABLE_WITHOUT_VERIFICATION.has(achievementId)) {
+      return NextResponse.json({
+        error: 'This achievement requires server-side verification and cannot be claimed directly',
+      }, { status: 403 })
+    }
+
+    // Verify first_prediction: user must actually have at least one prediction
+    if (achievementId === 'first_prediction') {
+      const predictionCount = await db.prediction.count({ where: { userId: user.id } })
+      if (predictionCount < 1) {
+        return NextResponse.json({ error: 'Achievement not earned yet' }, { status: 403 })
+      }
+    }
+
+    // first_login is inherently verified by the authenticated request above
+
     const userAchievements: string[] = JSON.parse(user.achievements || '[]')
     if (userAchievements.includes(achievementId)) {
       return NextResponse.json({ error: 'Already claimed' }, { status: 409 })

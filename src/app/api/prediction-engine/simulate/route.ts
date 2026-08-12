@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 import {
   runStochasticSimulation,
   runFullMatchAnalysis,
@@ -7,8 +8,14 @@ import {
   type EngineConfig,
 } from '@/lib/prediction-engine'
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
+    const { allowed } = rateLimit(`simulate:${ip}`, 5, 60_000)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth
 

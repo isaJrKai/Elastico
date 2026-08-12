@@ -1,26 +1,25 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useElasticoStore, type Notification } from '@/store/use-elastico-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
 import { toast } from '@/hooks/use-toast'
 import {
   Bell,
   BellOff,
-  Check,
   CheckCheck,
   Circle,
   Goal,
   Clock,
   TriangleAlert,
+  AlertTriangle,
   Brain,
   Info,
-  Star,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -44,80 +43,7 @@ const FILTER_TABS: FilterTabConfig[] = [
   { id: 'predictions', label: 'Predictions', icon: Brain },
 ]
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: 'mock-1',
-    type: 'goal',
-    title: 'Goal Alert: Haaland Scores!',
-    message:
-      'Erling Haaland scored in the 67th minute for Man City vs Arsenal. xG: 0.42 — a clinical finish.',
-    isRead: false,
-    createdAt: '2026-06-18T05:30:00.000Z',
-  },
-  {
-    id: 'mock-2',
-    type: 'card',
-    title: 'Red Card Shown',
-    message:
-      'Rodri received a straight red card in the 34th minute (Man City vs Arsenal). Man City now down to 10 men.',
-    isRead: false,
-    createdAt: '2026-06-18T05:07:00.000Z',
-  },
-  {
-    id: 'mock-3',
-    type: 'prediction',
-    title: 'Prediction Result: Liverpool vs Chelsea',
-    message:
-      'Your prediction was correct! Liverpool 2-1 Chelsea. Your accuracy is now 78% this month.',
-    isRead: false,
-    createdAt: '2026-06-18T03:40:00.000Z',
-  },
-  {
-    id: 'mock-4',
-    type: 'system',
-    title: 'New Feature: Dixon-Coles Model',
-    message:
-      'The Dixon-Coles simulation model is now available for Pro and Elite subscribers. Upgrade to unlock advanced match predictions.',
-    isRead: true,
-    createdAt: '2026-06-18T00:40:00.000Z',
-  },
-  {
-    id: 'mock-5',
-    type: 'goal',
-    title: 'Goal Alert: Mbappé Hat-trick!',
-    message:
-      'Kylian Mbappé completed his hat-trick in the 82nd minute for Real Madrid vs Barcelona. xG: 1.12 across 3 shots.',
-    isRead: true,
-    createdAt: '2026-06-17T21:30:00.000Z',
-  },
-  {
-    id: 'mock-6',
-    type: 'card',
-    title: 'Yellow Card Accumulation Warning',
-    message:
-      'Your tracked player Bruno Fernandes (Man Utd) has 4 yellow cards this season — 1 away from a suspension.',
-    isRead: false,
-    createdAt: '2026-06-17T05:30:00.000Z',
-  },
-  {
-    id: 'mock-7',
-    type: 'prediction',
-    title: 'Upcoming Match Prediction Window',
-    message:
-      'Bayern Munich vs Dortmund kicks off in 2 hours. Submit your prediction now and earn accuracy points.',
-    isRead: true,
-    createdAt: '2026-06-16T23:30:00.000Z',
-  },
-  {
-    id: 'mock-8',
-    type: 'system',
-    title: 'Weekly Leaderboard Updated',
-    message:
-      'You moved up 5 spots to #12 on the global leaderboard this week. Keep predicting to climb higher!',
-    isRead: false,
-    createdAt: '2026-06-16T05:30:00.000Z',
-  },
-]
+
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -182,23 +108,25 @@ export default function NotificationsView() {
 
   // ── Fetch notifications ────────────────────────────────────────────────────
 
+  const [fetchError, setFetchError] = useState(false)
+
   const fetchNotifications = useCallback(async () => {
     setIsLoading(true)
+    setFetchError(false)
     try {
       const res = await fetch('/api/notifications')
       if (res.ok) {
         const data = await res.json()
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setNotifications(data)
         } else {
-          // Mock when API returns empty
-          setNotifications(MOCK_NOTIFICATIONS)
+          setNotifications([])
         }
       } else {
-        setNotifications(MOCK_NOTIFICATIONS)
+        setFetchError(true)
       }
     } catch {
-      setNotifications(MOCK_NOTIFICATIONS)
+      setFetchError(true)
     } finally {
       setIsLoading(false)
     }
@@ -342,6 +270,24 @@ export default function NotificationsView() {
                 </div>
               </div>
             ))}
+          </CardContent>
+        ) : fetchError ? (
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
+              <AlertTriangle className="h-7 w-7 text-red-400" />
+            </div>
+            <p className="text-lg font-medium text-foreground">Unable to load notifications</p>
+            <p className="mt-1 max-w-xs text-sm text-muted-foreground/70">
+              There was a problem fetching notifications. Please try again.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={fetchNotifications}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" /> Retry
+            </Button>
           </CardContent>
         ) : filtered.length === 0 ? (
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">

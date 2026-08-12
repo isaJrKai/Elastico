@@ -90,13 +90,14 @@ function getStatusConfig(status: string) {
   }
 }
 
-function getEventIcon(type: string) {
+function getEventIcon(type: string): React.ReactNode {
+  const iconClass = 'size-3.5 shrink-0'
   switch (type) {
-    case 'goal': case 'penalty': case 'own_goal': return '⚽'
-    case 'yellow_card': return '🟨'
-    case 'red_card': return '🟥'
-    case 'substitution': return '🔄'
-    default: return '⚡'
+    case 'goal': case 'penalty': case 'own_goal': return <Target className={cn(iconClass, 'text-primary')} />
+    case 'yellow_card': return <AlertCircle className={cn(iconClass, 'text-yellow-400')} />
+    case 'red_card': return <AlertCircle className={cn(iconClass, 'text-red-400')} />
+    case 'substitution': return <Activity className={cn(iconClass, 'text-muted-foreground')} />
+    default: return <Zap className={cn(iconClass, 'text-muted-foreground')} />
   }
 }
 
@@ -201,7 +202,7 @@ export function MatchDetailView() {
 
   const handleCopySummary = useCallback(() => {
     if (!match) return
-    const text = `⚽ ${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition} · ${match.stage}\nxG: ${match.homeXg.toFixed(1)} - ${match.awayXg.toFixed(1)}\n\n— ELASTICO Analytics`
+    const text = `${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition} · ${match.stage}\nxG: ${match.homeXg.toFixed(1)} - ${match.awayXg.toFixed(1)}\n\n— ELASTICO Analytics`
     navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
   }, [match])
 
@@ -553,7 +554,7 @@ export function MatchDetailView() {
                       <div className={cn('absolute rounded-full border-2 transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-150 cursor-pointer', s.goal ? 'size-4 border-white bg-amber-400 shadow-lg shadow-amber-400/40' : 'size-3', !s.goal && s.team === 'home' && 'border-primary/50 bg-primary/30', !s.goal && s.team === 'away' && 'border-cyan-500/50 bg-cyan-500/30')} style={{ left: `${s.x}%`, top: `${s.y}%` }} />
                     </TooltipTrigger>
                     <TooltipContent className="text-[10px] space-y-0.5">
-                      <div className="font-semibold">{s.player ? `${s.player} ${s.minute ? `${s.minute}'` : ''}` : `${s.team === 'home' ? homeTeam?.code : awayTeam?.code} ${s.goal ? '⚽ GOAL' : 'Shot'}`}</div>
+                      <div className="font-semibold">{s.player ? `${s.player} ${s.minute ? `${s.minute}'` : ''}` : `${s.team === 'home' ? homeTeam?.code : awayTeam?.code} ${s.goal ? 'GOAL' : 'Shot'}`}</div>
                       {'xg' in s && s.xg !== undefined && <div className="text-muted-foreground">xG: {s.xg.toFixed(3)}</div>}
                       {s.outcome && <div className="text-muted-foreground">{s.outcome}</div>}
                     </TooltipContent>

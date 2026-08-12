@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, generateToken } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
+import { validateEmail, validatePassword, sanitizeInput } from '@/lib/security'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,14 +13,26 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { email, password, name } = body
+    let { email, password, name } = body
+
+    // Sanitize inputs
+    if (name) name = sanitizeInput(String(name))
+    if (email) email = sanitizeInput(String(email))
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+    // Validate email format
+    const emailCheck = validateEmail(email)
+    if (!emailCheck.valid) {
+      return NextResponse.json({ error: emailCheck.error }, { status: 400 })
+    }
+
+    // Validate password strength
+    const passwordCheck = validatePassword(password)
+    if (!passwordCheck.isStrong) {
+      return NextResponse.json({ error: 'Password too weak', details: passwordCheck.feedback }, { status: 400 })
     }
 
     // Check if registration is open
@@ -41,7 +54,7 @@ export async function POST(req: NextRequest) {
         email: email.toLowerCase(),
         passwordHash,
         name: name || null,
-        displayName: name || email.split('@')[0],
+        displayName: sanitizeInput(name || email.split('@')[0]),
       },
     })
 

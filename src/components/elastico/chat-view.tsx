@@ -414,7 +414,7 @@ export function ChatView() {
 
           {/* Context Selector */}
           <Select value={selectedMatchId} onValueChange={setSelectedMatchId}>
-            <SelectTrigger className="h-9 w-[200px] text-xs glass-card border-border">
+            <SelectTrigger className="h-9 w-[160px] text-xs bg-card border-border">
               <SelectValue placeholder="Select match context" />
             </SelectTrigger>
             <SelectContent>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 import { fetchAllLiveScores, mapStatus, type ESPNMatch } from '@/lib/football-data'
 import { calculateElo, poissonProbabilities, dixonColes, type EloResult } from '@/lib/predictions'
 import { runStochasticSimulation, type StochasticMatchResult, type MatchInput, DEFAULT_CONFIG } from '@/lib/prediction-engine'
@@ -7,6 +8,13 @@ import { runStochasticSimulation, type StochasticMatchResult, type MatchInput, D
 /** GET /api/predictions/compute — compute real predictions from ESPN match data (auth required) */
 export async function GET(request: NextRequest) {
   try {
+    // Rate limit: 5 requests per minute
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
+    const { allowed } = rateLimit(`predictions-compute:${ip}`, 5, 60_000)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     // SECURITY: Require authentication to prevent CPU abuse
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth

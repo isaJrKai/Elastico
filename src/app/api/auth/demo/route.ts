@@ -1,36 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { generateToken } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 
-// Demo login — no password needed. Creates or finds the demo user and returns a JWT.
-// Only works if the user exists in the database (seeded via /api/setup).
+// Demo login — creates or finds a demo user and returns a JWT.
+// SECURITY: Only allows 'user' role. Requires a password. Rate-limited.
 const DEMO_ROLES: Record<string, string> = {
-  admin: 'admin',
-  pro: 'pro',
-  elite: 'elite',
   free: 'free',
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, role } = await request.json()
+    // IP-based rate limiting: 3 requests per minute
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
+    const { allowed } = rateLimit(`demo:${ip}`, 3, 60_000)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
+    const { email, role, password } = await request.json()
 
     if (!email || !role || !DEMO_ROLES[role]) {
       return NextResponse.json({ error: 'Invalid demo account' }, { status: 400 })
     }
 
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
+    }
+
+    // Only allow 'user' role from the demo endpoint — no admin
+    const safeRole = 'user'
+    const safePlan = 'free'
+
     let user = await db.user.findUnique({ where: { email } })
 
     if (!user) {
       // Auto-create the demo user if it doesn't exist
-      const hashedPassword = await import('bcryptjs').then(b => b.hash('demo', 10))
+      const hashedPassword = await import('bcryptjs').then(b => b.hash(password, 10))
       user = await db.user.create({
         data: {
           email,
-          name: `${role.charAt(0).toUpperCase() + role.slice(1)} Demo User`,
+          name: `Demo User`,
           passwordHash: hashedPassword,
-          role: role as any,
-          plan: role === 'admin' ? 'pro' : role,
+          role: safeRole,
+          plan: safePlan,
         },
       })
     }

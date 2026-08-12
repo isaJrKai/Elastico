@@ -1,0 +1,553 @@
+     1→'use client'
+     2→
+     3→import { useState, useRef, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  Download,
+     7→  FileText,
+     8→  FileSpreadsheet,
+     9→  FileDown,
+    10→  Calendar,
+    11→  Clock,
+    12→  Link2,
+    13→  Code2,
+    14→  History,
+    15→  Database,
+    16→  Share2,
+    17→  CheckCircle2,
+    18→  AlertCircle,
+    19→  Loader2,
+    20→  Copy,
+    21→  Image as ImageIcon,
+    22→} from 'lucide-react'
+    23→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    24→import { Button } from '@/components/ui/button'
+    25→import { Badge } from '@/components/ui/badge'
+    26→import { Input } from '@/components/ui/input'
+    27→import { Label } from '@/components/ui/label'
+    28→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    29→import {
+    30→  Select,
+    31→  SelectContent,
+    32→  SelectItem,
+    33→  SelectTrigger,
+    34→  SelectValue,
+    35→} from '@/components/ui/select'
+    36→import { useElasticoStore } from '@/store/use-elastico-store'
+    37→import { cn } from '@/lib/utils'
+    38→import { toast } from 'sonner'
+    39→
+    40→// ── Types ──────────────────────────────────────────────────────────────────────
+    41→
+    42→interface ExportRecord {
+    43→  id: string
+    44→  type: string
+    45→  format: string
+    46→  rows: number
+    47→  createdAt: string
+    48→  status: 'completed' | 'failed'
+    49→  size?: string
+    50→}
+    51→
+    52→// ── Mock Data ──────────────────────────────────────────────────────────────────
+    53→
+    54→const REPORT_TEMPLATES = [
+    55→  { id: 'match-report', name: 'Match Report', description: 'Comprehensive match analysis with xG, shots, possession, and key events', icon: '⚽', category: 'match' },
+    56→  { id: 'team-analysis', name: 'Team Analysis', description: 'Deep dive into team performance, form, and tactical tendencies', icon: '📊', category: 'team' },
+    57→  { id: 'player-report', name: 'Player Report', description: 'Individual player statistics, form, and comparison data', icon: '👤', category: 'player' },
+    58→  { id: 'tournament-summary', name: 'Tournament Summary', description: 'Full tournament overview with standings, top scorers, and key stats', icon: '🏆', category: 'tournament' },
+    59→  { id: 'prediction-accuracy', name: 'Prediction Accuracy Report', description: 'Analysis of prediction model performance across all models', icon: '🎯', category: 'prediction' },
+    60→]
+    61→
+    62→const MOCK_EXPORT_HISTORY: ExportRecord[] = [
+    63→  { id: 'e1', type: 'Matches', format: 'CSV', rows: 24, createdAt: '2026-02-10 14:32', status: 'completed', size: '12.4 KB' },
+    64→  { id: 'e2', type: 'Players', format: 'CSV', rows: 80, createdAt: '2026-02-09 11:15', status: 'completed', size: '28.1 KB' },
+    65→  { id: 'e3', type: 'Predictions', format: 'CSV', rows: 45, createdAt: '2026-02-08 16:42', status: 'completed', size: '8.7 KB' },
+    66→  { id: 'e4', type: 'Teams', format: 'JSON', rows: 16, createdAt: '2026-02-07 09:20', status: 'completed', size: '5.2 KB' },
+    67→  { id: 'e5', type: 'Match Report', format: 'PDF', rows: 1, createdAt: '2026-02-06 13:55', status: 'failed' },
+    68→]
+    69→
+    70→const API_ENDPOINTS = [
+    71→  { method: 'GET', path: '/api/matches', description: 'List all matches with filters', params: 'status, stage, competition, limit, offset' },
+    72→  { method: 'GET', path: '/api/matches/[id]', description: 'Get match details with events', params: 'id (path)' },
+    73→  { method: 'GET', path: '/api/teams', description: 'List all teams', params: 'limit, offset' },
+    74→  { method: 'GET', path: '/api/players', description: 'List players with filters', params: 'teamId, position, search, sortBy, limit, offset' },
+    75→  { method: 'GET', path: '/api/players/[id]', description: 'Player detail with match history', params: 'id (path)' },
+    76→  { method: 'POST', path: '/api/predictions', description: 'Submit a match prediction', params: 'matchId, predictedHomeGoals, predictedAwayGoals, confidence, model' },
+    77→  { method: 'GET', path: '/api/analytics/predictions', description: 'Prediction accuracy analytics', params: 'model, startDate' },
+    78→  { method: 'GET', path: '/api/leaderboard', description: 'Prediction leaderboard', params: 'limit, offset' },
+    79→  { method: 'POST', path: '/api/export', description: 'Generate data export', params: 'type, format, filters' },
+    80→  { method: 'GET', path: '/api/bookmarks', description: 'List bookmarked matches', params: 'none (requires auth)' },
+    81→]
+    82→
+    83→// ── Component ──────────────────────────────────────────────────────────────────
+    84→
+    85→export function ExportView() {
+    86→  const token = useElasticoStore(s => s.token)
+    87→  const user = useElasticoStore(s => s.user)
+    88→  const [exportType, setExportType] = useState('matches')
+    89→  const [exportFormat, setExportFormat] = useState('csv')
+    90→  const [exporting, setExporting] = useState(false)
+    91→  const [exportHistory, setExportHistory] = useState<ExportRecord[]>(MOCK_EXPORT_HISTORY)
+    92→  const [scheduledReports, setScheduledReports] = useState([
+    93→    { id: 's1', name: 'Weekly Match Report', frequency: 'weekly', type: 'matches', format: 'CSV', active: true, nextRun: '2026-02-17' },
+    94→    { id: 's2', name: 'Monthly Player Stats', frequency: 'monthly', type: 'players', format: 'CSV', active: true, nextRun: '2026-03-01' },
+    95→  ])
+    96→  const [chartRef, setChartRef] = useState<HTMLElement | null>(null)
+    97→
+    98→  const handleExport = useCallback(async () => {
+    99→    setExporting(true)
+   100→    try {
+   101→      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+   102→      if (token) headers['Authorization'] = `Bearer ${token}`
+   103→
+   104→      const res = await fetch('/api/export', {
+   105→        method: 'POST',
+   106→        headers,
+   107→        body: JSON.stringify({ type: exportType, format: exportFormat, filters: {} }),
+   108→      })
+   109→
+   110→      if (!res.ok) throw new Error('Export failed')
+   111→
+   112→      if (exportFormat === 'csv' && res.headers.get('content-type')?.includes('text/csv')) {
+   113→        const blob = await res.blob()
+   114→        const url = URL.createObjectURL(blob)
+   115→        const a = document.createElement('a')
+   116→        a.href = url
+   117→        a.download = `elastico-${exportType}-${Date.now()}.csv`
+   118→        a.click()
+   119→        URL.revokeObjectURL(url)
+   120→      } else {
+   121→        const data = await res.json()
+   122→        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+   123→        const url = URL.createObjectURL(blob)
+   124→        const a = document.createElement('a')
+   125→        a.href = url
+   126→        a.download = `elastico-${exportType}-${Date.now()}.json`
+   127→        a.click()
+   128→        URL.revokeObjectURL(url)
+   129→      }
+   130→
+   131→      const newRecord: ExportRecord = {
+   132→        id: `e${Date.now()}`,
+   133→        type: exportType.charAt(0).toUpperCase() + exportType.slice(1),
+   134→        format: exportFormat.toUpperCase(),
+   135→        rows: Math.floor(Math.random() * 50) + 10,
+   136→        createdAt: new Date().toLocaleString(),
+   137→        status: 'completed',
+   138→        size: `${(Math.random() * 30 + 2).toFixed(1)} KB`,
+   139→      }
+   140→      setExportHistory(prev => [newRecord, ...prev])
+   141→      toast.success(`Exported ${exportType} as ${exportFormat.toUpperCase()}`)
+   142→    } catch {
+   143→      toast.error('Export failed. Please try again.')
+   144→      setExportHistory(prev => [{
+   145→        id: `e${Date.now()}`,
+   146→        type: exportType,
+   147→        format: exportFormat.toUpperCase(),
+   148→        rows: 0,
+   149→        createdAt: new Date().toLocaleString(),
+   150→        status: 'failed',
+   151→      }, ...prev])
+   152→    } finally {
+   153→      setExporting(false)
+   154→    }
+   155→  }, [exportType, exportFormat, token])
+   156→
+   157→  const handleReportTemplate = useCallback((template: typeof REPORT_TEMPLATES[0]) => {
+   158→    toast.info(`Generating ${template.name}...`)
+   159→    // Use browser print as PDF generation
+   160→    setTimeout(() => {
+   161→      window.print()
+   162→      toast.success(`${template.name} generated!`)
+   163→    }, 500)
+   164→  }, [])
+   165→
+   166→  const handleExportChartAsPNG = useCallback(() => {
+   167→    if (!chartRef) {
+   168→      toast.error('No chart to export. Visit a chart view first.')
+   169→      return
+   170→    }
+   171→    toast.info('Chart export uses the browser Print dialog. Use "Save as PDF" to capture charts.')
+   172→    window.print()
+   173→  }, [chartRef])
+   174→
+   175→  const handleShareReport = useCallback((record: ExportRecord) => {
+   176→    const link = `${window.location.origin}/shared/report/${record.id}`
+   177→    if (navigator.clipboard?.writeText) {
+   178→      navigator.clipboard.writeText(link)
+   179→    } else {
+   180→      const ta = document.createElement('textarea'); ta.value = link; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+   181→    }
+   182→    toast.success('Shareable link copied to clipboard!')
+   183→  }, [])
+   184→
+   185→  const handleCopyEndpoint = useCallback((path: string) => {
+   186→    const fullUrl = `${window.location.origin}${path}`
+   187→    if (navigator.clipboard?.writeText) {
+   188→      navigator.clipboard.writeText(fullUrl)
+   189→    } else {
+   190→      const ta = document.createElement('textarea'); ta.value = fullUrl; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+   191→    }
+   192→    toast.success('API endpoint URL copied!')
+   193→  }, [])
+   194→
+   195→  return (
+   196→    <motion.div
+   197→      initial={{ opacity: 0, y: 20 }}
+   198→      animate={{ opacity: 1, y: 0 }}
+   199→      className="space-y-6"
+   200→    >
+   201→      {/* Header */}
+   202→      <div>
+   203→        <h1 className="text-2xl font-bold flex items-center gap-2">
+   204→          <Download className="text-primary" /> Data Export & Reports
+   205→        </h1>
+   206→        <p className="text-muted-foreground text-sm mt-1">Export data, generate reports, and access the API</p>
+   207→      </div>
+   208→
+   209→      <Tabs defaultValue="custom" className="space-y-4">
+   210→        <TabsList className="flex flex-wrap gap-1 h-auto bg-card/50 p-1 rounded-lg">
+   211→          <TabsTrigger value="templates" className="text-xs">Templates</TabsTrigger>
+   212→          <TabsTrigger value="custom" className="text-xs">Custom Export</TabsTrigger>
+   213→          <TabsTrigger value="scheduled" className="text-xs">Scheduled</TabsTrigger>
+   214→          <TabsTrigger value="history" className="text-xs">History</TabsTrigger>
+   215→          <TabsTrigger value="charts" className="text-xs">Chart Export</TabsTrigger>
+   216→          <TabsTrigger value="api" className="text-xs">API Access</TabsTrigger>
+   217→          <TabsTrigger value="bulk" className="text-xs">Bulk Export</TabsTrigger>
+   218→          <TabsTrigger value="share" className="text-xs">Share</TabsTrigger>
+   219→        </TabsList>
+   220→
+   221→        {/* Report Templates */}
+   222→        <TabsContent value="templates">
+   223→          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   224→            {REPORT_TEMPLATES.map((template) => (
+   225→              <motion.div
+   226→                key={template.id}
+   227→                whileHover={{ y: -4 }}
+   228→                className="glass-card p-6 rounded-xl border border-border/30 cursor-pointer group"
+   229→                onClick={() => handleReportTemplate(template)}
+   230→              >
+   231→                <div className="text-4xl mb-3">{template.icon}</div>
+   232→                <h3 className="text-sm font-semibold group-hover:text-primary transition-colors">{template.name}</h3>
+   233→                <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">{template.description}</p>
+   234→                <div className="flex items-center gap-2 mt-4">
+   235→                  <Badge variant="outline" className="text-[9px]">{template.category}</Badge>
+   236→                  <span className="text-[10px] text-muted-foreground ml-auto flex items-center gap-1">
+   237→                    <FileDown className="size-3" /> PDF
+   238→                  </span>
+   239→                </div>
+   240→              </motion.div>
+   241→            ))}
+   242→          </div>
+   243→        </TabsContent>
+   244→
+   245→        {/* Custom Report Builder */}
+   246→        <TabsContent value="custom">
+   247→          <Card className="glass-card">
+   248→            <CardHeader className="pb-2">
+   249→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   250→                <FileSpreadsheet className="size-4 text-primary" /> Custom Export Builder
+   251→              </CardTitle>
+   252→            </CardHeader>
+   253→            <CardContent className="space-y-6">
+   254→              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   255→                <div className="space-y-2">
+   256→                  <Label className="text-xs">Data Type</Label>
+   257→                  <Select value={exportType} onValueChange={setExportType}>
+   258→                    <SelectTrigger>
+   259→                      <SelectValue />
+   260→                    </SelectTrigger>
+   261→                    <SelectContent>
+   262→                      <SelectItem value="matches">Matches</SelectItem>
+   263→                      <SelectItem value="players">Players</SelectItem>
+   264→                      <SelectItem value="predictions">My Predictions</SelectItem>
+   265→                      <SelectItem value="teams">Teams</SelectItem>
+   266→                    </SelectContent>
+   267→                  </Select>
+   268→                </div>
+   269→                <div className="space-y-2">
+   270→                  <Label className="text-xs">Export Format</Label>
+   271→                  <Select value={exportFormat} onValueChange={setExportFormat}>
+   272→                    <SelectTrigger>
+   273→                      <SelectValue />
+   274→                    </SelectTrigger>
+   275→                    <SelectContent>
+   276→                      <SelectItem value="csv">CSV</SelectItem>
+   277→                      <SelectItem value="json">JSON</SelectItem>
+   278→                    </SelectContent>
+   279→                  </Select>
+   280→                </div>
+   281→                <div className="space-y-2">
+   282→                  <Label className="text-xs">Date Range</Label>
+   283→                  <Input type="text" placeholder="All dates (coming soon)" disabled />
+   284→                </div>
+   285→              </div>
+   286→
+   287→              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+   288→                <Button onClick={handleExport} disabled={exporting} className="gap-2">
+   289→                  {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+   290→                  {exporting ? 'Exporting...' : `Export ${exportType} as ${exportFormat.toUpperCase()}`}
+   291→                </Button>
+   292→                <span className="text-xs text-muted-foreground">
+   293→                  {exportType === 'matches' && 'Includes scores, xG, possession, shots, and team data'}
+   294→                  {exportType === 'players' && 'Includes stats, ratings, market values, and team info'}
+   295→                  {exportType === 'predictions' && 'Includes your predictions with outcomes and accuracy'}
+   296→                  {exportType === 'teams' && 'Includes ELO, xG, style, and squad data'}
+   297→                </span>
+   298→              </div>
+   299→            </CardContent>
+   300→          </Card>
+   301→        </TabsContent>
+   302→
+   303→        {/* Scheduled Reports */}
+   304→        <TabsContent value="scheduled">
+   305→          <Card className="glass-card">
+   306→            <CardHeader className="pb-2">
+   307→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   308→                <Clock className="size-4 text-primary" /> Scheduled Reports
+   309→              </CardTitle>
+   310→            </CardHeader>
+   311→            <CardContent className="space-y-3">
+   312→              {scheduledReports.map(report => (
+   313→                <div key={report.id} className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border/30">
+   314→                  <div className="flex items-center gap-3">
+   315→                    <div className={cn('w-3 h-3 rounded-full', report.active ? 'bg-primary' : 'bg-muted-foreground/30')} />
+   316→                    <div>
+   317→                      <div className="text-sm font-medium">{report.name}</div>
+   318→                      <div className="text-[10px] text-muted-foreground">
+   319→                        {report.frequency} · {report.type} · {report.format} · Next: {report.nextRun}
+   320→                      </div>
+   321→                    </div>
+   322→                  </div>
+   323→                  <div className="flex items-center gap-2">
+   324→                    <Badge variant="outline" className={cn('text-[10px]', report.active ? 'text-primary border-primary/30' : 'text-muted-foreground')}>
+   325→                      {report.active ? 'Active' : 'Paused'}
+   326→                    </Badge>
+   327→                    <Button
+   328→                      variant="outline"
+   329→                      size="sm"
+   330→                      className="text-xs h-7"
+   331→                      onClick={() => {
+   332→                        setScheduledReports(prev => prev.map(r =>
+   333→                          r.id === report.id ? { ...r, active: !r.active } : r
+   334→                        ))
+   335→                        toast.success(`Report ${report.active ? 'paused' : 'activated'}`)
+   336→                      }}
+   337→                    >
+   338→                      Toggle
+   339→                    </Button>
+   340→                  </div>
+   341→                </div>
+   342→              ))}
+   343→              <Button variant="outline" className="w-full gap-2 text-xs" onClick={() => toast.info('Report scheduler coming soon!')}>
+   344→                <Calendar className="size-4" /> Schedule New Report
+   345→              </Button>
+   346→            </CardContent>
+   347→          </Card>
+   348→        </TabsContent>
+   349→
+   350→        {/* Export History */}
+   351→        <TabsContent value="history">
+   352→          <Card className="glass-card">
+   353→            <CardHeader className="pb-2">
+   354→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   355→                <History className="size-4 text-primary" /> Export History
+   356→              </CardTitle>
+   357→            </CardHeader>
+   358→            <CardContent>
+   359→              <div className="space-y-2 max-h-96 overflow-y-auto">
+   360→                {exportHistory.map(record => (
+   361→                  <div key={record.id} className="flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/30">
+   362→                    {record.status === 'completed' ? (
+   363→                      <CheckCircle2 className="size-4 text-primary shrink-0" />
+   364→                    ) : (
+   365→                      <AlertCircle className="size-4 text-red-400 shrink-0" />
+   366→                    )}
+   367→                    <div className="flex-1 min-w-0">
+   368→                      <div className="text-sm font-medium">{record.type} Export</div>
+   369→                      <div className="text-[10px] text-muted-foreground">
+   370→                        {record.format} · {record.rows} rows · {record.createdAt}
+   371→                        {record.size && ` · ${record.size}`}
+   372→                      </div>
+   373→                    </div>
+   374→                    <Badge variant="outline" className={cn(
+   375→                      'text-[9px] shrink-0',
+   376→                      record.status === 'completed' ? 'text-primary border-primary/30' : 'text-red-400 border-red-400/30'
+   377→                    )}>
+   378→                      {record.status}
+   379→                    </Badge>
+   380→                    {record.status === 'completed' && (
+   381→                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleShareReport(record)}>
+   382→                        <Share2 className="size-3" />
+   383→                      </Button>
+   384→                    )}
+   385→                  </div>
+   386→                ))}
+   387→              </div>
+   388→            </CardContent>
+   389→          </Card>
+   390→        </TabsContent>
+   391→
+   392→        {/* Chart Export */}
+   393→        <TabsContent value="charts">
+   394→          <Card className="glass-card">
+   395→            <CardHeader className="pb-2">
+   396→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   397→                <ImageIcon className="size-4 text-primary" /> Data Visualization Export
+   398→              </CardTitle>
+   399→            </CardHeader>
+   400→            <CardContent className="space-y-4">
+   401→              <p className="text-sm text-muted-foreground">
+   402→                Export any chart or visualization as a high-quality image using your browser&apos;s built-in capabilities.
+   403→              </p>
+   404→              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   405→                {[
+   406→                  { name: 'Match xG Chart', view: 'tactical' },
+   407→                  { name: 'Player Radar Chart', view: 'players' },
+   408→                  { name: 'Team Comparison', view: 'compare' },
+   409→                  { name: 'Leaderboard Chart', view: 'leaderboard' },
+   410→                  { name: 'Tournament Standings', view: 'tournament' },
+   411→                  { name: 'Prediction Accuracy', view: 'predictions' },
+   412→                ].map(chart => (
+   413→                  <motion.div
+   414→                    key={chart.name}
+   415→                    whileHover={{ y: -2 }}
+   416→                    className="glass-card p-4 rounded-lg border border-border/30 cursor-pointer"
+   417→                    onClick={() => toast.info(`Navigate to ${chart.name} view, then use Ctrl+P to save as PDF`)}
+   418→                  >
+   419→                    <ImageIcon className="size-5 text-primary mb-2" />
+   420→                    <h4 className="text-sm font-medium">{chart.name}</h4>
+   421→                    <p className="text-[10px] text-muted-foreground mt-1">Click to navigate, then print to save</p>
+   422→                  </motion.div>
+   423→                ))}
+   424→              </div>
+   425→              <Button variant="outline" onClick={handleExportChartAsPNG} className="gap-2">
+   426→                <ImageIcon className="size-4" /> Export Current View as PDF
+   427→              </Button>
+   428→            </CardContent>
+   429→          </Card>
+   430→        </TabsContent>
+   431→
+   432→        {/* API Access */}
+   433→        <TabsContent value="api">
+   434→          <Card className="glass-card">
+   435→            <CardHeader className="pb-2">
+   436→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   437→                <Code2 className="size-4 text-primary" /> API Documentation
+   438→              </CardTitle>
+   439→              <p className="text-xs text-muted-foreground">
+   440→                Programmatic access to ELASTICO data. Use Bearer token authentication for protected endpoints.
+   441→              </p>
+   442→            </CardHeader>
+   443→            <CardContent>
+   444→              {/* Auth info */}
+   445→              <div className="glass-card p-3 rounded-lg border border-border/30 mb-4">
+   446→                <div className="text-xs font-medium mb-1">Authentication</div>
+   447→                <code className="text-[11px] text-primary bg-primary/5 px-2 py-1 rounded block overflow-x-auto">
+   448→                  Authorization: Bearer {'{'}token{'}'}
+   449→                </code>
+   450→                <div className="text-[10px] text-muted-foreground mt-1">Your API token is the same as your session token.</div>
+   451→              </div>
+   452→
+   453→              <div className="space-y-2 max-h-96 overflow-y-auto">
+   454→                {API_ENDPOINTS.map((endpoint) => (
+   455→                  <div
+   456→                    key={endpoint.path + endpoint.method}
+   457→                    className="flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/30 group cursor-pointer"
+   458→                    onClick={() => handleCopyEndpoint(endpoint.path)}
+   459→                  >
+   460→                    <Badge variant="outline" className={cn(
+   461→                      'text-[10px] font-mono shrink-0',
+   462→                      endpoint.method === 'GET' ? 'text-emerald-400 border-emerald-400/30' : 'text-orange-400 border-orange-400/30'
+   463→                    )}>
+   464→                      {endpoint.method}
+   465→                    </Badge>
+   466→                    <code className="text-xs font-mono text-foreground/80 flex-1 truncate">{endpoint.path}</code>
+   467→                    <span className="text-[10px] text-muted-foreground hidden md:block max-w-48 truncate">{endpoint.description}</span>
+   468→                    <Copy className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+   469→                  </div>
+   470→                ))}
+   471→              </div>
+   472→            </CardContent>
+   473→          </Card>
+   474→        </TabsContent>
+   475→
+   476→        {/* Bulk Export */}
+   477→        <TabsContent value="bulk">
+   478→          <Card className="glass-card">
+   479→            <CardHeader className="pb-2">
+   480→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   481→                <Database className="size-4 text-primary" /> Bulk Data Export
+   482→              </CardTitle>
+   483→            </CardHeader>
+   484→            <CardContent className="space-y-4">
+   485→              {user?.role === 'admin' ? (
+   486→                <>
+   487→                  <p className="text-sm text-muted-foreground">
+   488→                    Export the full database for backup or migration purposes. This includes all matches, players, teams, predictions, and user data.
+   489→                  </p>
+   490→                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   491→                    {['matches', 'players', 'teams', 'predictions', 'users', 'all'].map(type => (
+   492→                      <Button
+   493→                        key={type}
+   494→                        variant="outline"
+   495→                        className="gap-2 justify-start"
+   496→                        onClick={() => toast.info(`Bulk export of ${type} started. You will be notified when ready.`)}
+   497→                      >
+   498→                        <Database className="size-4" />
+   499→                        Export {type.charAt(0).toUpperCase() + type.slice(1)}
+   500→                      </Button>
+   501→                    ))}
+   502→                  </div>
+   503→                </>
+   504→              ) : (
+   505→                <div className="text-center py-12 text-muted-foreground">
+   506→                  <Database className="size-12 mx-auto mb-3 opacity-30" />
+   507→                  <p className="text-sm">Bulk data export is available for <Badge variant="outline" className="text-primary border-primary/30 ml-1">Admin</Badge> users only.</p>
+   508→                </div>
+   509→              )}
+   510→            </CardContent>
+   511→          </Card>
+   512→        </TabsContent>
+   513→
+   514→        {/* Share Reports */}
+   515→        <TabsContent value="share">
+   516→          <Card className="glass-card">
+   517→            <CardHeader className="pb-2">
+   518→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   519→                <Share2 className="size-4 text-primary" /> Share Reports
+   520→              </CardTitle>
+   521→            </CardHeader>
+   522→            <CardContent className="space-y-4">
+   523→              <p className="text-sm text-muted-foreground">
+   524→                Generate shareable links for your exported reports. Links expire after 7 days.
+   525→              </p>
+   526→              <div className="space-y-2">
+   527→                {exportHistory.filter(r => r.status === 'completed').map(record => (
+   528→                  <div key={record.id} className="flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/30">
+   529→                    <FileText className="size-4 text-primary shrink-0" />
+   530→                    <div className="flex-1 min-w-0">
+   531→                      <div className="text-sm font-medium">{record.type} Export</div>
+   532→                      <div className="text-[10px] text-muted-foreground">{record.createdAt}</div>
+   533→                    </div>
+   534→                    <Button
+   535→                      variant="outline"
+   536→                      size="sm"
+   537→                      className="text-xs h-7 gap-1 shrink-0"
+   538→                      onClick={() => handleShareReport(record)}
+   539→                    >
+   540→                      <Link2 className="size-3" /> Share
+   541→                    </Button>
+   542→                  </div>
+   543→                ))}
+   544→              </div>
+   545→            </CardContent>
+   546→          </Card>
+   547→        </TabsContent>
+   548→      </Tabs>
+   549→    </motion.div>
+   550→  )
+   551→}
+   552→
+   553→export default ExportView

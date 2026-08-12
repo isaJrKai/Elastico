@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { motion } from 'framer-motion'
+
 import {
   Download,
   FileText,
@@ -18,8 +18,19 @@ import {
   AlertCircle,
   Loader2,
   Copy,
-  Image as ImageIcon,
+  BarChart3 as BarChartIcon,
+  User as UserIcon,
+  Trophy as TrophyIcon,
+  Target as TargetIcon,
 } from 'lucide-react'
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  'file-text': FileText,
+  'bar-chart': BarChartIcon,
+  'user': UserIcon,
+  'trophy': TrophyIcon,
+  'target': TargetIcon,
+}
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -52,20 +63,15 @@ interface ExportRecord {
 // ── Mock Data ──────────────────────────────────────────────────────────────────
 
 const REPORT_TEMPLATES = [
-  { id: 'match-report', name: 'Match Report', description: 'Comprehensive match analysis with xG, shots, possession, and key events', icon: '⚽', category: 'match' },
-  { id: 'team-analysis', name: 'Team Analysis', description: 'Deep dive into team performance, form, and tactical tendencies', icon: '📊', category: 'team' },
-  { id: 'player-report', name: 'Player Report', description: 'Individual player statistics, form, and comparison data', icon: '👤', category: 'player' },
-  { id: 'tournament-summary', name: 'Tournament Summary', description: 'Full tournament overview with standings, top scorers, and key stats', icon: '🏆', category: 'tournament' },
-  { id: 'prediction-accuracy', name: 'Prediction Accuracy Report', description: 'Analysis of prediction model performance across all models', icon: '🎯', category: 'prediction' },
+  { id: 'match-report', name: 'Match Report', description: 'Comprehensive match analysis with xG, shots, possession, and key events', icon: 'file-text' as const, category: 'match' },
+  { id: 'team-analysis', name: 'Team Analysis', description: 'Deep dive into team performance, form, and tactical tendencies', icon: 'bar-chart' as const, category: 'team' },
+  { id: 'player-report', name: 'Player Report', description: 'Individual player statistics, form, and comparison data', icon: 'user' as const, category: 'player' },
+  { id: 'tournament-summary', name: 'Tournament Summary', description: 'Full tournament overview with standings, top scorers, and key stats', icon: 'trophy' as const, category: 'tournament' },
+  { id: 'prediction-accuracy', name: 'Prediction Accuracy Report', description: 'Analysis of prediction model performance across all models', icon: 'target' as const, category: 'prediction' },
 ]
 
-const MOCK_EXPORT_HISTORY: ExportRecord[] = [
-  { id: 'e1', type: 'Matches', format: 'CSV', rows: 24, createdAt: '2026-02-10 14:32', status: 'completed', size: '12.4 KB' },
-  { id: 'e2', type: 'Players', format: 'CSV', rows: 80, createdAt: '2026-02-09 11:15', status: 'completed', size: '28.1 KB' },
-  { id: 'e3', type: 'Predictions', format: 'CSV', rows: 45, createdAt: '2026-02-08 16:42', status: 'completed', size: '8.7 KB' },
-  { id: 'e4', type: 'Teams', format: 'JSON', rows: 16, createdAt: '2026-02-07 09:20', status: 'completed', size: '5.2 KB' },
-  { id: 'e5', type: 'Match Report', format: 'PDF', rows: 1, createdAt: '2026-02-06 13:55', status: 'failed' },
-]
+const MOCK_EXPORT_HISTORY: ExportRecord[] = []
+
 
 const API_ENDPOINTS = [
   { method: 'GET', path: '/api/matches', description: 'List all matches with filters', params: 'status, stage, competition, limit, offset' },
@@ -132,10 +138,9 @@ export function ExportView() {
         id: `e${Date.now()}`,
         type: exportType.charAt(0).toUpperCase() + exportType.slice(1),
         format: exportFormat.toUpperCase(),
-        rows: Math.floor(Math.random() * 50) + 10,
+        rows: 0,
         createdAt: new Date().toLocaleString(),
         status: 'completed',
-        size: `${(Math.random() * 30 + 2).toFixed(1)} KB`,
       }
       setExportHistory(prev => [newRecord, ...prev])
       toast.success(`Exported ${exportType} as ${exportFormat.toUpperCase()}`)
@@ -193,9 +198,7 @@ export function ExportView() {
   }, [])
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+    <div
       className="space-y-6"
     >
       {/* Header */}
@@ -222,13 +225,12 @@ export function ExportView() {
         <TabsContent value="templates">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {REPORT_TEMPLATES.map((template) => (
-              <motion.div
+              <div
                 key={template.id}
-                whileHover={{ y: -4 }}
-                className="glass-card p-6 rounded-xl border border-border/30 cursor-pointer group"
+                className="glass-card p-6 rounded-xl border border-border/30 cursor-pointer group transition-all duration-200 hover:-translate-y-1"
                 onClick={() => handleReportTemplate(template)}
               >
-                <div className="text-4xl mb-3">{template.icon}</div>
+                {(() => { const Icon = ICON_MAP[template.icon] || FileText; return <Icon className="size-8 text-primary/60 mb-3" /> })()}
                 <h3 className="text-sm font-semibold group-hover:text-primary transition-colors">{template.name}</h3>
                 <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">{template.description}</p>
                 <div className="flex items-center gap-2 mt-4">
@@ -237,7 +239,7 @@ export function ExportView() {
                     <FileDown className="size-3" /> PDF
                   </span>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </TabsContent>
@@ -280,7 +282,7 @@ export function ExportView() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Date Range</Label>
-                  <Input type="text" placeholder="All dates (coming soon)" disabled />
+                  <Input type="text" placeholder="All dates" disabled />
                 </div>
               </div>
 
@@ -340,7 +342,7 @@ export function ExportView() {
                   </div>
                 </div>
               ))}
-              <Button variant="outline" className="w-full gap-2 text-xs" onClick={() => toast.info('Report scheduler coming soon!')}>
+              <Button variant="outline" className="w-full gap-2 text-xs" disabled>
                 <Calendar className="size-4" /> Schedule New Report
               </Button>
             </CardContent>
@@ -394,7 +396,7 @@ export function ExportView() {
           <Card className="glass-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <ImageIcon className="size-4 text-primary" /> Data Visualization Export
+                <FileDown className="size-4 text-primary" /> Data Visualization Export
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -410,20 +412,19 @@ export function ExportView() {
                   { name: 'Tournament Standings', view: 'tournament' },
                   { name: 'Prediction Accuracy', view: 'predictions' },
                 ].map(chart => (
-                  <motion.div
+                  <div
                     key={chart.name}
-                    whileHover={{ y: -2 }}
-                    className="glass-card p-4 rounded-lg border border-border/30 cursor-pointer"
+                    className="glass-card p-4 rounded-lg border border-border/30 cursor-pointer transition-all duration-200 hover:-translate-y-1"
                     onClick={() => toast.info(`Navigate to ${chart.name} view, then use Ctrl+P to save as PDF`)}
                   >
-                    <ImageIcon className="size-5 text-primary mb-2" />
+                    <BarChartIcon className="size-5 text-primary mb-2" />
                     <h4 className="text-sm font-medium">{chart.name}</h4>
                     <p className="text-[10px] text-muted-foreground mt-1">Click to navigate, then print to save</p>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
               <Button variant="outline" onClick={handleExportChartAsPNG} className="gap-2">
-                <ImageIcon className="size-4" /> Export Current View as PDF
+                <FileDown className="size-4" /> Export Current View as PDF
               </Button>
             </CardContent>
           </Card>
@@ -546,7 +547,7 @@ export function ExportView() {
           </Card>
         </TabsContent>
       </Tabs>
-    </motion.div>
+    </div>
   )
 }
 

@@ -184,7 +184,7 @@ export function Sidebar() {
           <Zap className="size-6 shrink-0 text-primary" />
           {(!isCollapsed || isMobile) && (
             <span className="gradient-text animate-elastico-glow text-lg font-bold tracking-tight whitespace-nowrap">
-              ⚽ ELASTICO
+              ELASTICO
             </span>
           )}
           {/* Collapse toggle (desktop only) */}

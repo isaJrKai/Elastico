@@ -127,7 +127,7 @@ export default function LoginView() {
             {visibleAnnouncements.map(a => (
               <div key={a.id} className={cn('relative flex items-start gap-3 rounded-lg border p-3 pr-9 text-sm backdrop-blur-sm animate-slide-in-left', a.isBreaking ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-[#00e676]/20 bg-[#00e676]/5 text-[#00e676]/90')}>
                 <Megaphone className="mt-0.5 size-4 shrink-0" />
-                <div className="min-w-0"><span className="font-semibold">{a.isBreaking ? '⚡ ' : ''}{a.title}</span><p className="mt-0.5 text-xs opacity-80">{a.message}</p></div>
+                <div className="min-w-0"><span className="font-semibold">{a.title}</span><p className="mt-0.5 text-xs opacity-80">{a.message}</p></div>
                 <button onClick={() => dismissAnnouncement(a.id)} className="absolute right-2 top-2 rounded-sm p-0.5 opacity-60 hover:opacity-100"><X className="size-3.5" /></button>
               </div>
             ))}

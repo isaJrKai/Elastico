@@ -252,17 +252,14 @@ function AdminSystemMonitor() {
           details: data.details || `Audit completed for ${type}`,
         }, ...prev])
       } else {
-        // Mock fallback
+        // API unavailable
         await new Promise(r => setTimeout(r, 800))
-        if (type === 'scraper') setScraperStatus('HEALTHY')
-        if (type === 'drift') setDriftStatus('HEALTHY')
-        if (type === 'convergence') setClvEdge(prev => +(prev + (Math.random() - 0.5) * 0.5).toFixed(1))
         setAuditLogs(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
           type,
-          status: 'PASS',
-          details: `[Mock] ${type} audit completed successfully`,
+          status: 'FAIL' as const,
+          details: `Audit endpoint returned an error for ${type}. The audit service may be unavailable.`,
         }, ...prev])
       }
     } catch {
@@ -271,8 +268,8 @@ function AdminSystemMonitor() {
         id: String(Date.now()),
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
         type,
-        status: 'PASS',
-        details: `[Offline Mock] ${type} audit completed`,
+        status: 'FAIL' as const,
+        details: `Could not reach audit service for ${type}. Check network connectivity.`,
       }, ...prev])
     }
     setAuditLoading(null)
@@ -349,18 +346,11 @@ function AdminSystemMonitor() {
       })
     } catch { /* mock fallback */ }
     await new Promise(r => setTimeout(r, 1500))
-    const newScore = 88 + Math.floor(Math.random() * 10)
-    setIntegrityScore(newScore)
-    setFileIntegrity(prev => prev.map(f => ({
-      ...f,
-      status: Math.random() > 0.2 ? 'INTACT' : f.status,
-      lastChecked: new Date().toISOString().replace('T', ' ').slice(0, 14) + '00',
-    })))
     setSecurityLogs(prev => [{
       id: String(Date.now()),
       time: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      event: `Manual integrity check completed — Score: ${newScore}/100`,
-      severity: 'info' as const,
+      event: 'Integrity check completed — result unavailable (service did not return score data)',
+      severity: 'warning' as const,
     }, ...prev])
     setIntegrityLoading(false)
   }
@@ -409,30 +399,26 @@ function AdminSystemMonitor() {
           confidence: data.confidence,
         }, ...prev])
       } else {
-        // Mock fallback
+        // API returned an error
         await new Promise(r => setTimeout(r, 1000))
-        const mockScore = `${(1 + Math.random() * 2).toFixed(1)} - ${(Math.random() * 1.5).toFixed(1)}`
-        const mockConf = 65 + Math.floor(Math.random() * 25)
-        setForecastResult({ score: mockScore, confidence: mockConf })
+        setForecastResult({ score: 'Unavailable', confidence: 0 })
         setForecasts(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
           team: forecastTeam,
-          projectedScore: mockScore,
-          confidence: mockConf,
+          projectedScore: 'Unavailable',
+          confidence: 0,
         }, ...prev])
       }
     } catch {
       await new Promise(r => setTimeout(r, 800))
-      const mockScore = `${(1 + Math.random() * 2).toFixed(1)} - ${(Math.random() * 1.5).toFixed(1)}`
-      const mockConf = 65 + Math.floor(Math.random() * 25)
-      setForecastResult({ score: mockScore, confidence: mockConf })
+      setForecastResult({ score: 'Unavailable', confidence: 0 })
       setForecasts(prev => [{
         id: String(Date.now()),
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
         team: forecastTeam,
-        projectedScore: mockScore,
-        confidence: mockConf,
+        projectedScore: 'Unavailable',
+        confidence: 0,
       }, ...prev])
     }
     setForecastLoading(false)

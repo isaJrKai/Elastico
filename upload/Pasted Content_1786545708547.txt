@@ -1,0 +1,3586 @@
+Exactly. **Now I understand the missing piece.**
+
+The montage should not be treated as “make my app look like this.”
+
+It should be treated as a **visual product map**.
+
+GLM needs both:
+
+1. **The image** — to understand composition, density, hierarchy, spatial relationships and the intended visual language.
+2. **A precise build specification** — explaining what every major region is, what data powers it, how it behaves, what is real vs calculated, what happens responsively, and what must *not* be copied literally.
+
+And you're right about the heatmaps. The reference image contains them visually, but **ELASTICO currently doesn't necessarily have the underlying event data to produce them**. We must not let GLM draw a pretty heatmap with invented dots. The instruction needs to say exactly that.
+
+So I would give GLM the image **and this prompt together**.
+
+---
+
+# ELASTICO — VISUAL PRODUCT BLUEPRINT + IMPLEMENTATION DIRECTIVE
+
+## ATTACHED VISUAL REFERENCE
+
+**Use the attached ELASTICO interface montage as a visual reference and product map.**
+
+The image is **not a pixel-perfect design specification**.
+
+It represents the **quality bar, spatial language, information hierarchy, density, composition and intended experience** for ELASTICO.
+
+Do not blindly reproduce the screenshot.
+
+Do not fabricate data merely to make the implementation resemble the screenshot.
+
+Instead:
+
+> **Understand what each interface is trying to accomplish, then build the real ELASTICO version using the application's actual data, APIs, models and capabilities.**
+
+---
+
+# 1. WHAT YOU ARE LOOKING AT
+
+The reference contains nine conceptual experiences:
+
+1. **Main Dashboard**
+2. **Live Match**
+3. **Player Profile**
+4. **Match Analysis**
+5. **Player Comparison**
+6. **Predictions**
+7. **AI Assistant**
+8. **Analytics**
+9. **Settings**
+
+These are not nine unrelated designs.
+
+They form one connected football intelligence environment.
+
+The same:
+
+* navigation
+* typography
+* spacing
+* iconography
+* colors
+* controls
+* cards
+* charts
+* tables
+* player identities
+* data language
+* interaction patterns
+
+must flow between them.
+
+---
+
+# 2. THE MOST IMPORTANT RULE
+
+## DO NOT BUILD THE IMAGE.
+
+## BUILD THE PRODUCT REPRESENTED BY THE IMAGE.
+
+The image is a **map**.
+
+The repository is the **territory**.
+
+The actual ELASTICO backend is the **source of truth**.
+
+If the image contains a feature that ELASTICO does not currently have the data to support:
+
+### DO NOT FAKE IT.
+
+Instead:
+
+1. determine whether the feature can be powered by existing data;
+2. determine whether the backend needs to be extended;
+3. determine whether another legitimate data source is required;
+4. or remove/defer the feature.
+
+---
+
+# 3. ELASTICO'S VISUAL PHILOSOPHY
+
+The interface should feel:
+
+**technical**
+
+**premium**
+
+**analytical**
+
+**spatial**
+
+**confident**
+
+**modern**
+
+**football-native**
+
+but NOT:
+
+**generic SaaS**
+
+**generic AI dashboard**
+
+**Dribbble concept**
+
+**card-grid generator**
+
+**overdecorated**
+
+---
+
+# 4. Zaha Hadid PRINCIPLE
+
+Use architectural thinking rather than literal imitation.
+
+Think about:
+
+### FLOW
+
+The user's eye should naturally move from important information to supporting information.
+
+### MOVEMENT
+
+Charts, timelines and live states should communicate change.
+
+### PROPORTION
+
+Large things should be important.
+
+Small things should be supporting.
+
+### CONTINUITY
+
+One page should transition naturally into another.
+
+### ASYMMETRY
+
+Do not make every section a symmetrical 3-column card grid.
+
+### NEGATIVE SPACE
+
+Give important information room to breathe.
+
+### GEOMETRY
+
+Use strong structural relationships between elements.
+
+### LAYERING
+
+Allow information to have primary, secondary and tertiary levels.
+
+The result should feel **architected**, not assembled.
+
+---
+
+# 5. GLOBAL APPLICATION SHELL
+
+Every page shares:
+
+### LEFT NAVIGATION
+
+Primary product areas.
+
+### TOP BAR
+
+Contextual controls, search, notifications, user state and relevant actions.
+
+### MAIN CONTENT
+
+A responsive constrained content environment.
+
+The main content must never disappear underneath navigation.
+
+It must never exceed the viewport.
+
+It must never create accidental horizontal scrolling.
+
+---
+
+# 6. CRITICAL VIEWPORT RULE
+
+This is currently one of ELASTICO's major problems.
+
+## EVERYTHING MUST FIT.
+
+Audit every page at:
+
+* 320px
+* 375px
+* 390px
+* 430px
+* 768px
+* 1024px
+* 1280px
+* 1440px
+* 1920px
+
+Look specifically for:
+
+* content crossing the screen
+* panels exceeding their parent
+* charts overflowing
+* tables breaking layouts
+* long player names escaping
+* buttons escaping containers
+* navigation collisions
+* modal overflow
+* fixed-width components
+* grid overflow
+* flex overflow
+* horizontal page scrolling
+* content hidden behind fixed elements
+
+---
+
+# 7. DO NOT CHEAT THE OVERFLOW PROBLEM
+
+Do NOT globally solve layout problems using:
+
+```css
+overflow-x: hidden;
+```
+
+That merely hides broken architecture.
+
+Find the actual cause.
+
+Check:
+
+* `min-width`
+* flex children
+* grid tracks
+* fixed widths
+* `100vw`
+* absolute positioning
+* transforms
+* oversized charts
+* tables
+* long text
+* navigation width
+
+Fix the component itself.
+
+---
+
+# 8. MAIN DASHBOARD
+
+The dashboard should feel like:
+
+# THE ELASTICO COMMAND CENTER
+
+Its job is not to display every piece of data.
+
+Its job is to answer:
+
+> **What matters right now?**
+
+---
+
+## Dashboard hierarchy
+
+### LEVEL 1 — ORIENTATION
+
+Page title.
+
+Short contextual description.
+
+Current date/context.
+
+Relevant global controls.
+
+---
+
+### LEVEL 2 — KEY SIGNALS
+
+Use a restrained set of important metrics.
+
+Examples:
+
+* live matches
+* predictions
+* model confidence
+* prediction performance
+* important system state
+
+But these must come from **real ELASTICO data**.
+
+No random KPI numbers.
+
+No fake growth percentages.
+
+No fake ROI.
+
+---
+
+### LEVEL 3 — LIVE FOOTBALL
+
+Show meaningful live matches.
+
+Each row can expose:
+
+* competition
+* teams
+* crests
+* score
+* match minute
+* status
+* important live indicator
+
+Use real match data.
+
+---
+
+### LEVEL 4 — PREDICTION INTELLIGENCE
+
+Show selected predictions.
+
+Possible information:
+
+* match
+* predicted outcome
+* probability
+* confidence
+* model consensus
+* relevant factors
+
+Do not overwhelm the user.
+
+---
+
+### LEVEL 5 — PERFORMANCE
+
+Show how ELASTICO's predictive system has actually performed.
+
+If historical performance data exists:
+
+visualize it.
+
+If it does not:
+
+do not manufacture it.
+
+---
+
+### LEVEL 6 — AI INSIGHTS
+
+Show meaningful AI-generated interpretation based on actual data.
+
+Each insight should make clear what it refers to.
+
+---
+
+# 9. LIVE MATCH PAGE
+
+The Live Match page should be an **analytical workspace**, not simply a scoreboard.
+
+Top region:
+
+### MATCH IDENTITY
+
+Team crests.
+
+Team names.
+
+Score.
+
+Minute/status.
+
+Competition.
+
+---
+
+Then:
+
+### LIVE STATE
+
+Possible tabs:
+
+* Overview
+* Live Ticker
+* Stats
+* Lineups
+* Heatmap
+* Tactical
+* AI Insights
+
+Only expose tabs that can actually be supported.
+
+---
+
+# 10. LIVE MATCH VISUALIZATION
+
+The reference shows:
+
+### WIN PROBABILITY
+
+A time-series chart showing how probability changes during the match.
+
+This is valuable because it communicates:
+
+> **How did the match state change?**
+
+If ELASTICO's live model can calculate this:
+
+build it.
+
+If not:
+
+do not invent a line.
+
+---
+
+# 11. MATCH MOMENTUM
+
+The reference contains a momentum visualization.
+
+This should represent real temporal match information.
+
+Possible underlying inputs:
+
+* events
+* shots
+* possession
+* attacks
+* dangerous attacks
+* xG
+* cards
+* substitutions
+
+But only use metrics actually available.
+
+---
+
+# 12. MATCH EVENT TIMELINE
+
+Create a clean vertical or horizontal timeline.
+
+Examples:
+
+* goals
+* cards
+* substitutions
+* shots
+* significant events
+
+Each event should be linked to real match data.
+
+---
+
+# 13. HEATMAPS — VERY IMPORTANT
+
+The reference image shows beautiful football heatmaps.
+
+### DO NOT SIMULATE THEM.
+
+A real player heatmap requires spatial event/location data.
+
+For example:
+
+```text
+x coordinate
+y coordinate
+timestamp
+player
+event type
+team
+```
+
+From this, ELASTICO could calculate a spatial density map.
+
+---
+
+## If ELASTICO has event coordinates:
+
+Build genuine heatmaps.
+
+Possible views:
+
+### Player heatmap
+
+Where the player actually operated.
+
+### Team heatmap
+
+Where the team occupied the pitch.
+
+### Touch map
+
+Where touches occurred.
+
+### Action map
+
+Where passes/shots/actions occurred.
+
+---
+
+## If ELASTICO DOES NOT HAVE COORDINATE DATA:
+
+Do NOT produce fake heatmaps.
+
+Instead show:
+
+> **Spatial data unavailable for this match.**
+
+And design the empty state beautifully.
+
+---
+
+# 14. PLAYER PROFILE
+
+The player page should feel like a **football intelligence dossier**.
+
+Top:
+
+* player photo
+* player name
+* team
+* nationality
+* position
+* age
+* relevant identity information
+
+Then:
+
+### OVERALL PERFORMANCE
+
+A meaningful rating if the system actually calculates one.
+
+---
+
+### ATTRIBUTE VISUALIZATION
+
+The reference uses a radar chart.
+
+Possible dimensions:
+
+* shooting
+* passing
+* dribbling
+* defending
+* physical
+* pace
+
+But only if these are based on actual data.
+
+Do not invent ratings simply to fill the radar.
+
+---
+
+# 15. PLAYER STATISTICS
+
+Organize stats by meaning.
+
+For example:
+
+### ATTACKING
+
+* goals
+* assists
+* shots
+* shots on target
+
+### CREATION
+
+* key passes
+* chances created
+* assists
+
+### POSSESSION
+
+* touches
+* progressive actions
+* passing
+
+### DEFENDING
+
+* tackles
+* interceptions
+* recoveries
+
+Use only available data.
+
+---
+
+# 16. PLAYER FORM
+
+The reference includes a form graph.
+
+This should show actual recent performance.
+
+For example:
+
+```text
+Match 1
+Match 2
+Match 3
+Match 4
+...
+```
+
+If the data isn't available:
+
+do not generate a fictional curve.
+
+---
+
+# 17. PLAYER HEATMAP
+
+Again:
+
+**REAL SPATIAL DATA ONLY.**
+
+If available:
+
+render a pitch-based heatmap.
+
+If unavailable:
+
+create the infrastructure/interface so the feature can be added later without pretending it currently exists.
+
+---
+
+# 18. MATCH ANALYSIS
+
+This is where ELASTICO should demonstrate football intelligence.
+
+The page should combine:
+
+### MATCH SUMMARY
+
+Score.
+
+Key stats.
+
+---
+
+### TACTICAL SHAPE
+
+A football pitch visualization.
+
+If actual lineup/position data exists:
+
+place players.
+
+If tactical event/location data exists:
+
+show meaningful tactical patterns.
+
+Do not place players randomly on a pitch just to make it look sophisticated.
+
+---
+
+### KEY INSIGHTS
+
+Use real statistical evidence.
+
+Example:
+
+> Team A created significantly more high-quality chances through the right channel.
+
+But only if the data supports it.
+
+---
+
+# 19. PLAYER COMPARISON
+
+Comparison should make differences obvious.
+
+Select:
+
+**Player A**
+
+vs
+
+**Player B**
+
+Then compare meaningful dimensions.
+
+Possible:
+
+* goals
+* assists
+* shots
+* chance creation
+* passing
+* defensive actions
+* minutes
+* per-90 metrics
+
+---
+
+## RADAR
+
+Use a radar only when it provides meaningful comparison.
+
+Do not use radar charts because:
+
+> “Sports dashboards have radar charts.”
+
+---
+
+# 20. PREDICTIONS
+
+This is one of ELASTICO's strongest technical areas.
+
+The interface should expose the sophistication without overwhelming the user.
+
+Top:
+
+### MATCH
+
+### PREDICTION
+
+### PROBABILITY
+
+### CONFIDENCE
+
+Then:
+
+### MODEL CONSENSUS
+
+Show how different models arrive at their estimates.
+
+For example:
+
+* Poisson
+* Dixon-Coles
+* ELO
+* Monte Carlo
+* other implemented models
+
+Only show models actually used for that prediction.
+
+---
+
+# 21. MODEL CONSENSUS
+
+This is important.
+
+Do not simply display:
+
+> 83%
+
+Explain the architecture.
+
+For example:
+
+```text
+Model              Prediction     Probability
+
+ELO                Home           79%
+Poisson            Home           84%
+Dixon-Coles        Home           81%
+Monte Carlo        Home           86%
+```
+
+Then:
+
+### CONSENSUS
+
+> Strong agreement
+
+or
+
+> Model disagreement
+
+This makes ELASTICO feel like an intelligence platform rather than a betting widget.
+
+---
+
+# 22. AI ASSISTANT
+
+The AI should feel like an analyst embedded in ELASTICO.
+
+Not:
+
+> ChatGPT pasted into a sidebar.
+
+The AI should know the current context.
+
+For example:
+
+If the user is viewing:
+
+**Man City vs Arsenal**
+
+and asks:
+
+> Why did City's win probability fall?
+
+The AI should have access to the relevant match context.
+
+---
+
+# 23. AI RESPONSE STRUCTURE
+
+Where useful, distinguish:
+
+### DATA
+
+What happened.
+
+### MODEL
+
+What ELASTICO calculated.
+
+### INTERPRETATION
+
+What the AI thinks it means.
+
+### UNCERTAINTY
+
+What remains unknown.
+
+This creates trust.
+
+---
+
+# 24. ANALYTICS
+
+The Analytics page should become the deeper exploration environment.
+
+Allow users to examine:
+
+* teams
+* players
+* leagues
+* goals
+* performance
+* trends
+* model performance
+
+Use appropriate visualizations.
+
+Do not fill the page with charts simply because charts look analytical.
+
+Every chart must answer a question.
+
+---
+
+# 25. SETTINGS
+
+Settings should be functional and quiet.
+
+Organize logically:
+
+### Profile
+
+### Preferences
+
+### Notifications
+
+### Security
+
+### API
+
+### Appearance
+
+Do not turn settings into another dashboard.
+
+---
+
+# 26. PLAYER PHOTOS
+
+Do NOT generate fake footballer faces.
+
+Do NOT manually embed generated portraits.
+
+Use legitimate player image URLs from ELASTICO's actual data pipeline where available.
+
+First inspect the current ESPN ingestion/data structures.
+
+Determine whether player headshots already exist.
+
+If they do:
+
+**use them.**
+
+If not:
+
+determine an appropriate legitimate image source.
+
+Implement fallback:
+
+```text
+real headshot
+      ↓
+team/league fallback
+      ↓
+initials/avatar
+```
+
+Never:
+
+```text
+missing image
+      ↓
+AI-generated fake footballer
+```
+
+---
+
+# 27. CRESTS
+
+Use real team crests where available through legitimate data.
+
+Do not fabricate them.
+
+---
+
+# 28. ICONOGRAPHY
+
+Use a coherent icon library.
+
+Icons should communicate function.
+
+Do not use emojis as UI icons.
+
+---
+
+# 29. SPACING SYSTEM
+
+Create a deliberate spacing system.
+
+Use consistent rhythm.
+
+Example:
+
+```text
+4
+8
+12
+16
+24
+32
+48
+64
+```
+
+But choose the final scale based on the actual design system.
+
+The goal is:
+
+**consistent visual rhythm.**
+
+---
+
+# 30. TYPOGRAPHY
+
+Typography should establish hierarchy.
+
+Do not make everything large.
+
+Do not make everything bold.
+
+Do not make every metric enormous.
+
+Use:
+
+### Display
+
+For major page orientation.
+
+### Heading
+
+For sections.
+
+### Body
+
+For explanation.
+
+### Metadata
+
+For supporting context.
+
+### Numeric
+
+For analytical values.
+
+---
+
+# 31. COLOR
+
+The dark visual reference should establish the visual language.
+
+But color must communicate meaning.
+
+For example:
+
+* positive
+* negative
+* neutral
+* live
+* warning
+* selected
+* inactive
+
+Do not make every component glow.
+
+Premium does not mean neon everywhere.
+
+---
+
+# 32. BORDERS AND SURFACES
+
+Use subtle separation.
+
+Not:
+
+> every section gets a giant rounded box.
+
+Some sections should visually flow into each other.
+
+---
+
+# 33. RESPONSIVE BEHAVIOR
+
+Desktop:
+
+rich multi-column analytical environment.
+
+Tablet:
+
+reduce simultaneous columns.
+
+Mobile:
+
+prioritize the user's most important information.
+
+Do not simply shrink desktop.
+
+Recompose it.
+
+---
+
+# 34. MOBILE DASHBOARD
+
+On mobile the hierarchy might become:
+
+```text
+Header
+↓
+Primary signal
+↓
+Live matches
+↓
+Predictions
+↓
+Important insight
+↓
+Performance
+↓
+Secondary analytics
+```
+
+not:
+
+```text
+desktop grid squeezed into 390px
+```
+
+---
+
+# 35. TABLE RESPONSIVENESS
+
+Tables must intelligently adapt.
+
+At mobile:
+
+* hide low-priority columns
+* provide expandable rows
+* allow deliberate horizontal scrolling where appropriate
+* or transform rows into cards
+
+Never let tables push the entire page wider.
+
+---
+
+# 36. CHART RESPONSIVENESS
+
+Charts must resize according to the container.
+
+Labels must remain readable.
+
+Legends must adapt.
+
+Tooltips must remain accessible.
+
+---
+
+# 37. LOADING / EMPTY / ERROR STATES
+
+Every major component needs three states:
+
+### LOADING
+
+What is being retrieved?
+
+### EMPTY
+
+Why is there nothing?
+
+### ERROR
+
+What happened and what can the user do?
+
+---
+
+# 38. REAL DATA CONTRACT
+
+For every visualization create:
+
+```text
+DATA SOURCE
+DATA TRANSFORMATION
+VISUALIZATION
+USER INTERPRETATION
+```
+
+Example:
+
+```text
+ESPN event data
+↓
+event filtering
+↓
+shot map
+↓
+user sees shot locations
+```
+
+For heatmap:
+
+```text
+player spatial events
+↓
+coordinate normalization
+↓
+density calculation
+↓
+pitch heatmap
+```
+
+If the first step doesn't exist:
+
+**the final visualization must not pretend it does.**
+
+---
+
+# 39. COMPONENT CONTRACT
+
+Every important component should know:
+
+### What does it represent?
+
+### Where does its data come from?
+
+### What happens when data is loading?
+
+### What happens when data is missing?
+
+### What happens when data fails?
+
+### How does it behave responsively?
+
+### What action does the user have?
+
+---
+
+# 40. REMOVE GENERIC AI PATTERNS
+
+Audit for:
+
+* excessive cards
+* random gradients
+* excessive rounded corners
+* decorative blobs
+* meaningless badges
+* giant KPI walls
+* fake AI insights
+* excessive glassmorphism
+* excessive shadows
+* generic purple AI styling
+* emojis
+* redundant headings
+* pointless charts
+
+Replace them with purposeful design.
+
+---
+
+# 41. DO NOT COPY THE REFERENCE'S FAKE NUMBERS
+
+The numbers shown in the reference are **visual examples only**.
+
+They are not ELASTICO production data.
+
+Do not copy:
+
+> 24,847
+
+> 68.4%
+
+> $12,430
+
+> 98.5%
+
+etc.
+
+Use ELASTICO's actual data.
+
+---
+
+# 42. DO NOT COPY THE REFERENCE'S PLAYERS BLINDLY
+
+The players shown are visual examples.
+
+Use actual player records available through ELASTICO.
+
+Use their real:
+
+* name
+* team
+* photo
+* position
+* statistics
+
+where available.
+
+---
+
+# 43. DO NOT COPY THE REFERENCE'S MATCHES BLINDLY
+
+The matches are illustrative.
+
+Use actual current/relevant ELASTICO match data.
+
+---
+
+# 44. DO NOT INVENT MISSING BACKEND DATA
+
+This is absolutely non-negotiable.
+
+If the interface requires something that does not exist:
+
+tell us:
+
+```text
+FEATURE
+REQUIRED DATA
+CURRENT DATA
+MISSING DATA
+IMPLEMENTATION REQUIRED
+```
+
+Then determine whether it is worth building.
+
+---
+
+# 45. VISUAL REFERENCE → CODE MAPPING
+
+For every major screen create a mapping:
+
+| Visual region | Purpose             | Data source       | Component        | Responsive behavior |
+| ------------- | ------------------- | ----------------- | ---------------- | ------------------- |
+| Header        | orientation/actions | session/context   | Header           | collapses           |
+| Navigation    | product navigation  | routes            | Sidebar          | drawer              |
+| Match panel   | live state          | ESPN              | MatchCard        | stacks              |
+| Probability   | prediction          | prediction engine | ProbabilityChart | resizes             |
+| Heatmap       | spatial analysis    | event coordinates | PitchHeatmap     | scales              |
+| AI insight    | interpretation      | AI API            | InsightPanel     | stacks              |
+
+Do this before implementing each page.
+
+---
+
+# 46. HEATMAP IMPLEMENTATION SPECIFICATION
+
+If the underlying data becomes available, build a real football pitch.
+
+The pitch should have:
+
+* boundaries
+* halfway line
+* penalty areas
+* goal areas
+* center circle
+* goals
+
+Then map coordinates to the pitch.
+
+Normalize source coordinates.
+
+Example conceptual pipeline:
+
+```text
+raw event coordinate
+        ↓
+coordinate normalization
+        ↓
+pitch coordinate
+        ↓
+density calculation
+        ↓
+spatial rendering
+```
+
+The heatmap should visually represent **density**, not random decoration.
+
+---
+
+# 47. TACTICAL PITCH
+
+Similarly:
+
+If lineup/player-position information is available:
+
+show real players.
+
+If formation data exists:
+
+show the real formation.
+
+If positional tracking does not exist:
+
+do not pretend to have player movement tracking.
+
+---
+
+# 48. VISUALIZATION HONESTY
+
+Every visualization must answer:
+
+> **What data produced this picture?**
+
+If the answer is:
+
+> “We just needed something to display.”
+
+Delete it.
+
+---
+
+# 49. THE PRODUCT SHOULD FEEL ALIVE
+
+Use motion selectively.
+
+Examples:
+
+* live score changes
+* probability movement
+* match events
+* transitions
+* loading
+* AI streaming
+
+But avoid:
+
+* animations everywhere
+* excessive bouncing
+* decorative motion
+
+Motion should communicate state.
+
+---
+
+# 50. FINAL QUALITY BAR
+
+When you look at the finished application, it should not feel like:
+
+> “GLM generated a dashboard.”
+
+It should feel like:
+
+# A REAL FOOTBALL INTELLIGENCE PLATFORM THAT HAPPENS TO HAVE AN EXCELLENT INTERFACE.
+
+---
+
+# 51. IMPLEMENTATION PROCESS
+
+Do this sequentially.
+
+## STEP 1
+
+Inspect the current repository.
+
+## STEP 2
+
+Map every page.
+
+## STEP 3
+
+Map every backend source.
+
+## STEP 4
+
+Map every existing component.
+
+## STEP 5
+
+Map every fake/static/random data source.
+
+## STEP 6
+
+Map every layout/overflow problem.
+
+## STEP 7
+
+Create the design system.
+
+## STEP 8
+
+Create the global shell.
+
+## STEP 9
+
+Fix responsive containment.
+
+## STEP 10
+
+Implement the dashboard.
+
+## STEP 11
+
+Implement Live Match.
+
+## STEP 12
+
+Implement Player Profile.
+
+## STEP 13
+
+Implement Match Analysis.
+
+## STEP 14
+
+Implement Compare.
+
+## STEP 15
+
+Implement Predictions.
+
+## STEP 16
+
+Implement AI Assistant.
+
+## STEP 17
+
+Implement Analytics.
+
+## STEP 18
+
+Implement Settings.
+
+## STEP 19
+
+Implement legitimate player imagery.
+
+## STEP 20
+
+Implement real heatmaps where data permits.
+
+## STEP 21
+
+Test every page.
+
+## STEP 22
+
+Test every viewport.
+
+## STEP 23
+
+Test every interaction.
+
+## STEP 24
+
+Test every data source.
+
+## STEP 25
+
+Perform final visual audit.
+
+---
+
+# 52. FINAL AUDIT
+
+Before declaring completion, answer:
+
+### Can every page fit inside its viewport?
+
+### Can every important component resize?
+
+### Does anything create accidental horizontal scrolling?
+
+### Does every button work?
+
+### Does every displayed number have a legitimate source?
+
+### Does every chart have meaningful data?
+
+### Does every player have a legitimate image source or fallback?
+
+### Are heatmaps real?
+
+### Are tactical visualizations real?
+
+### Does AI receive real context?
+
+### Does navigation work?
+
+### Does mobile work?
+
+### Does the application still feel like one product?
+
+### Does it look deliberately designed rather than AI-generated?
+
+---
+
+# FINAL COMMAND TO GLM
+
+**You are not being asked to reproduce an image.**
+
+You are being given a **visual map of the product we want ELASTICO to become.**
+
+Study the reference.
+
+Understand its spatial hierarchy.
+
+Understand its information density.
+
+Understand how the screens relate to each other.
+
+Then inspect ELASTICO's actual architecture.
+
+Connect the two.
+
+Where the reference shows something ELASTICO can genuinely support:
+
+**build it.**
+
+Where ELASTICO has stronger underlying capabilities than the reference:
+
+**expose those capabilities better.**
+
+Where the reference shows something ELASTICO cannot currently support:
+
+**do not fake it.**
+
+Where the current ELASTICO UI is broken:
+
+**fix the architecture.**
+
+Where content crosses the viewport:
+
+**fix the layout rather than hiding overflow.**
+
+Where data is fake:
+
+**replace it with real data or remove the feature.**
+
+Where the underlying analytics are sophisticated:
+
+**give them an interface worthy of them.**
+
+Where a heatmap needs spatial data:
+
+**build the real data pipeline or clearly indicate that spatial data is unavailable.**
+
+Where a player needs a photo:
+
+**use a legitimate real player image source.**
+
+Where the reference uses a beautiful visualization:
+
+**understand the analytical purpose behind it before implementing it.**
+
+---
+
+# THE NORTH STAR
+
+## ELASTICO should look like the reference **in quality and spatial intelligence**.
+
+## ELASTICO should behave like a **real application**.
+
+## ELASTICO should be powered by **real football data**.
+
+## ELASTICO should expose its **real mathematical intelligence**.
+
+## ELASTICO should never fake what it does not know.
+
+## ELASTICO should fit **every screen it claims to support**.
+
+## ELASTICO should feel like **one coherent football intelligence environment**.
+
+### The image is the map.
+
+### The codebase is the territory.
+
+### The data is the truth.
+
+### The UX is the bridge between them.
+
+**Build accordingly.**
+
+---
+
+And **yes, attach the montage image to the GLM request**. I would *not* convert it to SVG just for this purpose. An SVG is useful when you need **editable vector assets**, not when you need the model to understand a visual composition. The raster reference is actually better for this job.
+
+The next step I'd take, though, is even stronger: **don't give GLM only one montage.** Give it **one reference image per major page**—Dashboard, Live Match, Player, Match Analysis, Compare, Predictions, AI, Analytics, Settings—alongside this blueprint. That removes the ambiguity of the montage and gives GLM a visual target for each screen.Yes — **if you only give GLM the montage + the previous prompt, there is a real risk it interprets the montage as one giant dashboard composition** rather than nine separate application routes.
+
+We should remove that ambiguity completely.
+
+### The solution
+
+Tell GLM explicitly:
+
+> **THE IMAGE IS A MULTI-PAGE REFERENCE BOARD, NOT ONE SCREEN.**
+
+Then give it a **fixed mapping**.
+
+For example:
+
+| Reference panel | ELASTICO route          | What it represents  |
+| --------------- | ----------------------- | ------------------- |
+| 01              | `/dashboard`            | Main command center |
+| 02              | `/matches/:id`          | Live Match          |
+| 03              | `/players/:id`          | Player Profile      |
+| 04              | `/matches/:id/analysis` | Match Analysis      |
+| 05              | `/compare`              | Player Comparison   |
+| 06              | `/predictions`          | Predictions         |
+| 07              | `/ai`                   | AI Analyst          |
+| 08              | `/analytics`            | Analytics           |
+| 09              | `/settings`             | Settings            |
+
+**But here's the important part:** don't assume those exact routes exist. Tell GLM to inspect the repository and map the reference panels to the **actual existing routes/components**, preserving existing routing where possible.
+
+### Add this directly to the prompt you already copied
+
+Put this **at the very top**, before the rest of the mega prompt:
+
+---
+
+# 🚨 CRITICAL VISUAL REFERENCE INTERPRETATION
+
+**STOP BEFORE IMPLEMENTATION.**
+
+The attached reference image is a **MULTI-PAGE REFERENCE BOARD**.
+
+## IT IS NOT ONE SCREEN.
+
+## DO NOT BUILD THE ENTIRE IMAGE AS ONE DASHBOARD.
+
+The individual visual panels represent **different pages/screens/states within the ELASTICO application**.
+
+Treat the image as a **visual sitemap + design reference**, not as a single UI.
+
+---
+
+# PAGE MAPPING PROTOCOL
+
+First inspect the existing ELASTICO repository and identify its actual:
+
+* routes
+* pages
+* views
+* navigation items
+* components
+* page hierarchy
+
+Then map each visual reference panel to the appropriate existing ELASTICO page.
+
+### Conceptual mapping:
+
+**REFERENCE 01 → MAIN DASHBOARD**
+
+Purpose:
+
+ELASTICO command center.
+
+---
+
+**REFERENCE 02 → LIVE MATCH**
+
+Purpose:
+
+Real-time match intelligence.
+
+---
+
+**REFERENCE 03 → PLAYER PROFILE**
+
+Purpose:
+
+Individual player intelligence.
+
+---
+
+**REFERENCE 04 → MATCH ANALYSIS**
+
+Purpose:
+
+Deep tactical/statistical analysis of a specific match.
+
+---
+
+**REFERENCE 05 → PLAYER COMPARISON**
+
+Purpose:
+
+Side-by-side player analysis.
+
+---
+
+**REFERENCE 06 → PREDICTIONS**
+
+Purpose:
+
+ELASTICO prediction and model intelligence.
+
+---
+
+**REFERENCE 07 → AI ANALYST**
+
+Purpose:
+
+Context-aware football intelligence assistant.
+
+---
+
+**REFERENCE 08 → ANALYTICS**
+
+Purpose:
+
+Deeper statistical exploration.
+
+---
+
+**REFERENCE 09 → SETTINGS**
+
+Purpose:
+
+Configuration and account management.
+
+---
+
+# IMPORTANT
+
+The numbers above are **conceptual reference positions**, not assumptions about the current repository.
+
+Before coding:
+
+### STEP 1
+
+Identify exactly which visual panel represents which concept.
+
+### STEP 2
+
+Identify the actual ELASTICO route corresponding to that concept.
+
+### STEP 3
+
+Identify the existing React component/page implementing that route.
+
+### STEP 4
+
+Identify the existing backend/API/data source powering it.
+
+### STEP 5
+
+Create a mapping table:
+
+| Reference | Concept    | Existing Route | Existing Component | Data Source | Action   |
+| --------- | ---------- | -------------- | ------------------ | ----------- | -------- |
+| 01        | Dashboard  | ...            | ...                | ...         | redesign |
+| 02        | Live Match | ...            | ...                | ...         | redesign |
+| 03        | Player     | ...            | ...                | ...         | redesign |
+| etc.      |            |                |                    |             |          |
+
+**DO NOT START VISUAL IMPLEMENTATION UNTIL THIS MAP IS UNDERSTOOD.**
+
+---
+
+# THE REFERENCE PANELS ARE RELATED — BUT THEY ARE NOT THE SAME PAGE
+
+The visual language should be shared across all pages.
+
+That means they should have a common:
+
+* design system
+* typography
+* spacing system
+* navigation
+* colors
+* iconography
+* component language
+* data visualization language
+* interaction language
+
+But each page has its own:
+
+* purpose
+* information hierarchy
+* content
+* workflow
+* layout
+* primary action
+
+---
+
+# DO NOT DUPLICATE THE SAME DASHBOARD
+
+Do not take the Dashboard layout and paste it into every page.
+
+Instead:
+
+### Dashboard
+
+**Overview**
+
+### Live Match
+
+**Real-time investigation**
+
+### Player
+
+**Individual intelligence**
+
+### Match Analysis
+
+**Deep investigation**
+
+### Compare
+
+**Relative evaluation**
+
+### Predictions
+
+**Forecasting**
+
+### AI
+
+**Reasoning / interpretation**
+
+### Analytics
+
+**Exploration**
+
+### Settings
+
+**Configuration**
+
+Each page must feel purpose-built.
+
+---
+
+# IMAGE → PAGE → COMPONENT → DATA
+
+For every visual panel follow this hierarchy:
+
+```text
+REFERENCE IMAGE
+      ↓
+PAGE CONCEPT
+      ↓
+ACTUAL ELASTICO ROUTE
+      ↓
+PAGE COMPONENTS
+      ↓
+REAL DATA SOURCES
+      ↓
+USER INTERACTIONS
+```
+
+Never:
+
+```text
+REFERENCE IMAGE
+      ↓
+COPY EVERYTHING
+      ↓
+ONE GIANT DASHBOARD
+```
+
+---
+
+# VISUAL REFERENCES ARE NOT CONTENT
+
+The image provides:
+
+**composition**
+
+**spacing**
+
+**hierarchy**
+
+**visual language**
+
+**information density**
+
+**visualization ideas**
+
+**interaction ideas**
+
+It does NOT provide:
+
+* production data
+* real player statistics
+* real matches
+* real predictions
+* real system status
+* real AI output
+
+Those must come from ELASTICO.
+
+---
+
+# MULTI-PAGE INTEGRITY TEST
+
+After implementation, navigate through the application as a real user:
+
+```text
+Dashboard
+   ↓
+Select Match
+   ↓
+Live Match
+   ↓
+Match Analysis
+   ↓
+Select Player
+   ↓
+Player Profile
+   ↓
+Compare
+   ↓
+Predictions
+   ↓
+Ask AI
+   ↓
+Analytics
+```
+
+The user should feel like they are moving through **one continuous product**, not jumping between unrelated designs.
+
+---
+
+# FINAL WARNING
+
+**NEVER render all reference panels simultaneously as one application screen.**
+
+**NEVER treat the montage as one giant dashboard.**
+
+**NEVER copy the example data.**
+
+**NEVER create nine duplicated versions of the same page.**
+
+The reference board represents **multiple pages belonging to one application**.
+
+Build the pages separately.
+
+Connect them through the actual ELASTICO navigation and routing.
+
+---
+
+## One more thing I'd do
+
+If you haven't sent the montage to GLM yet, **rename the image before uploading it** to something unambiguous, such as:
+
+`ELASTICO_MULTI_PAGE_REFERENCE_BOARD.png`
+
+Not:
+
+`dashboard.png`
+
+That tiny detail matters because `"dashboard.png"` strongly suggests *one dashboard*.
+
+And in the prompt say:
+
+> **The attached file `ELASTICO_MULTI_PAGE_REFERENCE_BOARD.png` is a multi-page visual reference board containing separate page concepts. It is not a single screen.**
+
+That should make the intent extremely difficult for GLM to misunderstand.
+
+**Even better:** if you can give GLM the nine individual page images as well, do that. The montage becomes the **master visual map**, while the individual images become the **page-level specifications**. That's the closest equivalent to giving an engineer both the architectural blueprint and the drawings for each room.
+# ELASTICO — MASTER VISUAL ARCHITECTURE & MULTI-PAGE IMPLEMENTATION DIRECTIVE
+
+**Repository:** `https://github.com/isaJrKai/Elastico`
+**Production:** `https://elastico-elastico.vercel.app/`
+
+You are working on **ELASTICO**, an existing football intelligence application with a real technical foundation.
+
+You have:
+
+1. The existing ELASTICO repository.
+2. The forensic audit of the application.
+3. The attached visual reference board.
+4. This directive.
+
+Your job is **not to create a new application**.
+
+Your job is to take the existing ELASTICO system and turn it into the **complete product it is intended to be**.
+
+---
+
+# 🚨 CRITICAL: UNDERSTAND THE ATTACHED IMAGE CORRECTLY
+
+## THE ATTACHED IMAGE IS A MULTI-PAGE REFERENCE BOARD.
+
+## IT IS NOT ONE SCREEN.
+
+## IT IS NOT ONE GIANT DASHBOARD.
+
+## DO NOT BUILD THE ENTIRE IMAGE AS ONE PAGE.
+
+The image contains **multiple distinct page concepts belonging to the same ELASTICO application**.
+
+Think of it as:
+
+> **a visual sitemap + design system reference + page architecture reference.**
+
+Each visual panel represents a different experience inside ELASTICO.
+
+The pages must be implemented as **separate routes/views**, connected through the application's actual navigation.
+
+---
+
+# 1. FIRST: STOP AND UNDERSTAND THE REPOSITORY
+
+Before changing the UI, inspect the existing application.
+
+Identify:
+
+* all routes
+* all pages
+* all views
+* navigation
+* page components
+* shared components
+* layouts
+* API routes
+* database models
+* data-fetching logic
+* prediction engines
+* AI infrastructure
+* existing visualization components
+* player data
+* match data
+* team data
+* image/headshot data
+* authentication
+* settings
+* existing responsive behavior
+
+Do not assume the conceptual names below correspond exactly to the existing route names.
+
+**Map the visual concepts to the actual ELASTICO architecture.**
+
+---
+
+# 2. CREATE THE PAGE MAP BEFORE IMPLEMENTING
+
+Before major UI implementation, produce this internal mapping:
+
+| Reference Panel | Concept           | Existing ELASTICO Route | Existing Component | Data Source | Action   |
+| --------------- | ----------------- | ----------------------- | ------------------ | ----------- | -------- |
+| 01              | Main Dashboard    | inspect                 | inspect            | inspect     | redesign |
+| 02              | Live Match        | inspect                 | inspect            | inspect     | redesign |
+| 03              | Player Profile    | inspect                 | inspect            | inspect     | redesign |
+| 04              | Match Analysis    | inspect                 | inspect            | inspect     | redesign |
+| 05              | Player Comparison | inspect                 | inspect            | inspect     | redesign |
+| 06              | Predictions       | inspect                 | inspect            | inspect     | redesign |
+| 07              | AI Analyst        | inspect                 | inspect            | inspect     | redesign |
+| 08              | Analytics         | inspect                 | inspect            | inspect     | redesign |
+| 09              | Settings          | inspect                 | inspect            | inspect     | redesign |
+
+These are **conceptual mappings**.
+
+If the existing repository uses different routes or combines/splits these experiences differently, preserve the application's existing architecture where sensible and map the visual concepts appropriately.
+
+---
+
+# 3. NEVER CONFUSE THE REFERENCE BOARD WITH THE ACTUAL APPLICATION
+
+The visual board tells you:
+
+* how sophisticated the product should feel
+* how information can be composed
+* how visual hierarchy can work
+* how dense analytical interfaces can remain elegant
+* how charts can coexist with data
+* how pages can feel related
+* how spatial design can be used
+
+It does **not** tell you:
+
+* what the production data is
+* what players are currently available
+* what matches are currently available
+* what predictions are currently available
+* what the database contains
+* what the APIs return
+* what the user should literally see at every moment
+
+The **repository and real data are the source of truth**.
+
+---
+
+# 4. ONE PRODUCT, MANY EXPERIENCES
+
+All pages must feel like they belong to one application.
+
+They share:
+
+* typography
+* spacing system
+* color system
+* iconography
+* navigation
+* component language
+* interaction language
+* data visualization language
+* motion principles
+* responsive principles
+
+But they must **not** all have the same layout.
+
+---
+
+# 5. DO NOT DUPLICATE THE DASHBOARD
+
+This is extremely important.
+
+Do not build:
+
+```text
+Dashboard
+    ↓
+copy dashboard
+    ↓
+change title
+    ↓
+Player page
+```
+
+Do not build nine versions of the same card grid.
+
+Each page has a different purpose.
+
+### Dashboard
+
+**Orient and prioritize.**
+
+### Live Match
+
+**Observe and investigate.**
+
+### Player
+
+**Understand an individual.**
+
+### Match Analysis
+
+**Understand the match.**
+
+### Compare
+
+**Understand differences.**
+
+### Predictions
+
+**Understand forecasts and model agreement.**
+
+### AI
+
+**Ask and reason about football intelligence.**
+
+### Analytics
+
+**Explore deeper data.**
+
+### Settings
+
+**Configure the product.**
+
+---
+
+# 6. REFERENCE IMAGE → PAGE → COMPONENT → DATA
+
+Every visual region must follow this chain:
+
+```text
+REFERENCE IMAGE
+      ↓
+PAGE CONCEPT
+      ↓
+ACTUAL ELASTICO ROUTE
+      ↓
+PAGE COMPONENT
+      ↓
+REAL DATA SOURCE
+      ↓
+USER ACTION
+```
+
+Never:
+
+```text
+REFERENCE IMAGE
+      ↓
+COPY EVERYTHING
+      ↓
+MAKE IT LOOK FULL
+      ↓
+INVENT DATA
+```
+
+---
+
+# 7. THE DASHBOARD
+
+The dashboard is ELASTICO's command center.
+
+It should answer:
+
+> What is happening?
+
+> What matters?
+
+> What changed?
+
+> What should I investigate?
+
+> What does ELASTICO know?
+
+Use real information from the system.
+
+Potential regions:
+
+### Global orientation
+
+* page identity
+* current context
+* relevant controls
+
+### Key signals
+
+* live matches
+* prediction activity
+* meaningful system metrics
+* model performance where real data exists
+
+### Live matches
+
+Show:
+
+* competition
+* teams
+* crests
+* score
+* match status/minute
+* relevant live indicators
+
+### Prediction intelligence
+
+Show:
+
+* match
+* prediction
+* probability
+* confidence
+* model consensus
+
+### AI intelligence
+
+Show useful context-aware insights.
+
+### Performance
+
+Only display historical model performance if the underlying data exists.
+
+---
+
+# 8. LIVE MATCH
+
+The Live Match page is not simply a scoreboard.
+
+It is a football intelligence workspace.
+
+Possible areas:
+
+* match identity
+* score
+* minute/status
+* competition
+* live statistics
+* event timeline
+* probability movement
+* momentum
+* lineups
+* tactical information
+* heatmaps
+* AI analysis
+
+Only expose information supported by real data.
+
+---
+
+# 9. HEATMAPS — IMPORTANT
+
+The reference visual contains football heatmaps.
+
+These are **not decorative backgrounds**.
+
+A legitimate heatmap requires spatial information.
+
+For example:
+
+```text
+player
+x coordinate
+y coordinate
+timestamp
+event
+team
+```
+
+If ELASTICO has genuine spatial/event coordinates:
+
+build real heatmaps.
+
+Possible legitimate visualizations:
+
+* player heatmap
+* team heatmap
+* touch density
+* action density
+* shot locations
+* pass locations
+
+If the existing data does not contain spatial coordinates:
+
+## DO NOT FAKE THE HEATMAP.
+
+Do not generate random dots.
+
+Do not generate a pretty gradient and pretend it represents player movement.
+
+Instead:
+
+* determine whether the backend can provide the required data;
+* determine whether an existing provider can provide it;
+* or display a sophisticated empty/unavailable state.
+
+Truth is more important than visual completeness.
+
+---
+
+# 10. TACTICAL PITCH
+
+The reference contains football-pitch visualizations.
+
+Use real:
+
+* lineups
+* positions
+* formations
+* events
+* spatial information
+
+where available.
+
+Do not randomly position players to make the screen look intelligent.
+
+---
+
+# 11. PLAYER PROFILE
+
+The Player page should feel like a football intelligence dossier.
+
+Top-level:
+
+* legitimate player photograph
+* player name
+* team
+* position
+* nationality
+* age where available
+
+Then:
+
+### Performance
+
+Meaningful real metrics.
+
+### Attributes
+
+Only calculated/available attributes.
+
+### Form
+
+Real recent performance.
+
+### Statistics
+
+Organized by meaning.
+
+### Spatial information
+
+Real heatmaps where supported.
+
+### Comparisons
+
+Useful contextual comparisons.
+
+---
+
+# 12. PLAYER PHOTOS
+
+Do not generate fake football-player faces.
+
+Do not manually create fictional player identities.
+
+Inspect ELASTICO's existing data ingestion first.
+
+Determine whether the current football data provider already supplies player headshot URLs.
+
+If available:
+
+**use them.**
+
+If not:
+
+determine an appropriate legitimate source before introducing another dependency.
+
+Use a graceful fallback:
+
+```text
+REAL PLAYER PHOTO
+        ↓
+TEAM / LEAGUE FALLBACK
+        ↓
+INITIALS / AVATAR
+```
+
+Never:
+
+```text
+missing image
+        ↓
+AI-generated fake player
+```
+
+---
+
+# 13. MATCH ANALYSIS
+
+The Match Analysis page should provide deeper interpretation.
+
+Possible structure:
+
+### Match summary
+
+### Key statistics
+
+### Tactical shape
+
+### Event timeline
+
+### Momentum
+
+### Probability changes
+
+### Player performance
+
+### Team performance
+
+### AI interpretation
+
+Every visualization must have a real analytical purpose.
+
+---
+
+# 14. PLAYER COMPARISON
+
+Comparison should answer:
+
+> Where does Player A differ from Player B?
+
+Use real statistics.
+
+Possible dimensions:
+
+* goals
+* assists
+* shots
+* creation
+* passing
+* defending
+* minutes
+* per-90 metrics
+* other real ELASTICO metrics
+
+Radar charts may be used where genuinely useful.
+
+Do not use a radar simply because it looks like a sports analytics interface.
+
+---
+
+# 15. PREDICTIONS
+
+This is one of ELASTICO's strongest technical areas.
+
+The UI must expose the underlying intelligence properly.
+
+Potential structure:
+
+### Match
+
+### Prediction
+
+### Probability
+
+### Confidence
+
+### Model agreement
+
+### Key factors
+
+### Deeper model analysis
+
+ELASTICO already contains sophisticated mathematical infrastructure.
+
+Do not hide that intelligence behind a generic percentage.
+
+---
+
+# 16. MODEL CONSENSUS
+
+Where multiple models actually contribute to a prediction, expose their relationship.
+
+For example:
+
+```text
+ELO
+Poisson
+Dixon-Coles
+Monte Carlo
+Other implemented models
+```
+
+Show:
+
+* prediction
+* probability
+* agreement/disagreement
+
+Then communicate the result clearly:
+
+> Strong model agreement
+
+or:
+
+> Model disagreement
+
+Only show models actually involved in the calculation.
+
+---
+
+# 17. AI ANALYST
+
+The AI must feel embedded inside ELASTICO.
+
+It should not look like:
+
+> generic chatbot pasted into a football application.
+
+The AI should understand the current context where technically possible:
+
+* current match
+* player
+* team
+* prediction
+* statistics
+* analytical results
+
+Distinguish where useful:
+
+### DATA
+
+What actually happened.
+
+### MODEL
+
+What ELASTICO calculated.
+
+### AI INTERPRETATION
+
+What the AI believes the information means.
+
+### UNCERTAINTY
+
+What remains unknown.
+
+---
+
+# 18. ANALYTICS
+
+Analytics is the deeper exploration environment.
+
+Use meaningful visualizations for:
+
+* players
+* teams
+* matches
+* competitions
+* trends
+* performance
+* model performance
+
+Every chart must answer a question.
+
+Never add charts merely because an empty area needs something.
+
+---
+
+# 19. SETTINGS
+
+Settings should be calm and functional.
+
+Organize logically.
+
+Possible sections:
+
+* profile
+* preferences
+* notifications
+* security
+* appearance
+* API/integrations where applicable
+
+Do not turn Settings into another analytics dashboard.
+
+---
+
+# 20. THE MOST IMPORTANT UX FIX: PAGE INTEGRITY
+
+ELASTICO currently has elements that do not fit properly on the screen.
+
+This must be treated as a **structural engineering problem**, not a cosmetic issue.
+
+Every page must remain inside its intended viewport.
+
+No:
+
+* accidental horizontal scrolling
+* panels crossing the screen edge
+* charts escaping containers
+* cards wider than their parent
+* buttons outside their containers
+* text escaping
+* navigation collisions
+* modals extending beyond the viewport
+* tables destroying page width
+* fixed-width components breaking smaller screens
+
+---
+
+# 21. RESPONSIVE TEST MATRIX
+
+Test every major page at:
+
+```text
+320px
+375px
+390px
+430px
+768px
+1024px
+1280px
+1440px
+1920px
+```
+
+Also test intermediate widths.
+
+The application must not assume a single desktop resolution.
+
+---
+
+# 22. DO NOT HIDE OVERFLOW
+
+Do not use:
+
+```css
+overflow-x: hidden;
+```
+
+as a blanket solution.
+
+If something overflows:
+
+### FIND THE CAUSE.
+
+Inspect:
+
+* fixed widths
+* `min-width`
+* flex children
+* grid tracks
+* `100vw`
+* absolute positioning
+* transforms
+* chart dimensions
+* tables
+* long text
+* navigation dimensions
+
+Fix the actual architecture.
+
+---
+
+# 23. RESPONSIVE RECOMPOSITION
+
+Mobile is not:
+
+> Desktop but smaller.
+
+Desktop can use:
+
+* multi-column analytical layouts
+* side navigation
+* large visualizations
+* simultaneous data regions
+
+Mobile may need:
+
+* stacked content
+* condensed navigation
+* prioritized information
+* expandable sections
+* horizontally scrollable analytical tables where appropriate
+* simplified visualizations
+
+Recompose the experience.
+
+Do not merely shrink it.
+
+---
+
+# 24. FLEXBOX AND GRID INTEGRITY
+
+Audit every important flex/grid layout.
+
+Look specifically for children that refuse to shrink.
+
+Where appropriate, ensure components can actually shrink within their parent.
+
+Do not blindly apply CSS fixes without understanding why the overflow exists.
+
+---
+
+# 25. TABLE INTEGRITY
+
+Tables must never make the entire application wider.
+
+On smaller screens:
+
+* reduce columns
+* prioritize information
+* allow intentional table scrolling
+* use expandable rows
+* transform into mobile-friendly structures where appropriate
+
+Never squeeze an enormous desktop table into a tiny phone.
+
+---
+
+# 26. CHART INTEGRITY
+
+Every chart must be responsive.
+
+It must:
+
+* stay inside its parent
+* resize
+* remain readable
+* handle long labels
+* handle legends
+* handle tooltips
+* handle empty data
+
+---
+
+# 27. MODAL INTEGRITY
+
+Every modal must fit the viewport.
+
+Check:
+
+* width
+* height
+* long content
+* scrolling
+* mobile
+* keyboard access
+* close controls
+
+Nothing important should become inaccessible.
+
+---
+
+# 28. SPACING SYSTEM
+
+Create a coherent spacing system.
+
+Spacing must feel intentional.
+
+Avoid:
+
+* cramped content
+* giant unexplained gaps
+* inconsistent padding
+* cards touching each other
+* headings touching controls
+* content pressed against screen edges
+
+Use consistent rhythm across the application.
+
+---
+
+# 29. PAGE COMPOSITION
+
+Every page must have:
+
+### ORIENTATION
+
+Where am I?
+
+### PURPOSE
+
+Why am I here?
+
+### PRIMARY INFORMATION
+
+What matters most?
+
+### PRIMARY ACTION
+
+What can I do?
+
+### SUPPORTING INFORMATION
+
+What helps me understand it?
+
+### NEXT STEP
+
+Where can I go from here?
+
+---
+
+# 30. DO NOT TURN EVERYTHING INTO CARDS
+
+Cards are useful.
+
+Cards are not the architecture.
+
+Use:
+
+* open analytical surfaces
+* tables
+* timelines
+* charts
+* lists
+* comparison matrices
+* split views
+* full-width sections
+* layered panels
+* contextual overlays
+
+Use cards only when they improve comprehension.
+
+---
+
+# 31. VISUAL LANGUAGE
+
+The reference represents a premium, analytical, spatially sophisticated product.
+
+Use:
+
+* strong composition
+* deliberate asymmetry
+* negative space
+* controlled density
+* typography
+* geometry
+* restrained surfaces
+* purposeful contrast
+* meaningful motion
+
+Do not create:
+
+* random gradients
+* excessive glow
+* generic glassmorphism
+* meaningless badges
+* giant KPI walls
+* decorative blobs
+* excessive rounded cards
+* generic purple AI styling
+
+---
+
+# 32. ZAHA HADID PRINCIPLE
+
+Do not literally imitate Zaha Hadid's architecture.
+
+Instead apply architectural thinking:
+
+### Flow
+
+### Movement
+
+### Geometry
+
+### Proportion
+
+### Continuity
+
+### Asymmetry
+
+### Layering
+
+### Negative space
+
+The interface should feel **designed as a spatial system**.
+
+Not assembled from AI-generated components.
+
+---
+
+# 33. EMOJIS
+
+Remove decorative emojis from:
+
+* navigation
+* headings
+* buttons
+* cards
+* statistics
+* empty states
+* notifications
+
+Use purposeful icons instead.
+
+---
+
+# 34. DATA HONESTY
+
+Every number displayed must have a source.
+
+Every chart must have a source.
+
+Every heatmap must have a source.
+
+Every player must have a real identity.
+
+Every prediction must come from the actual prediction system.
+
+Every AI insight must be generated from real context.
+
+If something is unavailable:
+
+**say so.**
+
+Never manufacture data simply to make a screen look complete.
+
+---
+
+# 35. REFERENCE DATA IS NOT PRODUCTION DATA
+
+Do not copy the numbers from the visual reference.
+
+Do not copy:
+
+* example scores
+* percentages
+* player statistics
+* prediction values
+* performance values
+* fake system metrics
+
+Those are visual examples only.
+
+Use actual ELASTICO data.
+
+---
+
+# 36. THE REFERENCE PLAYERS ARE NOT NECESSARILY ELASTICO PLAYERS
+
+The player images in the reference are examples of how player information should be presented.
+
+They are not instructions to hardcode those players.
+
+Use real players from ELASTICO's available data.
+
+---
+
+# 37. EVERY VISUALIZATION MUST HAVE A DATA CONTRACT
+
+For each significant visualization document internally:
+
+```text
+DATA SOURCE
+      ↓
+DATA TRANSFORMATION
+      ↓
+VISUALIZATION
+      ↓
+USER INTERPRETATION
+```
+
+Example:
+
+```text
+ESPN event data
+      ↓
+filter shots
+      ↓
+shot map
+      ↓
+user understands shot locations
+```
+
+Heatmap:
+
+```text
+spatial player events
+      ↓
+coordinate normalization
+      ↓
+density calculation
+      ↓
+football pitch heatmap
+```
+
+If the first step does not exist:
+
+**do not fake the last step.**
+
+---
+
+# 38. LOADING, EMPTY AND ERROR STATES
+
+Every asynchronous feature must have:
+
+### LOADING
+
+A meaningful loading state.
+
+### EMPTY
+
+A meaningful explanation.
+
+### ERROR
+
+A useful error state.
+
+### RETRY
+
+Where appropriate.
+
+Never leave empty white/black boxes.
+
+Never display fake data while waiting.
+
+---
+
+# 39. FUNCTIONALITY AUDIT
+
+Every interactive element must work.
+
+Audit:
+
+* buttons
+* tabs
+* navigation
+* dropdowns
+* filters
+* search
+* toggles
+* bookmarks
+* forms
+* modals
+* charts
+* player selection
+* match selection
+* AI controls
+
+If it doesn't work:
+
+**fix it or remove it.**
+
+---
+
+# 40. ROUTING AUDIT
+
+Every page must:
+
+* route correctly
+* refresh correctly
+* load directly
+* preserve appropriate context
+* show active navigation
+* provide a clear way back
+
+Do not create beautiful orphan pages.
+
+---
+
+# 41. PERFORMANCE
+
+Do not unnecessarily load the entire application at startup.
+
+Use appropriate code splitting and lazy loading.
+
+Load what the user needs.
+
+Then load deeper capabilities when necessary.
+
+The application should feel fast.
+
+---
+
+# 42. SECURITY
+
+Do not let visual redesign distract from critical security issues.
+
+Preserve and fix:
+
+* authentication
+* authorization
+* admin security
+* demo access
+* setup endpoints
+* secrets
+* rate limiting
+* session security
+* API protection
+
+---
+
+# 43. PRESERVE THE STRONG TECHNICAL FOUNDATION
+
+Do not rebuild working infrastructure just to make the code look different.
+
+Before replacing anything determine:
+
+### KEEP
+
+What works.
+
+### IMPROVE
+
+What is sound but poorly exposed.
+
+### REBUILD
+
+What is fundamentally broken.
+
+### REMOVE
+
+What has no justified purpose.
+
+---
+
+# 44. BUILD THE DESIGN SYSTEM BEFORE RANDOMLY STYLING PAGES
+
+Establish coherent rules for:
+
+* typography
+* spacing
+* colors
+* surfaces
+* borders
+* radius
+* shadows
+* icons
+* buttons
+* inputs
+* navigation
+* tables
+* charts
+* alerts
+* modals
+
+Then use those rules throughout the application.
+
+---
+
+# 45. THE REFERENCE BOARD SHOULD BECOME A VISUAL LANGUAGE, NOT A SINGLE SCREEN
+
+The goal is:
+
+```text
+                ELASTICO
+                    │
+        ┌───────────┴───────────┐
+        │                       │
+    SHARED DESIGN           SHARED DATA
+        │                       │
+ ┌──────┼──────┬──────┐         │
+ │      │      │      │         │
+Dashboard Match Player ...      │
+ │      │      │      │         │
+ └──────┴──────┴──────┘         │
+        │                       │
+        └───────────┬───────────┘
+                    │
+             ONE PRODUCT
+```
+
+Not:
+
+```text
+ONE GIANT IMAGE
+       ↓
+ONE GIANT PAGE
+```
+
+---
+
+# 46. USER JOURNEY
+
+The pages should connect naturally.
+
+A user might:
+
+```text
+Dashboard
+    ↓
+Live Match
+    ↓
+Match Analysis
+    ↓
+Player
+    ↓
+Compare
+    ↓
+Prediction
+    ↓
+Ask AI
+    ↓
+Analytics
+```
+
+The application should preserve context wherever appropriate.
+
+If the user is investigating a match, moving to a player should make sense.
+
+If the user is examining a player, comparison should be accessible.
+
+If the user is looking at a prediction, AI should understand what they are looking at.
+
+---
+
+# 47. THE APP MUST FEEL LIKE AN INTELLIGENCE SYSTEM
+
+Not:
+
+> statistics website
+
+Not:
+
+> generic sports dashboard
+
+Not:
+
+> chatbot
+
+Not:
+
+> betting interface
+
+Not:
+
+> AI-generated admin panel
+
+ELASTICO should feel like:
+
+# A FOOTBALL INTELLIGENCE ENVIRONMENT.
+
+---
+
+# 48. FINAL IMPLEMENTATION ORDER
+
+Do not attempt to redesign every page randomly.
+
+Follow this order:
+
+## PHASE 1 — REPOSITORY UNDERSTANDING
+
+Map routes, components, APIs and data.
+
+## PHASE 2 — VISUAL MAPPING
+
+Map each reference panel to its actual page.
+
+## PHASE 3 — DATA TRUTH
+
+Identify and eliminate fake/static/random production data.
+
+## PHASE 4 — FUNCTIONALITY
+
+Fix dead controls and broken workflows.
+
+## PHASE 5 — LAYOUT ARCHITECTURE
+
+Fix viewport containment and responsive structure.
+
+## PHASE 6 — GLOBAL DESIGN SYSTEM
+
+Establish visual rules.
+
+## PHASE 7 — APPLICATION SHELL
+
+Navigation/header/content architecture.
+
+## PHASE 8 — DASHBOARD
+
+Build the command center.
+
+## PHASE 9 — LIVE MATCH
+
+Build the live intelligence workspace.
+
+## PHASE 10 — PLAYER
+
+Build the player intelligence dossier.
+
+## PHASE 11 — MATCH ANALYSIS
+
+Build deeper analysis.
+
+## PHASE 12 — COMPARISON
+
+Build contextual comparison.
+
+## PHASE 13 — PREDICTIONS
+
+Expose the mathematical intelligence.
+
+## PHASE 14 — AI
+
+Integrate context-aware intelligence.
+
+## PHASE 15 — ANALYTICS
+
+Build deeper exploration.
+
+## PHASE 16 — SETTINGS
+
+Finish configuration.
+
+## PHASE 17 — HEATMAPS / SPATIAL ANALYSIS
+
+Implement only where legitimate data supports them.
+
+## PHASE 18 — RESPONSIVE QA
+
+Every page, every viewport.
+
+## PHASE 19 — FUNCTIONAL QA
+
+Every interaction.
+
+## PHASE 20 — VISUAL QA
+
+Every page against the reference language.
+
+---
+
+# 49. DEFINITION OF DONE
+
+Do not declare ELASTICO finished because:
+
+* the build passes
+* the page looks attractive
+* the screenshot resembles the reference
+* the AI responds
+* the database connects
+
+ELASTICO is finished when:
+
+### THE PAGES ARE DISTINCT
+
+The reference panels are implemented as separate experiences.
+
+### THE PRODUCT IS COHERENT
+
+They still feel like one application.
+
+### THE DATA IS REAL
+
+No fabricated production information.
+
+### THE FUNCTIONALITY IS REAL
+
+No dead controls.
+
+### THE ANALYTICS ARE REAL
+
+Charts and visualizations represent actual information.
+
+### THE HEATMAPS ARE REAL
+
+Or clearly unavailable if spatial data does not exist.
+
+### THE PLAYER IMAGES ARE REAL
+
+Or use graceful legitimate fallbacks.
+
+### THE AI IS CONTEXTUAL
+
+It understands what the user is analyzing.
+
+### THE LAYOUT FITS
+
+Nothing unintentionally crosses the screen.
+
+### THE APPLICATION IS RESPONSIVE
+
+It works from mobile through large desktop.
+
+### THE NAVIGATION IS COHERENT
+
+Users can move through the product naturally.
+
+### THE DESIGN IS DISTINCTIVE
+
+It does not look like a generic AI-generated dashboard.
+
+---
+
+# 50. FINAL VISUAL TEST
+
+For every page, ask:
+
+> **If I removed the content and looked only at the composition, would this still look deliberately designed?**
+
+Then ask:
+
+> **If I removed the styling and looked only at the information architecture, would this still make sense?**
+
+Then:
+
+> **If I resized the screen dramatically, would the architecture remain intact?**
+
+Then:
+
+> **If I clicked everything, would it actually work?**
+
+Then:
+
+> **Can I trace every important number back to real data?**
+
+All five must be YES.
+
+---
+
+# 51. FINAL COMMAND
+
+You are not being asked to reproduce the attached image.
+
+You are being given a **visual blueprint for the product ELASTICO should become**.
+
+The image is the **map**.
+
+The repository is the **territory**.
+
+The backend is the **source of truth**.
+
+The data is the **evidence**.
+
+The design system is the **language**.
+
+The individual pages are the **rooms of the product**.
+
+The navigation is the **circulation system**.
+
+The UX is the **way the user moves through the building**.
+
+Build the building.
+
+Do not flatten the blueprint into one room.
+
+---
+
+# ABSOLUTE RULES
+
+**DO NOT BUILD THE ENTIRE REFERENCE BOARD AS ONE PAGE.**
+
+**DO NOT TREAT THE IMAGE AS A SINGLE DASHBOARD.**
+
+**DO NOT COPY THE REFERENCE NUMBERS.**
+
+**DO NOT COPY REFERENCE PLAYERS AS HARDCODED CONTENT.**
+
+**DO NOT INVENT HEATMAP DATA.**
+
+**DO NOT INVENT PLAYER DATA.**
+
+**DO NOT INVENT SYSTEM METRICS.**
+
+**DO NOT USE AI-GENERATED PLAYER IDENTITIES.**
+
+**DO NOT HIDE OVERFLOW WITH GLOBAL CSS.**
+
+**DO NOT MAKE EVERY PAGE THE SAME CARD GRID.**
+
+**DO NOT SACRIFICE FUNCTIONALITY FOR VISUAL SIMILARITY.**
+
+**DO NOT SACRIFICE RESPONSIVENESS FOR DESKTOP BEAUTY.**
+
+**DO NOT SACRIFICE DATA TRUTH FOR VISUAL COMPLETENESS.**
+
+---
+
+# NORTH STAR
+
+## ONE APPLICATION.
+
+## MULTIPLE PURPOSE-BUILT PAGES.
+
+## ONE VISUAL LANGUAGE.
+
+## REAL DATA.
+
+## REAL INTELLIGENCE.
+
+## REAL FUNCTIONALITY.
+
+## REAL RESPONSIVENESS.
+
+## REAL SPATIAL DESIGN.
+
+## ZERO FAKE INTELLIGENCE.
+
+## ZERO UNINTENTIONAL OVERFLOW.
+
+## ZERO “AI-GENERATED DASHBOARD” FEEL.
+
+# MAKE ELASTICO WHAT IT WAS MEANT TO BE.
+
+**Study the visual reference.**
+
+**Study the repository.**
+
+**Map the two.**
+
+**Respect the distinction between pages.**
+
+**Build each experience individually.**
+
+**Connect them into one system.**
+
+**Then make the entire system exceptional.*
+Take your time and dont leave, operate in stages, dont go to the next be fre the former is not done. i apologize for stopppng you it may have crashed the process, you will have to do it again but go slowly, and later after excute this command, i am going offline so do your work nevertheless. after test it. dont assume build, do th work, the work of your hands let no other ai do, after building, go through the app tsting it and checking if it all works, what ever fais do it again and fix till no error. imma b online soon, 
