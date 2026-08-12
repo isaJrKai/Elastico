@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import {
   Bell,
   BellOff,
@@ -177,8 +177,7 @@ export default function NotificationsView() {
       // Silently handle
     }
     unreadIds.forEach((id) => markNotificationRead(id))
-    toast({
-      title: 'All caught up!',
+    toast.success('All caught up!', {
       description: `${unreadIds.length} notification${unreadIds.length > 1 ? 's' : ''} marked as read.`,
     })
   }, [notifications, markNotificationRead])

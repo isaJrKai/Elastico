@@ -27,7 +27,7 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 // ── Model Options ──────────────────────────────────────────────────────────────
@@ -272,10 +272,8 @@ export default function ChatView() {
       }
     } catch {
       updateChatMessage(streamingMsgId || aiMsgId, { content: 'Sorry, something went wrong. Please try again.' })
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Failed to get AI response.',
-        variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
@@ -287,8 +285,7 @@ export default function ChatView() {
 
   const handleClear = useCallback(() => {
     clearChat()
-    toast({
-      title: 'Chat cleared',
+    toast.success('Chat cleared', {
       description: 'All messages have been removed.',
     })
   }, [clearChat])
@@ -297,8 +294,7 @@ export default function ChatView() {
 
   const handleExport = useCallback(() => {
     if (chatMessages.length === 0) {
-      toast({
-        title: 'Nothing to export',
+      toast.info('Nothing to export', {
         description: 'Chat is empty.',
       })
       return
@@ -314,15 +310,13 @@ export default function ChatView() {
 
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).then(() => {
-        toast({
-          title: 'Copied to clipboard',
+        toast.success('Copied to clipboard', {
           description: 'Chat exported successfully.',
         })
       })
     } else {
       const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
-      toast({
-        title: 'Copied to clipboard',
+      toast.success('Copied to clipboard', {
         description: 'Chat exported successfully.',
       })
     }

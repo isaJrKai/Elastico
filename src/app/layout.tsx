@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     icon: [
       { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
-      { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2300e676'/><text x='50' y='72' font-size='65' font-weight='bold' text-anchor='middle' fill='white'>E</text></svg>", sizes: "any" },
+      { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2310B981'/><text x='50' y='72' font-size='65' font-weight='bold' text-anchor='middle' fill='white'>E</text></svg>", sizes: "any" },
     ],
     apple: [
       { url: "/icons/icon-152x152.png", sizes: "152x152" },
@@ -36,8 +36,8 @@ export const metadata: Metadata = {
   },
   other: {
     "mobile-web-app-capable": "yes",
-    "theme-color": "#00e676",
-    "msapplication-TileColor": "#0a0a0a",
+    "theme-color": "#10B981",
+    "msapplication-TileColor": "#0B0E14",
   },
 };
 
@@ -53,10 +53,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="ELASTICO" />
         <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
-        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(reg){reg.unregister()})})}` }} />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground font-sans`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        style={{ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
       >
         <ThemeProvider
           attribute="class"

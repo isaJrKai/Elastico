@@ -1,29 +1,31 @@
 ---
-Task ID: 8
-Agent: Super Z (Main)
-Task: Fix all remaining TypeScript errors and deploy ELASTICO online
+Task ID: 1
+Agent: Main
+Task: Comprehensive polish pass on ELASTICO — design system, theme, fonts, navigation, interactions
 
 Work Log:
-- Found 2 hidden mismatched template literal quotes in predictions.ts (backtick open, single-quote close at lines 1002 and 1052) - these caused the parser to enter wrong context
-- Fixed the-sports-db.ts: idLeague → id (TSD_LEAGUES items use 'id' number field, not 'idLeague')
-- Fixed the-sports-db/route.ts: removed duplicate fetchLeaguesByCountry import, fixed number→string type for league ID
-- Fixed predictions/compute/route.ts: added missing 6th argument to dixonColes(), deduplicated 3 TEAM_ELO_MAP keys (LEV, MON, BRE)
-- Fixed admin/settings/route.ts: typed results as any[] to fix Prisma upsert inference
-- Fixed use-elastico-store.ts: added liveMatches and isLiveLoading to ElasticoStore interface
-- Fixed achievements-view.tsx: added missing unlockedAt: null to 11 locked achievement entries
-- Fixed dashboard-view.tsx: added missing Cloud import from lucide-react
-- Fixed leaderboard-view.tsx: added missing Users import from lucide-react
-- Fixed player-view.tsx: null-safety for appearances, imported ReferenceLine, fixed referenceLine→ReferenceLine casing
-- Fixed tactical-view.tsx: imported ReferenceLine, fixed referenceLine→ReferenceLine casing
-- Fixed social-view.tsx: fixed type incompatibility with unknown cast for feed state setter
-- Fixed tournament-view.tsx: fixed isKnockoutStage to accept MatchData, added MatchData→KnockoutMatch converter
-- Excluded upload/examples/skills/scripts from tsconfig.json
-- TypeScript check: 0 errors
-- Next.js build: SUCCESS (all 42 API routes + static pages)
-- Git commit and push to Vercel: deployed
+- Audited entire application: globals.css, layout.tsx, page.tsx, sidebar.tsx, header.tsx, error-boundary.tsx, command-palette.tsx, login-view.tsx, leaderboard-view.tsx, and 10 other view files
+- Fixed CSS @theme inline to reference Geist font variables instead of unloaded Inter/JetBrains Mono
+- Removed redundant .dark CSS block (was duplicate of :root)
+- Added --shimmer-color variable for light-theme compatibility
+- Fixed layout.tsx: inline style for Geist font, removed service worker killer, fixed theme-color and favicon color to #10B981
+- Fixed page.tsx: replaced all hardcoded dark colors with theme tokens (bg-background, text-foreground, etc.)
+- Fixed sidebar.tsx: all hardcoded colors → theme tokens, added Activity icon for System Monitor (was duplicate Shield), added "Coming Soon" badges for tactical/achievements/social
+- Fixed header.tsx: added theme toggle (Sun/Moon), added missing view titles, all colors → theme tokens, fixed plan badge classes
+- Fixed error-boundary.tsx: hardcoded zinc → theme tokens
+- Fixed login-view.tsx: 30+ hardcoded color replacements, disabled dead Forgot Password/Social Login buttons
+- Fixed leaderboard-view.tsx: replaced emoji tabs with lucide icons, replaced emoji medals with styled text, disabled dead time period filter
+- Fixed command-palette.tsx: implemented full keyboard navigation (↑↓+Enter), removed 🔴 emoji, fixed dialog bg to use popover token
+- Standardized all 14 view files to use sonner toast (migrated 10 files from @/hooks/use-toast)
+- Verified build passes clean
 
 Stage Summary:
-- 14 files changed, 22 unique bugs fixed
-- Zero TypeScript errors, clean build
-- Pushed to main branch, Vercel deployment triggered
-- System is live and updated
+- Build: PASSING
+- Font system: Geist Sans + Geist Mono now actually load via CSS variable chain
+- Light theme: Fully functional with theme toggle in header
+- All hardcoded colors in shell components eliminated
+- Dead interactions disabled with visual cues
+- Toast library unified to sonner
+- Decorative emojis replaced with icons
+- Command palette keyboard navigation working
+- Deployment requires new Vercel token

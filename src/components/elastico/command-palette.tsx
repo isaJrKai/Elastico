@@ -1,14 +1,15 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useElasticoStore, type View } from '@/store/use-elastico-store'
 import { Input } from '@/components/ui/input'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
+  Dialog, DialogContent
 } from '@/components/ui/dialog'
 import {
   LayoutDashboard, Trophy, Swords, Newspaper, MessageSquare, Settings,
   Shield, Bell, CreditCard, BarChart3, Target, Users, Search, ArrowRight
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const viewItems: { view: View; label: string; icon: any; category: string; shortcut: string }[] = [
   { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, category: 'Navigation', shortcut: '⌘D' },
@@ -32,10 +33,14 @@ export default function CommandPalette() {
   const matches = useElasticoStore(s => s.matches)
   const selectMatch = useElasticoStore(s => s.selectMatch)
   const [query, setQuery] = useState('')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (commandPaletteOpen) setQuery('')
+    if (commandPaletteOpen) { setQuery(''); setActiveIndex(0) }
   }, [commandPaletteOpen])
+
+  useEffect(() => { setActiveIndex(0) }, [query])
 
   const handleSelect = useCallback((item: any) => {
     if (item.view) setView(item.view)
@@ -71,7 +76,7 @@ export default function CommandPalette() {
           icon: Swords,
           category: 'Matches',
           matchId: m.id,
-          meta: `${m.stage} ${m.status === 'live' ? '🔴 LIVE' : m.status === 'upcoming' ? 'Upcoming' : 'Finished'}`,
+          meta: `${m.stage} ${m.status === 'live' ? 'LIVE' : m.status === 'upcoming' ? 'Upcoming' : 'Finished'}`,
         }))
     : []
 
@@ -81,21 +86,41 @@ export default function CommandPalette() {
 
   const results = [...navResults.map(v => ({ id: `nav-${v.view}`, label: v.label, icon: v.icon, category: v.category, view: v.view, meta: v.shortcut })), ...matchResults]
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex(i => Math.min(i + 1, results.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex(i => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter' && results[activeIndex]) {
+      e.preventDefault()
+      handleSelect(results[activeIndex])
+    }
+  }, [activeIndex, results, handleSelect])
+
+  useEffect(() => {
+    if (!listRef.current) return
+    const active = listRef.current.querySelector('[aria-selected="true"]')
+    active?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex])
+
   return (
     <Dialog open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen}>
-      <DialogContent className="sm:max-w-lg p-0 gap-0 bg-background/95 backdrop-blur-xl border-border/50">
+      <DialogContent className="sm:max-w-lg p-0 gap-0 bg-popover border-border" onOpenAutoFocus={(e) => { e.preventDefault(); }}>
         <div className="flex items-center border-b border-border/50 px-4">
           <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
           <Input
             placeholder="Search matches, navigate, or type a command..."
             value={query}
             onChange={e => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             className="border-0 focus-visible:ring-0 h-12 bg-transparent px-0"
             autoFocus
           />
           <kbd className="pointer-events-none ml-2 inline-flex h-5 select-none items-center gap-1 rounded border border-border/50 bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">ESC</kbd>
         </div>
-        <div className="max-h-[300px] overflow-y-auto px-2 py-2">
+        <div ref={listRef} className="max-h-[300px] overflow-y-auto px-2 py-2" role="listbox">
           {results.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">No results found.</p>
           ) : (
@@ -103,11 +128,17 @@ export default function CommandPalette() {
               {query.length === 0 && (
                 <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">Navigation</p>
               )}
-              {results.map(item => (
+              {results.map((item, idx) => (
                 <button
                   key={item.id}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-accent/50 transition-colors text-left group"
+                  role="option"
+                  aria-selected={activeIndex === idx}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-left group",
+                    activeIndex === idx ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
+                  )}
                   onClick={() => handleSelect(item)}
+                  onMouseEnter={() => setActiveIndex(idx)}
                 >
                   <item.icon className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
                   <span className="flex-1">{item.label}</span>

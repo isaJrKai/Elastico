@@ -14,11 +14,11 @@ import {
 } from 'recharts'
 import {
   Trophy, Medal, Target, Crown, TrendingUp, Star, Flame, ArrowUp, ArrowDown, Minus,
-  Zap, Search, Download, Goal, Users,
+  Zap, Search, Download, Goal, Users, BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateCSV } from '@/lib/export'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -107,7 +107,7 @@ export default function LeaderboardView() {
       Total: p.totalPredictions, Correct: p.correctPredictions,
     }))
     generateCSV(data, 'elastico-leaderboard')
-    toast({ title: 'Exported!', description: `${data.length} entries exported` })
+    toast.success('Exported!', { description: `${data.length} entries exported` })
   }, [paginated])
 
   // ── Podium (top 3) ──
@@ -149,8 +149,8 @@ export default function LeaderboardView() {
 
       <Tabs defaultValue="predictors" className="w-full">
         <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
-          <TabsTrigger value="predictors" className="flex-1 h-8 text-xs font-semibold rounded-md data-[state=active]:bg-primary/15 data-[state=active]:text-primary">🏆 Predictors</TabsTrigger>
-          <TabsTrigger value="analytics" className="flex-1 h-8 text-xs font-semibold rounded-md data-[state=active]:bg-primary/15 data-[state=active]:text-primary">📊 Analytics</TabsTrigger>
+          <TabsTrigger value="predictors" className="flex-1 h-8 text-xs font-semibold rounded-md data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5"><Trophy className="size-3.5" />Predictors</TabsTrigger>
+          <TabsTrigger value="analytics" className="flex-1 h-8 text-xs font-semibold rounded-md data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5"><BarChart3 className="size-3.5" />Analytics</TabsTrigger>
         </TabsList>
 
         {/* PREDICTORS TAB */}
@@ -161,10 +161,9 @@ export default function LeaderboardView() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input placeholder="Search users..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 bg-muted/50 border-border text-sm" />
             </div>
-            {/* TODO: Backend time period filtering not yet implemented */}
             <div className="flex gap-1 bg-muted/30 p-1 rounded-lg">
               {([['all', 'All Time'], ['month', 'This Month'], ['week', 'This Week']] as const).map(([val, label]) => (
-                <button key={val} onClick={() => setTimePeriod(val as TimePeriod)} className={cn('px-3 py-1.5 rounded-md text-xs font-medium transition-all', timePeriod === val ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground')}>{label}</button>
+                <button key={val} disabled={timePeriod !== val} onClick={() => setTimePeriod(val as TimePeriod)} title={timePeriod === val ? undefined : 'Coming soon'} className={cn('px-3 py-1.5 rounded-md text-xs font-medium transition-all', timePeriod === val ? 'bg-primary/15 text-primary' : 'text-muted-foreground opacity-50 cursor-not-allowed')}>{label}</button>
               ))}
             </div>
           </div>
@@ -179,7 +178,7 @@ export default function LeaderboardView() {
                     <CardContent className="p-4 pt-6">
                       <div className={cn('flex justify-center mb-2', order === 1 ? '-mt-6' : '')}>
                         <div className={cn('flex size-14 items-center justify-center rounded-full border-2', order === 1 ? 'border-amber-400 bg-amber-500/15' : order === 2 ? 'border-gray-400 bg-gray-500/10' : 'border-amber-700 bg-amber-800/10')}>
-                          <span className="text-2xl">{order === 1 ? '🥇' : order === 2 ? '🥈' : '🥉'}</span>
+                          <span className={cn('text-sm font-black', order === 1 ? 'text-amber-400' : order === 2 ? 'text-gray-300' : 'text-amber-700')}>{order === 1 ? '1st' : order === 2 ? '2nd' : '3rd'}</span>
                         </div>
                       </div>
                       <Avatar className="mx-auto size-10 mb-2"><AvatarImage src={entry.avatarUrl || undefined} /><AvatarFallback className="bg-muted text-xs">{(entry.displayName || entry.name || '?')[0]}</AvatarFallback></Avatar>

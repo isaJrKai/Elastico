@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateCSV } from '@/lib/export'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ export default function PredictionsView() {
       Points: p.points,
     }))
     generateCSV(data, 'elastico-predictions')
-    toast({ title: 'Exported!', description: `${data.length} predictions exported as CSV` })
+    toast.success('Exported!', { description: `${data.length} predictions exported as CSV` })
   }, [filteredPast])
 
   const handleQuickPredict = useCallback((matchId: string, choice: string) => {
@@ -126,7 +126,7 @@ export default function PredictionsView() {
     fetch('/api/predictions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ matchId, predictedOutcome: choice, confidence: 70 }),
-    }).then(() => { fetchPredictions(); toast({ title: 'Prediction submitted!' }) }).catch(() => toast({ title: 'Error', description: 'Failed', variant: 'destructive' }))
+    }).then(() => { fetchPredictions(); toast.success('Prediction submitted!') }).catch(() => toast.error('Error', { description: 'Failed' }))
   }, [token, fetchPredictions])
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-32 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div>

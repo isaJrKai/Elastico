@@ -107,11 +107,11 @@ function SetupView({ onReady }: { onReady: () => void }) {
   const isNeedsDatabase = status === 'needs_database'
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <div className="text-4xl font-black tracking-tighter text-white mb-2">ELASTICO</div>
-          <p className="text-sm text-zinc-500">AI-Powered Football Analytics</p>
+          <div className="text-4xl font-black tracking-tighter text-foreground mb-2">ELASTICO</div>
+          <p className="text-sm text-muted-foreground">AI-Powered Football Analytics</p>
         </div>
 
         <div className="bg-card/80 backdrop-blur-xl border border-border rounded-xl p-8">
@@ -120,18 +120,18 @@ function SetupView({ onReady }: { onReady: () => void }) {
               <div className="w-16 h-16 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
                 <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
               </div>
-              <h2 className="text-lg font-semibold text-white text-center mb-2">Database Not Connected</h2>
-              <p className="text-sm text-zinc-400 text-center mb-6">
+              <h2 className="text-lg font-semibold text-foreground text-center mb-2">Database Not Connected</h2>
+              <p className="text-sm text-muted-foreground text-center mb-6">
                 Go to your Vercel project, then <strong className="text-zinc-200">Storage</strong>, then <strong className="text-zinc-200">Create Database</strong>, then <strong className="text-zinc-200">Postgres (Neon)</strong>
               </p>
-              <div className="bg-zinc-800/50 rounded-lg p-4 text-xs text-zinc-400 space-y-1">
+              <div className="bg-secondary rounded-lg p-4 text-xs text-muted-foreground space-y-1">
                 <p>1. Open Vercel project Settings</p>
-                <p>2. Click <strong className="text-zinc-300">Create Database</strong></p>
-                <p>3. Select <strong className="text-zinc-300">Postgres (Neon)</strong></p>
-                <p>4. Click <strong className="text-zinc-300">Create</strong></p>
-                <p className="text-emerald-400 pt-1">This page will auto-detect and set up everything</p>
+                <p>2. Click <strong className="text-foreground">Create Database</strong></p>
+                <p>3. Select <strong className="text-foreground">Postgres (Neon)</strong></p>
+                <p>4. Click <strong className="text-foreground">Create</strong></p>
+                <p className="text-primary pt-1">This page will auto-detect and set up everything</p>
               </div>
-              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500">
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                 Waiting for database connection...
               </div>
@@ -139,15 +139,15 @@ function SetupView({ onReady }: { onReady: () => void }) {
           ) : settingUp || status === 'checking' ? (
             <div className="text-center py-8">
               <div className="w-12 h-12 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-sm text-zinc-300">{message || 'Checking database...'}</p>
+              <p className="text-sm text-foreground">{message || 'Checking database...'}</p>
             </div>
           ) : (
             <div className="text-center py-4">
               <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
                 <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
               </div>
-              <p className="text-sm text-amber-300 mb-1">{message || 'Connection issue'}</p>
-              <p className="text-xs text-zinc-500 mb-4">Auto-retrying every 8 seconds...</p>
+              <p className="text-sm text-amber-500 mb-1">{message || 'Connection issue'}</p>
+              <p className="text-xs text-muted-foreground mb-4">Auto-retrying every 8 seconds...</p>
               <button
                 onClick={checkAndSetup}
                 className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-sm text-emerald-400 transition-colors"
@@ -306,14 +306,14 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen bg-[#0B0E14] flex overflow-hidden">
+    <div className="h-screen bg-background flex overflow-hidden">
       {/* Sidebar */}
       <div className="shrink-0"><Sidebar /></div>
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />
-        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-[#0B0E14]">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
           <main className="w-full max-w-[1600px] mx-auto px-6 md:px-8 py-6">
             <ErrorBoundary>
               <Suspense fallback={<ViewSkeleton />}>
@@ -321,7 +321,7 @@ export default function Home() {
               </Suspense>
             </ErrorBoundary>
           </main>
-          <footer className="shrink-0 border-t border-white/[0.06] px-6 md:px-8 py-3 flex items-center justify-between text-xs text-[#475569]">
+          <footer className="shrink-0 border-t border-border px-6 md:px-8 py-3 flex items-center justify-between text-xs text-muted-foreground">
             <span>2026 ELASTICO</span>
             <span className="hidden sm:inline truncate">ELO / Poisson / Dixon-Coles / Merton Jump-Diffusion / GARCH / Kelly Criterion</span>
           </footer>

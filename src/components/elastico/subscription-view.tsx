@@ -15,7 +15,7 @@ import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import {
   Check, X, Crown, Zap, Star, Shield, Sparkles, TrendingUp, BarChart3,
   MessageSquare, Globe, Lock, Users, Rocket, CheckCircle2,
@@ -112,7 +112,7 @@ export default function SubscriptionView() {
 
   const handleSubscribe = (planId: string) => {
     if (planId === currentPlan) return
-    toast({ title: `${PLANS.find(p => p.id === planId)?.name} Plan`, description: `Subscription to the ${planId} plan initiated.` })
+    toast(`${PLANS.find(p => p.id === planId)?.name} Plan`, { description: `Subscription to the ${planId} plan initiated.` })
   }
 
   return (

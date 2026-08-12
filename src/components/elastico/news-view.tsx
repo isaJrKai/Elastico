@@ -29,7 +29,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 // ── Categories ────────────────────────────────────────────────────────────────
 
@@ -597,7 +597,7 @@ export default function NewsView() {
                         } catch {
                           // Revert optimistic update
                           setSelectedNews({ ...selectedNews, reactions: JSON.stringify(currentReactions) })
-                          toast({ title: 'Coming soon', description: 'Reactions will be available soon!' })
+                          toast.info('Coming soon', { description: 'Reactions will be available soon!' })
                         }
                       }}
                       className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"

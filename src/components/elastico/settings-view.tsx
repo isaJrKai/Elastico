@@ -36,7 +36,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { useTheme } from 'next-themes'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import {
   Settings,
   User,
@@ -364,7 +364,7 @@ function BandwidthSection() {
             className="w-full border-border text-xs"
             onClick={async () => {
               await clearCache()
-              toast({ title: 'Cache Cleared', description: 'App will re-download fresh data on next load.' })
+              toast.success('Cache Cleared', { description: 'App will re-download fresh data on next load.' })
             }}
           >
             <Trash2 className="size-3.5 mr-2" />
@@ -467,8 +467,7 @@ export default function SettingsView() {
   // ── Save Profile ─────────────────────────────────────────────────────────
 
   const handleSaveProfile = useCallback(() => {
-    toast({
-      title: 'Profile saved',
+    toast.success('Profile saved', {
       description: 'Your profile has been updated successfully.',
     })
   }, [])
@@ -477,32 +476,25 @@ export default function SettingsView() {
 
   const handleChangePassword = useCallback(() => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Please fill in all password fields.',
-        variant: 'destructive',
       })
       return
     }
     if (newPassword !== confirmPassword) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'New passwords do not match.',
-        variant: 'destructive',
       })
       return
     }
     if (newPassword.length < 8) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'Password must be at least 8 characters.',
-        variant: 'destructive',
       })
       return
     }
 
-    toast({
-      title: 'Password updated',
+    toast.success('Password updated', {
       description: 'Your password has been changed successfully.',
     })
     setCurrentPassword('')
@@ -538,8 +530,7 @@ export default function SettingsView() {
     a.click()
     URL.revokeObjectURL(url)
 
-    toast({
-      title: 'Data exported',
+    toast.success('Data exported', {
       description: 'Your data has been downloaded.',
     })
   }, [user, favoriteTeams])
@@ -547,8 +538,7 @@ export default function SettingsView() {
   // ── Delete Account ────────────────────────────────────────────────────────
 
   const handleDeleteAccount = useCallback(() => {
-    toast({
-      title: 'Account deletion requested',
+    toast('Account deletion requested', {
       description: 'This is a demo — your account was not deleted.',
     })
   }, [])

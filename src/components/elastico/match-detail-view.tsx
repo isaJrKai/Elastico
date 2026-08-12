@@ -18,7 +18,7 @@ import {
   Loader2, AlertCircle, Swords, Flame, MessageSquare, Copy, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 // ── Extended Types ──────────────────────────────────────────────────────────
 
@@ -172,12 +172,12 @@ export default function MatchDetailView() {
       if (bookmarked) {
         await fetch(`/api/bookmarks?matchId=${selectedMatchId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
         setBookmarked(false)
-        toast({ title: 'Bookmark removed' })
+        toast.success('Bookmark removed')
       } else {
         const res = await fetch('/api/bookmarks', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ matchId: selectedMatchId }) })
         if (res.ok) {
           setBookmarked(true)
-          toast({ title: 'Match bookmarked' })
+          toast.success('Match bookmarked')
         }
       }
     } catch { /* silent */ }
@@ -190,13 +190,13 @@ export default function MatchDetailView() {
       const res = await fetch(`/api/matches/${selectedMatchId}/simulate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Simulation failed' }))
-        toast({ title: 'Simulation failed', description: err.error || 'Unknown error', variant: 'destructive' })
+        toast.error('Simulation failed', { description: err.error || 'Unknown error' })
         return
       }
-      toast({ title: 'Simulation complete', description: 'Match has been simulated with events and stats' })
+      toast.success('Simulation complete', { description: 'Match has been simulated with events and stats' })
       fetchMatch()
     } catch (e: any) {
-      toast({ title: 'Simulation error', description: e.message || 'Failed to run simulation', variant: 'destructive' })
+      toast.error('Simulation error', { description: e.message || 'Failed to run simulation' })
     } finally { setSimulating(false) }
   }, [selectedMatchId, token, fetchMatch])
 
