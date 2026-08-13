@@ -174,22 +174,15 @@ export default function Home() {
   const fetchNotifications = useElasticoStore(s => s.fetchNotifications)
   const fetchLiveScores = useElasticoStore(s => s.fetchLiveScores)
 
-  // Initial data fetch — only after authentication
+  // Initial data fetch — fetch ESPN immediately, DB data only if authenticated
   useEffect(() => {
-    if (!isAuthenticated) return
-    fetchMatches()
-    fetchTeams()
-    fetchNews()
-    fetchNotifications()
-    fetchLiveScores()
-  }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications, fetchLiveScores])
-
-  // Auto-refresh live scores every 60s
-  useEffect(() => {
-    if (!isAuthenticated) return
-    const interval = setInterval(() => { fetchLiveScores() }, 60000)
-    return () => clearInterval(interval)
-  }, [isAuthenticated, fetchLiveScores])
+    if (isAuthenticated) {
+      fetchMatches()
+      fetchTeams()
+      fetchNews()
+      fetchNotifications()
+    }
+  }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications])
 
   // Auto-refresh matches every 30s
   useEffect(() => {
@@ -244,29 +237,31 @@ export default function Home() {
     }
   }, [])
 
-  // Check database on mount
+  // Check database on mount — non-blocking; proceed even if DB is down
+  // ESPN data fetches don't require a database
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') { setDbReady('ready'); return }
     fetch('/api/setup')
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
+      .then(r => r.json())
       .then(data => {
-        setDbReady(data.status === 'ready' ? 'ready' : 'down')
+        if (data.status === 'ready') setDbReady('ready')
+        else setDbReady('down')
       })
-      .catch(() => {
-        setDbReady('down')
-      })
+      .catch(() => setDbReady('down'))
   }, [])
 
-  // Database is down — show reconnect screen
-  if (dbReady === 'down' || dbReady === 'checking') {
-    return <SetupView onReady={() => setDbReady('ready')} />
-  }
+  // Fetch ESPN live scores immediately (no auth needed)
+  useEffect(() => {
+    fetchLiveScores()
+  }, [fetchLiveScores])
 
-  // Not authenticated — show login
-  if (!isAuthenticated) {
+  // Auto-refresh ESPN live scores every 60s
+  useEffect(() => {
+    const interval = setInterval(() => { fetchLiveScores() }, 60000)
+    return () => clearInterval(interval)
+  }, [fetchLiveScores])
+
+  // Not authenticated — show login (but still allow ESPN views if DB is down)
+  if (!isAuthenticated && dbReady !== 'down') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Suspense fallback={<ViewSkeleton />}>
@@ -276,6 +271,35 @@ export default function Home() {
       </div>
     )
   }
+
+  // DB is down — auto-login as demo user so ESPN views work
+  useEffect(() => {
+    if (dbReady === 'down' && !isAuthenticated) {
+      const demoUser = {
+        id: 'demo-no-db',
+        email: 'demo@elastico.app',
+        name: 'Demo User',
+        displayName: null,
+        avatarUrl: null,
+        role: 'user',
+        plan: 'free',
+        predictionAccuracy: 0,
+        predictionStreak: 0,
+        bestStreak: 0,
+        totalPredictions: 0,
+        correctPredictions: 0,
+        achievements: '[]',
+        favoriteTeams: '[]',
+        twoFactorEnabled: false,
+        lastLoginAt: null,
+        loginCount: 0,
+      }
+      const store = useElasticoStore.getState()
+      store.setUser(demoUser, 'demo-no-db-token')
+      localStorage.setItem('elastico_token', 'demo-no-db-token')
+      localStorage.setItem('elastico_user', JSON.stringify(demoUser))
+    }
+  }, [dbReady, isAuthenticated])
 
   // Authenticated — render current view with lazy loading
   const renderView = () => {

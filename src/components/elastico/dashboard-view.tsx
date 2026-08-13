@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +31,148 @@ interface TickerMatch {
 // ═══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD VIEW
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ESPN STANDINGS COMPONENTS (replace DB-sourced ELO with real ESPN data)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function useEspnStandings(league: string = 'PL') {
+  const [rows, setRows] = useState<Array<{
+    rank: number; name: string; code: string; logo: string; color: string
+    played: number; wins: number; draws: number; losses: number; points: number
+  }>>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/live?action=standings&league=${league}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        const items = (data.data || []).slice(0, 10).map((t: any, i: number) => ({
+          rank: i + 1,
+          name: t.name || t.team?.displayName || '?',
+          code: t.code || t.abbreviation || '',
+          logo: t.logo || t.team?.logo || '',
+          color: t.color || '',
+          played: t.gamesPlayed ?? t.played ?? 0,
+          wins: t.wins ?? 0,
+          draws: t.draws ?? 0,
+          losses: t.losses ?? 0,
+          points: t.points ?? 0,
+        }))
+        setRows(items)
+      })
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false))
+  }, [league])
+
+  return { rows, loading }
+}
+
+/** Full-width standings table with real team logos */
+function EspnStandingsCard() {
+  const { rows, loading } = useEspnStandings('PL')
+  return (
+    <Card className="glass-card-premium rounded-xl">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-bold flex items-center gap-2">
+            <Trophy className="size-4 text-amber-400" />
+            Premier League Standings
+          </CardTitle>
+          <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30">
+            ESPN Live
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-2 animate-pulse">
+            {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-6 bg-muted/50 rounded" />)}
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">Standings not available right now</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border/30 text-muted-foreground">
+                  <th className="py-2 text-left w-6">#</th>
+                  <th className="py-2 text-left">Team</th>
+                  <th className="py-2 text-center">P</th>
+                  <th className="py-2 text-center">W</th>
+                  <th className="py-2 text-center">D</th>
+                  <th className="py-2 text-center">L</th>
+                  <th className="py-2 text-center font-bold">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((t, i) => (
+                  <tr key={t.name} className={cn('border-b border-border/10', i < 4 && 'bg-emerald-500/5', i >= rows.length - 3 && 'bg-red-500/5')}>
+                    <td className="py-2 font-bold">{t.rank}</td>
+                    <td className="py-2">
+                      <div className="flex items-center gap-2">
+                        {t.logo ? (
+                          <img src={t.logo} alt={t.code} className="size-4 rounded-full object-contain bg-muted/30 p-px" loading="lazy" />
+                        ) : (
+                          <div className="size-4 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: t.color || '#555' }} />
+                        )}
+                        <span className="font-medium">{t.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-2 text-center text-muted-foreground">{t.played}</td>
+                    <td className="py-2 text-center text-emerald-400">{t.wins}</td>
+                    <td className="py-2 text-center text-amber-400">{t.draws}</td>
+                    <td className="py-2 text-center text-red-400">{t.losses}</td>
+                    <td className="py-2 text-center font-bold text-primary">{t.points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Compact top-5 list for right sidebar */
+function EspnStandingsList() {
+  const { rows, loading } = useEspnStandings('PL')
+  return (
+    <Card className="glass-card-premium rounded-xl">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-bold flex items-center gap-2">
+            <TrendingUp className="size-4 text-primary" />
+            League Table
+          </CardTitle>
+          <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30">ESPN</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {loading ? (
+          <div className="space-y-2 animate-pulse">
+            {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-5 bg-muted/50 rounded" />)}
+          </div>
+        ) : rows.slice(0, 5).map((t, i) => (
+          <div key={t.name} className="flex items-center justify-between py-1.5 border-b border-border/10 last:border-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] w-4 text-muted-foreground font-bold">{t.rank}</span>
+              {t.logo ? (
+                <img src={t.logo} alt={t.code} className="size-4 rounded-full object-contain bg-muted/30 p-px" loading="lazy" />
+              ) : (
+                <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.color || '#555' }} />
+              )}
+              <span className="text-xs font-medium">{t.name}</span>
+            </div>
+            <span className="text-xs font-bold tabular-nums">{t.points} pts</span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function DashboardView() {
   const user = useElasticoStore(s => s.user)
@@ -396,48 +538,8 @@ export default function DashboardView() {
               </CardContent>
             </Card>
 
-            {/* 10. TEAMS FROM DB (REAL) */}
-            <Card className="glass-card-premium rounded-xl">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Trophy className="size-4 text-amber-400" />
-                  Team Rankings (ELO)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-border/30 text-muted-foreground">
-                        <th className="py-2 text-left w-6">#</th>
-                        <th className="py-2 text-left">Team</th>
-                        <th className="py-2 text-center">W</th>
-                        <th className="py-2 text-center">D</th>
-                        <th className="py-2 text-center">L</th>
-                        <th className="py-2 text-center font-bold">ELO</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {teams.sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0)).slice(0, 8).map((t, i) => (
-                        <tr key={t.id} className={cn('border-b border-border/10', i < 2 && 'bg-primary/5')}>
-                          <td className="py-2 font-bold">{i + 1}</td>
-                          <td className="py-2">
-                            <div className="flex items-center gap-2">
-                              {t.logo ? <img src={t.logo} alt={t.code} className="size-4 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />}
-                              <span className="font-medium">{t.name || t.code}</span>
-                            </div>
-                          </td>
-                          <td className="py-2 text-center text-emerald-400">{t.wins}</td>
-                          <td className="py-2 text-center text-amber-400">{t.draws}</td>
-                          <td className="py-2 text-center text-red-400">{t.losses}</td>
-                          <td className="py-2 text-center font-bold text-primary">{Math.round(t.eloRating)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            {/* 10. LEAGUE STANDINGS FROM ESPN */}
+            <EspnStandingsCard />
           </div>
 
           {/* ─── RIGHT COLUMN ─── */}
@@ -533,27 +635,8 @@ export default function DashboardView() {
               </CardContent>
             </Card>
 
-            {/* 7. ELO RANKINGS (REAL) */}
-            <Card className="glass-card-premium rounded-xl">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <TrendingUp className="size-4 text-primary" />
-                  ELO Rankings
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {teams.sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0)).slice(0, 5).map((t, i) => (
-                  <div key={t.id} className="flex items-center justify-between py-1.5 border-b border-border/10 last:border-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] w-4 text-muted-foreground font-bold">{i + 1}</span>
-                      {t.logo ? <img src={t.logo} alt={t.code} className="size-4 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />}
-                      <span className="text-xs font-medium">{t.name || t.code}</span>
-                    </div>
-                    <span className="text-xs font-bold tabular-nums">{Math.round(t.eloRating)}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            {/* 7. LEAGUE TABLE (ESPN) */}
+            <EspnStandingsList />
 
             {/* 11. ALL MATCHES BY LEAGUE */}
             <Card className="glass-card-premium rounded-xl">
