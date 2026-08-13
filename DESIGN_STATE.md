@@ -80,3 +80,49 @@ DS-031 | Removed Nav Items | Achievements and Social removed from sidebar (marke
 DS-032 | Active Indicator | 3px left bar in sidebar-primary color, unchanged | Works well. No change needed.
 
 DS-033 | Keyboard Shortcuts | ⌘T now opens Tactical (was Standings). ⌘S opens Standings. | Matches new workflow grouping.
+
+DS-034 | Command Palette Completeness | All 19 navigable views now in command palette (was 12). Grouped by workflow when no query. | Users should be able to reach any view from ⌘K.
+
+DS-035 | Command Palette Grouping | When no search query, items grouped under Intelligence/Analysis/Leagues/Tools/System/Admin headers | Mirrors sidebar structure for spatial consistency.
+
+DS-036 | Match Analysis in Palette | `match-detail` added to command palette under Intelligence group | Was only reachable by clicking a match. Now searchable.
+
+DS-037 | Typed Palette Icons | Command palette icons use `React.ElementType` instead of `any` | Type safety for icon components.
+
+DS-038 | Shell Layout Stability | Shell layout (sidebar + header + main + footer) preserved as-is. No structural changes. | The layout works. Phase 3 scope was navigation completeness and consistency, not architecture redesign.
+
+---
+
+## Phase 4: Dashboard Rebuild
+
+DS-039 | No Raw `<img>` on Dashboard | All 12+ raw `<img>` tags replaced with `TeamCrest` primitive | Enforces DS-011/DS-021. Fallbacks are now automatic.
+
+DS-040 | Chart Theme Compliance | BarChart now uses `axisProps`, `cartesianGridProps`, `tooltipContentStyle`, `chartColor()` from `chart-theme.ts` | Enforces DS-006. No more hardcoded oklch colors.
+
+DS-041 | Data Classification on Dashboard | Quick Stats row: Live Now=REAL, Upcoming=REAL, Accuracy=DERIVED, Streak=REAL. Standings=ESPN REAL badge. | Enforces DS-010 data honesty principle.
+
+DS-042 | No Placeholder Cards | Removed "Market Analysis" and "Prediction Models" empty cards. Every pixel earns its place. | Dashboard must be information-dense at 1366x768.
+
+DS-043 | Single Standings Fetch | Removed duplicate standings (full table + compact list). Only compact top-5 remains in right sidebar. Full table lives in Standings view. | One ESPN API call instead of two.
+
+DS-044 | Primitives Used | Dashboard now uses TeamCrest, StatBlock, StatusBadge, SectionHeader from primitives/ | Consistency with DS-019.
+
+DS-045 | Match Rows Clickable | Live scores and results are buttons that navigate to Match Analysis view | Dashboard is an entry point, not a dead end.
+
+DS-046 | Compact Ticker | Ticker uses TeamCrest sm + StatusBadge instead of raw images and inline badges | Same visual density, proper component usage.
+
+---
+
+## Phase 5: Live Matches Rebuild
+
+DS-047 | TeamCrest in Match Cards | Replaced custom TeamLogo (raw `<img>`) with TeamCrest lg in match cards | Consistent fallback behavior across all views.
+
+DS-048 | StatusBadge in Match Cards | Replaced getStatusConfig() with StatusBadge primitive | Single source of truth for status display.
+
+DS-049 | Clickable Match Cards | Match card team+score area is now a button that navigates to Match Analysis | Matches view is an entry point, not a dead end.
+
+DS-050 | ESPN Data Class | Added `REAL` data-class badge next to match count | Honors data honesty principle.
+
+DS-051 | No Redundant Heading | Removed the h1 'Matches' title from the view — header already shows 'Live Matches' | DS-028 header minimalism.
+
+---

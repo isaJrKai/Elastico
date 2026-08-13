@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table'
 import { Trophy, Star, TrendingUp, Zap, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TeamCrest, SectionHeader } from '@/components/elastico/primitives'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -116,13 +117,6 @@ export default function TournamentView() {
     <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15"><Trophy className="size-5 text-amber-400" /></div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">League Standings</h1>
-            <p className="text-sm text-muted-foreground">Real-time tables from ESPN — {LEAGUES.length} leagues</p>
-          </div>
-        </div>
         <div className="flex items-center gap-2">
           <Select value={selectedLeague} onValueChange={setSelectedLeague}>
             <SelectTrigger className="h-9 w-[180px] bg-muted/50 border-border text-sm">
@@ -158,7 +152,7 @@ export default function TournamentView() {
         {topTeam && (
           <Card className="glass-card-premium rounded-xl"><CardContent className="p-4 text-center">
             <p className="text-[10px] text-muted-foreground mb-2">League Leader</p>
-            {topTeam.logo ? <img src={topTeam.logo} alt={topTeam.team} className="size-10 rounded-full object-contain bg-muted/30 p-0.5 mx-auto mb-2" loading="lazy" /> : null}
+            <TeamCrest code={topTeam.code} espnLogo={topTeam.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{topTeam.team}</p>
             <p className="text-2xl font-black text-primary mt-1">{topTeam.points} pts</p>
             <p className="text-[10px] text-muted-foreground">{topTeam.played} played</p>
@@ -167,7 +161,7 @@ export default function TournamentView() {
         {topScorer && (
           <Card className="glass-card-premium rounded-xl"><CardContent className="p-4 text-center">
             <p className="text-[10px] text-muted-foreground mb-2">Most Goals Scored</p>
-            {topScorer.logo ? <img src={topScorer.logo} alt={topScorer.team} className="size-10 rounded-full object-contain bg-muted/30 p-0.5 mx-auto mb-2" loading="lazy" /> : null}
+            <TeamCrest code={topScorer.code} espnLogo={topScorer.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{topScorer.team}</p>
             <p className="text-2xl font-black text-emerald-400 mt-1">{topScorer.goalsFor} GF</p>
             <p className="text-[10px] text-muted-foreground">{topScorer.played} played</p>
@@ -176,7 +170,7 @@ export default function TournamentView() {
         {bestDefense && (
           <Card className="glass-card-premium rounded-xl"><CardContent className="p-4 text-center">
             <p className="text-[10px] text-muted-foreground mb-2">Best Defense</p>
-            {bestDefense.logo ? <img src={bestDefense.logo} alt={bestDefense.team} className="size-10 rounded-full object-contain bg-muted/30 p-0.5 mx-auto mb-2" loading="lazy" /> : null}
+            <TeamCrest code={bestDefense.code} espnLogo={bestDefense.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{bestDefense.team}</p>
             <p className="text-2xl font-black text-cyan-400 mt-1">{bestDefense.goalsAgainst} GA</p>
             <p className="text-[10px] text-muted-foreground">{bestDefense.played} played</p>
@@ -244,11 +238,7 @@ export default function TournamentView() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {row.logo ? (
-                              <img src={row.logo} alt={row.team} className="size-5 rounded-full object-contain bg-muted/30 p-px" loading="lazy" />
-                            ) : (
-                              <div className="size-5 rounded-full bg-muted/30 flex items-center justify-center text-[9px] font-bold text-muted-foreground">{row.code?.[0]}</div>
-                            )}
+                            <TeamCrest code={row.code} espnLogo={row.logo} size="sm" />
                             <span className="text-xs font-medium">{row.team}</span>
                           </div>
                         </TableCell>

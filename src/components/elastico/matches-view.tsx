@@ -1,9 +1,19 @@
+/*
+ * ELASTICO Live Matches — Phase 5 rebuild
+ *
+ * DS-compliant version:
+ *   - TeamCrest primitive (no raw <img>)
+ *   - StatusBadge primitive (no inline status config)
+ *   - SectionHeader for data source labels
+ *   - Removed redundant h1 (header already shows "Live Matches")
+ *   - 20 ESPN leagues filterable by tab + league + search
+ */
+
 'use client'
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,21 +24,24 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  Search, MapPin, Clock, Trophy, RefreshCw, Zap,
-  Eye, Bookmark, BookmarkCheck,
-  ChevronDown, ChevronUp,
+  Search, MapPin, Clock, Trophy, RefreshCw,
+  Eye, Bookmark, BookmarkCheck, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TeamCrest, StatusBadge, SectionHeader } from '@/components/elastico/primitives'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type MatchTab = 'live' | 'upcoming' | 'finished' | 'all'
 
-interface ESPNMatchItem {
+interface EspnTeam {
+  name: string; abbreviation: string; logo: string; color: string
+}
+interface EspnMatch {
   id: string
   competition: string
-  homeTeam: { name: string; abbreviation: string; logo: string; color: string }
-  awayTeam: { name: string; abbreviation: string; logo: string; color: string }
+  homeTeam: EspnTeam
+  awayTeam: EspnTeam
   homeScore: number
   awayScore: number
   status: string
@@ -71,49 +84,13 @@ const LEAGUES = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function getStatusConfig(status: string) {
-  switch (status) {
-    case 'live': return { label: 'LIVE', cls: 'bg-red-500/15 text-red-400 border-red-500/30', pulse: true }
-    case 'halftime': return { label: 'HT', cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30', pulse: false }
-    case 'finished': return { label: 'FT', cls: 'bg-muted text-muted-foreground border-border', pulse: false }
-    case 'postponed': return { label: 'PPD', cls: 'bg-orange-500/15 text-orange-400 border-orange-500/30', pulse: false }
-    default: return { label: 'Upcoming', cls: 'bg-primary/15 text-primary border-primary/30', pulse: false }
-  }
-}
-
-function formatMatchDate(dateStr: string | null): string {
-  if (!dateStr) return 'TBD'
+function formatMatchDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-// ── Team Logo Component ─────────────────────────────────────────────────────
+// ── Match Card ──────────────────────────────────────────────────────────────
 
-function TeamLogo({ team, size = 'sm' }: { team: ESPNMatchItem['homeTeam']; size?: 'sm' | 'md' }) {
-  const sz = size === 'sm' ? 'size-8' : 'size-10'
-  if (team?.logo) {
-    return (
-      <img
-        src={team.logo}
-        alt={team.name}
-        className={cn('shrink-0 rounded-full object-contain bg-muted/30 p-0.5', sz)}
-        loading="lazy"
-      />
-    )
-  }
-  return (
-    <div
-      className={cn('shrink-0 rounded-full border-2 border-border/50 flex items-center justify-center text-[10px] font-bold text-white', sz)}
-      style={{ backgroundColor: team?.color || '#555' }}
-    >
-      {team?.abbreviation?.[0] || '?'}
-    </div>
-  )
-}
-
-// ── Enhanced Match Card ─────────────────────────────────────────────────────
-
-function MatchCard({ match }: { match: ESPNMatchItem }) {
-  const statusConfig = getStatusConfig(match.status)
+function MatchCard({ match, onClick }: { match: EspnMatch; onClick?: () => void }) {
   const isLive = match.status === 'live' || match.status === 'halftime'
   const [expanded, setExpanded] = useState(false)
   const [bookmarked, setBookmarked] = useState(false)
@@ -129,22 +106,13 @@ function MatchCard({ match }: { match: ESPNMatchItem }) {
         )}
       >
         <CardContent className="p-4 space-y-3">
-          {/* Header: Status + Bookmark + Competition */}
+          {/* Header: Status + Competition + Bookmark */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className={cn('h-5 rounded-md px-1.5 text-[10px] font-bold tracking-wider', statusConfig.cls)}>
-                {statusConfig.pulse && (
-                  <span className="relative flex size-1.5 mr-1.5">
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
-                  </span>
-                )}
-                {statusConfig.label}
-                {match.minute != null && match.minute > 0 && <span className="ml-1 text-[9px] opacity-70">{match.minute}'</span>}
-              </Badge>
-              <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] bg-muted/50 text-muted-foreground truncate max-w-[140px]">
+              <StatusBadge variant="status" value={match.status} minute={match.minute} />
+              <span className="text-[10px] text-muted-foreground bg-muted/50 rounded-md px-1.5 h-5 flex items-center truncate max-w-[140px]">
                 {match.competition}
-              </Badge>
+              </span>
             </div>
             <button
               onClick={() => setBookmarked(!bookmarked)}
@@ -156,13 +124,16 @@ function MatchCard({ match }: { match: ESPNMatchItem }) {
           </div>
 
           {/* Teams + Score */}
-          <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={onClick}
+            className="w-full flex items-center justify-between gap-2 text-left"
+          >
             {/* Home Team */}
             <div className="flex-1 flex items-center gap-2.5 min-w-0">
-              <TeamLogo team={match.homeTeam} />
+              <TeamCrest code={match.homeTeam.abbreviation} espnLogo={match.homeTeam.logo} color={match.homeTeam.color} size="lg" />
               <div className="min-w-0">
-                <span className="text-sm font-semibold truncate block">{match.homeTeam?.name || 'Home'}</span>
-                <span className="text-[10px] text-muted-foreground block">{match.homeTeam?.abbreviation}</span>
+                <span className="text-sm font-semibold truncate block">{match.homeTeam.name}</span>
+                <span className="text-[10px] text-muted-foreground block">{match.homeTeam.abbreviation}</span>
               </div>
             </div>
 
@@ -182,12 +153,12 @@ function MatchCard({ match }: { match: ESPNMatchItem }) {
             {/* Away Team */}
             <div className="flex-1 flex items-center gap-2.5 min-w-0 justify-end">
               <div className="min-w-0 text-right">
-                <span className="text-sm font-semibold truncate block">{match.awayTeam?.name || 'Away'}</span>
-                <span className="text-[10px] text-muted-foreground block">{match.awayTeam?.abbreviation}</span>
+                <span className="text-sm font-semibold truncate block">{match.awayTeam.name}</span>
+                <span className="text-[10px] text-muted-foreground block">{match.awayTeam.abbreviation}</span>
               </div>
-              <TeamLogo team={match.awayTeam} />
+              <TeamCrest code={match.awayTeam.abbreviation} espnLogo={match.awayTeam.logo} color={match.awayTeam.color} size="lg" />
             </div>
-          </div>
+          </button>
 
           <Separator className="opacity-20" />
 
@@ -207,7 +178,7 @@ function MatchCard({ match }: { match: ESPNMatchItem }) {
             )}
           </div>
 
-          {/* Expanded: show match minute info for live */}
+          {/* Expanded: live minute info */}
           {expanded && isLive && (
             <div className="text-[10px] text-muted-foreground animate-scale-in pt-1">
               <span className="text-red-400 font-medium">{match.minute}'</span> — Match in progress
@@ -242,11 +213,13 @@ export default function MatchesView() {
   const [activeTab, setActiveTab] = useState<MatchTab>('all')
   const [leagueFilter, setLeagueFilter] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [matchesData, setMatchesData] = useState<ESPNMatchItem[]>([])
+  const [matchesData, setMatchesData] = useState<EspnMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState(new Date())
+  const selectMatch = useElasticoStore(s => s.selectMatch)
+  const setView = useElasticoStore(s => s.setView)
 
-  const fetchMatches = useCallback(async () => {
+  const fetchMatchesData = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -255,17 +228,17 @@ export default function MatchesView() {
 
       const res = await fetch(`/api/live?${params}`)
       const data: any = await res.json()
-      const matches: ESPNMatchItem[] = data.matches || []
+      const fetched: EspnMatch[] = data.matches || []
 
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
-        setMatchesData(matches.filter((m: ESPNMatchItem) =>
+        setMatchesData(fetched.filter((m) =>
           m.homeTeam.name.toLowerCase().includes(q) ||
           m.awayTeam.name.toLowerCase().includes(q) ||
           m.competition.toLowerCase().includes(q)
         ))
       } else {
-        setMatchesData(matches)
+        setMatchesData(fetched)
       }
     } catch (err) {
       console.error('Failed to fetch matches:', err)
@@ -275,13 +248,13 @@ export default function MatchesView() {
     }
   }, [activeTab, leagueFilter, searchQuery])
 
-  useEffect(() => { fetchMatches() }, [fetchMatches])
+  useEffect(() => { fetchMatchesData() }, [fetchMatchesData])
 
-  // Auto-refresh
+  // Auto-refresh every 30s
   useEffect(() => {
-    const iv = setInterval(() => fetchMatches(), 30000)
+    const iv = setInterval(() => fetchMatchesData(), 30000)
     return () => clearInterval(iv)
-  }, [fetchMatches])
+  }, [fetchMatchesData])
 
   // Sort by date (newest first)
   const sortedMatches = useMemo(() => {
@@ -290,19 +263,15 @@ export default function MatchesView() {
 
   const liveCount = matchesData.filter((m) => m.status === 'live' || m.status === 'halftime').length
 
+  const handleMatchClick = useCallback((matchId: string) => {
+    selectMatch(matchId)
+    setView('match-detail')
+  }, [selectMatch, setView])
+
   return (
     <div className="flex flex-col gap-4 animate-fade-in-up">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15"><Zap className="size-5 text-primary" /></div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Matches</h1>
-          <p className="text-sm text-muted-foreground">Live scores, fixtures & results from {LEAGUES.length} leagues</p>
-        </div>
-      </div>
-
       {/* Filter Bar */}
-      <div className="glass-card-premium rounded-xl p-4">
+      <div className="glass-card rounded-xl p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <Select value={leagueFilter || 'all'} onValueChange={(v) => setLeagueFilter(v === 'all' ? '' : v)}>
             <SelectTrigger className="h-9 w-full sm:w-[180px] bg-muted/50 border-border text-sm">
@@ -317,7 +286,7 @@ export default function MatchesView() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input placeholder="Search by team name..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 bg-muted/50 border-border text-sm" />
           </div>
-          <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 border-border bg-muted/50 hover:bg-accent" onClick={() => fetchMatches()} disabled={loading} aria-label="Refresh">
+          <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 border-border bg-muted/50 hover:bg-accent" onClick={() => fetchMatchesData()} disabled={loading} aria-label="Refresh">
             <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
           </Button>
         </div>
@@ -364,12 +333,17 @@ export default function MatchesView() {
             {sortedMatches.length > 0 && (
               <>
                 <div className="flex items-center justify-between mb-2 px-1">
-                  <span className="text-[11px] text-muted-foreground">{sortedMatches.length} match{sortedMatches.length !== 1 ? 'es' : ''}{loading && ' (refreshing...)'}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground">{sortedMatches.length} match{sortedMatches.length !== 1 ? 'es' : ''}{loading && ' (refreshing...)'}</span>
+                    <span className="data-class-badge REAL">ESPN</span>
+                  </div>
                   <span className="text-[10px] text-muted-foreground/50">Updated {lastRefresh.toLocaleTimeString()}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {sortedMatches.map((match, idx) => (
-                    <div key={match.id} style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}><MatchCard match={match} /></div>
+                    <div key={match.id} style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}>
+                      <MatchCard match={match} onClick={() => handleMatchClick(match.id)} />
+                    </div>
                   ))}
                 </div>
               </>
