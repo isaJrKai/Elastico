@@ -1,0 +1,1007 @@
+     1→const fs = require("fs");
+     2→const {
+     3→  Document, Packer, Paragraph, TextRun, Header, Footer,
+     4→  AlignmentType, HeadingLevel, PageNumber, TableOfContents,
+     5→  Table, TableRow, TableCell, WidthType, BorderStyle,
+     6→  ShadingType, PageBreak, SectionType, TableLayoutType,
+     7→} = require("docx");
+     8→
+     9→// ── Palette: DM-1 Deep Cyan (Tech/AI) ──
+    10→const PAL = {
+    11→  bg: "162235", accent: "37DCF2",
+    12→  coverTitle: "FFFFFF", coverSub: "B0B8C0", coverMeta: "90989F", coverFoot: "687078",
+    13→  tblHeaderBg: "1B6B7A", tblHeaderText: "FFFFFF",
+    14→  tblLine: "1B6B7A", tblInner: "C8DDE2", tblSurface: "EDF3F5",
+    15→};
+    16→const c = (hex) => hex.replace("#", "");
+    17→const NB = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+    18→const noBorders = { top: NB, bottom: NB, left: NB, right: NB };
+    19→const allNoBorders = { top: NB, bottom: NB, left: NB, right: NB, insideHorizontal: NB, insideVertical: NB };
+    20→
+    21→// ── Helper functions ──
+    22→function h1(text) {
+    23→  return new Paragraph({
+    24→    heading: HeadingLevel.HEADING_1,
+    25→    spacing: { before: 480, after: 200 },
+    26→    children: [new TextRun({ text, bold: true, size: 32, color: "0A1628", font: { ascii: "Times New Roman" } })],
+    27→  });
+    28→}
+    29→function h2(text) {
+    30→  return new Paragraph({
+    31→    heading: HeadingLevel.HEADING_2,
+    32→    spacing: { before: 360, after: 160 },
+    33→    children: [new TextRun({ text, bold: true, size: 28, color: "0A1628", font: { ascii: "Times New Roman" } })],
+    34→  });
+    35→}
+    36→function h3(text) {
+    37→  return new Paragraph({
+    38→    heading: HeadingLevel.HEADING_3,
+    39→    spacing: { before: 240, after: 120 },
+    40→    children: [new TextRun({ text, bold: true, size: 26, color: "1A2B40", font: { ascii: "Calibri" } })],
+    41→  });
+    42→}
+    43→function body(text) {
+    44→  return new Paragraph({
+    45→    spacing: { after: 120, line: 312 },
+    46→    children: [new TextRun({ text, size: 24, color: "1A2B40", font: { ascii: "Calibri" } })],
+    47→  });
+    48→}
+    49→function bodyBold(label, text) {
+    50→  return new Paragraph({
+    51→    spacing: { after: 100, line: 312 },
+    52→    children: [
+    53→      new TextRun({ text: label, bold: true, size: 24, color: "0A1628", font: { ascii: "Calibri" } }),
+    54→      new TextRun({ text, size: 24, color: "1A2B40", font: { ascii: "Calibri" } }),
+    55→    ],
+    56→  });
+    57→}
+    58→function bullet(text) {
+    59→  return new Paragraph({
+    60→    spacing: { after: 60, line: 312 },
+    61→    indent: { left: 480, hanging: 240 },
+    62→    children: [
+    63→      new TextRun({ text: "\u2022 ", size: 24, color: "1B6B7A", font: { ascii: "Calibri" } }),
+    64→      new TextRun({ text, size: 24, color: "1A2B40", font: { ascii: "Calibri" } }),
+    65→    ],
+    66→  });
+    67→}
+    68→function spacer(twips = 120) {
+    69→  return new Paragraph({ spacing: { before: twips } });
+    70→}
+    71→
+    72→// ── Simple table builder (horizontal-only style) ──
+    73→function specTable(rows) {
+    74→  return new Table({
+    75→    width: { size: 100, type: WidthType.PERCENTAGE },
+    76→    layout: TableLayoutType.FIXED,
+    77→    borders: {
+    78→      top: { style: BorderStyle.SINGLE, size: 2, color: c(PAL.tblLine) },
+    79→      bottom: { style: BorderStyle.SINGLE, size: 2, color: c(PAL.tblLine) },
+    80→      left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
+    81→      insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: c(PAL.tblInner) },
+    82→      insideVertical: { style: BorderStyle.NONE },
+    83→    },
+    84→    rows: rows.map((r, i) =>
+    85→      new TableRow({
+    86→        children: [
+    87→          new TableCell({
+    88→            width: { size: 30, type: WidthType.PERCENTAGE },
+    89→            shading: { type: ShadingType.CLEAR, fill: i === 0 ? c(PAL.tblHeaderBg) : (i % 2 === 0 ? c(PAL.tblSurface) : "FFFFFF") },
+    90→            borders: noBorders,
+    91→            margins: { top: 60, bottom: 60, left: 120, right: 120 },
+    92→            children: [new Paragraph({ children: [new TextRun({ text: r[0], bold: i === 0, size: 21, color: i === 0 ? c(PAL.tblHeaderText) : "0A1628", font: { ascii: "Calibri" } })] })],
+    93→          }),
+    94→          new TableCell({
+    95→            width: { size: 70, type: WidthType.PERCENTAGE },
+    96→            shading: { type: ShadingType.CLEAR, fill: i === 0 ? c(PAL.tblHeaderBg) : (i % 2 === 0 ? c(PAL.tblSurface) : "FFFFFF") },
+    97→            borders: noBorders,
+    98→            margins: { top: 60, bottom: 60, left: 120, right: 120 },
+    99→            children: [new Paragraph({ spacing: { line: 280 }, children: [new TextRun({ text: r[1], size: 21, color: i === 0 ? c(PAL.tblHeaderText) : "1A2B40", font: { ascii: "Calibri" } })] })],
+   100→          }),
+   101→        ],
+   102→      })
+   103→    ),
+   104→  });
+   105→}
+   106→
+   107→// ── Screen section generator ──
+   108→function screenSection(num, title, refFile, data) {
+   109→  const rows = [
+   110→    ["Specification", "Detail"],
+   111→    ["Reference Image", `Reference ${String(num).padStart(2, "0")} (${refFile})`],
+   112→    ["ELASTICO Screen", data.screen],
+   113→    ["Existing Component", data.component],
+   114→    ["Data Source (API/Store)", data.dataSource],
+   115→    ["Assets to Source", data.assets],
+   116→  ];
+   117→  return [
+   118→    h1(`Reference ${String(num).padStart(2, "0")}: ${title}`),
+   119→    bodyBold("Purpose: ", data.purpose),
+   120→    bodyBold("Primary Question: ", data.primaryQuestion),
+   121→    bodyBold("Primary Information: ", data.primaryInfo),
+   122→    bodyBold("Primary Action: ", data.primaryAction),
+   123→    spacer(80),
+   124→    specTable(rows),
+   125→    spacer(60),
+   126→    h2("What to Preserve from Reference"),
+   127→    ...data.preserve.map((t) => bullet(t)),
+   128→    h2("What to Change"),
+   129→    ...data.change.map((t) => bullet(t)),
+   130→    h2("What Information Belongs Here"),
+   131→    ...data.infoBelongs.map((t) => bullet(t)),
+   132→    h2("Which Existing ELASTICO Component Supplies It"),
+   133→    body(data.componentDetail),
+   134→    h2("Which API/Store Supplies the Data"),
+   135→    body(data.dataDetail),
+   136→    h2("Which Assets Should Be Sourced"),
+   137→    ...data.assetsDetail.map((t) => bullet(t)),
+   138→    h2("What Must NOT Be Copied"),
+   139→    ...data.mustNotCopy.map((t) => bullet(t)),
+   140→    h2("1366 x 768 Composition"),
+   141→    body(data.composition),
+   142→    h2("Responsive Behavior"),
+   143→    body(data.responsive),
+   144→    h2("Acceptance Criteria"),
+   145→    ...data.acceptance.map((t) => bullet(t)),
+   146→  ];
+   147→}
+   148→
+   149→// ═══════════════════════════════════════════════════════════════════
+   150→// SCREEN DATA
+   151→// ═══════════════════════════════════════════════════════════════════
+   152→
+   153→const screens = [
+   154→  // ── SCREEN 01: DASHBOARD ──
+   155→  {
+   156→    title: "Dashboard", refFile: "ChatGPT Image Aug 12, 08_59_11 AM.png",
+   157→    purpose: "Command center answering: What matters right now in football? This is the analyst's home base, not a summary of every database table. It must communicate live state, upcoming intelligence, and current model activity in a single composed viewport.",
+   158→    primaryQuestion: "What matters right now?",
+   159→    primaryInfo: "Live match scores and states, upcoming fixtures with predictions, current model performance, recent results with analytical context.",
+   160→    primaryAction: "View Live Match (on any live fixture) or Explore Match (on any upcoming/recent fixture).",
+   161→    component: "dashboard-view.tsx",
+   162→    dataSource: "Zustand store (matches, teams, predictions) + /api/live (ESPN proxy) + /api/matches + /api/predictions",
+   163→    assets: "Team crests (ESPN API logos), competition badges, country flags.",
+   164→    componentDetail: "The existing dashboard-view.tsx renders the main dashboard grid. It currently fetches data from multiple Zustand store actions (fetchLiveScores, fetchMatches, fetchTeams) and displays them in a card-based layout. This component will be redesigned to follow the command-center composition principle from the philosophy document, replacing the current generic card grid with a spatially composed analytical workspace.",
+   165→    dataDetail: "Live scores come from /api/live which proxies ESPN's public API (site.api.espn.com) - no API key required, returns real team logos, scores, and match states. Upcoming/recent matches come from /api/matches. Prediction data comes from /api/predictions which connects to the prediction engine. All data flows through the Zustand store (use-elastico-store.ts) which manages currentView switching and fetch actions. Note: the DB gate issue (page.tsx requiring DB before rendering) must be resolved before dashboard can display ESPN data.",
+   166→    assetsDetail: [
+   167→      "Team crests: Use ESPN API logo URLs (already returned in API responses). Build resolveTeamLogo() in an asset-resolution layer.",
+   168→      "Competition badges: Source from ESPN or local cached assets for major leagues (Premier League, La Liga, etc.).",
+   169→      "Country flags: Use a consistent flag library (e.g., flagcdn.com or local SVG set). Never use emoji flags.",
+   170→      "No player headshots on dashboard - this is a match-level view, not a player-level view.",
+   171→    ],
+   172→    preserve: [
+   173→      "The command-center composition: a large live/upcoming match area as the dominant visual element, with supporting analytical panels arranged around it.",
+   174→      "High information density with clear visual hierarchy - L1 hero metrics (scores), L2 contextual data (probabilities, stats), L3 metadata (timestamps, sources).",",
+   175→      "Dark premium aesthetic with deep charcoal backgrounds (#0a0e17 to #131a29) and restrained accent colors.",
+   176→      "Left-aligned sidebar navigation (fixed ~240px) with icon + label items and active state indication.",
+   177→      "Typography hierarchy: large display numbers for scores (28-48px bold), tracked-out uppercase labels for section headers, compact 12-14px body text.",
+   178→      "Tabular/monospaced numbers for data alignment across all metrics.",
+   179→      "Glassmorphism-style card containers with 1px borders and 8-12px border radius, but used sparingly - not every element needs a card.",
+   180→    ],
+   181→    change: [
+   182→      "Replace the 3x3 grid-of-screens composite layout with a single full-screen dashboard composition.",
+   183→      "Remove any reference-specific team names, player names, scores, and statistics. All data must come from real ELASTICO data sources.",
+   184→      "Adopt the ELASTICO philosophy's cognitive flow: WHERE AM I > WHAT IS HAPPENING > WHAT MATTERS > WHY > EVIDENCE > NEXT ACTION.",
+   185→      "Replace generic card grids with spatially composed analytical surfaces (see philosophy Section 9: Spatial Design Language).",",
+   186→      "Ensure navigation follows the user's mental model (see philosophy Section 6), not the order components were written.",
+   187→      "Consolidate the color palette to ELASTICO's design tokens rather than using multiple reference-specific palettes.",
+   188→    ],
+   189→    infoBelongs: [
+   190→      "Live match scores with real-time state indicators (LIVE, HT, FT) and team crests.",
+   191→      "Upcoming fixtures with dates, competitions, and prediction probabilities where available.",
+   192→      "Current model/prediction performance summary (win rate, ROI if tracked).",
+   193→      "Recent results with scorelines and key analytical highlights.",
+   194→      "A 'current football state' summary strip showing what leagues/matches are active.",
+   195→      "League standings snippet for the user's primary competitions.",
+   196→    ],
+   197→    mustNotCopy: [
+   198→      "Sample player names (Haaland, Bruno Fernandes), sample team matchups (Man City vs Arsenal), sample statistics (94 rating, 18.4% ROI).",
+   199→      "The exact 4-column grid labels (Stats, Live, Predictions, Market) - these are reference-specific.",
+   200→      "Specific hex codes without adaptation - the references vary between #0a0e17, #0B0F14, #0F1115, #111827. ELASTICO must define its own tokens.",
+   201→      "Any fabricated data - if ESPN doesn't return it, show an elegant empty state.",
+   202→      "The 'Pro Analyst' role badge or any user-role UI not in the current auth model.",
+   203→      "Glowing neon effects on every element - the philosophy explicitly warns against this.",
+   204→    ],
+   205→    composition: "At 1366x768, the dashboard must fit the complete command-center composition without scrolling for the primary viewport. Sidebar (240px fixed) + main content area (1126px). The main area uses an asymmetric grid: top portion dominated by live/upcoming matches (60% height), bottom portion split between model insights (left 60%) and standings/recent activity (right 40%). Card padding is 16-20px, gutters 16-20px. The live match area should show 3-4 fixtures visibly. Typography: screen title 18-20px semibold, section labels 11-12px uppercase tracked, data values 24-32px bold. No horizontal overflow.",
+   206→    responsive: "At 1280x720, sidebar can collapse to icon-only (64px), main content reflows to maintain readability. At 1024x768, sidebar becomes a hamburger menu, grid collapses to 2 columns. Below 768px, single-column stack with live matches first, then predictions, then standings. Tables may scroll horizontally. The page itself must never overflow horizontally.",
+   207→    acceptance: [
+   208→      "Dashboard loads and renders visible content within 3 seconds on 1366x768.",
+   209→      "Live match scores display real ESPN data (not fabricated numbers).",",
+   210→      "All team crests render from ESPN API logo URLs, not placeholder circles.",
+   211→      "Navigation sidebar correctly switches between all 9 views via Zustand currentView.",
+   212→      "No horizontal scroll at 1366x768 viewport width.",
+   213→      "Empty states display gracefully when no live matches exist (not blank space).",
+   214→      "The visual hierarchy is immediately apparent: live scores > upcoming > supporting analytics.",
+   215→      "The page feels composed and spatial, not like a grid of identical cards.",
+   216→    ],
+   217→  },
+   218→  // ── SCREEN 02: LIVE MATCH ──
+   219→  {
+   220→    title: "Live Match", refFile: "Irz9NB2Q...jfif",
+   221→    purpose: "Deep analytical workspace for a single live match. This screen answers: What is happening in this match right now, and why? It is the most data-intensive screen in ELASTICO, serving as a live analytical room where an analyst can track score, momentum, tactical shape, statistics, and model interpretation simultaneously.",
+   222→    primaryQuestion: "What is happening in this match, and why?",
+   223→    primaryInfo: "Current score and match clock, live win probability, possession and key stats, tactical formation visualization, match events timeline.",
+   224→    primaryAction: "View Full Analysis (expand to detailed tactical/statistical view) or Switch Match (select a different live fixture).",
+   225→    component: "match-detail-view.tsx",
+   226→    dataSource: "/api/live (ESPN proxy for scores, events, lineups) + /api/predictions (model probability) + Zustand store",
+   227→    assets: "Team crests (ESPN), player names from ESPN roster data, competition logo, country flags for national teams.",
+   228→    componentDetail: "match-detail-view.tsx is the existing match detail component that renders when a user selects a match. It currently shows match info, basic stats, and events. This component must be transformed into a full live analytical workspace with a scoreboard hero, tactical pitch area, real-time stat comparison bars, event timeline, and model interpretation panel. It should support multiple sub-modes (Overview, Match Stats, Tactical) via internal tab navigation without leaving the view.",
+   229→    dataDetail: "The ESPN live API (/api/live proxy) provides real-time scores, match clock, events (goals, cards, substitutions), possession, shot counts, and basic statistics. The prediction engine (/api/predictions) provides pre-match and in-match model probabilities. Player and lineup data comes from ESPN's roster endpoints. For tactical visualizations, real spatial data (xT, passing networks, heatmaps) may not be available for most matches - these must show elegant unavailable states rather than fabricated data.",
+   230→    assetsDetail: [
+   231→      "Team crests: ESPN API logos for both home and away teams, normalized to consistent size (~40-48px).",
+   232→      "Competition logo: Sourced from ESPN or local cache for the specific league/competition.",
+   233→      "Country flags: Only for international matches, from a consistent flag library.",
+   234→      "Player images: NOT required on this screen - use abbreviated name nodes (e.g., 'BEN 23') on tactical views, matching the reference's approach of data nodes rather than photographs.",
+   235→      "Tactical pitch: Custom SVG/CSS rendering, not a chart library default.",
+   236→    ],
+   237→    preserve: [
+   238→      "The three-column core layout: left sidebar (home lineup), center hero (tactical pitch or primary analysis), right sidebar (away lineup/stats).",
+   239→      "Header bar with team crests, KPIs (possession %, shots), and central scoreboard as the dominant visual anchor.",
+   240→      "High information density appropriate for a deep analytical workspace - this is where analysts spend extended time.",
+   241→      "Dual-accent color coding for home vs away teams (e.g., cyan/teal vs terracotta/rust from the reference).",
+   242→      "Data-dense stat rows with tabular figures for numerical alignment.",
+   243→      "Uppercase tracked-out labels for section headers (POSSESSION, LINE-UP, COMMENTARY).",",
+   244→      "Timeline/event footer with horizontal progress representation for goals and key events over match time.",
+   245→    ],
+   246→    change: [
+   247→      "Remove sample data: Real Madrid vs Levante, 1:0 score, specific possession/shots numbers, specific player names.",
+   248→      "Replace the fine-grid dot pattern background with ELASTICO's design-system surface tokens.",
+   249→      "Adapt the three-column layout to 1366x768 - the reference's density may need slight compression.",
+   250→      "Ensure the scoreboard follows ELASTICO's match state logic (LIVE/UPCOMING/RECENT/HISTORICAL from philosophy Section 13).",
+   251→      "Add model interpretation panel showing prediction probability and confidence, which the reference lacks.",
+   252→      "Implement sub-mode tabs (Overview, Match Stats, Tactical) to avoid showing all analytical layers simultaneously (philosophy Section 24).",",
+   253→    ],
+   254→    infoBelongs: [
+   255→      "Match identity: home team vs away team, competition, match date/kickoff time, current match state.",
+   256→      "Live scoreboard: score, match clock (with stoppage time), half indicator.",
+   257→      "Live win probability with in-match trend line (if prediction engine supports it).",",
+   258→      "Key statistics comparison: possession, shots (on target), passes, fouls, corners.",
+   259→      "Lineups for both teams with formation notation.",
+   260→      "Match events timeline: goals, cards, substitutions with minute markers.",
+   261→      "Tactical formation view (if lineup data available; otherwise show static formation diagram).",",
+   262→      "Model interpretation: pre-match prediction, current probability, confidence level.",
+   263→    ],
+   264→    mustNotCopy: [
+   265→      "The specific Real Madrid vs Levante matchup, 1:0 scoreline, or any specific player names/numbers from the reference.",
+   266→      "The exact teal/rust color pairing - use ELASTICO's team-identity color system instead.",
+   267→      "The rotated vertical text label ('FOOTBALL GAME ANALYSIS') on the left edge.",
+   268→      "Specific possession percentages (77%), shot counts, or any numerical data from the reference.",
+   269→      "The macOS window chrome traffic lights visible in the reference screenshot.",
+   270→      "Any tactical data (passing networks, pressing zones) that cannot be derived from real ELASTICO data sources.",
+   271→    ],
+   272→    composition: "At 1366x768, the Live Match screen fills the entire viewport beyond the sidebar (240px). Header bar (~60px) contains team crests + score + clock. Main area splits into: left panel (~250px) for home lineup, center area (~500px) for tactical pitch/primary viz, right panel (~250px) for away stats. Below the primary area, a footer strip (~180px) contains the event timeline and key stats comparison bars. Total vertical budget: 60 (header) + 528 (primary) + 180 (footer) = 768px. Sub-mode tabs sit between header and primary area (~36px). Internal card padding: 12-16px for compact density.",
+   273→    responsive: "At 1280x720, compress side panels to 200px each, center area absorbs the difference. At 1024x768, collapse to two-column: primary viz on top (full width), lineups and stats in a tabbed panel below. Below 768px, stack vertically: scoreboard > stats bars > events > lineups. Tactical pitch view may require landscape orientation hint on mobile.",
+   274→    acceptance: [
+   275→      "Live match data updates reflect ESPN API responses (scores, clock, events).",
+   276→      "Score and match clock are the largest, most prominent elements on screen.",
+   277→      "Team crests from ESPN render correctly for both home and away teams.",
+   278→      "Statistical comparison bars accurately reflect real data from the API.",
+   279→      "Sub-mode tabs (Overview, Match Stats, Tactical) switch without page reload.",
+   280→      "If spatial/tactical data is unavailable, an elegant unavailable state is shown.",
+   281→      "The screen fits 1366x768 without horizontal overflow.",
+   282→      "Navigation back to dashboard is accessible and clearly labeled.",
+   283→    ],
+   284→  },
+   285→  // ── SCREEN 03: PLAYER PROFILE ──
+   286→  {
+   287→    title: "Player Profile", refFile: "Jqi5S_EI...jfif",
+   288→    purpose: "Player intelligence dossier. This screen answers: Who is this player, and how are they performing? It should feel like opening a scout's dossier - starting with identity, flowing through current performance, key metrics, tactical role, and match history. It is NOT a FIFA-style attribute card.",
+   289→    primaryQuestion: "Who is this player, and how are they performing?",
+   290→    primaryInfo: "Player identity (name, position, team, nationality, photo), current season performance metrics, key statistical breakdowns, match history.",
+   291→    primaryAction: "Compare Player (select another player for head-to-head) or View Match (navigate to a specific match from their history).",
+   292→    component: "player-view.tsx",
+   293→    dataSource: "/api/players + ESPN player endpoints + Zustand store (selectedPlayer, teams)",
+   294→    assets: "Player headshot (from ESPN or upstream provider), team crest, country flag.",
+   295→    componentDetail: "player-view.tsx is the existing player profile component. It renders player details, stats, and match history. This must be transformed from a basic profile card into a full intelligence dossier with a hero identity section, current performance strip, detailed metrics with contextual comparisons, and a match history log. The layout should use an asymmetric composition giving visual weight to the primary analytical area (stats/heatmap) while keeping the identity and navigation compact.",
+   296→    dataDetail: "Player data comes from /api/players which may connect to ESPN's athlete endpoints or the local database. The Zustand store holds the selectedPlayer state and team data. Performance metrics (goals, assists, passes, etc.) come from the player's match history aggregated in the database. If advanced metrics (xG, xA, progressive passes) are not available in the current data model, they must be omitted - never fabricate them (philosophy Section 23).",
+   297→    assetsDetail: [
+   298→      "Player headshot: Use ESPN athlete photo URL if available. Normalize to circular crop with consistent sizing (large hero: 120-150px, list: 40px). Provide initials fallback.",
+   299→      "Team crest: ESPN API logo for the player's current club.",
+   300→      "Country flag: From a consistent flag library based on player nationality.",
+   301→      "Pitch heatmap: Only render if real spatial data exists for the player. Otherwise show 'Spatial data not available' state.",
+   302→    ],
+   303→    preserve: [
+   304→      "The three-zone layout: hero identity area (top/left), primary analytical visualization (center/right), supporting metrics grid (bottom).",
+   305→      "Player roster sidebar (fixed ~240px) for navigating between players within the same team/context.",
+   306→      "High-density analytical dashboard feel with multiple chart types visible simultaneously.",
+   307→      "The pitch heatmap as a central analytical element - this is a signature football-specific visualization.",
+   308→      "Large KPI numbers (32-48px bold) for primary metrics with supporting trend indicators.",
+   309→      "Dark surface system with subtle elevation differences between card layers.",
+   310→      "Color-coded data visualization (green for positive, red for negative, spectrum for heatmaps).",",
+   311→    ],
+   312→    change: [
+   313→      "Remove all sample data: specific player names, numbers (965, 255%), and statistics from the reference.",
+   314→      "Replace the Russian/Cyrillic UI text with English.",
+   315→      "Remove the macOS window chrome visible in the reference.",
+   316→      "Adapt the heatmap color spectrum to use ELASTICO's data visualization color tokens.",
+   317→      "If no real heatmap/spatial data exists for a player, show an elegant unavailable state rather than an empty pitch.",
+   318→      "Ensure the dossier follows the philosophy's information flow: identity > performance > metrics > tactical role > comparison > history (Section 23).",
+   319→      "Remove toggle switches labeled in foreign languages - implement in English with ELASTICO's interaction patterns.",
+   320→    ],
+   321→    infoBelongs: [
+   322→      "Player identity: full name, position, current team, nationality, age/date of birth, jersey number.",
+   323→      "Current season summary: appearances, goals, assists, minutes played.",
+   324→      "Key performance metrics relevant to the player's position (e.g., forwards: xG, shot conversion; midfielders: pass accuracy, progressive passes; defenders: aerial duels, interceptions).",
+   325→      "Performance trend over recent matches (line chart or sparkline).",
+   326→      "Match history log with results and key contributions.",
+   327→      "Tactical role description and formation placement (if data supports it).",
+   328→      "Comparison link to jump to the Compare Players screen.",
+   329→    ],
+   330→    mustNotCopy: [
+   331→      "The specific Cyrillic/Russian text or any non-English labels from the reference.",
+   332→      "The specific player statistics (965, 255%, shot conversion percentages) - these are reference-specific numbers.",
+   333→      "The macOS traffic light buttons (window chrome) visible in the reference.",
+   334→      "Any FIFA-style attribute hexagon if the data doesn't support those specific metrics.",
+   335→      "The exact color spectrum of the heatmap - use ELASTICO's data viz palette instead.",
+   336→      "Dropdown filters labeled in foreign languages.",
+   337→    ],
+   338→    composition: "At 1366x768, the Player Profile uses the full content area (1126px after 240px sidebar). Top section (~200px): player identity strip with headshot (left), name/position/team/nationality (center), key season stats as large KPI numbers (right). Middle section (~360px): primary analytical area - split between stat breakdown charts (left 50%) and pitch heatmap (right 50%). Bottom section (~200px): match history table with compact rows (48px row height). Internal padding: 16-20px. The roster sidebar is only visible when accessed from a team context; otherwise, a back button provides navigation.",
+   339→    responsive: "At 1280x720, maintain the identity strip but reduce KPI number sizes. At 1024x768, stack the middle section vertically (stats above, heatmap below). Below 768px, single-column stack: identity > KPIs > charts > match history. The heatmap may require a minimum width and could show a simplified version or placeholder on very small screens.",
+   340→    acceptance: [
+   341→      "Player identity section displays real data (name, team, position) from the API.",
+   342→      "Player headshot renders from ESPN or shows professional initials fallback.",
+   343→      "All statistics shown are real data from the API, not fabricated numbers.",
+   344→      "If advanced metrics are unavailable, they are omitted (not replaced with zeros or random values).",
+   345→      "Match history shows real match data with correct scores and dates.",
+   346→      "The 'Compare Player' action navigates to the Compare screen with this player pre-selected.",
+   347→      "The screen fits 1366x768 without horizontal overflow.",
+   348→      "The dossier information flow follows: identity > performance > metrics > history.",
+   349→    ],
+   350→  },
+   351→  // ── SCREEN 04: MATCH ANALYSIS ──
+   352→  {
+   353→    title: "Match Analysis", refFile: "V5SQXI6Dd...jfif",
+   354→    purpose: "Post-match deep dive and tactical analysis workspace. This screen answers: What happened in this match, and what does the evidence show? It extends beyond the live match view into detailed post-match analytics including tactical diagrams, heatmaps, radar charts, and performance comparisons for both teams.",
+   355→    primaryQuestion: "What happened in this match, and what does the evidence show?",
+   356→    primaryInfo: "Final score, team performance comparison, tactical diagrams with player positioning, key match statistics, player performance highlights.",
+   357→    primaryAction: "Explore Tactics (drill into tactical view) or View Player (navigate to a specific player's profile from this match).",
+   358→    component: "match-detail-view.tsx (post-match mode) + tactical-view.tsx",
+   359→    dataSource: "/api/matches (match details) + /api/predictions (model vs actual) + DB (detailed stats) + Zustand store",
+   360→    assets: "Team crests, competition logo, player names and positions.",
+   361→    componentDetail: "The post-match analysis reuses match-detail-view.tsx but in a completed-match state. The tactical-view.tsx component provides the spatial laboratory (pitch visualization). These must work together to present: (1) a KPI summary row, (2) tactical pitch diagram with player nodes and formation, (3) heatmap for spatial dominance, (4) radar chart for multi-dimensional team comparison, (5) bar charts for discrete stat comparisons. The layout uses a masonry-style grid with the tactical pitch as the dominant element.",
+   362→    dataDetail: "Match details come from /api/matches with full statistics. The prediction engine provides model accuracy (predicted vs actual outcome). Tactical/spatial data (heatmaps, passing networks) may only be available for matches where ELASTICO has access to detailed event data - most ESPN-sourced matches will not have this. Show elegant unavailable states. Player performance data aggregates from the match events.",
+   363→    assetsDetail: [
+   364→      "Team crests: ESPN API logos for both teams.",
+   365→      "Competition logo: From ESPN or local cache.",
+   366→      "Player representation: Use numbered circular nodes on tactical diagrams (matching reference's approach), NOT photographs.",
+   367→      "No player headshots required on this screen - the focus is on tactical/statistical analysis.",
+   368→    ],
+   369→    preserve: [
+   370→      "The masonry-style grid with a large tactical pitch as the optical center and dominant element.",
+   371→      "KPI metric cards row at the top with icon + large number + sparkline/progress bar format.",
+   372→      "Custom tactical pitch visualization with player nodes, movement arrows, and zone highlighting.",
+   373→      "Radar chart (hexagonal/spider) for multi-attribute team comparison.",
+   374→      "Heatmap overlay on pitch template showing spatial dominance.",
+   375→      "Grouped bar charts for direct statistical comparison between the two teams.",
+   376→      "Semantic icon usage (running figure for distance, speedometer for sprint) that is metaphorically correct.",
+   377→    ],
+   378→    change: [
+   379→      "Replace sample team names (Aether FC, Zenith United) and all sample statistics with real ELASTICO data.",
+   380→      "Replace the cyan/lime accent colors with ELASTICO's design-system tokens.",
+   381→      "Remove hatched 'Pressing Zones' if real pressing data doesn't exist for the match.",
+   382→      "Adapt the 4-KPI top row to show only metrics that are actually available in the data model.",
+   383→      "If tactical/spatial data is unavailable, show 'Spatial data not available for this match' per philosophy Section 25.",
+   384→      "Ensure the analysis follows the philosophy's 'Charts Must Answer Questions' principle (Section 14) - every visualization must have a clear analytical purpose.",
+   385→    ],
+   386→    infoBelongs: [
+   387→      "Match identity and final score with competition context.",
+   388→      "Team performance KPIs: distance covered, sprints, pass accuracy, shots on target (only metrics available in the data model).",",
+   389→      "Tactical formation diagram showing starting XI positions for both teams.",
+   390→      "Statistical comparison: possession, shots, passes, fouls, corners (from match data).",",
+   391→      "Player performance highlights: top performers from each team with key contributions.",
+   392→      "Model accuracy: predicted outcome vs actual outcome (if prediction exists for this match).",",
+   393→    ],
+   394→    mustNotCopy: [
+   395→      "Team names 'Aether FC' and 'Zenith United' - these are reference placeholders.",
+   396→      "Specific statistics: 11.2, 34.5, 88%, 321/385 - these are fabricated numbers.",
+   397→      "The exact cyan (#00d2ff) and lime (#4ade80) color pairing.",
+   398→      "The 'Movement Zone' and 'Pressing Zone' toggle labels if no pressing data exists.",
+   399→      "Player numbers on the pitch if they don't correspond to real jersey numbers from the match data.",
+   400→      "The specific radar chart attribute labels if those metrics aren't in the data model.",
+   401→    ],
+   402→    composition: "At 1366x768, the Match Analysis screen uses the full content area. Top row (~100px): 4 KPI metric cards equally spaced. Second row (~300px): three-column split - tactical pitch (50% width), heatmap (25%), donut/summary (25%). Third row (~300px): two-column split - bar chart comparison (55%) and radar chart (45%). Gutters: 16-24px between cards. Internal card padding: 20-24px. The KPI cards use compact layout: icon (left) + large number (center) + trend indicator (right). Chart axes use 11-12px labels with tabular figures.",
+   403→    responsive: "At 1280x720, reduce KPI cards to 3 across and stack the remaining one. Middle rows become 2-column (pitch full width on top, heatmap + donut below). At 1024x768, single-column stack: KPIs > pitch > charts. Below 768px, charts may need horizontal scroll within their containers.",
+   404→    acceptance: [
+   405→      "All statistics shown are real data from the match API, not reference placeholders.",
+   406→      "Tactical pitch shows correct formations and player positions from the match data.",
+   407→      "If spatial data is unavailable, a well-designed empty state is displayed.",
+   408→      "Every chart has a clear analytical question it answers (no decorative charts).",
+   409→      "Team crests and match identity use real data from the API.",
+   410→      "The screen fits 1366x768 without horizontal overflow.",
+   411→      "Charts are constrained within their containers (no escape).",
+   412→      "Model prediction accuracy is shown if a prediction existed for this match.",
+   413→    ],
+   414→  },
+   415→  // ── SCREEN 05: PLAYER COMPARISON ──
+   416→  {
+   417→    title: "Player Comparison", refFile: "xWXF9jOh...jfif",
+   418→    purpose: "Head-to-head analytical comparison of two players. This screen answers: How do these two players compare? The philosophy (Section 27) is explicit: align comparable metrics side by side, make differences obvious, and do not force users to jump between separate cards to compare values.",
+   419→    primaryQuestion: "How do these two players compare?",
+   420→    primaryInfo: "Side-by-side player identity, aligned statistical comparison rows, visual comparison bars/charts showing relative performance.",
+   421→    primaryAction: "Swap Player (change one of the compared players) or View Player (navigate to either player's full profile).",
+   422→    component: "compare-view.tsx",
+   423→    dataSource: "/api/players + Zustand store (teams, selectedPlayers) + DB (player stats)",
+   424→    assets: "Player headshots (2), team crests (2), country flags (2).",
+   425→    componentDetail: "compare-view.tsx is the existing player comparison component. It must be redesigned to show two players in a directly comparable layout where metrics are aligned in shared rows. The current implementation may use separate cards for each player - this must change to a unified comparison table/chart format. A player selector at the top allows swapping either player. The comparison should include radar charts for multi-dimensional overlap, aligned stat rows for direct numerical comparison, and visual bars showing relative performance.",
+   426→    dataDetail: "Player statistics come from /api/players and the database. The Zustand store manages which two players are selected for comparison. All compared metrics must exist in the actual data model. If a metric exists for one player but not the other, show the available value and 'N/A' for the missing one - never fabricate the missing value.",
+   427→    assetsDetail: [
+   428→      "Player headshots: ESPN athlete photos for both players, circular crop with consistent sizing (~80-100px). Initials fallback if photo unavailable.",
+   429→      "Team crests: ESPN API logos for both players' current clubs.",
+   430→      "Country flags: For both players' nationalities from a consistent flag library.",
+   431→    ],
+   432→    preserve: [
+   433→      "The hero player imagery with asymmetric card layout creating visual impact.",
+   434→      "Side-by-side player identity presentation with clear visual differentiation.",
+   435→      "Comparative progress bars showing dual-color fills for each player's stats.",
+   436→      "The 'VS' or comparison indicator between the two players.",
+   437→      "Glassmorphism-style floating cards with backdrop blur over a dark background.",
+   438→      "Player headshots used as identity anchors, not decorative elements.",
+   439→      "Match context card showing which match/season the comparison is based on.",
+   440→    ],
+   441→    change: [
+   442→      "Remove the specific player (Bruno Fernandes) and match context (Portugal vs France, Semi-Final) from the reference.",
+   443→      "Replace the full-bleed celebration photo background - ELASTICO should use a contained player card, not a photographic hero background, unless a legitimate editorial image exists.",
+   444→      "Adapt the glassmorphism to use ELASTICO's surface system (no excessive backdrop-blur abuse).",
+   445→      "Ensure the comparison table follows the philosophy's aligned-metrics approach (Section 27) - shared rows, not separate cards.",
+   446→      "Remove the LIVE pulse indicator if this is a historical/static comparison.",
+   447→      "Replace the Portugal red/France blue team-specific colors with a generic comparison color system (e.g., Player A color vs Player B color).",",
+   448→    ],
+   449→    infoBelongs: [
+   450→      "Player A identity: name, position, team, nationality, headshot.",
+   451→      "Player B identity: name, position, team, nationality, headshot.",
+   452→      "Aligned stat comparison rows: Goals, Assists, Appearances, Pass Accuracy, xG (if available), and other metrics that exist in the data model for BOTH players.",
+   453→      "Visual comparison: horizontal bars or radar chart showing relative performance.",
+   454→      "Season/context selector: which time period the comparison covers.",
+   455→      "Per-match breakdown if drilling into specific fixtures.",
+   456→    ],
+   457→    mustNotCopy: [
+   458→      "Bruno Fernandes, Portugal, France, Semi-Final - all reference-specific entities.",
+   459→      "The specific heatmap overlay if it references Bruno Fernandes's actual positional data.",
+   460→      "The '1 Goal, 1 Assist' stat pills if they don't match real data.",
+   461→      "The 'LIVE' badge with pulse animation - comparisons are typically static analyses.",
+   462→      "The exact red (#DC143C) and blue (#002395) team-specific color coding.",
+   463→      "The 'Match Zone' breadcrumb navigation text.",
+   464→    ],
+   465→    composition: "At 1366x768, the Compare screen uses the full content area. Top section (~180px): two player identity cards side by side (each ~45% width) with a 'VS' divider in the center (~10%). Each card shows headshot (80px circle), name, position, team crest, nationality flag, and 2-3 key KPI numbers. Middle section (~300px): primary comparison area - aligned stat rows in a table format (metric name | player A value | player B value | visual bar). Bottom section (~250px): radar chart (left 50%) for multi-dimensional comparison and match context / season selector (right 50%). Gutters: 16-24px.",
+   466→    responsive: "At 1280x720, maintain side-by-side player cards but reduce headshot size. At 1024x768, stack player cards vertically with a horizontal 'VS' divider. Below 768px, full vertical stack: player A > player B > comparison table > radar chart. The radar chart may need a minimum 300px width.",
+   467→    acceptance: [
+   468→      "Both player identities show real data (name, team, position) from the API.",
+   469→      "All compared metrics exist in the data model for both players - no fabricated numbers.",
+   470→      "If a metric is missing for one player, 'N/A' is shown (not zero or a guessed value).",",
+   471→      "The comparison table aligns metrics in shared rows for direct visual comparison.",
+   472→      "Player selector allows swapping either player with a search interface.",
+   473→      "Team crests render correctly for both players' clubs.",
+   474→      "The screen fits 1366x768 without horizontal overflow.",
+   475→    ],
+   476→  },
+   477→  // ── SCREEN 06: PREDICTIONS ──
+   478→  {
+   479→    title: "Predictions", refFile: "ChatGPT Image Aug 12, 08_54_08 AM.png",
+   480→    purpose: "Decision environment for match predictions. This screen answers: What does the model predict, and how confident is it? The philosophy (Section 26) is explicit: immediately communicate match, model, probabilities, confidence, generation time, data freshness, match state, and outcome if completed. Do not make it look like a casino.",
+   481→    primaryQuestion: "What does the model predict, and how confident is it?",
+   482→    primaryInfo: "Match predictions with probabilities, model confidence levels, prediction performance tracking (win rate, ROI), upcoming fixtures with forecasted outcomes.",
+   483→    primaryAction: "View Match Analysis (navigate to the specific match's analytical view) or Filter Predictions (by league, date range, confidence level).",
+   484→    component: "predictions-view.tsx",
+   485→    dataSource: "/api/predictions + prediction engine + Zustand store (predictions, matches)",
+   486→    assets: "Team crests (from ESPN or prediction data), league/competition badges.",
+   487→    componentDetail: "predictions-view.tsx is the existing predictions component. It must be transformed into a decision environment with a data-dense prediction table as the primary element, supported by model consensus and performance summary panels. The current implementation may show basic prediction cards - this must become a structured table with sortable columns, confidence badges, and model agreement indicators. Sub-navigation tabs should filter by prediction type (Match Winner, Over/Under, BTTS, etc.).",
+   488→    dataDetail: "Predictions come from /api/predictions which connects to the prediction engine. The engine generates probabilities for match outcomes. Model confidence and consensus data comes from the prediction engine's internal state. Historical prediction performance (win rate, ROI) is tracked in the database. Match data (teams, dates, leagues) comes from /api/matches and ESPN.",
+   489→    assetsDetail: [
+   490→      "Team crests: ESPN API logos for predicted match teams, displayed at ~24px in table rows and ~40px in headers.",
+   491→      "League/competition badges: For filtering and grouping predictions by competition.",
+   492→      "No player imagery on this screen - it's match-focused, not player-focused.",
+   493→    ],
+   494→    preserve: [
+   495→      "The hybrid layout: data-dense table (65% width) with summary KPI cards/panels (35% width).",",
+   496→      "Sub-navigation tabs for prediction types (Match Winner, Over/Under, BTTS, Correct Score, All Leagues).",",
+   497→      "Date range filter (e.g., 'Next 7 Days') aligned in the header area.",
+   498→      "Model consensus donut chart showing agreement percentage between models.",
+   499→      "Progress bars within table rows showing probability percentages.",
+   500→      "Confidence badges (High/Medium/Low) with color-coded background fills.",
+   501→      "Compact table rows (48-52px height) for high-density scanning.",
+   502→    ],
+   503→    change: [
+   504→      "Remove all sample prediction data: specific teams, percentages (78%, 71%), ROI (+18.4%), win rates (72%).",",
+   505→      "Replace the 5-dot reliability score with ELASTICO's own confidence indication system.",
+   506→      "Adapt the color palette to use ELASTICO's design tokens (#00D26A brand green for positive, standard red/amber for negative/medium).",",
+   507→      "Ensure the screen follows the philosophy's 'Decision Environment' principle - analytical, not casino-like.",
+   508→      "Add data freshness indicators (when the prediction was generated, when data was last updated).",
+   509→      "Show the specific model name/version that generated each prediction.",
+   510→    ],
+   511→    infoBelongs: [
+   512→      "Prediction table with columns: Match (teams + crests), Prediction (outcome), Probability (%), Confidence (High/Medium/Low badge), Model, Generated At.",
+   513→      "Model consensus summary: percentage agreement between models, with drill-down capability.",
+   514→      "Prediction performance KPIs: overall win rate, ROI, number of predictions tracked.",
+   515→      "Filter controls: date range, league/competition, prediction type, minimum confidence.",
+   516→      "Outcome tracking: for completed matches, show predicted vs actual outcome.",
+   517→    ],
+   518→    mustNotCopy: [
+   519→      "Specific match predictions or probabilities from the reference.",
+   520→      "The 72% win rate and +18.4% ROI numbers.",
+   521→      "The 83% model consensus donut value.",
+   522→      "Specific team matchups shown in the reference prediction table.",
+   523→      "The 'Next 7 Days' date range if ELASTICO uses different defaults.",
+   524→    ],
+   525→    composition: "At 1366x768, the Predictions screen fills the content area. Header bar (~80px): breadcrumbs (Predictions > Match Winner), sub-nav tabs, date filter. Body splits: left/center prediction table (~65% = ~730px), right summary panels (~35% = ~390px). The table has columns: Match (200px), Prediction (120px), Probability (100px), Confidence (100px), Model (150px). Right panels: Model Consensus donut (top, ~200px height) and Prediction Performance KPIs (bottom, ~200px height). Table rows: 48-52px, with 16px internal padding.",
+   526→    responsive: "At 1280x720, compress right panel to 300px, table absorbs the difference. At 1024x768, stack vertically: filters > KPIs > prediction table (full width) > consensus panel. Below 768px, the table may scroll horizontally within its container. The donut chart remains visible but smaller.",
+   527→    acceptance: [
+   528→      "All predictions shown are real outputs from the prediction engine, not reference placeholders.",
+   529→      "Probabilities and confidence levels reflect actual model outputs.",
+   530→      "Team crests render correctly in prediction table rows.",
+   531→      "Filter controls (date, league, type) actually filter the displayed predictions.",
+   532→      "For completed matches, predicted vs actual outcomes are both shown.",
+   533→      "Data freshness timestamps are visible on each prediction.",
+   534→      "The screen fits 1366x768 without horizontal overflow.",
+   535→      "The tone is analytical and professional, not casino-like.",
+   536→    ],
+   537→  },
+   538→  // ── SCREEN 07: AI ANALYST ──
+   539→  {
+   540→    title: "AI Analyst", refFile: "ChatGPT Image Aug 12, 08_48_21 AM (2).png",
+   541→    purpose: "Conversational reasoning interface. This screen answers: What analytical insight can the AI provide about this football question? The philosophy (Section 16) is explicit: AI should live inside the analysis, not be marketed as 'AI INSIGHT' on every page. Use contextual analytical language, not marketing language.",
+   542→    primaryQuestion: "What analytical insight can the AI provide?",
+   543→    primaryInfo: "Conversational AI interface with contextual football analysis, source citations, suggested follow-up questions, and analytical reasoning chains.",
+   544→    primaryAction: "Ask Question (text input for natural language query) or Select Suggested Question (tap a pre-built analytical prompt).",
+   545→    component: "chat-view.tsx",
+   546→    dataSource: "AI Gateway (7 providers via /api/chat or equivalent) + context from Zustand store (current match, player, prediction context)",
+   547→    assets: "Minimal - this is primarily a text-based interface. Source badges for data attribution.",
+   548→    componentDetail: "chat-view.tsx is the existing AI chat component. It connects to 7 AI providers through a gateway. The redesign must transform it from a generic chatbot UI into a contextual reasoning interface that understands football context. Key features: (1) context-aware queries that know which match/player/screen the user is viewing, (2) source citations showing which data sources support the AI's claims, (3) suggested follow-up questions relevant to the current analytical context, (4) a clean message history with clear user/AI visual distinction.",
+   549→    dataDetail: "The AI Gateway connects to 7 different providers. Context from the Zustand store (current match, selected player, active predictions) should be injected into AI queries to provide football-specific responses. The /api/chat endpoint (or equivalent) handles the AI request/response cycle. All AI responses must be grounded in real data - the philosophy forbids inventing explainability when the underlying engine cannot support it (Section 16).",
+   550→    assetsDetail: [
+   551→      "Minimal asset requirements - this is a text-heavy interface.",
+   552→      "Source attribution badges: small icons/labels for 'Match Data', 'ESPN Stats', 'Model Output' to cite data sources.",
+   553→      "Team crests may appear in AI responses when referencing specific teams - use the same resolveTeamLogo() function.",
+   554→      "No decorative imagery - the content is the interface.",
+   555→    ],
+   556→    preserve: [
+   557→      "The multi-row KPI cards at the top showing system status and key metrics (matches tracked, prediction accuracy, etc.).",",
+   558→      "Chat bubble interface with clear visual distinction between user queries and AI responses.",
+   559→      "Source citations attached to AI responses showing data provenance.",
+   560→      "Suggested follow-up questions as tappable prompts below AI responses.",
+   561→      "Real-time status indicators (green dot for 'Live', 'Operational' status for AI system health).",",
+   562→      "Feed/list format for AI Insights showing icon indicators and timestamps.",
+   563→    ],
+   564→    change: [
+   565→      "Remove the generic dashboard layout (6 KPI cards, live matches list, etc.) - the AI Analyst should be a focused reasoning interface, not a second dashboard.",
+   566→      "Replace marketing language ('Elite Analyst', 'Most Confident Prediction') with analytical language ('Model Interpretation', 'Key Factor').",",
+   567→      "Ensure AI responses use the philosophy's microcopy guidelines (Section 39): 'Model confidence' not 'AI-powered predictive confidence score'.",",
+   568→      "Inject football context from the current view into AI queries automatically.",
+   569→      "Add source attribution badges to every analytical claim in AI responses.",
+   570→      "Remove the 'System Status' and generic performance sparklines - focus on the conversational interface.",
+   571→    ],
+   572→    infoBelongs: [
+   573→      "Chat message history: user questions and AI responses with timestamps.",
+   574→      "Context indicator showing what entity the AI is analyzing (current match, player, prediction).",",
+   575→      "Source citations on AI responses: which data sources support each claim.",
+   576→      "Suggested follow-up questions relevant to the current analytical context.",
+   577→      "Text input field with send button for natural language queries.",
+   578→      "Conversation history for the current session (clearable).",",
+   579→    ],
+   580→    mustNotCopy: [
+   581→      "The generic dashboard KPI cards (6 equal-width metric cards at the top) - this is not a dashboard.",
+   582→      "Marketing language: 'Elite Analyst', 'Most Confident Prediction', 'System Status'.",",
+   583→      "The 'Live Matches' list and 'Top Predictions' table - those belong on their own screens.",
+   584→      "The multi-chart layout (donut, line chart, sparklines) - the AI Analyst is a reasoning interface, not a chart gallery.",
+   585→      "Specific metric values (prediction accuracy percentages, ROI numbers) from the reference.",
+   586→    ],
+   587→    composition: "At 1366x768, the AI Analyst screen uses a focused layout. Left panel (~300px): conversation history list showing previous queries with timestamps. Right panel (~826px): primary chat area. At the top of the right panel, a context bar (~40px) shows the current analytical context (e.g., 'Analyzing: Arsenal vs Chelsea - Premier League'). Below that, the chat messages area (scrollable, ~550px) with user messages right-aligned and AI responses left-aligned with source badges. At the bottom, an input bar (~60px) with text field and send button. Suggested questions appear as chips above the input field.",
+   588→    responsive: "At 1280x720, narrow the conversation history panel to 240px. At 1024x768, collapse the history panel into a toggleable drawer, giving the chat area full width. Below 768px, full-width chat with a history icon to open the drawer. The input bar remains fixed at the bottom.",
+   589→    acceptance: [
+   590→      "AI responses are grounded in real data with visible source citations.",
+   591→      "The context bar shows the current analytical entity (match, player, etc.).",",
+   592→      "Suggested follow-up questions are relevant to the current context.",
+   593→      "No marketing language ('AI-powered', 'Elite', 'Intelligent') in the interface.",
+   594→      "Chat messages are clearly distinguishable (user vs AI).",",
+   595→      "The input field is always visible and accessible at the bottom.",
+   596→      "The screen fits 1366x768 without horizontal overflow.",
+   597→      "Empty state shows suggested questions to start the conversation.",
+   598→    ],
+   599→  },
+   600→  // ── SCREEN 08: ANALYTICS ──
+   601→  {
+   602→    title: "Analytics", refFile: "ChatGPT Image Aug 12, 08_48_20 AM (1).png",
+   603→    purpose: "Aggregate metrics and performance overview for the entire ELASTICO system. This screen answers: How is the system performing overall? It provides a bird's-eye view of model accuracy, prediction performance, data coverage, and system health across all tracked leagues and matches.",
+   604→    primaryQuestion: "How is the system performing overall?",
+   605→    primaryInfo: "Aggregate prediction performance metrics, model confidence distributions, data freshness indicators, league coverage summary, system health status.",
+   606→    primaryAction: "Drill Down (click any metric to see detailed breakdown) or Export (download analytics report).",
+   607→    component: "(no dedicated page - currently split between predictions-view and admin views)",
+   608→    dataSource: "/api/* aggregate endpoints + DB (prediction history, model logs) + Zustand store",
+   609→    assets: "League/competition crests for coverage overview.",
+   610→    componentDetail: "There is currently no dedicated analytics-view.tsx. This screen needs to be created. It should aggregate data from multiple API endpoints (/api/predictions for performance, /api/matches for coverage, /api/teams for league data) and present it in a coherent dashboard. The component should be registered in the Zustand currentView switch and added to the navigation. Key widgets: model performance over time, prediction accuracy by league, confidence distribution, data freshness timeline.",
+   611→    dataDetail: "Aggregate prediction data comes from the database (prediction history with outcomes). Model performance metrics (accuracy, calibration, ROI) are computed from historical predictions vs actual outcomes. League coverage data comes from /api/teams and /api/matches. System health data (API response times, data freshness) may need new tracking endpoints. If any aggregate data is not available, show it as 'Not yet tracked' rather than fabricating it.",
+   612→    assetsDetail: [
+   613→      "League/competition crests: For the coverage overview section, showing which leagues ELASTICO tracks.",
+   614→      "Minimal other assets - this is primarily a data visualization screen.",
+   615→    ],
+   616→    preserve: [
+   617→      "The 3-column layout: wide left column for primary predictive data, medium center for statistical breakdowns, narrow right for AI insights/status.",
+   618→      "Dual-colored progress bars showing direct opposition comparison (Home vs Away model performance).",",
+   619→      "Live win probability line chart showing trend over match time.",
+   620→      "Donut chart for model confidence showing weighted average of different models.",
+   621→      "Status indicators: 'LIVE' badges, green dots for operational status.",
+   622→      "High information density appropriate for a power-user analytics screen.",
+   623→    ],
+   624→    change: [
+   625→      "Remove the specific match context (Man City vs Arsenal, '2-1' score, '87'' minute) - this is an aggregate screen, not a match-specific one.",
+   626→      "Replace the match-centric layout with a system-performance-centric layout.",
+   627→      "Remove the 'Ask AI Assistant' input field - that belongs on the AI Analyst screen.",
+   628→      "Add aggregate metrics not in the reference: prediction accuracy over time, league coverage, data freshness.",
+   629→      "Ensure charts follow the 'Charts Must Answer Questions' principle (philosophy Section 14).",",
+   630→      "Remove the 'Customise' button if it doesn't connect to real functionality.",
+   631→    ],
+   632→    infoBelongs: [
+   633→      "Prediction performance over time: accuracy trend line, cumulative ROI, number of predictions.",
+   634→      "Accuracy by league/competition: which leagues the model performs best/worst on.",
+   635→      "Model confidence distribution: how often the model is High/Medium/Low confidence.",
+   636→      "Data freshness: last update time for each data source (ESPN, model, etc.).",",
+   637→      "League coverage: which competitions are tracked, how many matches per league.",
+   638→      "System health: API response times, error rates, data pipeline status.",
+   639→    ],
+   640→    mustNotCopy: [
+   641→      "The Man City vs Arsenal match context, '2-1' score, '87'' minute marker.",
+   642→      "The specific xG values and probability percentages from the reference.",
+   643→      "The 'Live Win Probability' chart if it refers to a specific match - this screen shows aggregate data.",
+   644→      "The 'Ask AI Assistant' input field - that's the AI Analyst screen's responsibility.",
+   645→      "The 'Top Players' list if it refers to a specific match.",
+   646→    ],
+   647→    composition: "At 1366x768, the Analytics screen fills the content area. Top row (~80px): screen title, date range selector, and export button. Second row (~120px): 4-5 KPI summary cards (Total Predictions, Accuracy %, Avg Confidence, Leagues Tracked, Data Freshness). Third row (~250px): two-column split - performance trend chart (left 60%, line chart showing accuracy/ROI over time) and confidence distribution donut (right 40%). Fourth row (~250px): two-column split - league coverage table (left 60%) and system health status panel (right 40%). Gutters: 16-24px, card padding: 16-20px.",
+   648→    responsive: "At 1280x720, reduce KPI cards to 4 across. At 1024x768, stack the third and fourth rows into single-column layouts. Below 768px, full vertical stack. The league coverage table may need horizontal scroll.",
+   649→    acceptance: [
+   650→      "A dedicated analytics-view.tsx component exists and is registered in the navigation.",
+   651→      "All aggregate metrics are computed from real prediction history data.",
+   652→      "If historical prediction data is insufficient, an elegant 'Insufficient data' state is shown.",
+   653→      "Charts have clear analytical purposes and answer specific questions.",
+   654→      "Date range selector filters the analytics data correctly.",
+   655→      "The screen fits 1366x768 without horizontal overflow.",
+   656→      "League coverage accurately reflects which competitions ELASTICO actually tracks.",
+   657→    ],
+   658→  },
+   659→  // ── SCREEN 09: SETTINGS ──
+   660→  {
+   661→    title: "Settings", refFile: "ChatGPT Image Aug 13, 04_03_10 AM.png",
+   662→    purpose: "Quiet utility configuration screen. This screen answers: How do I configure ELASTICO to my preferences? The philosophy (Section 28) is explicit: Settings should be calm, organized, compact, predictable, and functional. Do not make Settings look like the dashboard.",
+   663→    primaryQuestion: "How do I configure ELASTICO?",
+   664→    primaryInfo: "User preferences, display settings, data preferences, notification settings, account management.",
+   665→    primaryAction: "Save Changes (persist updated settings).",
+   666→    component: "settings-view.tsx",
+   667→    dataSource: "Local state + /api/setup + /api/auth/* + Zustand store (user preferences)",
+   668→    assets: "Minimal - user avatar if authenticated.",
+   669→    componentDetail: "settings-view.tsx is the existing settings component. It currently handles basic configuration. The redesign must transform it into a calm, organized utility screen using a master-detail layout: a vertical category list on the left (Account, Display, Data, Notifications) and a configuration form panel on the right. This is NOT a dashboard - it should use minimal visual ornamentation, clear form controls, and predictable layouts. Toggle switches, dropdowns, and input fields should follow the design system's form component specifications.",
+   670→    dataDetail: "Settings are primarily local state (theme, language, notification preferences) persisted to localStorage or the user's database record. Account management uses /api/auth/* endpoints. The /api/setup endpoint handles initial configuration. The Zustand store holds user preferences and auth state. No external data APIs are needed for this screen.",
+   671→    assetsDetail: [
+   672→      "User avatar: if authenticated, show the user's avatar from the auth provider. If not, show initials.",
+   673→      "Minimal other assets - this is a functional utility screen, not a visual showcase.",
+   674→    ],
+   675→    preserve: [
+   676→      "The master-detail layout: left navigation list for setting categories, right form panel for configuration.",
+   677→      "Calm, understated visual treatment - this is not a dashboard.",
+   678→      "Toggle switches (iOS-style) for boolean settings.",
+   679→      "Dropdown selectors for enum-based settings.",
+   680→      "Tabular/form-based layout rather than card-based.",
+   681→      "Uppercase section headers with consistent spacing.",
+   682→    ],
+   683→    change: [
+   684→      "Remove any dashboard-like elements (KPI cards, charts, live data).",
+   685→      "Adapt the layout to use ELASTICO's design-system form components.",
+   686→      "Ensure settings categories match what ELASTICO actually supports (don't show options that don't work).",
+   687→      "Add proper form validation and save confirmation feedback.",
+   688→      "Use the design system's toggle/dropdown components, not custom implementations.",
+   689→      "Ensure the 'quiet utility' principle (philosophy Section 28) is maintained throughout.",
+   690→    ],
+   691→    infoBelongs: [
+   692→      "Account: profile information, email, password change, authentication status.",
+   693→      "Display: theme (dark/light), language, density (compact/comfortable), sidebar position.",
+   694→      "Data: preferred leagues/competitions, default match view, data refresh interval.",
+   695→      "Notifications: which events trigger notifications, notification delivery method.",
+   696→      "About: ELASTICO version, data sources, credits.",
+   697→    ],
+   698→    mustNotCopy: [
+   699→      "The dashboard content (live match, charts, analytics) visible in the reference - this is a SETTINGS screen, not a dashboard.",
+   700→      "The purple (#8B5CF6) active state color if it conflicts with ELASTICO's design tokens.",
+   701→      "The specific setting categories shown in the reference if they don't match ELASTICO's actual features.",
+   702→      "Any live data widgets or KPI cards.",
+   703→    ],
+   704→    composition: "At 1366x768, the Settings screen uses a master-detail layout. Left panel (~240px): vertical list of setting categories (Account, Display, Data, Notifications, About) with text labels and active state indication. Right panel (~886px): configuration form for the selected category. Forms use standard vertical layout with label above control, 24px vertical spacing between groups. Toggle switches: 44px width, 24px height. Dropdown selectors: full-width within the form panel. Input fields: full-width with 12px border radius and 8px padding. The layout is calm and spacious - no charts, no KPIs, no live data.",
+   705→    responsive: "At 1280x720, maintain the master-detail split. At 1024x768, narrow the category panel to 200px. Below 768px, stack vertically: category selector as horizontal tabs at the top, form panel below. All form controls remain full-width and usable.",
+   706→    acceptance: [
+   707→      "All setting categories shown actually correspond to functional settings (no dead options).",",
+   708→      "Toggle switches and dropdowns are wired to real state management.",
+   709→      "Save changes persists to localStorage or database and shows confirmation.",
+   710→      "The screen is visually calm and does not look like a dashboard.",
+   711→      "Form controls follow the design system's component specifications.",
+   712→      "The screen fits 1366x768 without horizontal overflow.",
+   713→      "Navigation back to the main workspace is accessible.",
+   714→    ],
+   715→  },
+   716→];
+   717→
+   718→// ═══════════════════════════════════════════════════════════════════
+   719→// COVER (R1 - Pure Paragraph Left)
+   720→// ═══════════════════════════════════════════════════════════════════
+   721→function calcTitleLayout(title, maxWidth, preferredPt = 40, minPt = 24) {
+   722→  const CHARS_PER_PT = 0.52;
+   723→  let pt = preferredPt;
+   724→  while (pt > minPt) {
+   725→    const charsPerLine = Math.floor(maxWidth / (pt * 14.6));
+   726→    if (charsPerLine <= 0) { pt--; continue; }
+   727→    const lines = Math.ceil(title.length / charsPerLine);
+   728→    if (lines <= 3) return { titlePt: pt, titleLines: splitTitleLines(title, charsPerLine) };
+   729→    pt--;
+   730→  }
+   731→  return { titlePt: minPt, titleLines: [title] };
+   732→}
+   733→function splitTitleLines(title, charsPerLine) {
+   734→  const breakAfter = new Set(" ,.!?;:-/()[]{}".split(""));
+   735→  const lines = [];
+   736→  let remaining = title;
+   737→  while (remaining.length > 0) {
+   738→    if (remaining.length <= charsPerLine) { lines.push(remaining.trim()); break; }
+   739→    let breakAt = -1;
+   740→    for (let i = Math.min(charsPerLine, remaining.length); i > charsPerLine * 0.7; i--) {
+   741→      if (breakAfter.has(remaining[i - 1])) { breakAt = i; break; }
+   742→    }
+   743→    if (breakAt === -1) breakAt = charsPerLine;
+   744→    lines.push(remaining.slice(0, breakAt).trim());
+   745→    remaining = remaining.slice(breakAt).trim();
+   746→  }
+   747→  return lines;
+   748→}
+   749→function calcCoverSpacing(p) {
+   750→  const SAFETY = 1200;
+   751→  const usable = 16838 - (p.marginTop || 0) - (p.marginBottom || 0) - SAFETY;
+   752→  const contentH =
+   753→    (p.titleLineCount || 1) * ((p.titlePt || 36) * 23 + 200) +
+   754→    (p.hasSubtitle ? (12 * 23 + 600) : 0) +
+   755→    (p.metaLineCount || 0) * (10 * 23 + 100) +
+   756→    (p.fixedHeight || 800) + 900;
+   757→  const remaining = Math.max(usable - contentH, 400);
+   758→  const rawTop = Math.floor(remaining * 0.45);
+   759→  const rawBottom = Math.floor(remaining * 0.45);
+   760→  return { topSpacing: Math.max(rawTop, 400), bottomSpacing: Math.max(rawBottom, 800) };
+   761→}
+   762→
+   763→function buildCoverR1(config) {
+   764→  const P = config.palette;
+   765→  const padL = 1200, padR = 800;
+   766→  const { titlePt, titleLines } = calcTitleLayout(config.title, 11906 - padL - padR - 300, 40, 24);
+   767→  const titleSize = titlePt * 2;
+   768→  const sp = calcCoverSpacing({
+   769→    titleLineCount: titleLines.length, titlePt, hasSubtitle: !!config.subtitle,
+   770→    metaLineCount: (config.metaLines || []).length, fixedHeight: 400,
+   771→  });
+   772→  const accentLeft = { style: BorderStyle.SINGLE, size: 8, color: P.accent, space: 12 };
+   773→  const children = [];
+   774→  children.push(new Paragraph({ spacing: { before: sp.topSpacing } }));
+   775→  if (config.englishLabel) {
+   776→    children.push(new Paragraph({
+   777→      indent: { left: padL, right: padR }, spacing: { after: 500 },
+   778→      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: P.accent, space: 8 } },
+   779→      children: [new TextRun({ text: config.englishLabel.split("").join("  "),
+   780→        size: 18, color: P.accent, font: { ascii: "Calibri" }, characterSpacing: 40 })],
+   781→    }));
+   782→  }
+   783→  for (let i = 0; i < titleLines.length; i++) {
+   784→    children.push(new Paragraph({
+   785→      indent: { left: padL },
+   786→      spacing: { after: i < titleLines.length - 1 ? 100 : 300, line: Math.ceil(titlePt * 23), lineRule: "atLeast" },
+   787→      children: [new TextRun({ text: titleLines[i], size: titleSize, bold: true,
+   788→        color: P.titleColor, font: { ascii: "Arial" } })],
+   789→    }));
+   790→  }
+   791→  if (config.subtitle) {
+   792→    children.push(new Paragraph({
+   793→      indent: { left: padL }, spacing: { after: 800 },
+   794→      children: [new TextRun({ text: config.subtitle, size: 24, color: P.subtitleColor, font: { ascii: "Calibri" } })],
+   795→    }));
+   796→  }
+   797→  for (const line of (config.metaLines || [])) {
+   798→    children.push(new Paragraph({
+   799→      indent: { left: padL + 200 }, spacing: { after: 80 }, border: { left: accentLeft },
+   800→      children: [new TextRun({ text: line, size: 24, color: P.metaColor, font: { ascii: "Calibri" } })],
+   801→    }));
+   802→  }
+   803→  children.push(new Paragraph({ spacing: { before: sp.bottomSpacing } }));
+   804→  children.push(new Paragraph({
+   805→    indent: { left: padL, right: padR },
+   806→    border: { top: { style: BorderStyle.SINGLE, size: 2, color: P.accent, space: 8 } },
+   807→    spacing: { before: 200 },
+   808→    children: [
+   809→      new TextRun({ text: config.footerLeft || "", size: 16, color: P.footerColor, font: { ascii: "Arial" } }),
+   810→      new TextRun({ text: "                                                  " }),
+   811→      new TextRun({ text: config.footerRight || "", size: 16, color: P.footerColor, font: { ascii: "Arial" } }),
+   812→    ],
+   813→  }));
+   814→  return [new Table({
+   815→    width: { size: 100, type: WidthType.PERCENTAGE }, layout: TableLayoutType.FIXED,
+   816→    borders: allNoBorders,
+   817→    rows: [new TableRow({
+   818→      height: { value: 16838, rule: "exact" },
+   819→      children: [new TableCell({ shading: { type: ShadingType.CLEAR, fill: c(P.bg) }, borders: noBorders, children })],
+   820→    })],
+   821→  })];
+   822→}
+   823→
+   824→// ═══════════════════════════════════════════════════════════════════
+   825→// ASSEMBLE DOCUMENT
+   826→// ═══════════════════════════════════════════════════════════════════
+   827→
+   828→// -- Body content --
+   829→const bodyContent = [];
+   830→
+   831→// -- Introduction --
+   832→bodyContent.push(h1("Introduction"));
+   833→bodyContent.push(body("This document is the Visual Reference Execution Brief for ELASTICO, a football intelligence workstation built on Next.js 15. It serves as the definitive bridge between the ELASTICO UX/UI Philosophy document (which defines the design intent, principles, and visual direction) and the actual UI implementation to be executed by GLM (an AI coder)."));
+   834→bodyContent.push(body("The brief covers nine screens that compose the ELASTICO experience: Dashboard, Live Match, Player Profile, Match Analysis, Player Comparison, Predictions, AI Analyst, Analytics, and Settings. For each screen, it provides a detailed specification mapping visual reference images to concrete implementation requirements, removing ambiguity before the implementation phase begins."));
+   835→bodyContent.push(body("Each screen specification includes: what to preserve from the visual reference, what to change, what information belongs on that screen, which existing ELASTICO component supplies it, which API or Zustand store supplies the data, which assets should be sourced, what must NOT be copied from the reference, the 1366 x 768 composition layout, responsive behavior, and acceptance criteria."));
+   836→
+   837→bodyContent.push(h1("How to Use This Brief"));
+   838→bodyContent.push(body("This brief is structured to be read screen-by-screen. Each screen section is self-contained: an implementer can work on any screen by reading its section without needing to cross-reference other sections. However, the Design System Foundations section below establishes shared tokens and rules that all screens must follow."));
+   839→bodyContent.push(bullet("Read the Design System Foundations section first to understand the shared visual language."));
+   840→bodyContent.push(bullet("For each screen, start with the Purpose and Primary Question to understand the screen's intent."));
+   841→bodyContent.push(bullet("Use the specification table to identify the component, data source, and assets required."));
+   842→bodyContent.push(bullet("Follow the 'What to Preserve' and 'What to Change' lists to translate the reference into ELASTICO's design language."));
+   843→bodyContent.push(bullet("Use the '1366 x 768 Composition' section to understand the exact layout at the target viewport."));
+   844→bodyContent.push(bullet("Verify completion against the Acceptance Criteria checklist."));
+   845→bodyContent.push(bullet("Never copy sample data (player names, scores, statistics) from the references. All data must come from real ELASTICO data sources."));
+   846→
+   847→bodyContent.push(h1("Design System Foundations"));
+   848→bodyContent.push(body("Before implementing any individual screen, the following design-system primitives must be established. These tokens define the shared visual DNA that makes ELASTICO feel like one product, not nine disconnected dashboards. The philosophy document (Sections 8-12, 29-31) provides the full rationale; this section defines the concrete tokens."));
+   849→
+   850→bodyContent.push(h2("Color Tokens"));
+   851→bodyContent.push(body("ELASTICO uses a restrained premium dark foundation. The base palette is derived from the visual references but unified into a single consistent token system. Background surfaces use near-black charcoals with subtle blue undertones (#0a0e17, #131a29, #1a1f2e). Text uses high-contrast white (#f9fafb) for primary and muted grays (#9ca3af, #6b7280) for secondary and tertiary levels. The brand accent is a restrained emerald green (#10b981) used for positive states, active navigation, and success indicators. Data visualization colors follow semantic rules: green for positive, red for negative, blue for neutral, amber for caution. Team identity colors override data colors when showing team-specific information. Every color must communicate state, hierarchy, selection, or sentiment - decorative color is forbidden."));
+   852→
+   853→bodyContent.push(h2("Typography Scale"));
+   854→bodyContent.push(body("The type system uses a clean geometric sans-serif (Inter) as the primary font family. Headings use semibold weight (600) at 18-24px. Section labels use uppercase with wide letter-spacing (0.05em) at 11-12px. Body text uses regular weight (400) at 13-14px with 1.4-1.5 line height. Data values and KPI numbers use bold weight (700) at 24-48px, with tabular/monospaced figures for numerical alignment. The philosophy warns against making everything bold or every heading enormous - restraint creates hierarchy."));
+   855→
+   856→bodyContent.push(h2("Spacing System"));
+   857→bodyContent.push(body("The spacing system uses an 8px base unit. Card internal padding is 16-20px. Gutters between cards are 16-24px. Section margins between major layout blocks are 24-32px. Element spacing within cards uses tight 4-8px gaps between label-value pairs and 12-16px between list items. Edge-of-viewport margins are 24-32px. The philosophy emphasizes that spacing communicates hierarchy: large gaps separate conceptual sections, medium gaps group related information, and small gaps connect tightly related data. Identical spacing everywhere is forbidden."));
+   858→
+   859→bodyContent.push(h2("Surface and Border System"));
+   860→bodyContent.push(body("ELASTICO uses subtle surface elevation rather than heavy shadows or glowing borders. Cards use 1px borders with rgba(255,255,255,0.03-0.06) on dark backgrounds, creating depth without visual noise. Border radius is consistently 8-12px across all card and container components. The philosophy explicitly warns against glowing borders, excessive neon, and the 'AI-generated design' aesthetic. If everything is highlighted, nothing is highlighted."));
+   861→
+   862→bodyContent.push(h2("Component Library Primitives"));
+   863→bodyContent.push(body("The following components must be established as shared primitives before implementing individual screens: navigation sidebar (icon + label, active state with green accent), tab groups (for sub-navigation within screens), data tables (minimalist with row hover, zebra striping, sortable headers), stat comparison bars (horizontal dual-color bars), metric cards (icon + label + large value + trend), status badges (LIVE, HT, FT with color semantics), form controls (toggle switches, dropdowns, text inputs with consistent styling), and chart containers (with consistent padding, axis styling, and legend treatment). Each component must have variants for its different states (default, hover, active, disabled, loading, empty, error)."));
+   864→
+   865→// -- Screen sections --
+   866→for (let i = 0; i < screens.length; i++) {
+   867→  const s = screens[i];
+   868→  const sectionElements = screenSection(
+   869→    i + 1, s.title, s.refFile, s
+   870→  );
+   871→  for (const el of sectionElements) {
+   872→    bodyContent.push(el);
+   873→  }
+   874→}
+   875→
+   876→// -- Cross-Cutting Concerns --
+   877→bodyContent.push(h1("Cross-Cutting Concerns"));
+   878→
+   879→bodyContent.push(h2("Asset Resolution Layer"));
+   880→bodyContent.push(body("A centralized asset-resolution layer must be built before any screen implementation. The philosophy (Sections 18-22) mandates resolveTeamLogo(), resolvePlayerImage(), and resolveCountryFlag() functions that the UI calls without knowing where assets come from. The resolution chain is: verified provider image (e.g., ESPN logo URL) > local cached asset where licensing permits > professional fallback (initials, crest, silhouette). Never use AI-generated faces for real players. Never use emoji flags. Never scrape arbitrary copyrighted images."));
+   881→
+   882→bodyContent.push(h2("Empty, Error, and Loading States"));
+   883→bodyContent.push(body("Every screen must handle three non-ideal states gracefully. Empty states (philosophy Section 33) must communicate what is missing, why (when useful), and what the user can do next. Error states (Section 34) must be calm and actionable, showing the last verified update time and a retry action. Loading states (Section 32) must use structural skeletons matching the eventual layout, not full-page spinners. Never fabricate replacement values for missing data."));
+   884→
+   885→bodyContent.push(h2("Navigation Consistency"));
+   886→bodyContent.push(body("The single-shell architecture (page.tsx > Zustand currentView > 26 view components) must be preserved. The navigation sidebar must be consistent across all screens except Settings (which uses horizontal tabs). Active state indication must use the brand green accent with consistent left-border or background treatment. Navigation order must follow the user's mental model: Dashboard > Live Match > Player > Match Analysis > Compare > Predictions > AI Analyst > Analytics > Settings."));
+   887→
+   888→bodyContent.push(h2("Data Honesty Rule"));
+   889→bodyContent.push(body("This is the non-negotiable foundation of ELASTICO's credibility. Every number displayed must be real data from an ELASTICO data source. Every image must be a legitimate asset or a professional fallback. If data is unavailable, show an elegant unavailable state. If a metric doesn't exist in the data model, omit it. If the reference shows a beautiful chart for data ELASTICO doesn't have, implement the unavailable state - not the chart with fake numbers. The philosophy (Section 41) states: a component that looks better with a fake number is a broken component."));
+   890→
+   891→bodyContent.push(h2("Implementation Sequence"));
+   892→bodyContent.push(body("The philosophy (Section 43) defines the mandatory implementation order. The design system foundations (this document's Design System Foundations section) must be established first. Then: fix global shell and navigation, establish the laptop-first grid, implement Dashboard as the visual grammar setter, then Live Match as the hero experience, then Player and Match Analysis, then Predictions, Compare, AI Analyst, Analytics, and finally Settings. Responsive refinement and motion polish come last. Do not polish a broken hierarchy."));
+   893→
+   894→// ═══════════════════════════════════════════════════════════════════
+   895→// BUILD DOCX
+   896→// ═══════════════════════════════════════════════════════════════════
+   897→const coverConfig = {
+   898→  title: "ELASTICO Visual Reference Execution Brief",
+   899→  subtitle: "Per-Screen Implementation Specifications for GLM",
+   900→  englishLabel: "CONFIDENTIAL  \u2022  PRODUCT DESIGN",
+   901→  metaLines: ["Version 1.0  |  August 2026", "Architecture: Next.js 15 + Zustand + ESPN API + Prisma"],
+   902→  footerLeft: "ELASTICO Football Intelligence",
+   903→  footerRight: "isaJrKai/Elastico",
+   904→  palette: {
+   905→    bg: PAL.bg, accent: c(PAL.accent),
+   906→    titleColor: PAL.coverTitle, subtitleColor: PAL.coverSub,
+   907→    metaColor: PAL.coverMeta, footerColor: PAL.coverFoot,
+   908→  },
+   909→};
+   910→
+   911→const doc = new Document({
+   912→  styles: {
+   913→    default: {
+   914→      document: {
+   915→        run: { font: { ascii: "Calibri" }, size: 24, color: "1A2B40" },
+   916→        paragraph: { spacing: { line: 312 } },
+   917→      },
+   918→      heading1: { run: { font: { ascii: "Times New Roman" }, size: 32, bold: true, color: "0A1628" } },
+   919→      heading2: { run: { font: { ascii: "Times New Roman" }, size: 28, bold: true, color: "0A1628" } },
+   920→      heading3: { run: { font: { ascii: "Calibri" }, size: 26, bold: true, color: "1A2B40" } },
+   921→    },
+   922→  },
+   923→  sections: [
+   924→    // Cover section
+   925→    {
+   926→      properties: {
+   927→        page: { size: { width: 11906, height: 16838 }, margin: { top: 0, bottom: 0, left: 0, right: 0 } },
+   928→      },
+   929→      children: buildCoverR1(coverConfig),
+   930→    },
+   931→    // TOC section
+   932→    {
+   933→      properties: {
+   934→        type: SectionType.NEXT_PAGE,
+   935→        page: { size: { width: 11906, height: 16838 }, margin: { top: 1440, bottom: 1440, left: 1701, right: 1417 } },
+   936→      },
+   937→      headers: {
+   938→        default: new Header({
+   939→          children: [new Paragraph({
+   940→            alignment: AlignmentType.RIGHT, spacing: { after: 0 },
+   941→            children: [new TextRun({ text: "ELASTICO Visual Reference Execution Brief", size: 16, color: "90989F", font: { ascii: "Calibri" }, italics: true })],
+   942→          })],
+   943→        }),
+   944→      },
+   945→      footers: {
+   946→        default: new Footer({
+   947→          children: [new Paragraph({
+   948→            alignment: AlignmentType.CENTER,
+   949→            children: [new TextRun({ children: [PageNumber.CURRENT], size: 18, color: "90989F", font: { ascii: "Calibri" } })],
+   950→          })],
+   951→        }),
+   952→      },
+   953→      children: [
+   954→        new Paragraph({
+   955→          spacing: { after: 300 },
+   956→          children: [new TextRun({ text: "Table of Contents", size: 36, bold: true, color: "0A1628", font: { ascii: "Times New Roman" } })],
+   957→        }),
+   958→        new TableOfContents("Table of Contents", {
+   959→          hyperlink: true, headingStyleRange: "1-3",
+   960→        }),
+   961→        new Paragraph({
+   962→          spacing: { before: 200 },
+   963→          children: [new TextRun({ text: "(Right-click the TOC and select \u201cUpdate Field\u201d to refresh page numbers after opening in Word.)", size: 18, italics: true, color: "90989F", font: { ascii: "Calibri" } })],
+   964→        }),
+   965→        new Paragraph({ children: [new TextRun({ break: 1 })], pageBreakBefore: true }),
+   966→      ],
+   967→    },
+   968→    // Body section
+   969→    {
+   970→      properties: {
+   971→        type: SectionType.NEXT_PAGE,
+   972→        page: {
+   973→          size: { width: 11906, height: 16838 },
+   974→          margin: { top: 1440, bottom: 1440, left: 1701, right: 1417 },
+   975→          pageNumbers: { start: 1 },
+   976→        },
+   977→      },
+   978→      headers: {
+   979→        default: new Header({
+   980→          children: [new Paragraph({
+   981→            alignment: AlignmentType.RIGHT, spacing: { after: 0 },
+   982→            children: [new TextRun({ text: "ELASTICO Visual Reference Execution Brief", size: 16, color: "90989F", font: { ascii: "Calibri" }, italics: true })],
+   983→          })],
+   984→        }),
+   985→      },
+   986→      footers: {
+   987→        default: new Footer({
+   988→          children: [new Paragraph({
+   989→            alignment: AlignmentType.CENTER,
+   990→            children: [
+   991→              new TextRun({ text: "Page ", size: 18, color: "90989F", font: { ascii: "Calibri" } }),
+   992→              new TextRun({ children: [PageNumber.CURRENT], size: 18, color: "90989F", font: { ascii: "Calibri" } }),
+   993→            ],
+   994→          })],
+   995→        }),
+   996→      },
+   997→      children: bodyContent,
+   998→    },
+   999→  ],
+  1000→});
+  1001→
+  1002→const OUTPUT = "/home/z/my-project/download/ELASTICO_Visual_Reference_Execution_Brief.docx";
+  1003→Packer.toBuffer(doc).then((buf) => {
+  1004→  fs.writeFileSync(OUTPUT, buf);
+  1005→  console.log("Document saved to: " + OUTPUT);
+  1006→});
+  1007→
