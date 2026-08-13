@@ -55,7 +55,7 @@ const mainNav: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', view: 'dashboard' },
   { icon: Swords, label: 'Live Matches', view: 'matches', badge: 'live' },
   { icon: Target, label: 'Predictions', view: 'predictions' },
-  { icon: Trophy, label: 'Tournament', view: 'tournament' },
+  { icon: Trophy, label: 'Standings', view: 'tournament' },
   { icon: BarChart3, label: 'Leaderboard', view: 'leaderboard' },
   { icon: MessageSquare, label: 'AI Chat', view: 'ai-chat' },
   { icon: Newspaper, label: 'News', view: 'news' },

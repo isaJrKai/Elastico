@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
 
 const viewTitles: Record<string, string> = {
   dashboard: 'Dashboard', matches: 'Live Matches', 'match-detail': 'Match Details',
-  predictions: 'Predictions', tournament: 'Tournament', leaderboard: 'Leaderboard',
+  predictions: 'Predictions', tournament: 'League Standings', leaderboard: 'Leaderboard',
   'ai-chat': 'AI Chat', news: 'News', admin: 'Admin Panel', settings: 'Settings',
   subscription: 'Subscription', notifications: 'Notifications', profile: 'Profile',
   tactical: 'Tactical Analysis', login: 'Welcome',

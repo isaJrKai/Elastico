@@ -3,6 +3,7 @@ import {
   fetchAllLiveScores, fetchLeagueScores, fetchDateScores,
   fetchStandings, fetchLeagueNews, fetchLeagueLeaders,
   fetchInjuries, fetchMatchOdds, fetchWinProbability, fetchPlayByPlay,
+  fetchTeams, fetchTeamRoster,
   mapStatus, ESPN_LEAGUES,
 } from '@/lib/football-data'
 
@@ -22,6 +23,8 @@ import {
  *   action=probability&league=PL&event=12345  — Win probability
  *   action=plays&league=PL&event=12345       — Play-by-play
  *   action=leagues               — List all configured leagues
+ *   action=teams&league=PL        — List all teams in a league
+ *   action=roster&league=PL&team=123  — Team roster
  */
 
 export const dynamic = 'force-dynamic'
@@ -80,6 +83,19 @@ export async function GET(request: NextRequest) {
         if (!league || !event) return NextResponse.json({ error: 'league and event required' }, { status: 400 })
         const plays = await fetchPlayByPlay(league, event)
         return NextResponse.json({ success: true, count: plays.length, data: plays })
+      }
+
+      case 'teams': {
+        if (!league) return NextResponse.json({ error: 'league required' }, { status: 400 })
+        const teams = await fetchTeams(league)
+        return NextResponse.json({ success: true, league, count: teams.length, data: teams })
+      }
+
+      case 'roster': {
+        const team = searchParams.get('team')
+        if (!league || !team) return NextResponse.json({ error: 'league and team required' }, { status: 400 })
+        const roster = await fetchTeamRoster(league, team)
+        return NextResponse.json({ success: true, league, team, count: roster.length, data: roster })
       }
 
       case 'scores':

@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 interface TickerMatch {
   id: string; homeCode: string; awayCode: string; homeColor: string; awayColor: string
   homeScore: number; awayScore: number; status: string; minute?: number
+  homeLogo?: string; awayLogo?: string
 }
 
 
@@ -72,6 +73,8 @@ export default function DashboardView() {
         awayCode: m.awayTeam?.abbreviation ?? '???',
         homeColor: m.homeTeam?.color ?? '#555',
         awayColor: m.awayTeam?.color ?? '#555',
+        homeLogo: m.homeTeam?.logo || '',
+        awayLogo: m.awayTeam?.logo || '',
         homeScore: m.homeScore ?? 0,
         awayScore: m.awayScore ?? 0,
         status: m.status,
@@ -155,9 +158,9 @@ export default function DashboardView() {
               style={{ animation: 'ticker-scroll 30s linear infinite', width: 'max-content' }}
             >
               {[...tickerItems, ...tickerItems].map((m, i) => (
-                <div key={`${m.id}-${i}`} className="flex items-center gap-3 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.homeColor }} />
+                <div key={`${m.id}-${i}`} className="flex items-center gap-2.5 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    {m.homeLogo ? <img src={m.homeLogo} alt="" className="size-5 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.homeColor }} />}
                     <span className="text-xs font-semibold">{m.homeCode}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -165,9 +168,9 @@ export default function DashboardView() {
                     <span className="text-xs text-muted-foreground">-</span>
                     <span className="text-sm font-bold tabular-nums">{m.awayScore}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="text-xs font-semibold">{m.awayCode}</span>
-                    <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.awayColor }} />
+                    {m.awayLogo ? <img src={m.awayLogo} alt="" className="size-5 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.awayColor }} />}
                   </div>
                   {m.status === 'live' && (
                     <Badge variant="outline" className="h-4 px-1.5 text-[9px] bg-red-500/15 text-red-400 border-red-500/30">
@@ -215,6 +218,7 @@ export default function DashboardView() {
                     {liveMatches.slice(0, 8).map((m: any) => (
                       <div key={m.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {m.homeTeam?.logo ? <img src={m.homeTeam.logo} alt="" className="size-4 rounded-full object-contain bg-muted/30 p-px shrink-0" loading="lazy" /> : null}
                           <span className="text-[10px] text-muted-foreground w-20 truncate">{m.competition}</span>
                           <span className="text-xs font-medium truncate">{m.homeTeam?.name}</span>
                         </div>
@@ -225,13 +229,14 @@ export default function DashboardView() {
                         </div>
                         <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
                           <span className="text-xs font-medium truncate">{m.awayTeam?.name}</span>
+                          {m.awayTeam?.logo ? <img src={m.awayTeam.logo} alt="" className="size-4 rounded-full object-contain bg-muted/30 p-px shrink-0" loading="lazy" /> : null}
                           {m.status === 'live' && (
                             <Badge variant="outline" className="h-4 px-1 text-[9px] bg-red-500/15 text-red-400 border-red-500/30 shrink-0">
                               {m.minute ? `${m.minute}'` : 'LIVE'}
                             </Badge>
                           )}
-                          {m.status === 'finished' && (
-                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-zinc-400 border-zinc-700 shrink-0">FT</Badge>
+                                          {m.status === 'finished' && (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-muted-foreground border-border shrink-0">FT</Badge>
                           )}
                           {m.status === 'halftime' && (
                             <Badge variant="outline" className="h-4 px-1 text-[9px] text-amber-400 border-amber-500/30 shrink-0">HT</Badge>
@@ -261,7 +266,11 @@ export default function DashboardView() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.homeTeam?.primaryColor ?? '#555' }} />
+                      {nextMatch.homeTeam?.logo ? (
+                        <img src={nextMatch.homeTeam.logo as string} alt={nextMatch.homeTeam.name as string} className="size-10 rounded-full object-contain bg-muted/30 p-0.5 border-2 border-border/50" />
+                      ) : (
+                        <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.homeTeam?.primaryColor ?? '#555' }} />
+                      )}
                       <div>
                         <p className="font-semibold text-sm">{nextMatch.homeTeam?.name ?? 'TBD'}</p>
                         <p className="text-[10px] text-muted-foreground">ELO {nextMatch.homeEloBefore ?? '—'}</p>
@@ -276,7 +285,11 @@ export default function DashboardView() {
                         <p className="font-semibold text-sm">{nextMatch.awayTeam?.name ?? 'TBD'}</p>
                         <p className="text-[10px] text-muted-foreground">ELO {nextMatch.awayEloBefore ?? '—'}</p>
                       </div>
-                      <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.awayTeam?.primaryColor ?? '#555' }} />
+                      {nextMatch.awayTeam?.logo ? (
+                        <img src={nextMatch.awayTeam.logo as string} alt={nextMatch.awayTeam.name as string} className="size-10 rounded-full object-contain bg-muted/30 p-0.5 border-2 border-border/50" />
+                      ) : (
+                        <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.awayTeam?.primaryColor ?? '#555' }} />
+                      )}
                     </div>
                   </div>
 
@@ -410,8 +423,8 @@ export default function DashboardView() {
                           <td className="py-2 font-bold">{i + 1}</td>
                           <td className="py-2">
                             <div className="flex items-center gap-2">
-                              <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />
-                              <span className="font-medium">{t.code}</span>
+                              {t.logo ? <img src={t.logo} alt={t.code} className="size-4 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />}
+                              <span className="font-medium">{t.name || t.code}</span>
                             </div>
                           </td>
                           <td className="py-2 text-center text-emerald-400">{t.wins}</td>
@@ -533,8 +546,8 @@ export default function DashboardView() {
                   <div key={t.id} className="flex items-center justify-between py-1.5 border-b border-border/10 last:border-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] w-4 text-muted-foreground font-bold">{i + 1}</span>
-                      <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />
-                      <span className="text-xs font-medium">{t.code}</span>
+                      {t.logo ? <img src={t.logo} alt={t.code} className="size-4 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />}
+                      <span className="text-xs font-medium">{t.name || t.code}</span>
                     </div>
                     <span className="text-xs font-bold tabular-nums">{Math.round(t.eloRating)}</span>
                   </div>
@@ -552,11 +565,19 @@ export default function DashboardView() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {liveMatches && liveMatches.slice(0, 6).map((m: any) => (
-                  <div key={m.id} className="p-2.5 rounded-lg bg-muted/20 space-y-1">
+                  <div key={m.id} className="p-2.5 rounded-lg bg-muted/20 space-y-1.5">
                     <p className="text-[10px] text-muted-foreground">{m.competition} · {m.date ? new Date(m.date).toLocaleDateString() : ''}</p>
-                    <p className="text-xs font-semibold">
-                      {m.homeTeam?.name} {m.homeScore}-{m.awayScore} {m.awayTeam?.name}
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        {m.homeTeam?.logo ? <img src={m.homeTeam.logo} alt="" className="size-4 rounded-full object-contain bg-muted/30 p-px shrink-0" loading="lazy" /> : null}
+                        <span className="text-xs font-medium truncate">{m.homeTeam?.name}</span>
+                      </div>
+                      <span className="text-xs font-bold tabular-nums px-2">{m.homeScore}-{m.awayScore}</span>
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+                        <span className="text-xs font-medium truncate">{m.awayTeam?.name}</span>
+                        {m.awayTeam?.logo ? <img src={m.awayTeam.logo} alt="" className="size-4 rounded-full object-contain bg-muted/30 p-px shrink-0" loading="lazy" /> : null}
+                      </div>
+                    </div>
                     <p className="text-[10px] text-sky-400 font-medium">
                       {m.status === 'live' ? `LIVE${m.minute ? ` ${m.minute}'` : ''}` :
                        m.status === 'finished' ? 'Full Time' :

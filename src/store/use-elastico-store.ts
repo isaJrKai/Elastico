@@ -107,6 +107,7 @@ export interface Team {
   possession: number
   passAccuracy: number
   pressIntensity: number
+  logo?: string
   players?: Player[]
 }
 
