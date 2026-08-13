@@ -174,14 +174,15 @@ export default function Home() {
   const fetchNotifications = useElasticoStore(s => s.fetchNotifications)
   const fetchLiveScores = useElasticoStore(s => s.fetchLiveScores)
 
-  // Initial data fetch — fetch ESPN immediately, DB data only if authenticated
+  // Initial data fetch — ESPN immediately, DB data only if authenticated
+  // NOTE: DB data disabled temporarily to isolate React #310 crash
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchMatches()
-      fetchTeams()
-      fetchNews()
-      fetchNotifications()
-    }
+    // if (isAuthenticated) {
+    //   fetchMatches()
+    //   fetchTeams()
+    //   fetchNews()
+    //   fetchNotifications()
+    // }
   }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications])
 
   // Auto-refresh matches every 30s
