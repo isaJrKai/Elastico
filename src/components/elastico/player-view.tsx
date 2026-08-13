@@ -148,7 +148,7 @@ export function PlayerView() {
                 position: a.position || 'MID',
                 age: a.age || 25,
                 nationality: a.nationality || '',
-                rating: 70 + Math.floor(Math.random() * 15),
+                rating: 0, // ESPN roster API does not provide match ratings
                 goals: a.goals || 0,
                 assists: a.assists || 0,
                 teamName: t.name,
@@ -178,7 +178,7 @@ export function PlayerView() {
     if (positionFilter !== 'all') result = result.filter(p => p.position === positionFilter)
     if (teamFilter !== 'all') result = result.filter(p => p.teamName === teamFilter)
     result.sort((a, b) => {
-      if (sortBy === 'rating') return b.rating - a.rating
+      if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0)
       if (sortBy === 'goals') return b.goals - a.goals
       if (sortBy === 'assists') return b.assists - a.assists
       if (sortBy === 'name') return a.name.localeCompare(b.name)
@@ -390,8 +390,8 @@ export function PlayerView() {
                           <span className="text-[10px] text-muted-foreground truncate">{player.teamName}</span>
                         </div>
                       </div>
-                      <div className={cn('text-xl font-bold', getRatingColor(player.rating))}>
-                        {player.rating.toFixed(1)}
+                      <div className={cn('text-xl font-bold', player.rating > 0 ? getRatingColor(player.rating) : 'text-muted-foreground')}>
+                        {player.rating > 0 ? player.rating.toFixed(1) : 'N/A'}
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 mt-4">
@@ -472,7 +472,7 @@ export function PlayerView() {
                         <TableCell className="text-center font-medium">
                           {((p.goals / ((p.minutesPlayed || (p.appearances || 0) * 90) / 90))).toFixed(2)}
                         </TableCell>
-                        <TableCell className={cn('text-center font-bold', getRatingColor(p.rating))}>{p.rating.toFixed(1)}</TableCell>
+                        <TableCell className={cn('text-center font-bold', p.rating > 0 ? getRatingColor(p.rating) : 'text-muted-foreground')}>{p.rating > 0 ? p.rating.toFixed(1) : '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -628,7 +628,8 @@ export function PlayerView() {
         <TabsContent value="positions">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Object.entries(positionalGroups).map(([pos, group]) => {
-              const avgRating = (group.reduce((s, p) => s + p.rating, 0) / group.length).toFixed(1)
+              const rated = group.filter(p => p.rating > 0)
+              const avgRating = rated.length > 0 ? (rated.reduce((s, p) => s + p.rating, 0) / rated.length).toFixed(1) : 'N/A'
               const totalGoals = group.reduce((s, p) => s + p.goals, 0)
               const totalAssists = group.reduce((s, p) => s + p.assists, 0)
               return (
@@ -869,7 +870,7 @@ export function PlayerView() {
 
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Rating', value: selectedPlayer.rating.toFixed(1), color: getRatingColor(selectedPlayer.rating) },
+                  { label: 'Rating', value: selectedPlayer.rating > 0 ? selectedPlayer.rating.toFixed(1) : 'N/A', color: selectedPlayer.rating > 0 ? getRatingColor(selectedPlayer.rating) : 'text-muted-foreground' },
                   { label: 'Goals', value: selectedPlayer.goals, color: 'text-primary' },
                   { label: 'Assists', value: selectedPlayer.assists, color: 'text-primary' },
                   { label: 'Appearances', value: selectedPlayer.appearances || '-', color: 'text-foreground' },

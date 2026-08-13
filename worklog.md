@@ -54,3 +54,31 @@ Stage Summary:
 - Players: DB-first with ESPN roster fallback
 - All data flows through ESPN public APIs — zero API keys required
 - Next: Deploy to Vercel
+
+---
+Task ID: 3
+Agent: Main
+Task: Round 3 — Data-honesty pass (§6.1 player-view, §6.2 tactical-view, §2.3 Math.random audit)
+
+Work Log:
+- §6.2 tactical-view.tsx: ALREADY FIXED in prior round — confirmed honest empty state ("Tactical Analysis Coming Soon") with no fake data
+- §2.3 Math.random() audit across all src/ files:
+  - src/lib/prediction-engine.ts (lines 141,142,154): LEGITIMATE — Box-Muller transform + Poisson distribution for Monte Carlo simulation
+  - src/lib/predictions.ts (line 609): LEGITIMATE — Poisson variate generation
+  - src/app/api/matches/[id]/simulate/route.ts (lines 69,73,74,77,89,103,104,107,119,144-165): LEGITIMATE — explicit match simulation endpoint generating hypothetical events
+  - src/components/ui/sidebar.tsx (line 611): LEGITIMATE — skeleton loading shimmer width randomization
+  - src/components/elastico/player-view.tsx (line 151): FABRICATED STAT — removed `rating: 70 + Math.floor(Math.random() * 15)` from ESPN fallback
+- §6.1 player-view.tsx fix:
+  - Removed Math.random() fabricated player rating (was generating 70-84 on a 0-10 scale — doubly wrong)
+  - Set ESPN fallback rating to 0 with honest comment: "ESPN roster API does not provide match ratings"
+  - Updated 4 display sites to show "N/A" or "—" when rating is 0: card view, table column, positional breakdown avg, player detail panel
+  - Updated sort-by-rating to handle 0 gracefully
+
+Stage Summary:
+- Build: PENDING VERIFICATION
+- Fabricated Math.random() calls in UI: 0 (was 1)
+- All remaining Math.random() calls: legitimate (Monte Carlo engines, simulation API, skeleton UI)
+- Tactical view: honest empty state confirmed
+- Player view: ESPN fallback now honestly shows "N/A" for ratings not provided by the data source
+- Architecture preserved: single-shell page.tsx → Zustand currentView → switch pattern untouched
+- dashboard-view.tsx: NOT touched (Round 2 fixes verified intact)
