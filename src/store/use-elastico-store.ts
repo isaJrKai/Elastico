@@ -393,7 +393,15 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
       const res = await fetch('/api/matches', { headers })
       if (res.ok) {
         const data = await res.json()
-        const matches = Array.isArray(data) ? data : data.matches || []
+        const raw = Array.isArray(data) ? data : data.matches || []
+        // Sanitize: Prisma may return empty objects {} for null Date fields.
+        // These crash React if rendered directly (error #310).
+        const matches = raw.map((m: any) => ({
+          ...m,
+          date: (m.date && typeof m.date === 'object' && !m.date.getTime) ? null : m.date,
+          createdAt: (m.createdAt && typeof m.createdAt === 'object' && !m.createdAt.getTime) ? null : m.createdAt,
+          updatedAt: (m.updatedAt && typeof m.updatedAt === 'object' && !m.updatedAt.getTime) ? null : m.updatedAt,
+        }))
         // Track bandwidth
         const payloadBytes = res.headers.get('X-Payload-Bytes')
         if (payloadBytes) {

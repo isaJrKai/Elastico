@@ -97,7 +97,7 @@ export default function LoginView() {
     setLoginEmail(account.email); setLoginError('')
     setLoginLoading(true)
     try {
-      const res = await fetch('/api/auth/demo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: account.email, role: account.plan }) })
+      const res = await fetch('/api/auth/demo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: account.email, role: account.plan, password: 'demo1234' }) })
       const data = await res.json()
       if (!res.ok) { setLoginLoading(false); setLoginError(data.error || 'Demo unavailable'); return }
       if (data.token) localStorage.setItem('elastico_token', data.token)
