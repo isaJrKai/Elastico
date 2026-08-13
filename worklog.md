@@ -81,4 +81,4 @@ Stage Summary:
 - Tactical view: honest empty state confirmed
 - Player view: ESPN fallback now honestly shows "N/A" for ratings not provided by the data source
 - Architecture preserved: single-shell page.tsx → Zustand currentView → switch pattern untouched
-- dashboard-view.tsx: NOT touched (Round 2 fixes verified intact)
+- dashboard-view.tsx: NOT touched in this pass (ESPN standings components added in prior push)
