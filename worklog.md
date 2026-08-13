@@ -2,58 +2,28 @@
 
 ---
 Task ID: 1
-Agent: GLM (main)
-Task: Audit current ELASTICO UI codebase
+Agent: main
+Task: Phase 1 — Build ELASTICO Design System
 
 Work Log:
-- Cloned repo from GitHub to /home/z/my-project/elastico-source/
-- Ran comprehensive audit via subagent: read all 26 view components, 42 API routes, Zustand store, globals.css, tailwind config, package.json
-- Identified 10 reusable components, 7 weak points, 7 fake elements, 6 monoliths needing decomposition
-- Key finding: @tanstack/react-query installed (6.8MB) but completely unused
-- Key finding: Recharts theming inconsistent across components
-- Key finding: 3 empty stub views (achievements, tactical, social)
-- Delivered structured audit report to user
+- Read and audited all foundation files: globals.css (826 lines), tailwind.config.ts, use-elastico-store.ts, design-system.ts, team-crest.tsx, shadcn button/badge, reference analysis
+- Enhanced design-system.ts with 7 new token systems: RADIUS, ELEVATION, TEXT, STATE, GRID, DATA_CLASS, COMP, TRANSITION, GLOW, BORDER.intel
+- Refactored tailwind.config.ts with two-layer architecture: Layer 1 (shadcn CSS vars) + Layer 2 (ELASTICO domain tokens: surface, state, el-text, football colors, el-radius, el-shadows, glow-*)
+- Added data-classification badge utilities to globals.css (REAL/DERIVED/SIMULATION/DEMO/BUG)
+- Created chart-theme.ts with reusable Recharts props (axisProps, cartesianGridProps, tooltipContentStyle, legendProps, chartColor helper)
+- Built 4 primitive components in src/components/elastico/primitives/:
+  - StatBlock (metric display with label/value/delta/data-class)
+  - StatusBadge (match status/form/confidence/data-class)
+  - DataState (unified loading/empty/error with consistent styling)
+  - SectionHeader (zone divider labels with optional action slot)
+- Fixed pre-existing build errors: empty match-detail-view.tsx, team-crest.tsx aria-label type
+- Created DESIGN_STATE.md with 15 recorded decisions (DS-001 through DS-015)
+- Verified: tsc --noEmit passes (0 new errors), next build succeeds
 
 Stage Summary:
-- Full codebase inventory complete
-- Honest assessment delivered: ~40% reusable, 3 stubs, inconsistent charts, no design system discipline
-- Audit forms the foundation for all subsequent work
-
----
-Task ID: 2
-Agent: GLM (main)
-Task: Build Design System + Dashboard
-
-Work Log:
-- Created src/lib/design-system.ts with typed constants: TYPE scale, SPACE scale, SURFACE hierarchy, CHART_COLORS, MATCH_STATUS, FORM_COLORS, RECHARTS_DEFAULTS, ASSET sizing
-- Updated src/app/globals.css: added surface hierarchy vars, typography scale vars, chart theme vars, .el-* utility classes (typography, surfaces, dividers, ticker, match-row, section-label, standings-row)
-- Rewrote src/components/elastico/dashboard-view.tsx (787 lines → ~380 lines):
-  - Proper TypeScript types for ESPN live data (LiveMatch, EspnTeam, StandingRow)
-  - TeamCrest component with ESPN logo + colored-circle fallback
-  - FormDots component for W/D/L visualization
-  - LiveTicker zone (horizontal scroll, no auto-animation)
-  - FeaturedMatch zone (DOMINANT — 40px score type, 48px crests, live/upcoming/empty states)
-  - StandingsPanel zone (SUPPORTING — compact CSS grid table, UCL/REL zone borders)
-  - ScheduleStrip zone (SECONDARY — grouped by competition, real data only)
-  - Three-zone composition: Ticker → Featured+Standings → Schedule
-  - Zero fake data. Zero Math.random(). Zero hardcoded players.
-- Created DESIGN_STATE.md — living visual constitution with 8 design decisions recorded
-- Verified: TypeScript clean (npx tsc --noEmit), Next.js build passes
-
-Stage Summary:
-- Design system established: 4 surface levels, 9-level type scale, 6-color chart palette, component patterns
-- Dashboard rewritten as flagship screen — command center feel, not card grid
-- Asset system built into TeamCrest (ESPN crests with fallback)
-- DESIGN_STATE.md created as drift-prevention mechanism
-- Build: PASS, TypeScript: PASS
-
----
-Task ID: 3
-Agent: GLM (main)
-Task: Build Live Match screen
-
-Work Log:
-- [IN PROGRESS]
-
-Stage Summary:
-- [PENDING]
+- Design system foundation complete. All tokens, chart theme, primitives, and documentation in place.
+- Files created: chart-theme.ts, primitives/{stat-block,status-badge,data-state,section-header,index.ts}
+- Files modified: design-system.ts, tailwind.config.ts, globals.css, match-detail-view.tsx, team-crest.tsx
+- DESIGN_STATE.md: 15 decisions recorded
+- Build: passes clean
+- Next: Phase 2 (Asset System) → Phase 3 (Shell/Navigation) → Phase 4.1 (Dashboard)
