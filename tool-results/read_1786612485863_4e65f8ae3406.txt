@@ -1,0 +1,670 @@
+    35→export default function DashboardView() {
+    36→  const user = useElasticoStore(s => s.user)
+    37→  const token = useElasticoStore(s => s.token)
+    38→  const matches = useElasticoStore(s => s.matches)
+    39→  const liveMatches = useElasticoStore(s => s.liveMatches) as any[]
+    40→  const teams = useElasticoStore(s => s.teams)
+    41→  const news = useElasticoStore(s => s.news)
+    42→  const fetchMatches = useElasticoStore(s => s.fetchMatches)
+    43→  const setView = useElasticoStore(s => s.setView)
+    44→  const selectMatch = useElasticoStore(s => s.selectMatch)
+    45→  const tickerRef = useRef<HTMLDivElement>(null)
+    46→
+    47→  // ── Derived data ─────────────────────────────────────────────────────────
+    48→  const dbLiveMatches = useMemo(() => matches.filter((m) => m.status === 'live' || m.status === 'halftime'), [matches])
+    49→  const upcomingMatches = useMemo(() => matches.filter((m) => m.status === 'upcoming').slice(0, 5), [matches])
+    50→  const finishedMatches = useMemo(() => matches.filter((m) => m.status === 'finished').slice(0, 5), [matches])
+    51→  const nextMatch = upcomingMatches[0] || null
+    52→
+    53→  const accuracy = user?.predictionAccuracy ?? 0
+    54→  const streak = user?.predictionStreak ?? 0
+    55→  const bestStreak = user?.bestStreak ?? 0
+    56→
+    57→  const nextMatchProbs = useMemo(() => {
+    58→    if (!nextMatch) return { home: 40, draw: 28, away: 32 }
+    59→    return {
+    60→      home: nextMatch.homeWinProb ?? 40,
+    61→      draw: nextMatch.drawProb ?? 28,
+    62→      away: nextMatch.awayWinProb ?? 32,
+    63→    }
+    64→  }, [nextMatch])
+    65→
+    66→  // Build ticker items from ESPN live data + DB matches
+    67→  const tickerItems: TickerMatch[] = useMemo(() => {
+    68→    // Prefer ESPN live data for the ticker
+    69→    if (liveMatches && liveMatches.length > 0) {
+    70→      return liveMatches.slice(0, 10).map((m: any) => ({
+    71→        id: m.id,
+    72→        homeCode: m.homeTeam?.abbreviation ?? '???',
+    73→        awayCode: m.awayTeam?.abbreviation ?? '???',
+    74→        homeColor: m.homeTeam?.color ?? '#555',
+    75→        awayColor: m.awayTeam?.color ?? '#555',
+    76→        homeLogo: m.homeTeam?.logo || '',
+    77→        awayLogo: m.awayTeam?.logo || '',
+    78→        homeScore: m.homeScore ?? 0,
+    79→        awayScore: m.awayScore ?? 0,
+    80→        status: m.status,
+    81→      }))
+    82→    }
+    83→    const real = matches.slice(0, 5).map((m) => ({
+    84→      id: m.id,
+    85→      homeCode: m.homeTeam?.code ?? '???',
+    86→      awayCode: m.awayTeam?.code ?? '???',
+    87→      homeColor: m.homeTeam?.primaryColor ?? '#555',
+    88→      awayColor: m.awayTeam?.primaryColor ?? '#555',
+    89→      homeScore: m.homeScore,
+    90→      awayScore: m.awayScore,
+    91→      status: m.status,
+    92→    }))
+    93→    return real
+    94→  }, [liveMatches, matches])
+    95→
+    96→  // Goals chart data — use real match data from ESPN
+    97→  const xgChartData = useMemo(() => {
+    98→    const realMatches = liveMatches && liveMatches.filter((m: any) => m.status === 'finished').slice(0, 5)
+    99→    if (realMatches && realMatches.length > 0) {
+   100→      return realMatches.map((m: any) => ({
+   101→        match: `${m.homeTeam?.abbreviation || '?'}-${m.awayTeam?.abbreviation || '?'}`,
+   102→        goals: m.homeScore + m.awayScore,
+   103→      }))
+   104→    }
+   105→    const db = finishedMatches.slice(0, 5).map((m) => ({
+   106→      match: `${m.homeTeam?.code ?? '?'}-${m.awayTeam?.code ?? '?'}`,
+   107→      goals: m.homeScore + m.awayScore,
+   108→    }))
+   109→    return db
+   110→  }, [liveMatches, finishedMatches])
+   111→
+   112→  // News data — real from DB or football-data.org
+   113→  const newsItems = useMemo(() => {
+   114→    if (news.length > 0) {
+   115→      return news.slice(0, 5).map((n) => ({
+   116→        title: n.title,
+   117→        category: n.category,
+   118→        time: n.publishedAt ? new Date(n.publishedAt).toLocaleDateString() : 'Recent',
+   119→      }))
+   120→    }
+   121→    return []
+   122→  }, [news])
+   123→
+   124→  // ── Handlers ─────────────────────────────────────────────────────────────
+   125→  const handleQuickPredict = useCallback((choice: 'home' | 'draw' | 'away') => {
+   126→    if (!nextMatch) return
+   127→    fetch('/api/predictions', {
+   128→      method: 'POST',
+   129→      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+   130→      body: JSON.stringify({
+   131→        matchId: nextMatch.id,
+   132→        predictedOutcome: choice, // 'home' | 'draw' | 'away'
+   133→        confidence: 75,
+   134→      }),
+   135→    }).then(() => {
+   136→      fetchMatches()
+   137→    }).catch(() => {})
+   138→  }, [nextMatch, token, fetchMatches])
+   139→
+   140→  // ═══════════════════════════════════════════════════════════════════════════
+   141→  return (
+   142→    <TooltipProvider>
+   143→      <div className="space-y-5 animate-fade-in-up">
+   144→        {/* ═══════════════════════════════════════════════════════════════════
+   145→            1. LIVE SCORE TICKER
+   146→            ═══════════════════════════════════════════════════════════════════ */}
+   147→        <div className="glass-card-premium rounded-xl overflow-hidden">
+   148→          <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-red-500/5">
+   149→            <span className="relative flex size-2">
+   150→              <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+   151→              <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+   152→            </span>
+   153→            <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Live Scores</span>
+   154→          </div>
+   155→          <div ref={tickerRef} className="overflow-hidden">
+   156→            <div
+   157→              className="flex gap-6 py-3 px-4"
+   158→              style={{ animation: 'ticker-scroll 30s linear infinite', width: 'max-content' }}
+   159→            >
+   160→              {[...tickerItems, ...tickerItems].map((m, i) => (
+   161→                <div key={`${m.id}-${i}`} className="flex items-center gap-2.5 shrink-0">
+   162→                  <div className="flex items-center gap-1.5">
+   163→                    {m.homeLogo ? <img src={m.homeLogo} alt="" className="size-5 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.homeColor }} />}
+   164→                    <span className="text-xs font-semibold">{m.homeCode}</span>
+   165→                  </div>
+   166→                  <div className="flex items-center gap-1.5">
+   167→                    <span className="text-sm font-bold tabular-nums">{m.homeScore}</span>
+   168→                    <span className="text-xs text-muted-foreground">-</span>
+   169→                    <span className="text-sm font-bold tabular-nums">{m.awayScore}</span>
+   170→                  </div>
+   171→                  <div className="flex items-center gap-1.5">
+   172→                    <span className="text-xs font-semibold">{m.awayCode}</span>
+   173→                    {m.awayLogo ? <img src={m.awayLogo} alt="" className="size-5 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.awayColor }} />}
+   174→                  </div>
+   175→                  {m.status === 'live' && (
+   176→                    <Badge variant="outline" className="h-4 px-1.5 text-[9px] bg-red-500/15 text-red-400 border-red-500/30">
+   177→                      <span className="pulse-live inline-block size-1.5 rounded-full bg-red-500 mr-1" />
+   178→                      LIVE
+   179→                    </Badge>
+   180→                  )}
+   181→                  {m.status === 'finished' && (
+   182→                    <Badge variant="outline" className="h-4 px-1.5 text-[9px] text-emerald-400 border-emerald-500/30">FT</Badge>
+   183→                  )}
+   184→                  <span className="text-border/50">|</span>
+   185→                </div>
+   186→              ))}
+   187→            </div>
+   188→          </div>
+   189→        </div>
+   190→
+   191→        {/* ═══════════════════════════════════════════════════════════════════
+   192→            MAIN GRID
+   193→            ═══════════════════════════════════════════════════════════════════ */}
+   194→        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+   195→
+   196→          {/* ─── LEFT COLUMN ─── */}
+   197→          <div className="lg:col-span-2 space-y-5">
+   198→
+   199→            {/* LIVE SCORES FROM ESPN */}
+   200→            {liveMatches && liveMatches.length > 0 && (
+   201→              <Card className="glass-card-premium rounded-xl">
+   202→                <CardHeader className="pb-2">
+   203→                  <div className="flex items-center justify-between">
+   204→                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+   205→                      <span className="relative flex size-2">
+   206→                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+   207→                        <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+   208→                      </span>
+   209→                      Live Scores — All Leagues
+   210→                    </CardTitle>
+   211→                    <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30">
+   212→                      ESPN Live
+   213→                    </Badge>
+   214→                  </div>
+   215→                </CardHeader>
+   216→                <CardContent>
+   217→                  <div className="space-y-1">
+   218→                    {liveMatches.slice(0, 8).map((m: any) => (
+   219→                      <div key={m.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors">
+   220→                        <div className="flex items-center gap-2 min-w-0 flex-1">
+   221→                          {m.homeTeam?.logo ? <img src={m.homeTeam.logo} alt="" className="size-4 rounded-full object-contain bg-muted/30 p-px shrink-0" loading="lazy" /> : null}
+   222→                          <span className="text-[10px] text-muted-foreground w-20 truncate">{m.competition}</span>
+   223→                          <span className="text-xs font-medium truncate">{m.homeTeam?.name}</span>
+   224→                        </div>
+   225→                        <div className="flex items-center gap-2 px-3">
+   226→                          <span className="text-sm font-bold tabular-nums">{m.homeScore}</span>
+   227→                          <span className="text-xs text-muted-foreground">-</span>
+   228→                          <span className="text-sm font-bold tabular-nums">{m.awayScore}</span>
+   229→                        </div>
+   230→                        <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+   231→                          <span className="text-xs font-medium truncate">{m.awayTeam?.name}</span>
+   232→                          {m.awayTeam?.logo ? <img src={m.awayTeam.logo} alt="" className="size-4 rounded-full object-contain bg-muted/30 p-px shrink-0" loading="lazy" /> : null}
+   233→                          {m.status === 'live' && (
+   234→                            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-red-500/15 text-red-400 border-red-500/30 shrink-0">
+   235→                              {m.minute ? `${m.minute}'` : 'LIVE'}
+   236→                            </Badge>
+   237→                          )}
+   238→                                          {m.status === 'finished' && (
+   239→                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-muted-foreground border-border shrink-0">FT</Badge>
+   240→                          )}
+   241→                          {m.status === 'halftime' && (
+   242→                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-amber-400 border-amber-500/30 shrink-0">HT</Badge>
+   243→                          )}
+   244→                        </div>
+   245→                      </div>
+   246→                    ))}
+   247→                  </div>
+   248→                </CardContent>
+   249→              </Card>
+   250→            )}
+   251→
+   252→            {/* 2. QUICK PREDICT WIDGET + 5. MATCH PROBABILITIES */}
+   253→            {nextMatch && (
+   254→              <Card className="glass-card-premium card-hover-lift rounded-xl">
+   255→                <CardHeader className="pb-3">
+   256→                  <div className="flex items-center justify-between">
+   257→                    <CardTitle className="text-base font-bold flex items-center gap-2">
+   258→                      <Zap className="size-4 text-primary" />
+   259→                      Next Match Prediction
+   260→                    </CardTitle>
+   261→                    <Badge variant="outline" className="text-[10px] border-primary/30 text-primary badge-glow">
+   262→                      Quick Predict
+   263→                    </Badge>
+   264→                  </div>
+   265→                </CardHeader>
+   266→                <CardContent className="space-y-4">
+   267→                  <div className="flex items-center justify-between">
+   268→                    <div className="flex items-center gap-3">
+   269→                      {nextMatch.homeTeam?.logo ? (
+   270→                        <img src={nextMatch.homeTeam.logo as string} alt={nextMatch.homeTeam.name as string} className="size-10 rounded-full object-contain bg-muted/30 p-0.5 border-2 border-border/50" />
+   271→                      ) : (
+   272→                        <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.homeTeam?.primaryColor ?? '#555' }} />
+   273→                      )}
+   274→                      <div>
+   275→                        <p className="font-semibold text-sm">{nextMatch.homeTeam?.name ?? 'TBD'}</p>
+   276→                        <p className="text-[10px] text-muted-foreground">ELO {nextMatch.homeEloBefore ?? '—'}</p>
+   277→                      </div>
+   278→                    </div>
+   279→                    <div className="text-center">
+   280→                      <p className="text-2xl font-black text-muted-foreground">VS</p>
+   281→                      <p className="text-[10px] text-muted-foreground">{nextMatch.venue ?? 'TBD'}</p>
+   282→                    </div>
+   283→                    <div className="flex items-center gap-3">
+   284→                      <div className="text-right">
+   285→                        <p className="font-semibold text-sm">{nextMatch.awayTeam?.name ?? 'TBD'}</p>
+   286→                        <p className="text-[10px] text-muted-foreground">ELO {nextMatch.awayEloBefore ?? '—'}</p>
+   287→                      </div>
+   288→                      {nextMatch.awayTeam?.logo ? (
+   289→                        <img src={nextMatch.awayTeam.logo as string} alt={nextMatch.awayTeam.name as string} className="size-10 rounded-full object-contain bg-muted/30 p-0.5 border-2 border-border/50" />
+   290→                      ) : (
+   291→                        <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.awayTeam?.primaryColor ?? '#555' }} />
+   292→                      )}
+   293→                    </div>
+   294→                  </div>
+   295→
+   296→                  {/* Probability bars */}
+   297→                  <div className="space-y-2">
+   298→                    <div className="flex items-center gap-2">
+   299→                      <span className="text-[10px] w-8 text-emerald-400 font-medium">Home</span>
+   300→                      <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   301→                        <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-1000" style={{ width: `${nextMatchProbs.home}%` }} />
+   302→                      </div>
+   303→                      <span className="text-[11px] font-bold tabular-nums w-10 text-right">{nextMatchProbs.home}%</span>
+   304→                    </div>
+   305→                    <div className="flex items-center gap-2">
+   306→                      <span className="text-[10px] w-8 text-amber-400 font-medium">Draw</span>
+   307→                      <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   308→                        <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-1000" style={{ width: `${nextMatchProbs.draw}%` }} />
+   309→                      </div>
+   310→                      <span className="text-[11px] font-bold tabular-nums w-10 text-right">{nextMatchProbs.draw}%</span>
+   311→                    </div>
+   312→                    <div className="flex items-center gap-2">
+   313→                      <span className="text-[10px] w-8 text-red-400 font-medium">Away</span>
+   314→                      <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   315→                        <div className="h-full rounded-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-1000" style={{ width: `${nextMatchProbs.away}%` }} />
+   316→                      </div>
+   317→                      <span className="text-[11px] font-bold tabular-nums w-10 text-right">{nextMatchProbs.away}%</span>
+   318→                    </div>
+   319→                  </div>
+   320→
+   321→                  {/* Predict buttons */}
+   322→                  <div className="grid grid-cols-3 gap-2">
+   323→                    <Button
+   324→                      size="sm"
+   325→                      variant="outline"
+   326→                      className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs font-semibold"
+   327→                      onClick={() => handleQuickPredict('home')}
+   328→                    >
+   329→                      Home Win
+   330→                    </Button>
+   331→                    <Button
+   332→                      size="sm"
+   333→                      variant="outline"
+   334→                      className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 text-xs font-semibold"
+   335→                      onClick={() => handleQuickPredict('draw')}
+   336→                    >
+   337→                      Draw
+   338→                    </Button>
+   339→                    <Button
+   340→                      size="sm"
+   341→                      variant="outline"
+   342→                      className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 text-xs font-semibold"
+   343→                      onClick={() => handleQuickPredict('away')}
+   344→                    >
+   345→                      Away Win
+   346→                    </Button>
+   347→                  </div>
+   348→                </CardContent>
+   349→              </Card>
+   350→            )}
+   351→
+   352→            {/* 8. RECENT RESULTS FROM ESPN */}
+   353→            <Card className="glass-card-premium rounded-xl">
+   354→              <CardHeader className="pb-3">
+   355→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   356→                  <Clock className="size-4 text-primary" />
+   357→                  Latest Results
+   358→                </CardTitle>
+   359→              </CardHeader>
+   360→              <CardContent>
+   361→                <div className="space-y-2">
+   362→                  {liveMatches && liveMatches.filter((m: any) => m.status === 'finished').slice(0, 5).map((m: any) => (
+   363→                    <div key={m.id} className="flex items-center justify-between py-2 border-b border-border/20 last:border-0">
+   364→                      <div className="flex items-center gap-3">
+   365→                        <Badge variant="outline" className="text-[9px] text-zinc-400 border-zinc-700 shrink-0">FT</Badge>
+   366→                        <div>
+   367→                          <p className="text-xs font-medium">{m.homeTeam?.name} vs {m.awayTeam?.name}</p>
+   368→                          <p className="text-[10px] text-muted-foreground">{m.competition}</p>
+   369→                        </div>
+   370→                      </div>
+   371→                      <span className="text-sm font-bold tabular-nums">{m.homeScore}-{m.awayScore}</span>
+   372→                    </div>
+   373→                  ))}
+   374→                </div>
+   375→              </CardContent>
+   376→            </Card>
+   377→
+   378→            {/* 9. TOTAL GOALS CHART */}
+   379→            <Card className="glass-card-premium rounded-xl">
+   380→              <CardHeader className="pb-3">
+   381→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   382→                  <Target className="size-4 text-cyan-400" />
+   383→                  Total Goals per Match
+   384→                </CardTitle>
+   385→              </CardHeader>
+   386→              <CardContent>
+   387→                <ResponsiveContainer width="100%" height={180}>
+   388→                  <BarChart data={xgChartData} barGap={4}>
+   389→                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
+   390→                    <XAxis dataKey="match" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+   391→                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+   392→                    <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+   393→                    <Bar dataKey="goals" fill="#00e676" name="Goals" radius={[4, 4, 0, 0]} />
+   394→                  </BarChart>
+   395→                </ResponsiveContainer>
+   396→              </CardContent>
+   397→            </Card>
+   398→
+   399→            {/* 10. TEAMS FROM DB (REAL) */}
+   400→            <Card className="glass-card-premium rounded-xl">
+   401→              <CardHeader className="pb-3">
+   402→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   403→                  <Trophy className="size-4 text-amber-400" />
+   404→                  Team Rankings (ELO)
+   405→                </CardTitle>
+   406→              </CardHeader>
+   407→              <CardContent>
+   408→                <div className="overflow-x-auto">
+   409→                  <table className="w-full text-xs">
+   410→                    <thead>
+   411→                      <tr className="border-b border-border/30 text-muted-foreground">
+   412→                        <th className="py-2 text-left w-6">#</th>
+   413→                        <th className="py-2 text-left">Team</th>
+   414→                        <th className="py-2 text-center">W</th>
+   415→                        <th className="py-2 text-center">D</th>
+   416→                        <th className="py-2 text-center">L</th>
+   417→                        <th className="py-2 text-center font-bold">ELO</th>
+   418→                      </tr>
+   419→                    </thead>
+   420→                    <tbody>
+   421→                      {teams.sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0)).slice(0, 8).map((t, i) => (
+   422→                        <tr key={t.id} className={cn('border-b border-border/10', i < 2 && 'bg-primary/5')}>
+   423→                          <td className="py-2 font-bold">{i + 1}</td>
+   424→                          <td className="py-2">
+   425→                            <div className="flex items-center gap-2">
+   426→                              {t.logo ? <img src={t.logo} alt={t.code} className="size-4 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />}
+   427→                              <span className="font-medium">{t.name || t.code}</span>
+   428→                            </div>
+   429→                          </td>
+   430→                          <td className="py-2 text-center text-emerald-400">{t.wins}</td>
+   431→                          <td className="py-2 text-center text-amber-400">{t.draws}</td>
+   432→                          <td className="py-2 text-center text-red-400">{t.losses}</td>
+   433→                          <td className="py-2 text-center font-bold text-primary">{Math.round(t.eloRating)}</td>
+   434→                        </tr>
+   435→                      ))}
+   436→                    </tbody>
+   437→                  </table>
+   438→                </div>
+   439→              </CardContent>
+   440→            </Card>
+   441→          </div>
+   442→
+   443→          {/* ─── RIGHT COLUMN ─── */}
+   444→          <div className="space-y-5">
+   445→
+   446→            {/* 3. PREDICTION ACCURACY RING */}
+   447→            <Card className="glass-card-premium rounded-xl">
+   448→              <CardHeader className="pb-3">
+   449→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   450→                  <Target className="size-4 text-primary" />
+   451→                  Accuracy
+   452→                </CardTitle>
+   453→              </CardHeader>
+   454→              <CardContent className="flex flex-col items-center">
+   455→                <div className="relative size-32">
+   456→                  <svg className="size-full -rotate-90" viewBox="0 0 120 120">
+   457→                    <circle cx="60" cy="60" r="50" fill="none" stroke="oklch(0.15 0.02 260)" strokeWidth="10" />
+   458→                    <circle
+   459→                      cx="60" cy="60" r="50" fill="none"
+   460→                      stroke="url(#accuracyGrad)" strokeWidth="10"
+   461→                      strokeLinecap="round"
+   462→                      strokeDasharray={`${accuracy * 3.14} 314`}
+   463→                      className="transition-all duration-1000"
+   464→                    />
+   465→                    <defs>
+   466→                      <linearGradient id="accuracyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+   467→                        <stop offset="0%" stopColor="#00e676" />
+   468→                        <stop offset="100%" stopColor="#00bfa5" />
+   469→                      </linearGradient>
+   470→                    </defs>
+   471→                  </svg>
+   472→                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+   473→                    <span className="text-3xl font-black text-primary">{accuracy}%</span>
+   474→                    <span className="text-[10px] text-muted-foreground">Accuracy</span>
+   475→                  </div>
+   476→                </div>
+   477→                <div className="mt-3 flex gap-4 text-center text-xs">
+   478→                  <div>
+   479→                    <p className="font-bold text-foreground">{user?.totalPredictions ?? 0}</p>
+   480→                    <p className="text-muted-foreground">Total</p>
+   481→                  </div>
+   482→                  <div>
+   483→                    <p className="font-bold text-emerald-400">{user?.correctPredictions ?? 0}</p>
+   484→                    <p className="text-muted-foreground">Correct</p>
+   485→                  </div>
+   486→                </div>
+   487→              </CardContent>
+   488→            </Card>
+   489→
+   490→            {/* 4. HANDICAP / MARKETS — requires selected match */}
+   491→            <Card className="glass-card-premium rounded-xl">
+   492→              <CardHeader className="pb-3">
+   493→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   494→                  <Star className="size-4 text-amber-400" />
+   495→                  Market Analysis
+   496→                </CardTitle>
+   497→              </CardHeader>
+   498→              <CardContent className="flex flex-col items-center py-4">
+   499→                <p className="text-xs text-muted-foreground text-center mb-3">
+   500→                  Select a match to view handicap lines and market analysis.
+   501→                </p>
+   502→                <Button
+   503→                  size="sm"
+   504→                  variant="outline"
+   505→                  className="border-primary/30 text-primary text-xs"
+   506→                  onClick={() => setView('matches')}
+   507→                >
+   508→                  Go to Matches
+   509→                </Button>
+   510→              </CardContent>
+   511→            </Card>
+   512→
+   513→            {/* 6. PREDICTION MODELS — requires selected match */}
+   514→            <Card className="glass-card-premium rounded-xl">
+   515→              <CardHeader className="pb-3">
+   516→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   517→                  <Users className="size-4 text-cyan-400" />
+   518→                  Prediction Models
+   519→                </CardTitle>
+   520→              </CardHeader>
+   521→              <CardContent className="flex flex-col items-center py-4">
+   522→                <p className="text-xs text-muted-foreground text-center mb-3">
+   523→                  Prediction models require a selected match. Go to Matches → select a match → run the Prediction Engine.
+   524→                </p>
+   525→                <Button
+   526→                  size="sm"
+   527→                  variant="outline"
+   528→                  className="border-primary/30 text-primary text-xs"
+   529→                  onClick={() => setView('matches')}
+   530→                >
+   531→                  Go to Matches
+   532→                </Button>
+   533→              </CardContent>
+   534→            </Card>
+   535→
+   536→            {/* 7. ELO RANKINGS (REAL) */}
+   537→            <Card className="glass-card-premium rounded-xl">
+   538→              <CardHeader className="pb-3">
+   539→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   540→                  <TrendingUp className="size-4 text-primary" />
+   541→                  ELO Rankings
+   542→                </CardTitle>
+   543→              </CardHeader>
+   544→              <CardContent className="space-y-2">
+   545→                {teams.sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0)).slice(0, 5).map((t, i) => (
+   546→                  <div key={t.id} className="flex items-center justify-between py-1.5 border-b border-border/10 last:border-0">
+   547→                    <div className="flex items-center gap-2">
+   548→                      <span className="text-[10px] w-4 text-muted-foreground font-bold">{i + 1}</span>
+   549→                      {t.logo ? <img src={t.logo} alt={t.code} className="size-4 rounded-full object-contain bg-muted/30 p-px" loading="lazy" /> : <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />}
+   550→                      <span className="text-xs font-medium">{t.name || t.code}</span>
+   551→                    </div>
+   552→                    <span className="text-xs font-bold tabular-nums">{Math.round(t.eloRating)}</span>
+   553→                  </div>
+   554→                ))}
+   555→              </CardContent>
+   556→            </Card>
+   557→
+   558→            {/* 11. ALL MATCHES BY LEAGUE */}
+   559→            <Card className="glass-card-premium rounded-xl">
+   560→              <CardHeader className="pb-3">
+   561→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   562→                  <Cloud className="size-4 text-sky-400" />
+   563→                  All Matches
+   564→                </CardTitle>
+   565→              </CardHeader>
+   566→              <CardContent className="space-y-3">
+   567→                {liveMatches && liveMatches.slice(0, 6).map((m: any) => (
+   568→                  <div key={m.id} className="p-2.5 rounded-lg bg-muted/20 space-y-1.5">
+   569→                    <p className="text-[10px] text-muted-foreground">{m.competition} · {m.date ? new Date(m.date).toLocaleDateString() : ''}</p>
+   570→                    <div className="flex items-center justify-between">
+   571→                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+   572→                        {m.homeTeam?.logo ? <img src={m.homeTeam.logo} alt="" className="size-4 rounded-full object-contain bg-muted/30 p-px shrink-0" loading="lazy" /> : null}
+   573→                        <span className="text-xs font-medium truncate">{m.homeTeam?.name}</span>
+   574→                      </div>
+   575→                      <span className="text-xs font-bold tabular-nums px-2">{m.homeScore}-{m.awayScore}</span>
+   576→                      <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+   577→                        <span className="text-xs font-medium truncate">{m.awayTeam?.name}</span>
+   578→                        {m.awayTeam?.logo ? <img src={m.awayTeam.logo} alt="" className="size-4 rounded-full object-contain bg-muted/30 p-px shrink-0" loading="lazy" /> : null}
+   579→                      </div>
+   580→                    </div>
+   581→                    <p className="text-[10px] text-sky-400 font-medium">
+   582→                      {m.status === 'live' ? `LIVE${m.minute ? ` ${m.minute}'` : ''}` :
+   583→                       m.status === 'finished' ? 'Full Time' :
+   584→                       m.status === 'halftime' ? 'Half Time' :
+   585→                       m.status === 'upcoming' ? `Upcoming · ${m.venue || ''}` : m.status}
+   586→                    </p>
+   587→                  </div>
+   588→                ))}
+   589→              </CardContent>
+   590→            </Card>
+   591→
+   592→            {/* 12. TRENDING NEWS */}
+   593→            <Card className="glass-card-premium rounded-xl">
+   594→              <CardHeader className="pb-3">
+   595→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   596→                  <Newspaper className="size-4 text-amber-400" />
+   597→                  Trending News
+   598→                </CardTitle>
+   599→              </CardHeader>
+   600→              <CardContent className="space-y-2.5">
+   601→                {newsItems.map((n, i) => (
+   602→                  <div key={i} className="flex items-start gap-2.5 group cursor-pointer">
+   603→                    <Badge variant="outline" className="shrink-0 mt-0.5 text-[9px] border-amber-500/30 text-amber-400">
+   604→                      {n.category}
+   605→                    </Badge>
+   606→                    <div className="min-w-0">
+   607→                      <p className="text-xs font-medium leading-tight group-hover:text-primary transition-colors line-clamp-2">{n.title}</p>
+   608→                      <p className="text-[10px] text-muted-foreground mt-0.5">{n.time}</p>
+   609→                    </div>
+   610→                  </div>
+   611→                ))}
+   612→              </CardContent>
+   613→            </Card>
+   614→
+   615→            {/* 13. STREAK COUNTER */}
+   616→            {(!user?.bestStreak && !user?.predictionStreak) ? (
+   617→              <Card className="glass-card-premium rounded-xl">
+   618→                <CardContent className="flex items-center gap-4 p-4">
+   619→                  <div className="flex size-12 items-center justify-center rounded-xl bg-primary/15">
+   620→                    <Zap className="size-5 text-primary" />
+   621→                  </div>
+   622→                  <div>
+   623→                    <p className="text-sm font-bold">Start Your Streak!</p>
+   624→                    <p className="text-[10px] text-muted-foreground">Make your first prediction to begin tracking.</p>
+   625→                  </div>
+   626→                </CardContent>
+   627→              </Card>
+   628→            ) : (
+   629→              <Card className="glass-card-premium rounded-xl ring-glow-emerald">
+   630→                <CardContent className="flex items-center gap-4 p-4">
+   631→                  <div className="flex size-12 items-center justify-center rounded-xl bg-orange-500/15">
+   632→                    <span className="text-2xl text-red-400 font-bold">W</span>
+   633→                  </div>
+   634→                  <div>
+   635→                    <p className="text-2xl font-black text-primary">{streak}</p>
+   636→                    <p className="text-[10px] text-muted-foreground">Current Streak</p>
+   637→                  </div>
+   638→                  <div className="ml-auto text-right">
+   639→                    <p className="text-sm font-bold text-amber-400">Best: {bestStreak}</p>
+   640→                    <p className="text-[10px] text-muted-foreground">All Time</p>
+   641→                  </div>
+   642→                </CardContent>
+   643→              </Card>
+   644→            )}
+   645→
+   646→            {/* 14. QUICK ACTIONS */}
+   647→            <div className="grid grid-cols-3 gap-2">
+   648→              <Button
+   649→                variant="outline"
+   650→                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+   651→                onClick={() => setView('matches')}
+   652→              >
+   653→                <Swords className="size-4 text-primary" />
+   654→                <span>Matches</span>
+   655→              </Button>
+   656→              <Button
+   657→                variant="outline"
+   658→                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+   659→                onClick={() => setView('ai-chat')}
+   660→              >
+   661→                <MessageSquare className="size-4 text-cyan-400" />
+   662→                <span>AI Chat</span>
+   663→              </Button>
+   664→              <Button
+   665→                variant="outline"
+   666→                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+   667→                onClick={() => setView('predictions')}
+   668→              >
+   669→                <Target className="size-4 text-amber-400" />
+   670→                <span>Predict</span>
+   671→              </Button>
+   672→            </div>
+   673→
+   674→            {/* 15. AI CHAT CTA */}
+   675→            <Card className="glass-card-premium rounded-xl border-primary/20">
+   676→              <CardContent className="p-4">
+   677→                <div className="flex items-start gap-3">
+   678→                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+   679→                    <Sparkles className="size-4 text-primary" />
+   680→                  </div>
+   681→                  <div>
+   682→                    <p className="text-xs font-bold text-primary mb-1">AI Insight</p>
+   683→                    <p className="text-[11px] text-muted-foreground leading-relaxed mb-2">
+   684→                      Open AI Chat for match analysis and predictions.
+   685→                    </p>
+   686→                    <Button
+   687→                      size="sm"
+   688→                      variant="outline"
+   689→                      className="border-primary/30 text-primary text-[10px] h-7 px-2.5"
+   690→                      onClick={() => setView('ai-chat')}
+   691→                    >
+   692→                      <MessageSquare className="size-3 mr-1" />
+   693→                      Open AI Chat
+   694→                    </Button>
+   695→                  </div>
+   696→                </div>
+   697→              </CardContent>
+   698→            </Card>
+   699→          </div>
+   700→        </div>
+   701→      </div>
+   702→    </TooltipProvider>
+   703→  )
+   704→}
