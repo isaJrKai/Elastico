@@ -594,6 +594,12 @@ export default function MatchDetailView() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
+                        <span className="text-sm font-black tabular-nums text-primary">{p.totalXT.toFixed(3)}</span>
+                        <div className="text-[9px] text-muted-foreground">xT total</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-8">No xT data available for this match</p>
               )}

@@ -679,3 +679,48 @@
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--shimmer-color, rgba(255,255,255,0.04)), transparent);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   DATA CLASSIFICATION BADGES
+   Every number in ELASTICO must declare its source.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.data-class-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid;
+  line-height: 1;
+}
+.data-class-badge.REAL {
+  color: #4ADE80;
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.25);
+}
+.data-class-badge.DERIVED {
+  color: #60A5FA;
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.25);
+}
+.data-class-badge.SIMULATION {
+  color: #A78BFA;
+  background: rgba(167, 139, 250, 0.1);
+  border-color: rgba(167, 139, 250, 0.25);
+}
+.data-class-badge.DEMO {
+  color: #FBBF24;
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.25);
+}
+.data-class-badge.BUG {
+  color: #F87171;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.25);
+  animation: badge-pulse-glow 2s ease-in-out infinite;
+}
