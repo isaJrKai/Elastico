@@ -1,0 +1,31 @@
+services:
+  elastico:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # This app's database schema is Postgres-only (see prisma/schema.prisma).
+      # Set DATABASE_URL to a real Postgres connection string (e.g. Neon, Supabase,
+      # or a postgres container) in a .env file next to this docker-compose.yml.
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be a postgresql:// connection string}
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a random string of 32+ characters}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - elastico
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

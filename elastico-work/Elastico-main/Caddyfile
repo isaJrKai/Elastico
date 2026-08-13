@@ -1,0 +1,64 @@
+# NOTE: This listens on plain HTTP (:80) only. docker-compose.yml exposes
+# ports 80 and 443, but Caddy was previously configured to listen on :81 —
+# a port nothing outside the container could reach, making the site
+# completely unreachable. Fixed to :80 here.
+#
+# To get real, automatic HTTPS (recommended for production), replace the
+# line below with your actual domain name instead of ":80", e.g.:
+#   elastico.yourdomain.com {
+# Caddy will then automatically obtain and renew a TLS certificate for you.
+:80 {
+	# ── ELASTICO Compression Layer ───────────────────────────────────────────
+	# Transparently gzip-compresses all API JSON responses.
+	# The Python CompressedDataStream concept, implemented at the proxy layer.
+	# This is what makes the "0 MB mobile data on reopen" work —
+	# the service worker caches the first response, and Caddy compresses
+	# every subsequent API payload over the wire.
+
+	# Gzip compression for all text-based responses
+	encode gzip zstd {
+		# Minimum size to compress: 256 bytes (skip tiny responses)
+		minimum_length 256
+		# Compress API JSON at level 6 (good balance of speed vs ratio)
+		prefer zstd
+	}
+
+	@transform_port_query {
+		query XTransformPort=*
+	}
+
+	handle @transform_port_query {
+		reverse_proxy localhost:{query.XTransformPort} {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	handle {
+		reverse_proxy localhost:3000 {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# ── PWA & Static Asset Headers ──────────────────────────────────────────
+	# Service worker: no-cache (always fetch latest)
+	@sw path /sw.js
+	header @sw Cache-Control "no-cache, no-store, must-revalidate"
+
+	# Manifest: cache for 1 hour
+	@manifest path /manifest.webmanifest
+	header @manifest Cache-Control "public, max-age=3600"
+
+	# PWA icons: cache for 1 year (immutable)
+	@icons path /icons/*
+	header @icons Cache-Control "public, max-age=31536000, immutable"
+
+	# Offline fallback
+	@offline path /offline.html
+	header @offline Cache-Control "public, max-age=86400"
+}

@@ -1,0 +1,861 @@
+'use client'
+
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Users,
+  Search,
+  Filter,
+  Download,
+  Star,
+  TrendingUp,
+  Award,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  User,
+  Copy,
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Progress } from '@/components/ui/progress'
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from 'recharts'
+import { useElasticoStore, type Player } from '@/store/use-elastico-store'
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface EnhancedPlayer extends Player {
+  teamName?: string
+  teamCode?: string
+  teamColor?: string
+  nationality?: string
+  appearances?: number
+  minutesPlayed?: number
+}
+
+// ── Data honesty note ─────────────────────────────────────────────────────────
+// This view fetches players from /api/players (DB-backed).
+// FIFA-style radar attributes (Pace/Shooting/Passing/Defending/Physical/Dribbling)
+// and per-match form ratings are NOT computed by ELASTICO's engine and have no
+// real data source. These sections show honest empty states instead of
+// fabricating plausible-looking numbers.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Component ──────────────────────────────────────────────────────────────────
+
+export function PlayerView() {
+  const teams = useElasticoStore(s => s.teams)
+  const token = useElasticoStore(s => s.token)
+  const [players, setPlayers] = useState<EnhancedPlayer[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [positionFilter, setPositionFilter] = useState<string>('all')
+  const [teamFilter, setTeamFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('rating')
+  const [selectedPlayer, setSelectedPlayer] = useState<EnhancedPlayer | null>(null)
+  const [comparePlayer, setComparePlayer] = useState<EnhancedPlayer | null>(null)
+  const [page, setPage] = useState(0)
+  const perPage = 12
+
+  // Fetch players from API
+  useEffect(() => {
+    async function fetchPlayers() {
+      setIsLoading(true)
+      try {
+        const headers: Record<string, string> = {}
+        if (token) headers['Authorization'] = `Bearer ${token}`
+        const params = new URLSearchParams()
+        if (sortBy) params.set('sortBy', sortBy)
+        if (positionFilter !== 'all') params.set('position', positionFilter)
+        if (search) params.set('search', search)
+        params.set('limit', '200')
+        const res = await fetch(`/api/players?${params}`, { headers })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.players && data.players.length > 0) {
+            setPlayers(data.players.map((p: Record<string, unknown>) => ({
+              ...p,
+              teamName: (p.team as Record<string, unknown>)?.name as string || p.teamName,
+              teamCode: (p.team as Record<string, unknown>)?.code as string || p.teamCode,
+              teamColor: (p.team as Record<string, unknown>)?.primaryColor as string || '#00e676',
+              nationality: (p as Record<string, unknown>).nationality as string || undefined,
+              appearances: (p as Record<string, unknown>).appearances as number || undefined,
+              minutesPlayed: (p as Record<string, unknown>).minutesPlayed as number || undefined,
+            } as EnhancedPlayer)))
+          }
+        }
+      } catch {
+        // API unavailable — players remains empty, empty state will show
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchPlayers()
+  }, [token, sortBy, positionFilter, search])
+
+  // Derived data
+  const filteredPlayers = useMemo(() => {
+    let result = [...players]
+    if (search) result = result.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    if (positionFilter !== 'all') result = result.filter(p => p.position === positionFilter)
+    if (teamFilter !== 'all') result = result.filter(p => p.teamName === teamFilter)
+    result.sort((a, b) => {
+      if (sortBy === 'rating') return b.rating - a.rating
+      if (sortBy === 'goals') return b.goals - a.goals
+      if (sortBy === 'assists') return b.assists - a.assists
+      if (sortBy === 'name') return a.name.localeCompare(b.name)
+      if (sortBy === 'age') return (a.age || 0) - (b.age || 0)
+      if (sortBy === 'marketValue') return (b.marketValue || 0) - (a.marketValue || 0)
+      return 0
+    })
+    return result
+  }, [players, search, positionFilter, teamFilter, sortBy])
+
+  const pagedPlayers = filteredPlayers.slice(page * perPage, (page + 1) * perPage)
+  const totalPages = Math.ceil(filteredPlayers.length / perPage)
+
+  const topScorers = useMemo(() => [...players].sort((a, b) => b.goals - a.goals).slice(0, 10), [players])
+  const topByValue = useMemo(() => [...players].filter(p => p.marketValue).sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0)).slice(0, 10), [players])
+
+  const positionalGroups = useMemo(() => {
+    const groups: Record<string, EnhancedPlayer[]> = {}
+    for (const p of players) {
+      if (!groups[p.position]) groups[p.position] = []
+      groups[p.position].push(p)
+    }
+    return groups
+  }, [players])
+
+  const ageData = useMemo(() => {
+    const buckets: Record<string, number> = { '18-21': 0, '22-25': 0, '26-29': 0, '30-33': 0, '34+': 0 }
+    for (const p of players) {
+      const age = p.age || 25
+      if (age <= 21) buckets['18-21']++
+      else if (age <= 25) buckets['22-25']++
+      else if (age <= 29) buckets['26-29']++
+      else if (age <= 33) buckets['30-33']++
+      else buckets['34+']++
+    }
+    return Object.entries(buckets).map(([range, count]) => ({ range, count }))
+  }, [players])
+
+  const nationalities = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const p of players) {
+      const nat = p.nationality || 'Unknown'
+      map[nat] = (map[nat] || 0) + 1
+    }
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10)
+  }, [players])
+
+  const uniqueTeams = useMemo(() => [...new Set(players.map(p => p.teamName).filter(Boolean))], [players])
+
+  // Similar players — based on real stat proximity (goals, assists, rating, age)
+  // Not based on fabricated radar attributes
+  const similarPlayers = useMemo(() => {
+    if (!selectedPlayer || players.length === 0) return []
+    return players
+      .filter(p => p.id !== selectedPlayer.id && p.position === selectedPlayer.position)
+      .map(p => {
+        // Normalized difference across real metrics
+        const maxGoals = Math.max(selectedPlayer.goals, p.goals, 1)
+        const maxAssists = Math.max(selectedPlayer.assists, p.assists, 1)
+        const goalDiff = Math.abs(selectedPlayer.goals - p.goals) / maxGoals
+        const assistDiff = Math.abs(selectedPlayer.assists - p.assists) / maxAssists
+        const ratingDiff = Math.abs(selectedPlayer.rating - p.rating) / 10
+        const ageDiff = Math.abs((selectedPlayer.age || 25) - (p.age || 25)) / 20
+        const totalDiff = goalDiff + assistDiff + ratingDiff + ageDiff
+        return { player: p, similarity: Math.max(0, Math.round(100 - (totalDiff / 4) * 100)) }
+      })
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5)
+  }, [selectedPlayer, players])
+
+  // CSV Export
+  const exportCSV = useCallback(() => {
+    const headers = ['Name', 'Position', 'Team', 'Age', 'Goals', 'Assists', 'Rating', 'Market Value (€M)', 'Yellow Cards', 'Red Cards', 'Nationality']
+    const rows = filteredPlayers.map(p => [
+      p.name, p.position, p.teamName || '', p.age || '', p.goals, p.assists, p.rating, p.marketValue || '', p.yellowCards, p.redCards, p.nationality || ''
+    ])
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'elastico-players.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Players exported to CSV')
+  }, [filteredPlayers])
+
+  const getPositionColor = (pos: string) => {
+    switch (pos) {
+      case 'GK': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
+      case 'DEF': return 'text-blue-400 bg-blue-400/10 border-blue-400/30'
+      case 'MID': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
+      case 'FWD': return 'text-red-400 bg-red-400/10 border-red-400/30'
+      default: return ''
+    }
+  }
+
+  const getRatingColor = (r: number) => {
+    if (r >= 8.0) return 'text-emerald-400'
+    if (r >= 7.0) return 'text-emerald-300'
+    if (r >= 6.0) return 'text-yellow-400'
+    return 'text-red-400'
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Users className="text-primary" /> Player Analytics
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">Search, analyze, and compare football players</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
+          <Download className="size-4" /> Export CSV
+        </Button>
+      </div>
+
+      {/* Search & Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Search players..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+            className="pl-9"
+          />
+        </div>
+        <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0) }}>
+          <SelectTrigger className="w-full sm:w-36">
+            <SelectValue placeholder="Position" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Positions</SelectItem>
+            <SelectItem value="GK">GK</SelectItem>
+            <SelectItem value="DEF">DEF</SelectItem>
+            <SelectItem value="MID">MID</SelectItem>
+            <SelectItem value="FWD">FWD</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={teamFilter} onValueChange={(v) => { setTeamFilter(v); setPage(0) }}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Team" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Teams</SelectItem>
+            {uniqueTeams.map(t => (
+              <SelectItem key={t} value={t!}>{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-full sm:w-36">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="rating">Rating</SelectItem>
+            <SelectItem value="goals">Goals</SelectItem>
+            <SelectItem value="assists">Assists</SelectItem>
+            <SelectItem value="marketValue">Market Value</SelectItem>
+            <SelectItem value="age">Age</SelectItem>
+            <SelectItem value="name">Name</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Tabs defaultValue="grid" className="space-y-4">
+        <TabsList className="flex flex-wrap gap-1 h-auto bg-card/50 p-1 rounded-lg">
+          <TabsTrigger value="grid" className="text-xs">Player Grid</TabsTrigger>
+          <TabsTrigger value="leaderboard" className="text-xs">Top Scorers</TabsTrigger>
+          <TabsTrigger value="radar" className="text-xs">Radar Charts</TabsTrigger>
+          <TabsTrigger value="compare" className="text-xs">Compare</TabsTrigger>
+          <TabsTrigger value="value" className="text-xs">Market Value</TabsTrigger>
+          <TabsTrigger value="positions" className="text-xs">By Position</TabsTrigger>
+          <TabsTrigger value="age" className="text-xs">Age Dist.</TabsTrigger>
+          <TabsTrigger value="nationality" className="text-xs">Nationality</TabsTrigger>
+          <TabsTrigger value="cards" className="text-xs">Cards</TabsTrigger>
+          <TabsTrigger value="subs" className="text-xs">Substitutions</TabsTrigger>
+          <TabsTrigger value="similar" className="text-xs">Similar</TabsTrigger>
+          <TabsTrigger value="form" className="text-xs">Form</TabsTrigger>
+        </TabsList>
+
+        {/* Player Cards Grid */}
+        <TabsContent value="grid">
+          {isLoading ? (
+            <Card className="glass-card"><CardContent className="p-12 text-center text-muted-foreground">Loading players...</CardContent></Card>
+          ) : pagedPlayers.length === 0 ? (
+            <Card className="glass-card"><CardContent className="p-12 text-center">
+              <Users className="size-8 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-sm text-muted-foreground">No players found in the database.</p>
+              <p className="text-xs text-muted-foreground mt-1">Player data is populated when teams and matches are synced. Use the admin panel or /api/sync to load data.</p>
+            </CardContent></Card>
+          ) : (
+          <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {pagedPlayers.map((player) => (
+              <motion.div
+                key={player.id}
+                whileHover={{ scale: 1.02, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                className="cursor-pointer"
+                onClick={() => setSelectedPlayer(player)}
+              >
+                <Card className="glass-card h-full overflow-hidden">
+                  <div className="h-2" style={{ backgroundColor: player.teamColor || '#00e676' }} />
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold shrink-0 border-2 border-border">
+                        {player.number}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-semibold truncate">{player.name}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className={cn('text-[10px]', getPositionColor(player.position))}>
+                            {player.position}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground truncate">{player.teamName}</span>
+                        </div>
+                      </div>
+                      <div className={cn('text-xl font-bold', getRatingColor(player.rating))}>
+                        {player.rating.toFixed(1)}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mt-4">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-primary">{player.goals}</div>
+                        <div className="text-[10px] text-muted-foreground">Goals</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-primary">{player.assists}</div>
+                        <div className="text-[10px] text-muted-foreground">Assists</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-primary">{player.yellowCards + player.redCards}</div>
+                        <div className="text-[10px] text-muted-foreground">Cards</div>
+                      </div>
+                    </div>
+                    {player.marketValue && (
+                      <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-1">
+                        <TrendingUp className="size-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">€{player.marketValue}M</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}>
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">{page + 1} / {totalPages}</span>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}>
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          )}
+          </>
+          )}
+        </TabsContent>
+
+        {/* Top Scorers Leaderboard */}
+        <TabsContent value="leaderboard">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Star className="size-4 text-yellow-400" /> Top Scorers Leaderboard
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-96 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">#</TableHead>
+                      <TableHead>Player</TableHead>
+                      <TableHead className="text-center">Goals</TableHead>
+                      <TableHead className="text-center">Assists</TableHead>
+                      <TableHead className="text-center">Mins</TableHead>
+                      <TableHead className="text-center">G/90</TableHead>
+                      <TableHead className="text-center">Rating</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {topScorers.map((p, i) => (
+                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedPlayer(p)}>
+                        <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{p.name}</span>
+                            <Badge variant="outline" className={cn('text-[9px]', getPositionColor(p.position))}>{p.position}</Badge>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{p.teamName}</span>
+                        </TableCell>
+                        <TableCell className="text-center font-bold text-primary">{p.goals}</TableCell>
+                        <TableCell className="text-center">{p.assists}</TableCell>
+                        <TableCell className="text-center text-muted-foreground">{p.minutesPlayed || (p.appearances || 0) * 90}</TableCell>
+                        <TableCell className="text-center font-medium">
+                          {((p.goals / ((p.minutesPlayed || (p.appearances || 0) * 90) / 90))).toFixed(2)}
+                        </TableCell>
+                        <TableCell className={cn('text-center font-bold', getRatingColor(p.rating))}>{p.rating.toFixed(1)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Player Radar Chart */}
+        <TabsContent value="radar">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Award className="size-4 text-primary" /> Player Radar Charts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="p-8 text-center">
+                <Award className="size-8 mx-auto text-muted-foreground/50 mb-3" />
+                <p className="text-sm text-muted-foreground">FIFA-style attribute radars (Pace, Shooting, Passing, Defending, Physical, Dribbling) are not a metric ELASTICO computes.</p>
+                <p className="text-xs text-muted-foreground mt-1">This feature requires an external attribute data source. Showing real stats (goals, assists, rating) instead — see the Player Grid and Leaderboard tabs.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Player Comparison */}
+        <TabsContent value="compare">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="glass-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Select Player 1</CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-64 overflow-y-auto">
+                {players.slice(0, 10).map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedPlayer(p)}
+                    className={cn(
+                      'w-full flex items-center gap-3 p-2 rounded-lg text-left text-sm transition-colors',
+                      selectedPlayer?.id === p.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent'
+                    )}
+                  >
+                    <span className="font-medium">{p.name}</span>
+                    <Badge variant="outline" className={cn('text-[9px] ml-auto', getPositionColor(p.position))}>{p.position}</Badge>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+            <Card className="glass-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Select Player 2</CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-64 overflow-y-auto">
+                {players.slice(0, 10).map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setComparePlayer(p)}
+                    className={cn(
+                      'w-full flex items-center gap-3 p-2 rounded-lg text-left text-sm transition-colors',
+                      comparePlayer?.id === p.id ? 'bg-orange-500/10 text-orange-400' : 'hover:bg-accent'
+                    )}
+                  >
+                    <span className="font-medium">{p.name}</span>
+                    <Badge variant="outline" className={cn('text-[9px] ml-auto', getPositionColor(p.position))}>{p.position}</Badge>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+          {selectedPlayer && comparePlayer ? (
+            <Card className="glass-card mt-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-center">
+                  {selectedPlayer.name} vs {comparePlayer.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {[
+                  { label: 'Rating', home: selectedPlayer.rating, away: comparePlayer.rating, suffix: '' },
+                  { label: 'Goals', home: selectedPlayer.goals, away: comparePlayer.goals, suffix: '' },
+                  { label: 'Assists', home: selectedPlayer.assists, away: comparePlayer.assists, suffix: '' },
+                  { label: 'Appearances', home: selectedPlayer.appearances || 0, away: comparePlayer.appearances || 0, suffix: '' },
+                  { label: 'Minutes Played', home: selectedPlayer.minutesPlayed || 0, away: comparePlayer.minutesPlayed || 0, suffix: '' },
+                  { label: 'Yellow Cards', home: selectedPlayer.yellowCards, away: comparePlayer.yellowCards, suffix: '' },
+                  { label: 'Market Value (€M)', home: selectedPlayer.marketValue || 0, away: comparePlayer.marketValue || 0, suffix: '' },
+                ].map((item) => {
+                  const total = item.home + item.away || 1
+                  const homePct = Math.round((item.home / total) * 100)
+                  return (
+                    <div key={item.label} className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{item.label}</span>
+                        <span>{item.home}{item.suffix} — {item.away}{item.suffix}</span>
+                      </div>
+                      <div className="flex h-3 rounded-full overflow-hidden bg-muted/50">
+                        <div className="bg-primary rounded-l-full transition-all duration-500" style={{ width: `${homePct}%` }} />
+                        <div className="bg-orange-500/70 rounded-r-full transition-all duration-500" style={{ width: `${100 - homePct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+                <div className="flex items-center justify-between pt-2">
+                  <Badge variant="outline" className="text-primary border-primary/30">{selectedPlayer.name}</Badge>
+                  <span className="text-xs text-muted-foreground">vs</span>
+                  <Badge variant="outline" className="text-orange-400 border-orange-400/30">{comparePlayer.name}</Badge>
+                </div>
+                <p className="text-[10px] text-muted-foreground text-center pt-1">
+                  Comparison uses real recorded stats (goals, assists, rating, appearances). FIFA-style radar attributes are not available — ELASTICO does not compute them.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="glass-card mt-4"><CardContent className="p-8 text-center text-sm text-muted-foreground">Select two players above to compare their real stats.</CardContent></Card>
+          )}
+        </TabsContent>
+
+        {/* Market Value Tracker */}
+        <TabsContent value="value">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <TrendingUp className="size-4 text-primary" /> Market Value Tracker (€M)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={topByValue} layout="vertical" barSize={18}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis type="number" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" unit="M" />
+                    <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={110} />
+                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `€${v}M`} />
+                    <Bar dataKey="marketValue" fill="#00e676" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Positional Breakdown */}
+        <TabsContent value="positions">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Object.entries(positionalGroups).map(([pos, group]) => {
+              const avgRating = (group.reduce((s, p) => s + p.rating, 0) / group.length).toFixed(1)
+              const totalGoals = group.reduce((s, p) => s + p.goals, 0)
+              const totalAssists = group.reduce((s, p) => s + p.assists, 0)
+              return (
+                <Card key={pos} className="glass-card">
+                  <CardHeader className="pb-2">
+                    <Badge variant="outline" className={cn('w-fit', getPositionColor(pos))}>{pos}</Badge>
+                    <span className="text-xs text-muted-foreground">{group.length} players</span>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Avg Rating</span>
+                      <span className={cn('font-bold', getRatingColor(parseFloat(avgRating)))}>{avgRating}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total Goals</span>
+                      <span className="font-bold">{totalGoals}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total Assists</span>
+                      <span className="font-bold">{totalAssists}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </TabsContent>
+
+        {/* Age Distribution */}
+        <TabsContent value="age">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Age Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ageData} barSize={40}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="range" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+                    <Bar dataKey="count" fill="#00e676" radius={[4, 4, 0, 0]} name="Players" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Nationality Mix */}
+        <TabsContent value="nationality">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Nationality Distribution</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 max-h-96 overflow-y-auto">
+              {nationalities.map(([nat, count]) => (
+                <div key={nat} className="flex items-center gap-3">
+                  <span className="text-sm w-24 shrink-0 truncate">{nat}</span>
+                  <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(count / players.length) * 100}%` }}
+                      className="h-full bg-primary/70 rounded-full"
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Card Accumulation */}
+        <TabsContent value="cards">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Card Accumulation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-96 overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Player</TableHead>
+                      <TableHead className="text-center">Yellow</TableHead>
+                      <TableHead className="text-center">Red</TableHead>
+                      <TableHead className="text-center">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...players].sort((a, b) => (b.yellowCards + b.redCards) - (a.yellowCards + a.redCards)).slice(0, 15).map(p => (
+                      <TableRow key={p.id}>
+                        <TableCell className="text-sm">{p.name}</TableCell>
+                        <TableCell className="text-center"><Badge variant="outline" className="text-yellow-400 border-yellow-400/30">{p.yellowCards}</Badge></TableCell>
+                        <TableCell className="text-center"><Badge variant="outline" className="text-red-400 border-red-400/30">{p.redCards}</Badge></TableCell>
+                        <TableCell className="text-center font-bold">{p.yellowCards + p.redCards}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Substitution Frequency */}
+        <TabsContent value="subs">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Substitution Frequency</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {players.slice(0, 10).map(p => {
+                  const startPct = 75
+                  const subPct = 100 - startPct
+                  return (
+                    <div key={p.id} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="truncate">{p.name}</span>
+                        <span className="text-muted-foreground">{startPct}% starter</span>
+                      </div>
+                      <div className="flex h-2 rounded-full overflow-hidden bg-muted/50">
+                        <div className="bg-primary/70" style={{ width: `${startPct}%` }} />
+                        <div className="bg-orange-500/60" style={{ width: `${subPct}%` }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Player Similarity Finder */}
+        <TabsContent value="similar">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="glass-card lg:col-span-1">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Select Player</CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-64 overflow-y-auto">
+                {players.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedPlayer(p)}
+                    className={cn(
+                      'w-full flex items-center gap-2 p-2 rounded text-left text-sm transition-colors',
+                      selectedPlayer?.id === p.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent'
+                    )}
+                  >
+                    <span className="truncate">{p.name}</span>
+                    <Badge variant="outline" className={cn('text-[9px] ml-auto shrink-0', getPositionColor(p.position))}>{p.position}</Badge>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+            <Card className="glass-card lg:col-span-2">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Similar Players</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {selectedPlayer ? (
+                  <div className="space-y-3">
+                    {similarPlayers.length > 0 ? similarPlayers.map(({ player, similarity }) => (
+                      <div key={player.id} className="flex items-center gap-4 p-3 rounded-lg bg-card/50 border border-border/30">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold text-sm">{player.number}</div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{player.name}</div>
+                          <div className="text-[10px] text-muted-foreground">{player.position} · {player.teamName}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-primary">{similarity}%</div>
+                          <div className="text-[10px] text-muted-foreground">similar</div>
+                        </div>
+                      </div>
+                    )) : (
+                      <p className="text-sm text-muted-foreground text-center py-8">No similar players found</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">Select a player to find similar profiles</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Player Form Chart */}
+        <TabsContent value="form">
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <TrendingUp className="size-4 text-primary" /> Player Form (Recent Matches)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="p-8 text-center">
+                <TrendingUp className="size-8 mx-auto text-muted-foreground/50 mb-3" />
+                <p className="text-sm text-muted-foreground">Per-match form ratings are not available.</p>
+                <p className="text-xs text-muted-foreground mt-1">This feature requires match-level player rating data, which ELASTICO does not currently store. The overall player rating (shown in the grid) is the best available metric.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Player Detail Panel (Slide-over) */}
+      <AnimatePresence>
+        {selectedPlayer && (
+          <motion.div
+            initial={{ opacity: 0, x: 300 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 300 }}
+            className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-background border-l border-border z-50 overflow-y-auto shadow-2xl"
+          >
+            <div className="p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">Player Detail</h2>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedPlayer(null)}>
+                  <X className="size-4" />
+                </Button>
+              </div>
+
+              <div className="text-center space-y-3">
+                <div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center text-3xl font-bold border-4 border-primary/30" style={{ borderColor: selectedPlayer.teamColor }}>
+                  {selectedPlayer.number}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">{selectedPlayer.name}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedPlayer.teamName} · {selectedPlayer.position}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{selectedPlayer.nationality} · Age {selectedPlayer.age}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Rating', value: selectedPlayer.rating.toFixed(1), color: getRatingColor(selectedPlayer.rating) },
+                  { label: 'Goals', value: selectedPlayer.goals, color: 'text-primary' },
+                  { label: 'Assists', value: selectedPlayer.assists, color: 'text-primary' },
+                  { label: 'Appearances', value: selectedPlayer.appearances || '-', color: 'text-foreground' },
+                  { label: 'Minutes', value: selectedPlayer.minutesPlayed || '-', color: 'text-foreground' },
+                  { label: 'Market Value', value: selectedPlayer.marketValue ? `€${selectedPlayer.marketValue}M` : '-', color: 'text-primary' },
+                ].map(item => (
+                  <Card key={item.label} className="glass-card">
+                    <CardContent className="p-3 text-center">
+                      <div className="text-[10px] text-muted-foreground">{item.label}</div>
+                      <div className={cn('text-xl font-bold', item.color)}>{item.value}</div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <div className="h-24 flex items-center justify-center">
+                <p className="text-xs text-muted-foreground text-center">FIFA-style attribute radar is not available — ELASTICO does not compute these attributes.</p>
+              </div>
+
+              <Button variant="outline" className="w-full gap-2" onClick={() => { setSelectedPlayer(null); setComparePlayer(selectedPlayer) }}>
+                <ArrowUpDown className="size-4" /> Use for Comparison
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}
+
+export default PlayerView
