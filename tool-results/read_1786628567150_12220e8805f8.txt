@@ -1,0 +1,673 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { useElasticoStore, type Match, type MatchEvent, type Team } from '@/store/use-elastico-store'
+     5→import { Badge } from '@/components/ui/badge'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Skeleton } from '@/components/ui/skeleton'
+     8→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+     9→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+    10→import {
+    11→  XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
+    12→} from 'recharts'
+    13→import {
+    14→  ArrowLeft, Bookmark, BookmarkCheck, Copy, Check, Brain, MapPin, Cloud,
+    15→  Thermometer, Users, Trophy, Clock, Target, Activity, Loader2,
+    16→  AlertCircle, Flame, MessageSquare, Zap,
+    17→} from 'lucide-react'
+    18→import { cn } from '@/lib/utils'
+    19→import { toast } from 'sonner'
+    20→import { TeamCrest } from '@/components/elastico/team-crest'
+    21→import { ASSET, CHART_COLORS, RECHARTS_DEFAULTS, MATCH_STATUS, FORM_COLORS } from '@/lib/design-system'
+    22→
+    23→// ═══════════════════════════════════════════════════════════════════
+    24→// TYPES
+    25→// ═══════════════════════════════════════════════════════════════════
+    26→
+    27→interface VoteUser { id: string; name: string; displayName: string | null; avatarUrl: string | null; plan: string }
+    28→interface Vote { id: string; userId: string; matchId: string; choice: string; createdAt: string; user: VoteUser }
+    29→interface PredictionUser { id: string; name: string; displayName: string | null; avatarUrl: string | null; predictionAccuracy: number }
+    30→interface Prediction {
+    31→  id: string; userId: string; matchId: string; predictedHomeGoals: number
+    32→  predictedAwayGoals: number; predictedOutcome: string; confidence: number
+    33→  model: string; isCorrect: boolean | null; points: number
+    34→  createdAt: string; user: PredictionUser
+    35→}
+    36→
+    37→interface MatchDetail extends Match {
+    38→  homeTeam: Team & { players?: Team['players'] }
+    39→  awayTeam: Team & { players?: Team['players'] }
+    40→  events: MatchEvent[]
+    41→  votes: Vote[]
+    42→  predictions: Prediction[]
+    43→  voteDistribution: { home: number; draw: number; away: number }
+    44→  _count: { predictions: number; votes: number; bookmarks: number }
+    45→  attendance?: number | null
+    46→}
+    47→
+    48→interface ShotMapPoint {
+    49→  x: number; y: number; team: string; goal: boolean
+    50→  xg?: number; player?: string | null; minute?: number; outcome?: string
+    51→}
+    52→
+    53→// ═══════════════════════════════════════════════════════════════════
+    54→// HELPERS
+    55→// ═══════════════════════════════════════════════════════════════════
+    56→
+    57→function computeEloProb(homeElo: number, awayElo: number, outcome: string): number {
+    58→  const ex = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400))
+    59→  if (outcome === 'home') return Math.round(ex * 100)
+    60→  if (outcome === 'away') return Math.round((1 - ex) * 100 * 0.75)
+    61→  return Math.round(100 - ex * 100 - (1 - ex) * 100 * 0.75)
+    62→}
+    63→
+    64→const fc = FORM_COLORS
+    65→function formColor(r: string): { bg: string; color: string } {
+    66→  const c = fc[r as keyof typeof fc] || '#475569'
+    67→  return { bg: c + '20', color: c }
+    68→}
+    69→
+    70→function StatBar({ label, homeValue, awayValue, suffix = '', decimals = 0 }: {
+    71→  label: string; homeValue: number | null; awayValue: number | null; suffix?: string; decimals?: number
+    72→}) {
+    73→  if (homeValue === null || awayValue === null) {
+    74→    return (
+    75→      <div className="flex items-center gap-4 py-1">
+    76→        <span className="flex-1 text-right el-body-sm text-muted-foreground tabular-nums">--</span>
+    77→        <span className="w-20 text-center el-micro text-muted-foreground/60">{label}</span>
+    78→        <span className="flex-1 el-body-sm text-muted-foreground tabular-nums">--</span>
+    79→      </div>
+    80→    )
+    81→  }
+    82→  const total = homeValue + awayValue || 1
+    83→  const hp = (homeValue / total) * 100
+    84→  const fmt = (v: number) => (decimals > 0 ? v.toFixed(decimals) : String(Math.round(v)))
+    85→  return (
+    86→    <div className="space-y-1 py-1">
+    87→      <div className="flex items-center gap-4">
+    88→        <span className={cn('flex-1 text-right el-body-sm font-semibold tabular-nums', hp >= 50 ? 'text-foreground' : 'text-muted-foreground')}>{fmt(homeValue)}{suffix}</span>
+    89→        <span className="w-20 text-center el-micro text-muted-foreground/60">{label}</span>
+    90→        <span className={cn('flex-1 el-body-sm font-semibold tabular-nums', (100 - hp) > hp ? 'text-foreground' : 'text-muted-foreground')}>{fmt(awayValue)}{suffix}</span>
+    91→      </div>
+    92→      <div className="flex h-1.5 gap-px rounded-full overflow-hidden bg-white/[0.04]">
+    93→        <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${hp}%`, backgroundColor: CHART_COLORS[0] }} />
+    94→        <div className="h-full rounded-full transition-all duration-700 ease-out ml-auto" style={{ width: `${100 - hp}%`, backgroundColor: CHART_COLORS[1] }} />
+    95→      </div>
+    96→    </div>
+    97→  )
+    98→}
+    99→
+   100→function eventIcon(type: string) {
+   101→  const c = 'size-3 shrink-0'
+   102→  if (type === 'goal' || type === 'penalty' || type === 'own_goal') return <Target className={cn(c, 'text-emerald-400')} />
+   103→  if (type === 'yellow_card') return <AlertCircle className={cn(c, 'text-amber-400')} />
+   104→  if (type === 'red_card') return <AlertCircle className={cn(c, 'text-red-400')} />
+   105→  if (type === 'substitution') return <Activity className={cn(c, 'text-muted-foreground')} />
+   106→  return <Zap className={cn(c, 'text-muted-foreground')} />
+   107→}
+   108→
+   109→// ═══════════════════════════════════════════════════════════════════
+   110→// MAIN COMPONENT
+   111→// ═══════════════════════════════════════════════════════════════════
+   112→
+   113→export default function MatchDetailView() {
+   114→  const selectedMatchId = useElasticoStore(s => s.selectedMatchId)
+   115→  const setView = useElasticoStore(s => s.setView)
+   116→  const user = useElasticoStore(s => s.user)
+   117→  const token = useElasticoStore(s => s.token)
+   118→  const [match, setMatch] = useState<MatchDetail | null>(null)
+   119→  const [loading, setLoading] = useState(true)
+   120→  const [error, setError] = useState<string | null>(null)
+   121→  const [activeTab, setActiveTab] = useState('statistics')
+   122→  const [bookmarked, setBookmarked] = useState(false)
+   123→  const [copied, setCopied] = useState(false)
+   124→  const [aiLoading, setAiLoading] = useState(false)
+   125→  const [simulating, setSimulating] = useState(false)
+   126→
+   127→  // Fetch match from DB
+   128→  const fetchMatch = useCallback(async () => {
+   129→    if (!selectedMatchId) return
+   130→    setLoading(true)
+   131→    try {
+   132→      const headers: Record<string, string> = {}
+   133→      if (token) headers['Authorization'] = `Bearer ${token}`
+   134→      const res = await fetch(`/api/matches/${selectedMatchId}`, { headers })
+   135→      if (!res.ok) throw new Error('Failed to fetch match')
+   136→      const data = await res.json()
+   137→      setMatch(data.match)
+   138→      setBookmarked((data.match._count?.bookmarks ?? 0) > 0)
+   139→    } catch (err) {
+   140→      setError(err instanceof Error ? err.message : 'Failed to load match')
+   141→    } finally { setLoading(false) }
+   142→  }, [selectedMatchId, token])
+   143→
+   144→  useEffect(() => { fetchMatch() }, [fetchMatch])
+   145→
+   146→  // StatsBomb shot data (real spatial data only)
+   147→  const [sbShots, setSbShots] = useState<ShotMapPoint[]>([])
+   148→  const [sbLoading, setSbLoading] = useState(false)
+   149→  const [sbSource, setSbSource] = useState('')
+   150→
+   151→  useEffect(() => {
+   152→    if (!selectedMatchId || !match) return
+   153→    setSbLoading(true)
+   154→    fetch(`/api/statsbomb?action=shots&match=${selectedMatchId}`)
+   155→      .then(r => r.json())
+   156→      .then(data => {
+   157→        if (data.success && data.data?.length > 0) {
+   158→          setSbShots(data.data)
+   159→          setSbSource(`StatsBomb: ${data.homeTeam} vs ${data.awayTeam}`)
+   160→        } else { setSbShots([]); setSbSource('') }
+   161→      })
+   162→      .catch(() => { setSbShots([]); setSbSource('') })
+   163→      .finally(() => setSbLoading(false))
+   164→  }, [selectedMatchId, match])
+   165→
+   166→  // xT Leaderboard (real data only)
+   167→  const [xtLeaderboard, setXtLeaderboard] = useState<Array<{
+   168→    player: string; team: string; totalXtGained: number; totalActions: number
+   169→    avgXtPerAction: number; progressiveActions: number
+   170→  }>>([])
+   171→  const [xtLoading, setXtLoading] = useState(false)
+   172→
+   173→  useEffect(() => {
+   174→    if (!selectedMatchId || !match) return
+   175→    setXtLoading(true)
+   176→    fetch(`/api/analytics?action=xt-match&match=${selectedMatchId}`)
+   177→      .then(r => r.json())
+   178→      .then(data => {
+   179→        if (data.success && data.data?.leaderboard) setXtLeaderboard(data.data.leaderboard)
+   180→        else setXtLeaderboard([])
+   181→      })
+   182→      .catch(() => setXtLeaderboard([]))
+   183→      .finally(() => setXtLoading(false))
+   184→  }, [selectedMatchId, match])
+   185→
+   186→  // Actions
+   187→  const handleVote = useCallback(async (choice: 'home' | 'draw' | 'away') => {
+   188→    if (!selectedMatchId || !token) return
+   189→    try {
+   190→      await fetch(`/api/matches/${selectedMatchId}`, {
+   191→        method: 'POST',
+   192→        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+   193→        body: JSON.stringify({ choice }),
+   194→      })
+   195→      fetchMatch()
+   196→    } catch { /* silent */ }
+   197→  }, [selectedMatchId, token, fetchMatch])
+   198→
+   199→  const handleToggleBookmark = useCallback(async () => {
+   200→    if (!selectedMatchId || !token) return
+   201→    try {
+   202→      if (bookmarked) {
+   203→        await fetch(`/api/bookmarks?matchId=${selectedMatchId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+   204→        setBookmarked(false)
+   205→        toast.success('Bookmark removed')
+   206→      } else {
+   207→        const res = await fetch('/api/bookmarks', {
+   208→          method: 'POST',
+   209→          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+   210→          body: JSON.stringify({ matchId: selectedMatchId }),
+   211→        })
+   212→        if (res.ok) { setBookmarked(true); toast.success('Match bookmarked') }
+   213→      }
+   214→    } catch { /* silent */ }
+   215→  }, [selectedMatchId, token, bookmarked])
+   216→
+   217→  const handleSimulate = useCallback(async () => {
+   218→    if (!selectedMatchId || !token) return
+   219→    setSimulating(true)
+   220→    try {
+   221→      const res = await fetch(`/api/matches/${selectedMatchId}/simulate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+   222→      if (!res.ok) {
+   223→        const err = await res.json().catch(() => ({ error: 'Simulation failed' }))
+   224→        toast.error('Simulation failed', { description: err.error })
+   225→        return
+   226→      }
+   227→      toast.success('Simulation complete')
+   228→      fetchMatch()
+   229→    } catch (e: unknown) {
+   230→      toast.error('Simulation error', { description: e instanceof Error ? e.message : 'Failed' })
+   231→    } finally { setSimulating(false) }
+   232→  }, [selectedMatchId, token, fetchMatch])
+   233→
+   234→  const handleCopySummary = useCallback(() => {
+   235→    if (!match) return
+   236→    const text = `${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition}\n\u2014 ELASTICO`
+   237→    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+   238→  }, [match])
+   239→
+   240→  const handleAIAnalysis = useCallback(() => {
+   241→    if (!match) return
+   242→    setAiLoading(true)
+   243→    fetch('/api/chat', {
+   244→      method: 'POST',
+   245→      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+   246→      body: JSON.stringify({
+   247→        message: `Analyze: ${match.homeTeam?.name} vs ${match.awayTeam?.name}. ELO: ${match.homeEloBefore} vs ${match.awayEloBefore}. Score: ${match.homeScore}-${match.awayScore}. xG: ${match.homeXg}-${match.awayXg}.`,
+   248→        matchId: selectedMatchId,
+   249→      }),
+   250→    }).then(() => { setView('ai-chat'); setAiLoading(false) }).catch(() => { setAiLoading(false) })
+   251→  }, [match, token, selectedMatchId, setView])
+   252→
+   253→  // Derived
+   254→  const isUpcoming = match?.status === 'upcoming'
+   255→  const isLive = match?.status === 'live' || match?.status === 'halftime'
+   256→  const isFinished = match?.status === 'finished'
+   257→  const statusCfg = match ? MATCH_STATUS[match.status] : null
+   258→  const homeTeam = match?.homeTeam
+   259→  const awayTeam = match?.awayTeam
+   260→
+   261→  const homeWinProb = match?.homeWinProb ?? computeEloProb(match?.homeEloBefore ?? 1500, match?.awayEloBefore ?? 1500, 'home')
+   262→  const drawProb = match?.drawProb ?? computeEloProb(match?.homeEloBefore ?? 1500, match?.awayEloBefore ?? 1500, 'draw')
+   263→  const awayWinProb = match?.awayWinProb ?? computeEloProb(match?.homeEloBefore ?? 1500, match?.awayEloBefore ?? 1500, 'away')
+   264→  const totalVotes = (match?.voteDistribution?.home ?? 0) + (match?.voteDistribution?.draw ?? 0) + (match?.voteDistribution?.away ?? 0)
+   265→
+   266→  const votePieData = useMemo(() => [
+   267→    { name: 'Home', value: match?.voteDistribution?.home ?? 0, fill: CHART_COLORS[0] },
+   268→    { name: 'Draw', value: match?.voteDistribution?.draw ?? 0, fill: CHART_COLORS[2] },
+   269→    { name: 'Away', value: match?.voteDistribution?.away ?? 0, fill: CHART_COLORS[4] },
+   270→  ].filter(d => d.value > 0), [match])
+   271→
+   272→  const xgTimeline = useMemo(() => {
+   273→    if (!match || (match.homeXg === 0 && match.awayXg === 0)) return []
+   274→    const goals = (match.events || []).filter(e => e.type === 'goal').sort((a, b) => a.minute - b.minute)
+   275→    let hc = 0
+   276→    let ac = 0
+   277→    const pts = [{ minute: "0'", Home: 0, Away: 0 }]
+   278→    for (const g of goals) {
+   279→      if (g.team === 'home') hc += match.homeXg / Math.max(goals.filter(e => e.team === 'home').length, 1)
+   280→      else ac += match.awayXg / Math.max(goals.filter(e => e.team === 'away').length, 1)
+   281→      pts.push({ minute: `${g.minute}'`, Home: +hc.toFixed(2), Away: +ac.toFixed(2) })
+   282→    }
+   283→    pts.push({ minute: "90'", Home: +match.homeXg.toFixed(2), Away: +match.awayXg.toFixed(2) })
+   284→    return pts
+   285→  }, [match])
+   286→
+   287→  const stats = [
+   288→    { label: 'Possession', h: match.possessionHome, a: match.possessionHome !== null ? 100 - match.possessionHome : null, suffix: '%' },
+   289→    { label: 'Shots', h: match.shotsHome, a: match.shotsAway },
+   290→    { label: 'On Target', h: match.shotsOnTargetHome, a: match.shotsOnTargetAway },
+   291→    { label: 'Corners', h: match.cornersHome, a: match.cornersAway },
+   292→    { label: 'Fouls', h: match.foulsHome, a: match.foulsAway },
+   293→    { label: 'Pass Acc.', h: homeTeam?.passAccuracy ?? null, a: awayTeam?.passAccuracy ?? null, suffix: '%' },
+   294→    { label: 'xG', h: match.homeXg, a: match.awayXg, decimals: 2 },
+   295→  ]
+   296→
+   297→  // Loading
+   298→  if (loading) {
+   299→    return (
+   300→      <div className="flex flex-col gap-3 animate-fade-in-up">
+   301→        <Skeleton className="h-10 w-48 rounded-lg" />
+   302→        <Skeleton className="h-52 w-full rounded-lg" />
+   303→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+   304→          <Skeleton className="h-64 rounded-lg" />
+   305→          <Skeleton className="h-64 rounded-lg" />
+   306→        </div>
+   307→      </div>
+   308→    )
+   309→  }
+   310→
+   311→  if (error || !match) {
+   312→    return (
+   313→      <div className="flex flex-col items-center justify-center py-20 animate-fade-in-up">
+   314→        <AlertCircle className="size-10 text-red-400 mb-4" />
+   315→        <p className="text-sm font-medium mb-1">Failed to Load Match</p>
+   316→        <p className="el-caption text-muted-foreground mb-4">{error || 'Match not found'}</p>
+   317→        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setView('matches')}>
+   318→          <ArrowLeft className="size-3.5" />Back to Matches
+   319→        </Button>
+   320→      </div>
+   321→    )
+   322→  }
+   323→
+   324→  // Form dots helper
+   325→  const FormDots = ({ form }: { form?: string }) => {
+   326→    if (!form) return null
+   327→    return (
+   328→      <span className="flex gap-0.5">
+   329→        {form.slice(0, 5).split('').map((r, i) => {
+   330→          const fc2 = formColor(r)
+   331→          return <span key={i} className="inline-block rounded-sm size-4 flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: fc2.bg, color: fc2.color }}>{r}</span>
+   332→        })}
+   333→      </span>
+   334→    )
+   335→  }
+   336→
+   337→  const ProbBar = ({ label, prob, color }: { label: string; prob: number; color: string }) => (
+   338→    <React.Fragment key={label}>
+   339→      <span className="text-[10px] w-8 text-right font-medium" style={{ color }}>{label}</span>
+   340→      <div className="flex-1 h-2 rounded-full bg-white/[0.04] overflow-hidden">
+   341→        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${prob}%`, backgroundColor: color }} />
+   342→      </div>
+   343→      <span className="text-[10px] w-8 tabular-nums font-medium">{prob}%</span>
+   344→    </React.Fragment>
+   345→  )
+   346→
+   347→  // ═══════════════════════════════════════════════════════════════════
+   348→  // RENDER
+   349→  // ═══════════════════════════════════════════════════════════════════
+   350→  return (
+   351→    <TooltipProvider>
+   352→      <div className="flex flex-col gap-3 animate-fade-in-up">
+   353→        {/* ACTION BAR */}
+   354→        <div className="flex items-center gap-2 flex-wrap">
+   355→          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground" onClick={() => setView('matches')}>
+   356→            <ArrowLeft className="size-3.5" />Back
+   357→          </Button>
+   358→          <div className="flex-1" />
+   359→          <Button variant="ghost" size="sm" className={cn('h-8 gap-1.5 text-xs', bookmarked && 'text-primary')} onClick={handleToggleBookmark}>
+   360→            {bookmarked ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />}{bookmarked ? 'Saved' : 'Bookmark'}
+   361→          </Button>
+   362→          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleCopySummary}>
+   363→            {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}{copied ? 'Copied!' : 'Copy'}
+   364→          </Button>
+   365→          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleAIAnalysis} disabled={aiLoading}>
+   366→            {aiLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Brain className="size-3.5" />}Analyze
+   367→          </Button>
+   368→          {isUpcoming && (user?.plan === 'pro' || user?.plan === 'elite') && (
+   369→            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs bg-primary/10 text-primary border-primary/30" onClick={handleSimulate} disabled={simulating}>
+   370→              <Zap className="size-3.5" />{simulating ? 'Running...' : 'Simulate'}
+   371→            </Button>
+   372→          )}
+   373→        </div>
+   374→
+   375→        {/* MATCH HEADER */}
+   376→        <div className="el-surface-raised rounded-lg">
+   377→          {/* Competition + Status */}
+   378→          <div className="flex items-center justify-between px-6 pt-4 pb-2">
+   379→            <div className="flex items-center gap-2">
+   380→              <Trophy className="size-3 text-amber-400" />
+   381→              <span className="el-caption text-muted-foreground">{match.competition}</span>
+   382→              {match.stage && match.stage !== 'regular' && (
+   383→                <span className="el-caption text-muted-foreground/60">{'\u00b7 '}{match.stage}</span>
+   384→              )}
+   385→            </div>
+   386→            {statusCfg && (
+   387→              <span className="flex items-center gap-1.5">
+   388→                {isLive && (
+   389→                  <span className="relative flex size-2">
+   390→                    <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-75" />
+   391→                    <span className="relative size-2 rounded-full bg-red-500" />
+   392→                  </span>
+   393→                )}
+   394→                <span className="text-[10px] font-bold tracking-wider uppercase" style={{ color: statusCfg.color }}>
+   395→                  {isLive && match.date
+   396→                    ? (() => {
+   397→                        const start = new Date(match.date).getTime()
+   398→                        const elapsed = Math.floor((Date.now() - start) / 60000)
+   399→                        return elapsed > 0 ? `LIVE  ${Math.min(elapsed, 90)}'` : 'LIVE'
+   400→                      })()
+   401→                    : statusCfg.label}
+   402→                </span>
+   403→              </span>
+   404→            )}
+   405→          </div>
+   406→
+   407→          {/* Teams + Score */}
+   408→          <div className="flex items-center justify-center gap-6 sm:gap-10 px-6 py-6">
+   409→            {/* Home */}
+   410→            <div className="flex flex-col items-center gap-2.5 min-w-0 flex-1">
+   411→              <TeamCrest src={homeTeam?.logo} alt={homeTeam?.name} code={homeTeam?.code} color={homeTeam?.primaryColor} size={ASSET.crestLg} />
+   412→              <span className="text-sm font-semibold text-foreground text-center leading-tight truncate max-w-full">{homeTeam?.name}</span>
+   413→              {homeTeam?.form && <FormDots form={homeTeam.form} />}
+   414→              {match.homeEloBefore != null && <span className="el-caption text-muted-foreground">ELO {match.homeEloBefore}</span>}
+   415→            </div>
+   416→
+   417→            {/* Score */}
+   418→            <div className="flex items-center gap-3 shrink-0">
+   419→              {isUpcoming ? (
+   420→                <div className="text-center px-4">
+   421→                  <p className="el-body text-muted-foreground">Upcoming</p>
+   422→                  {match.date && <p className="el-caption text-muted-foreground mt-1">{new Date(match.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>}
+   423→                </div>
+   424→              ) : (
+   425→                <>
+   426→                  <span className={cn('el-score text-foreground', isFinished && match.homeScore > match.awayScore && 'text-primary')}>{match.homeScore}</span>
+   427→                  <span className="text-xl text-muted-foreground font-light">-</span>
+   428→                  <span className={cn('el-score text-foreground', isFinished && match.awayScore > match.homeScore && 'text-primary')}>{match.awayScore}</span>
+   429→                </>
+   430→              )}
+   431→            </div>
+   432→
+   433→            {/* Away */}
+   434→            <div className="flex flex-col items-center gap-2.5 min-w-0 flex-1">
+   435→              <TeamCrest src={awayTeam?.logo} alt={awayTeam?.name} code={awayTeam?.code} color={awayTeam?.primaryColor} size={ASSET.crestLg} />
+   436→              <span className="text-sm font-semibold text-foreground text-center leading-tight truncate max-w-full">{awayTeam?.name}</span>
+   437→              {awayTeam?.form && <FormDots form={awayTeam.form} />}
+   438→              {match.awayEloBefore != null && <span className="el-caption text-muted-foreground">ELO {match.awayEloBefore}</span>}
+   439→            </div>
+   440→          </div>
+   441→
+   442→          {/* Venue */}
+   443→          <div className="flex items-center justify-center gap-4 px-6 pb-4">
+   444→            {match.venue && <span className="flex items-center gap-1 el-caption text-muted-foreground"><MapPin className="size-3" />{match.venue}</span>}
+   445→            {match.weather && <span className="flex items-center gap-1 el-caption text-muted-foreground"><Cloud className="size-3" />{match.weather}</span>}
+   446→            {match.temperature != null && <span className="flex items-center gap-1 el-caption text-muted-foreground"><Thermometer className="size-3" />{match.temperature}°C</span>}
+   447→          </div>
+   448→
+   449→          {/* Win Probability */}
+   450→          {(isUpcoming || isLive) && (
+   451→            <div className="px-6 pb-4">
+   452→              <div className="flex items-center gap-3 max-w-md mx-auto">
+   453→                <ProbBar label="Home" prob={homeWinProb} color={CHART_COLORS[0]} />
+   454→                <ProbBar label="Draw" prob={drawProb} color={CHART_COLORS[2]} />
+   455→                <ProbBar label="Away" prob={awayWinProb} color={CHART_COLORS[4]} />
+   456→              </div>
+   457→            </div>
+   458→          )}
+   459→
+   460→          {/* Vote buttons */}
+   461→          {isUpcoming && (
+   462→            <div className="flex justify-center gap-3 pb-5">
+   463→              {(['home', 'draw', 'away'] as const).map((c) => (
+   464→                <Button key={c} size="sm" variant="outline"
+   465→                  className={cn('flex-1 max-w-[120px] text-xs font-semibold',
+   466→                    c === 'home' && 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10',
+   467→                    c === 'draw' && 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10',
+   468→                    c === 'away' && 'border-red-500/30 text-red-400 hover:bg-red-500/10',
+   469→                  )}
+   470→                  onClick={() => handleVote(c)}>
+   471→                  {c === 'home' ? 'Home' : c === 'draw' ? 'Draw' : 'Away'}
+   472→                </Button>
+   473→              ))}
+   474→            </div>
+   475→          )}
+   476→        </div>
+   477→
+   478→        {/* TABS */}
+   479→        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+   480→          <TabsList className="el-surface-raised w-full h-10 p-1 rounded-lg">
+   481→            {[
+   482→              { value: 'timeline', label: 'Events' },
+   483→              { value: 'statistics', label: 'Statistics' },
+   484→              { value: 'xg', label: 'xG' },
+   485→              { value: 'shotmap', label: 'Shots' },
+   486→              { value: 'votes', label: 'Votes' },
+   487→            ].map((t) => (
+   488→              <TabsTrigger key={t.value} value={t.value} className="flex-1 h-8 text-xs font-semibold rounded-md transition-all data-[state=active]:bg-primary/15 data-[state=active]:text-primary">{t.label}</TabsTrigger>
+   489→            ))}
+   490→          </TabsList>
+   491→
+   492→          {/* EVENTS */}
+   493→          <TabsContent value="timeline" className="mt-3">
+   494→            <div className="el-surface-raised rounded-lg p-5">
+   495→              <div className="flex items-center gap-2 mb-4">
+   496→                <Activity className="size-3.5 text-primary" />
+   497→                <span className="el-h3">Match Events</span>
+   498→              </div>
+   499→              {(match.events || []).length === 0 ? (
+   500→                <div className="py-12 text-center">
+   501→                  <Clock className="size-8 text-muted-foreground/30 mx-auto mb-2" />
+   502→                  <p className="el-body-sm text-muted-foreground">No events recorded for this match</p>
+   503→                </div>
+   504→              ) : (
+   505→                <div className="relative ml-3 border-l border-white/[0.06] space-y-4">
+   506→                  {(match.events || []).sort((a, b) => a.minute - b.minute).map((ev, i) => (
+   507→                    <div key={ev.id || i} className="relative pl-6">
+   508→                      <div className="absolute -left-[5px] top-0.5 size-2.5 rounded-full bg-surface-raised border-2 border-white/10" />{eventIcon(ev.type)}
+   509→                      <div className="flex items-center gap-2">
+   510→                        <span className="text-xs font-bold tabular-nums text-primary">{ev.minute}'</span>
+   511→                        <span className="el-body-sm font-medium text-foreground">{ev.team === 'home' ? homeTeam?.code : awayTeam?.code}</span>
+   512→                        <span className="el-body-sm text-muted-foreground">{ev.playerName}</span>
+   513→                      </div>
+   514→                      {ev.description && <p className="el-caption text-muted-foreground/70 mt-0.5">{ev.description}</p>}
+   515→                    </div>
+   516→                  ))}
+   517→                </div>
+   518→              )}
+   519→            </div>
+   520→          </TabsContent>
+   521→
+   522→          {/* STATISTICS */}
+   523→          <TabsContent value="statistics" className="mt-3">
+   524→            <div className="el-surface-raised rounded-lg p-5">
+   525→              <div className="flex items-center gap-2 mb-4">
+   526→                <Target className="size-3.5 text-primary" />
+   527→                <span className="el-h3">Match Statistics</span>
+   528→              </div>
+   529→              {stats.map((s) => <StatBar key={s.label} label={s.label} homeValue={s.h} awayValue={s.a} suffix={s.suffix} decimals={s.decimals ?? 0} />)}
+   530→            </div>
+   531→          </TabsContent>
+   532→
+   533→          {/* xG */}
+   534→          <TabsContent value="xg" className="mt-3">
+   535→            <div className="el-surface-raised rounded-lg p-5">
+   536→              <div className="flex items-center gap-2 mb-4">
+   537→                <Flame className="size-3.5 text-cyan-400" />
+   538→                <span className="el-h3">xG Timeline</span>
+   539→              </div>
+   540→              {xgTimeline.length > 0 ? (
+   541→                <ResponsiveContainer width="100%" height={220}>
+   542→                  <LineChart data={xgTimeline}>
+   543→                    <CartesianGrid strokeDasharray="3 3" stroke={RECHARTS_DEFAULTS.gridStroke} />
+   544→                    <XAxis dataKey="minute" tick={{ fontSize: 10, fill: RECHARTS_DEFAULTS.tickFill }} />
+   545→                    <YAxis tick={{ fontSize: 10, fill: RECHARTS_DEFAULTS.tickFill }} />
+   546→                    <RTooltip contentStyle={RECHARTS_DEFAULTS.tooltipStyle} />
+   547→                    <Line type="monotone" dataKey="Home" stroke={CHART_COLORS[0]} strokeWidth={2} dot={{ r: 2, fill: CHART_COLORS[0] }} name={homeTeam?.code || 'Home'} />
+   548→                    <Line type="monotone" dataKey="Away" stroke={CHART_COLORS[1]} strokeWidth={2} dot={{ r: 2, fill: CHART_COLORS[1] }} name={awayTeam?.code || 'Away'} />
+   549→                  </LineChart>
+   550→                </ResponsiveContainer>
+   551→              ) : (
+   552→                <div className="py-12 text-center">
+   553→                  <p className="el-body-sm text-muted-foreground">xG data not available for this match</p>
+   554→                </div>
+   555→              )}
+   556→            </div>
+   557→          </TabsContent>
+   558→
+   559→          {/* SHOT MAP - real data only */}
+   560→          <TabsContent value="shotmap" className="mt-3">
+   561→            <div className="el-surface-raised rounded-lg p-5">
+   562→              <div className="flex items-center gap-2 mb-1">
+   563→                <Target className="size-3.5 text-amber-400" />
+   564→                <span className="el-h3">Shot Map</span>
+   565→                {sbSource && <span className="el-caption text-muted-foreground ml-1">({sbSource})</span>}
+   566→                {sbLoading && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+   567→              </div>
+   568→              {sbLoading ? (
+   569→                <div className="flex items-center justify-center py-12"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
+   570→              ) : sbShots.length > 0 ? (
+   571→                <div className="pitch-bg rounded-lg p-4 relative" style={{ aspectRatio: '3/2' }}>
+   572→                  <div className="absolute inset-0 border border-emerald-500/20 rounded-lg" />
+   573→                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[40%] h-[15%] border-b border-x border-emerald-500/20 rounded-b-lg" />
+   574→                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[40%] h-[15%] border-t border-x border-emerald-500/20 rounded-t-lg" />
+   575→                  <div className="absolute top-1/2 left-0 -translate-y-1/2 w-[15%] h-[30%] border-r border-t border-b border-emerald-500/20 rounded-r-lg" />
+   576→                  <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[15%] h-[30%] border-l border-t border-b border-emerald-500/20 rounded-l-lg" />
+   577→                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-14 rounded-full border border-emerald-500/20" />
+   578→                  {sbShots.map((s, i) => (
+   579→                  <Tooltip key={i}>
+   580→                      <TooltipTrigger asChild>
+   581→                        <div
+   582→                          className={cn('absolute rounded-full border-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform hover:scale-150',
+   583→                            s.goal ? 'size-4 border-white bg-amber-400' : 'size-3',
+   584→                            !s.goal && s.team === 'home' && 'border-emerald-400/50 bg-emerald-400/30',
+   585→                            !s.goal && s.team === 'away' && 'border-cyan-400/50 bg-cyan-400/30',
+   586→                          )}
+   587→                          style={{ left: `${s.x}%`, top: `${s.y}%` }}
+   588→                        />
+   589→                      </TooltipTrigger>
+   590→                      <TooltipContent className="text-[10px] space-y-0.5">
+   591→                        <div className="font-semibold">{s.player || (s.team === 'home' ? homeTeam?.code : awayTeam?.code)} {s.goal ? 'GOAL' : 'Shot'} {s.minute ? `${s.minute}'` : ''}</div>
+   592→                        {s.xg !== undefined && <div className="text-muted-foreground">xG: {s.xg.toFixed(3)}</div>}
+   593→                      </TooltipContent>
+   594→                    </Tooltip>
+   595→                  ))}
+   596→                </div>
+   597→                <div className="flex items-center justify-center gap-6 mt-3 el-caption text-muted-foreground">
+   598→                  <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: CHART_COLORS[0] }} />{homeTeam?.code}</span>
+   599→                  <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: CHART_COLORS[1] }} />{awayTeam?.code}</span>
+   600→                </div>
+   601→              ) : (
+   602→                <div className="flex flex-col items-center justify-center py-16">
+   603→                  <Target className="size-8 text-muted-foreground/20 mb-3" />
+   604→                  <p className="el-body-sm text-muted-foreground">Shot map data not available for this match</p>
+   605→                  <p className="el-caption text-muted-foreground/60 mt-1">Spatial shot data requires advanced data sources (StatsBomb, Opta)</p>
+   606→                </div>
+   607→              )}
+   608→            </div>
+   609→          </TabsContent>
+   610→
+   611→          {/* VOTES */}
+   612→          <TabsContent value="votes" className="mt-3">
+   613→            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+   614→              <div className="el-surface-raised rounded-lg p-5">
+   615→                <div className="flex items-center gap-2 mb-4">
+   616→                  <Users className="size-3.5 text-primary" />
+   617→                  <span className="el-h3">Community Vote</span>
+   618→                </div>
+   619→                {totalVotes > 0 ? (
+   620→                  <>
+   621→                    <ResponsiveContainer width="100%" height={160}>
+   622→                      <PieChart>
+   623→                        <Pie data={votePieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value" stroke="none">
+   624→                          {votePieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+   625→                        </Pie>
+   626→                        <RTooltip contentStyle={RECHARTS_DEFAULTS.tooltipStyle} />
+   627→                      </PieChart>
+   628→                    </ResponsiveContainer>
+   629→                    <div className="flex justify-center gap-4 mt-2 el-caption">
+   630→                      {votePieData.map((d) => (
+   631→                        <span key={d.name} className="flex items-center gap-1.5">
+   632→                          <span className="size-2 rounded-full" style={{ backgroundColor: d.fill }} />{d.name}: {d.value} ({Math.round((d.value / totalVotes) * 100)}%)
+   633→                        </span>
+   634→                      ))}
+   635→                    </div>
+   636→                    <p className="text-center el-micro text-muted-foreground mt-2">{totalVotes} total votes</p>
+   637→                  </>
+   638→                ) : <p className="el-body-sm text-muted-foreground text-center py-8">No votes yet</p>}
+   639→              </div>
+   640→              <div className="el-surface-raised rounded-lg p-5">
+   641→                <div className="flex items-center gap-2 mb-4">
+   642→                  <MessageSquare className="size-3.5 text-cyan-400" />
+   643→                  <span className="el-h3">Predictions</span>
+   644→                </div>
+   645→                {(match.predictions || []).length > 0 ? (
+   646→                  <div className="space-y-0 max-h-60 overflow-y-auto">
+   647→                    {(match.predictions || []).slice(0, 10).map((p) => (
+   648→                      <div key={p.id} className="flex items-center justify-between py-2 border-b border-white/[0.03]">
+   649→                        <div className="flex items-center gap-2">
+   650→                          <span className="el-body-sm font-medium">{p.user.displayName || p.user.name}</span>
+   651→                          <span className="el-micro text-muted-foreground">{p.model}</span>
+   652→                        </div>
+   653→                        <div className="flex items-center gap-2">
+   654→                          <span className="el-caption text-muted-foreground">{p.predictedOutcome.replace('_', ' ')}</span>
+   655→                          {p.isCorrect !== null && (
+   656→                            <span className={cn('el-caption font-bold', p.isCorrect ? 'text-emerald-400' : 'text-red-400')}>
+   657→                              {p.isCorrect ? 'Correct' : 'Wrong'}
+   658→                            </span>
+   659→                          )}
+   660→                        </div>
+   661→                      </div>
+   662→                    ))}
+   663→                  </div>
+   664→                ) : <p className="el-body-sm text-muted-foreground text-center py-8">No predictions yet</p>}
+   665→              </div>
+   666→            </div>
+   667→          </TabsContent>
+   668→        </Tabs>
+   669→      </div>
+   670→    </TooltipProvider>
+   671→  )
+   672→}
+   673→

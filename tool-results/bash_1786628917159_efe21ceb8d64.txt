@@ -131,7 +131,7 @@ export default function MatchDetailView() {
   const setView = useElasticoStore(s => s.setView)
   const user = useElasticoStore(s => s.user)
   const token = useElasticoStore(s => s.token)
-  const [match, setMatch] = useState<MatchDetail | null>(null)
+  const atch, setMatch] = useState<MatchDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('statistics')
@@ -204,7 +204,7 @@ export default function MatchDetailView() {
     if (!match) return
     const text = `${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition} · ${match.stage}\nxG: ${match.homeXg.toFixed(1)} - ${match.awayXg.toFixed(1)}\n\n— ELASTICO Analytics`
     navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
-  }, [match])
+  }, atch])
 
   const handleAIAnalysis = useCallback(() => {
     if (!match) return
@@ -213,7 +213,7 @@ export default function MatchDetailView() {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ message: `Analyze the match ${match.homeTeam?.name} vs ${match.awayTeam?.name}. ELO: ${match.homeEloBefore} vs ${match.awayEloBefore}. Score: ${match.homeScore}-${match.awayScore}. xG: ${match.homeXg}-${match.awayXg}.`, matchId: selectedMatchId }),
     }).then(() => { setView('ai-chat'); setAiLoading(false) }).catch(() => { setAiLoading(false) })
-  }, [match, token, selectedMatchId, setView])
+  }, atch, token, selectedMatchId, setView])
 
   // Derived
   const isUpcoming = match?.status === 'upcoming'
@@ -232,7 +232,7 @@ export default function MatchDetailView() {
     { name: 'Home', value: match?.voteDistribution?.home ?? 0, fill: '#00e676' },
     { name: 'Draw', value: match?.voteDistribution?.draw ?? 0, fill: '#ffd700' },
     { name: 'Away', value: match?.voteDistribution?.away ?? 0, fill: '#ff4757' },
-  ].filter(d => d.value > 0), [match])
+  ].filter(d => d.value > 0), atch])
 
   const xgTimeline = useMemo(() => {
     if (!match) return []
@@ -246,7 +246,7 @@ export default function MatchDetailView() {
     }
     pts.push({ minute: "90'", Home: +match.homeXg.toFixed(2), Away: +match.awayXg.toFixed(2) })
     return pts
-  }, [match])
+  }, atch])
 
   // ── StatsBomb shot map (real xG + coordinates) ────────────────────────
   const [sbShots, setSbShots] = useState<ShotMapPoint[]>([])
@@ -578,82 +578,3 @@ export default function MatchDetailView() {
               <p className="text-[10px] text-muted-foreground mb-4">Measures how much each pass increased the probability of scoring. Powered by a 12x8 pitch grid trained on thousands of matches.</p>
               {xtLoading ? (
                 <div className="flex items-center justify-center py-8"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
-              ) : xtLeaderboard.length > 0 ? (
-                <div className="space-y-1.5 max-h-80 overflow-y-auto">
-                  {xtLeaderboard.map((p, i) => (
-                    <div key={i} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-muted/30 transition-colors">
-                      <span className="text-[10px] font-bold text-muted-foreground w-5 text-right">{i + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold truncate">{p.player}</span>
-                          <Badge variant="outline" className="text-[9px] shrink-0">{p.team.split(' ').slice(-1)[0]}</Badge>
-                        </div>
-                        <div className="flex gap-3 text-[10px] text-muted-foreground mt-0.5">
-                          <span>{p.totalActions} actions</span>
-                          <span>{p.progressiveActions} progressive</span>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-8">No xT data available for this match</p>
-              )}
-              <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-4 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Flame className="size-3 text-orange-400" />xT = probability of scoring from that zone</span>
-                <span>Higher = more threatening pass progression</span>
-              </div>
-            </CardContent></Card>
-          </TabsContent>
-
-          {/* VOTES TAB */}
-          <TabsContent value="votes" className="mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
-                <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Users className="size-4 text-primary" />Community Vote Distribution</h3>
-                {totalVotes > 0 ? (
-                  <>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <PieChart>
-                        <Pie data={votePieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none">
-                          {votePieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                        </Pie>
-                        <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex justify-center gap-4 mt-2 text-[11px]">
-                      {votePieData.map((d) => <span key={d.name} className="flex items-center gap-1.5"><div className="size-2 rounded-full" style={{ backgroundColor: d.fill }} />{d.name}: {d.value} ({totalVotes > 0 ? Math.round((d.value / totalVotes) * 100) : 0}%)</span>)}
-                    </div>
-                    <p className="text-center text-[10px] text-muted-foreground mt-2">{totalVotes} total votes</p>
-                  </>
-                ) : <p className="text-sm text-muted-foreground text-center py-8">No votes yet</p>}
-              </CardContent></Card>
-
-              <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
-                <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><MessageSquare className="size-4 text-cyan-400" />Prediction Summary</h3>
-                {(match.predictions || []).length > 0 ? (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {(match.predictions || []).slice(0, 10).map((p) => (
-                      <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-border/10">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium">{p.user.displayName || p.user.name}</span>
-                          <Badge variant="outline" className="text-[9px] border-border/50">{p.model}</Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground">{p.predictedOutcome.replace('_', ' ')}</span>
-                          {p.isCorrect !== null && (
-                            <span className={cn('text-[10px] font-bold', p.isCorrect ? 'text-emerald-400' : 'text-red-400')}>
-                              {p.isCorrect ? '✓' : '✗'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : <p className="text-sm text-muted-foreground text-center py-8">No predictions yet</p>}
-              </CardContent></Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </TooltipProvider>
-  )
-}
