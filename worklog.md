@@ -26,4 +26,48 @@ Stage Summary:
 - Files modified: design-system.ts, tailwind.config.ts, globals.css, match-detail-view.tsx, team-crest.tsx
 - DESIGN_STATE.md: 15 decisions recorded
 - Build: passes clean
-- Next: Phase 2 (Asset System) → Phase 3 (Shell/Navigation) → Phase 4.1 (Dashboard)
+
+---
+Task ID: 2
+Agent: main
+Task: Phase 2 — Build Asset System
+
+Work Log:
+- Traced complete asset pipeline via Explore subagent: ESPN logos, API-Sports logos, player photos, league logos, country flags
+- Enhanced TeamCrest: switched to cn() from utils, added priority prop (eager/lazy), added decoding hint
+- Created PlayerHeadshot component with silhouette fallback (not fabricated imagery — Rule 9)
+- Created CountryFlag component with 3-level hierarchy (URL → flagcdn.com → code box) + 40+ nationality→ISO mapping
+- Created CompetitionLogo component with code-box fallback
+- Added images.remotePatterns to next.config.ts for 6 CDN domains
+- Migrated matches-view: removed 20-line local TeamLogo, replaced with TeamCrest (fixes 1-char fallback bug)
+- Migrated tournament-view: replaced 4 raw <img> tags (zero fallback) with TeamCrest
+- Added preconnect hints in layout.tsx for a.espncdn.com, media.api-sports.io, flagcdn.com
+- Updated DESIGN_STATE.md with DS-016 through DS-021
+- Verified: next build passes clean
+
+Stage Summary:
+- Asset system complete. Single source of truth enforced for all football imagery.
+- Files created: player-headshot.tsx, country-flag.tsx, competition-logo.tsx
+- Files modified: team-crest.tsx, matches-view.tsx, tournament-view.tsx, next.config.ts, layout.tsx, DESIGN_STATE.md
+- Build: passes clean
+
+---
+Task ID: 3
+Agent: main
+Task: Phase 3 — Redesign Shell/Navigation
+
+Work Log:
+- Audited sidebar (322 lines) and header (186 lines) — both functional, no rewrite needed
+- Reorganized sidebar nav groups: Main (4), Intelligence (3), Data (3), System (5)
+- Removed stub views from nav: tactical, achievements, social, export (Rule 14 — not built = not shown)
+- Removed "soon" badges (they were noise)
+- Kept all working sidebar features: collapse/expand, tooltips, mobile overlay, command palette, user profile
+- Header kept as-is (functional: title, live indicator, search, notifications, zoom, theme, user menu)
+- Verified: next build passes clean
+
+Stage Summary:
+- Shell/Navigation optimized. Sidebar nav now matches football intelligence workflow.
+- Stub views removed from navigation (they return when built).
+- Files modified: sidebar.tsx
+- Build: passes clean
+- Next: Phase 4.1 (Dashboard — flagship screen)
