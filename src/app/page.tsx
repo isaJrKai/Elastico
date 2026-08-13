@@ -2,10 +2,10 @@
 import { useEffect, useCallback, useState, useRef, lazy, Suspense } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Toaster } from '@/components/ui/sonner'
-// import { Sidebar } from '@/components/elastico/sidebar'
-// import { Header } from '@/components/elastico/header'
-// import CommandPalette from '@/components/elastico/command-palette'
-// import { OfflineIndicator } from '@/components/elastico/offline-indicator'
+import { Sidebar } from '@/components/elastico/sidebar'
+import { Header } from '@/components/elastico/header'
+import CommandPalette from '@/components/elastico/command-palette'
+import { OfflineIndicator } from '@/components/elastico/offline-indicator'
 import { ErrorBoundary } from '@/components/elastico/error-boundary'
 
 // ── Lazy-loaded views — only loaded when navigated to ─────────────────────
@@ -54,165 +54,15 @@ function ViewSkeleton() {
   )
 }
 
-function SetupView({ onReady }: { onReady: () => void }) {
-  const [status, setStatus] = useState<string>('checking')
-  const [message, setMessage] = useState('')
-  const [settingUp, setSettingUp] = useState(false)
-
-  const checkAndSetup = async () => {
-    try {
-      const res = await fetch('/api/setup')
-      const data = await res.json()
-
-      if (data.status === 'ready') {
-        onReady()
-        return
-      }
-
-      if (data.status === 'needs_setup' || data.status === 'needs_seed') {
-        setMessage('Creating tables and seeding data...')
-        setSettingUp(true)
-        try {
-          const setupRes = await fetch('/api/setup', { method: 'POST' })
-          const setupData = await setupRes.json()
-          if (setupData.status === 'success' || setupData.status === 'already_seeded') {
-            onReady()
-            return
-          }
-          setMessage(setupData.message || 'Setup failed')
-          setStatus('error')
-        } catch {
-          setMessage('Failed to run setup')
-          setStatus('error')
-        }
-        return
-      }
-
-      setStatus(data.status)
-      setMessage(data.message)
-    } catch {
-      setStatus('error')
-      setMessage('Service temporarily unavailable')
-    }
-  }
-
-  const checkAndSetupRef = useRef(checkAndSetup)
-  checkAndSetupRef.current = checkAndSetup
-  useEffect(() => {
-    checkAndSetupRef.current()
-    const interval = setInterval(() => checkAndSetupRef.current(), 8000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const isNeedsDatabase = status === 'needs_database'
-
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <div className="text-4xl font-black tracking-tighter text-foreground mb-2">ELASTICO</div>
-          <p className="text-sm text-muted-foreground">AI-Powered Football Analytics</p>
-        </div>
-
-        <div className="bg-card/80 backdrop-blur-xl border border-border rounded-xl p-8">
-          {isNeedsDatabase ? (
-            <>
-              <div className="w-16 h-16 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
-                <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
-              </div>
-              <h2 className="text-lg font-semibold text-foreground text-center mb-2">Database Not Connected</h2>
-              <p className="text-sm text-muted-foreground text-center mb-6">
-                Go to your Vercel project, then <strong className="text-zinc-200">Storage</strong>, then <strong className="text-zinc-200">Create Database</strong>, then <strong className="text-zinc-200">Postgres (Neon)</strong>
-              </p>
-              <div className="bg-secondary rounded-lg p-4 text-xs text-muted-foreground space-y-1">
-                <p>1. Open Vercel project Settings</p>
-                <p>2. Click <strong className="text-foreground">Create Database</strong></p>
-                <p>3. Select <strong className="text-foreground">Postgres (Neon)</strong></p>
-                <p>4. Click <strong className="text-foreground">Create</strong></p>
-                <p className="text-primary pt-1">This page will auto-detect and set up everything</p>
-              </div>
-              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                Waiting for database connection...
-              </div>
-            </>
-          ) : settingUp || status === 'checking' ? (
-            <div className="text-center py-8">
-              <div className="w-12 h-12 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-sm text-foreground">{message || 'Checking database...'}</p>
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
-              </div>
-              <p className="text-sm text-amber-500 mb-1">{message || 'Connection issue'}</p>
-              <p className="text-xs text-muted-foreground mb-4">Auto-retrying every 8 seconds...</p>
-              <button
-                onClick={checkAndSetup}
-                className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-sm text-emerald-400 transition-colors"
-              >
-                Retry Now
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function Home() {
-  const [dbReady, setDbReady] = useState<'checking' | 'ready' | 'down'>('checking')
   const isAuthenticated = useElasticoStore(s => s.isAuthenticated)
   const currentView = useElasticoStore(s => s.currentView)
   const sidebarOpen = useElasticoStore(s => s.sidebarOpen)
-
   const fetchMatches = useElasticoStore(s => s.fetchMatches)
   const fetchTeams = useElasticoStore(s => s.fetchTeams)
   const fetchNews = useElasticoStore(s => s.fetchNews)
   const fetchNotifications = useElasticoStore(s => s.fetchNotifications)
   const fetchLiveScores = useElasticoStore(s => s.fetchLiveScores)
-
-  // Initial data fetch — ESPN immediately, DB data only if authenticated
-  // NOTE: DB data disabled temporarily to isolate React #310 crash
-  useEffect(() => {
-    // if (isAuthenticated) {
-    //   fetchMatches()
-    //   fetchTeams()
-    //   fetchNews()
-    //   fetchNotifications()
-    // }
-  }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications])
-
-  // Auto-refresh matches every 30s
-  useEffect(() => {
-    if (!isAuthenticated) return
-    const interval = setInterval(() => { fetchMatches() }, 30000)
-    return () => clearInterval(interval)
-  }, [isAuthenticated, fetchMatches])
-
-  // Keyboard shortcuts
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (!isAuthenticated) return
-    const store = useElasticoStore.getState()
-    const cmd = e.metaKey || e.ctrlKey
-
-    if (cmd && e.key === 'd') { e.preventDefault(); store.setView('dashboard') }
-    if (cmd && e.key === 'm') { e.preventDefault(); store.setView('matches') }
-    if (cmd && e.key === 'p') { e.preventDefault(); store.setView('predictions') }
-    if (cmd && e.key === 't') { e.preventDefault(); store.setView('tournament') }
-    if (cmd && e.key === 'l') { e.preventDefault(); store.setView('leaderboard') }
-    if (cmd && e.key === 'c') { e.preventDefault(); store.setView('ai-chat') }
-    if (cmd && e.key === 'n') { e.preventDefault(); store.setView('news') }
-    if (cmd && e.key === ',') { e.preventDefault(); store.setView('settings') }
-    if (cmd && e.key === 'b') { e.preventDefault(); store.setView('notifications') }
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
 
   // Restore session on mount
   useEffect(() => {
@@ -238,18 +88,6 @@ export default function Home() {
     }
   }, [])
 
-  // Check database on mount — non-blocking; proceed even if DB is down
-  // ESPN data fetches don't require a database
-  useEffect(() => {
-    fetch('/api/setup')
-      .then(r => r.json())
-      .then(data => {
-        if (data.status === 'ready') setDbReady('ready')
-        else setDbReady('down')
-      })
-      .catch(() => setDbReady('down'))
-  }, [])
-
   // Fetch ESPN live scores immediately (no auth needed)
   useEffect(() => {
     fetchLiveScores()
@@ -261,8 +99,46 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [fetchLiveScores])
 
-  // Not authenticated — show login (but still allow ESPN views if DB is down)
-  if (!isAuthenticated && dbReady !== 'down') {
+  // After auth, fetch DB data
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchMatches()
+      fetchTeams()
+      fetchNews()
+      fetchNotifications()
+    }
+  }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications])
+
+  // Auto-refresh matches every 30s
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const interval = setInterval(() => { fetchMatches() }, 30000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated, fetchMatches])
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!isAuthenticated) return
+    const store = useElasticoStore.getState()
+    const cmd = e.metaKey || e.ctrlKey
+    if (cmd && e.key === 'd') { e.preventDefault(); store.setView('dashboard') }
+    if (cmd && e.key === 'm') { e.preventDefault(); store.setView('matches') }
+    if (cmd && e.key === 'p') { e.preventDefault(); store.setView('predictions') }
+    if (cmd && e.key === 't') { e.preventDefault(); store.setView('tournament') }
+    if (cmd && e.key === 'l') { e.preventDefault(); store.setView('leaderboard') }
+    if (cmd && e.key === 'c') { e.preventDefault(); store.setView('ai-chat') }
+    if (cmd && e.key === 'n') { e.preventDefault(); store.setView('news') }
+    if (cmd && e.key === ',') { e.preventDefault(); store.setView('settings') }
+    if (cmd && e.key === 'b') { e.preventDefault(); store.setView('notifications') }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
+
+  // Not authenticated — show login
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Suspense fallback={<ViewSkeleton />}>
@@ -272,35 +148,6 @@ export default function Home() {
       </div>
     )
   }
-
-  // DB is down — auto-login as demo user so ESPN views work
-  useEffect(() => {
-    if (dbReady === 'down' && !isAuthenticated) {
-      const demoUser = {
-        id: 'demo-no-db',
-        email: 'demo@elastico.app',
-        name: 'Demo User',
-        displayName: null,
-        avatarUrl: null,
-        role: 'user',
-        plan: 'free',
-        predictionAccuracy: 0,
-        predictionStreak: 0,
-        bestStreak: 0,
-        totalPredictions: 0,
-        correctPredictions: 0,
-        achievements: '[]',
-        favoriteTeams: '[]',
-        twoFactorEnabled: false,
-        lastLoginAt: null,
-        loginCount: 0,
-      }
-      const store = useElasticoStore.getState()
-      store.setUser(demoUser, 'demo-no-db-token')
-      localStorage.setItem('elastico_token', 'demo-no-db-token')
-      localStorage.setItem('elastico_user', JSON.stringify(demoUser))
-    }
-  }, [dbReady, isAuthenticated])
 
   // Authenticated — render current view with lazy loading
   const renderView = () => {
@@ -332,12 +179,9 @@ export default function Home() {
 
   return (
     <div className="h-screen bg-background flex overflow-hidden">
-      {/* Sidebar — TEMPORARILY DISABLED */}
-      <div className="shrink-0 w-0" />
-
-      {/* Main content area */}
+      <div className="shrink-0"><Sidebar /></div>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header — TEMPORARILY DISABLED */}
+        <Header />
         <div className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
           <main className="w-full max-w-[1600px] mx-auto px-6 md:px-8 py-6">
             <ErrorBoundary>
@@ -352,9 +196,9 @@ export default function Home() {
           </footer>
         </div>
       </div>
-
-      {/* CommandPalette/OfflineIndicator — TEMPORARILY DISABLED */}
+      <CommandPalette />
       <Toaster />
+      <OfflineIndicator />
     </div>
   )
 }
