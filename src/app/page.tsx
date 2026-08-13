@@ -2,10 +2,10 @@
 import { useEffect, useCallback, useState, useRef, lazy, Suspense } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Toaster } from '@/components/ui/sonner'
-import { Sidebar } from '@/components/elastico/sidebar'
-import { Header } from '@/components/elastico/header'
-import CommandPalette from '@/components/elastico/command-palette'
-import { OfflineIndicator } from '@/components/elastico/offline-indicator'
+// import { Sidebar } from '@/components/elastico/sidebar'
+// import { Header } from '@/components/elastico/header'
+// import CommandPalette from '@/components/elastico/command-palette'
+// import { OfflineIndicator } from '@/components/elastico/offline-indicator'
 import { ErrorBoundary } from '@/components/elastico/error-boundary'
 
 // ── Lazy-loaded views — only loaded when navigated to ─────────────────────
@@ -332,12 +332,12 @@ export default function Home() {
 
   return (
     <div className="h-screen bg-background flex overflow-hidden">
-      {/* Sidebar */}
-      <div className="shrink-0"><Sidebar /></div>
+      {/* Sidebar — TEMPORARILY DISABLED */}
+      <div className="shrink-0 w-0" />
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header />
+        {/* Header — TEMPORARILY DISABLED */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
           <main className="w-full max-w-[1600px] mx-auto px-6 md:px-8 py-6">
             <ErrorBoundary>
@@ -353,9 +353,8 @@ export default function Home() {
         </div>
       </div>
 
-      <CommandPalette />
+      {/* CommandPalette/OfflineIndicator — TEMPORARILY DISABLED */}
       <Toaster />
-      <OfflineIndicator />
     </div>
   )
 }
