@@ -40,3 +40,31 @@ Stage Summary:
 - Rule established: no raw `<img>` for football assets — always use primitives
 - Fixed pre-existing match-detail-view.tsx build error
 - Files created: design-system.ts, chart-theme.ts, assets.ts, 8 primitives, DESIGN_STATE.md
+
+---
+Task ID: 3
+Agent: main
+Task: Phase 3 — Redesign Shell/Navigation (sidebar, header, workflow grouping)
+
+Work Log:
+- Audited existing sidebar (flat 3-section: Main/Analysis/System) and header (zoom controls, plan badge, generic title)
+- Redesigned sidebar with 5 workflow-based navigation groups:
+  - INTELLIGENCE: Dashboard, Live Matches, Match Analysis (core match-day workflow)
+  - ANALYSIS: Tactical, Players, Compare, Predictions, Pred. Engine (deep-dive tools)
+  - LEAGUES: Standings, Leaderboard (competition context)
+  - TOOLS: AI Chat, News, Export (utilities)
+  - SYSTEM: Settings, Notifications, Subscription, Admin, System Monitor (app management)
+- Redesigned header: removed zoom controls and plan badge, kept minimal context bar
+- Renamed views for clarity: `tournament` → "Standings", `match-detail` → "Match Analysis"
+- Removed Achievements and Social from sidebar (marked "Soon", no existence justification per rules)
+- Updated keyboard shortcuts: ⌘T→Tactical, ⌘S→Standings
+- Added Match Analysis to sidebar (was only accessible by clicking a match)
+- Cleaned up page.tsx: removed unused imports (useState, useRef), updated shortcuts
+- Added DS-022 through DS-033 to DESIGN_STATE.md
+- Verified: zero TypeScript errors in modified files
+
+Stage Summary:
+- Sidebar now follows football workflow, not feature taxonomy
+- Header is a thin context bar (title + live pill + search + bell + theme + avatar)
+- 5 nav groups with clear separation of concerns
+- Files modified: sidebar.tsx, header.tsx, page.tsx, DESIGN_STATE.md

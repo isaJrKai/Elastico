@@ -1,8 +1,17 @@
+/*
+ * ELASTICO Header — Minimal context bar
+ *
+ * Only shows what's needed at a glance:
+ *   - Mobile: hamburger + title
+ *   - Desktop: title, live indicator, search, notifications, user menu
+ *
+ * Removed: zoom controls (moved to Settings), plan badge (lives in sidebar + user dropdown)
+ */
+
 'use client'
 
-import { useCallback } from 'react'
 import {
-  Search, Bell, Menu, User as UserIcon, Settings, LogOut, Zap, Crown, Minus, Plus, Sun, Moon,
+  Search, Bell, Menu, User as UserIcon, Settings, LogOut, Zap, Crown, Sun, Moon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,20 +25,36 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 
+// ── View titles (no abbreviations) ───────────────────────────────────────
+
 const viewTitles: Record<string, string> = {
-  dashboard: 'Dashboard', matches: 'Live Matches', 'match-detail': 'Match Details',
-  predictions: 'Predictions', tournament: 'League Standings', leaderboard: 'Leaderboard',
-  'ai-chat': 'AI Chat', news: 'News', admin: 'Admin Panel', settings: 'Settings',
-  subscription: 'Subscription', notifications: 'Notifications', profile: 'Profile',
-  tactical: 'Tactical Analysis', login: 'Welcome',
-  'prediction-engine': 'Prediction Engine', players: 'Players', compare: 'Compare',
-  achievements: 'Achievements', export: 'Export', social: 'Social',
-  'system-monitor': 'System Monitor',
+  dashboard:         'Dashboard',
+  matches:           'Live Matches',
+  'match-detail':    'Match Analysis',
+  predictions:       'Predictions',
+  tournament:        'Standings',
+  leaderboard:       'Leaderboard',
+  'ai-chat':          'AI Chat',
+  news:              'News',
+  admin:             'Admin Panel',
+  settings:          'Settings',
+  subscription:      'Subscription',
+  notifications:     'Notifications',
+  profile:           'Profile',
+  tactical:          'Tactical Analysis',
+  login:             'Welcome',
+  'prediction-engine':'Prediction Engine',
+  players:           'Players',
+  compare:           'Compare',
+  achievements:      'Achievements',
+  export:            'Export',
+  social:            'Social',
+  'system-monitor':  'System Monitor',
 }
 
 const planBadgeCls: Record<string, string> = {
-  free: 'bg-secondary text-muted-foreground border-border',
-  pro: 'bg-primary/15 text-primary border-primary/30',
+  free:  'bg-secondary text-muted-foreground border-border',
+  pro:   'bg-primary/15 text-primary border-primary/30',
   elite: 'bg-yellow-500/15 text-yellow-500 border-yellow-500/30',
 }
 
@@ -43,8 +68,6 @@ export function Header() {
   const setView = useElasticoStore(s => s.setView)
   const logout = useElasticoStore(s => s.logout)
   const toggleCommandPalette = useElasticoStore(s => s.toggleCommandPalette)
-  const zoomLevel = useElasticoStore(s => s.zoomLevel)
-  const setZoomLevel = useElasticoStore(s => s.setZoomLevel)
   const isMobile = useIsMobile()
   const { theme, setTheme } = useTheme()
 
@@ -61,19 +84,23 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-30 flex h-12 items-center gap-3 px-4 border-b border-border bg-background/80 backdrop-blur-xl md:px-6">
+      {/* Mobile hamburger */}
       {isMobile && (
         <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle menu">
           <Menu className="size-5" />
         </Button>
       )}
 
+      {/* View title */}
       <h1 className="text-[15px] font-semibold text-foreground tracking-tight truncate">
         {title}
       </h1>
 
       <div className="flex-1" />
 
+      {/* Right-side actions */}
       <div className="flex items-center gap-2">
+        {/* Live indicator pill */}
         {liveCount > 0 && (
           <div className="flex items-center gap-2 rounded-full bg-red-500/10 border border-red-500/20 px-3 py-1">
             <span className="relative flex size-2">
@@ -84,6 +111,7 @@ export function Header() {
           </div>
         )}
 
+        {/* Search (desktop) */}
         <div className="hidden sm:block">
           <Button
             variant="outline"
@@ -96,19 +124,14 @@ export function Header() {
           </Button>
         </div>
 
+        {/* Search (mobile) */}
         {isMobile && (
           <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground" onClick={toggleCommandPalette} aria-label="Search">
             <Search className="size-5" />
           </Button>
         )}
 
-        {user && currentView !== 'login' && (
-          <Badge variant="outline" className={cn('hidden md:inline-flex h-5 rounded-md px-2 text-[10px] font-bold tracking-wider uppercase gap-1', badgeCls)}>
-            {plan === 'elite' ? <Crown className="size-3" /> : plan === 'pro' ? <Zap className="size-3" /> : null}
-            {user.plan || 'Free'}
-          </Badge>
-        )}
-
+        {/* Notifications bell */}
         {user && currentView !== 'login' && (
           <Button variant="ghost" size="icon" className="relative shrink-0 text-muted-foreground hover:text-foreground" onClick={() => setView('notifications')} aria-label="Notifications">
             <Bell className="size-[18px]" />
@@ -123,20 +146,14 @@ export function Header() {
           </Button>
         )}
 
-        {user && currentView !== 'login' && (
-          <div className="hidden md:flex items-center gap-0.5 rounded-lg border border-border bg-secondary">
-            <Button variant="ghost" size="icon" className="size-7 rounded-r-none text-muted-foreground" onClick={() => setZoomLevel(zoomLevel - 10)} disabled={zoomLevel <= 50}><Minus className="size-3" /></Button>
-            <span className="text-[11px] font-mono text-muted-foreground w-10 text-center select-none">{zoomLevel}%</span>
-            <Button variant="ghost" size="icon" className="size-7 rounded-l-none text-muted-foreground" onClick={() => setZoomLevel(zoomLevel + 10)} disabled={zoomLevel >= 150}><Plus className="size-3" /></Button>
-          </div>
-        )}
-
+        {/* Theme toggle */}
         {user && currentView !== 'login' && (
           <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Toggle theme">
             {theme === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
           </Button>
         )}
 
+        {/* User dropdown */}
         {user && currentView !== 'login' && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

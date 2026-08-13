@@ -1,12 +1,27 @@
+/*
+ * ELASTICO Sidebar — Workflow-grouped navigation
+ *
+ * Navigation is organized by football workflow, not feature category:
+ *   INTELLIGENCE — core match-day workflow (dashboard, live, match detail)
+ *   ANALYSIS     — deep-dive tools (tactical, players, compare, predictions)
+ *   LEAGUES      — competition context (standings, leaderboard)
+ *   TOOLS        — utilities (AI chat, news, export)
+ *   SYSTEM       — app management (settings, notifications, subscription, admin)
+ *
+ * Design rules:
+ *   - Active indicator: 3px left bar in sidebar-primary color
+ *   - Collapsed: icon-only with tooltips
+ *   - Mobile: slide-over with backdrop
+ *   - No more than 7 items visible at once in any section
+ */
+
 'use client'
 
 import { useEffect, useCallback } from 'react'
 import {
   LayoutDashboard,
-  Trophy,
   Swords,
   Newspaper,
-  MessageSquare,
   Settings,
   Shield,
   Bell,
@@ -20,11 +35,14 @@ import {
   Zap,
   Command,
   GitCompareArrows,
-  Award,
   Download,
   MessageCircle,
   Brain,
   Activity,
+  Trophy,
+  MessageSquare,
+  Crosshair,
+  TrendingUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,39 +62,64 @@ interface NavItem {
   icon: React.ElementType
   label: string
   view: View
-  badge?: string
-  badgeCount?: number
+  badge?: 'live' | 'soon'
   adminOnly?: boolean
 }
 
-// ── Navigation Items ──────────────────────────────────────────────────────
+interface NavGroup {
+  id: string
+  label: string
+  items: NavItem[]
+}
 
-const mainNav: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard', view: 'dashboard' },
-  { icon: Swords, label: 'Live Matches', view: 'matches', badge: 'live' },
-  { icon: Target, label: 'Predictions', view: 'predictions' },
-  { icon: Trophy, label: 'Standings', view: 'tournament' },
-  { icon: BarChart3, label: 'Leaderboard', view: 'leaderboard' },
-  { icon: MessageSquare, label: 'AI Chat', view: 'ai-chat' },
-  { icon: Newspaper, label: 'News', view: 'news' },
+// ── Navigation Groups (workflow-based) ─────────────────────────────────────
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: 'intelligence',
+    label: 'Intelligence',
+    items: [
+      { icon: LayoutDashboard, label: 'Dashboard', view: 'dashboard' },
+      { icon: Swords,         label: 'Live Matches', view: 'matches', badge: 'live' },
+      { icon: Crosshair,      label: 'Match Analysis', view: 'match-detail' },
+    ],
+  },
+  {
+    id: 'analysis',
+    label: 'Analysis',
+    items: [
+      { icon: Target,           label: 'Tactical',     view: 'tactical' },
+      { icon: Users,            label: 'Players',      view: 'players' },
+      { icon: GitCompareArrows, label: 'Compare',      view: 'compare' },
+      { icon: TrendingUp,       label: 'Predictions',  view: 'predictions' },
+      { icon: Brain,            label: 'Pred. Engine', view: 'prediction-engine' },
+    ],
+  },
+  {
+    id: 'leagues',
+    label: 'Leagues',
+    items: [
+      { icon: Trophy,    label: 'Standings',   view: 'tournament' },
+      { icon: BarChart3, label: 'Leaderboard', view: 'leaderboard' },
+    ],
+  },
+  {
+    id: 'tools',
+    label: 'Tools',
+    items: [
+      { icon: MessageSquare, label: 'AI Chat', view: 'ai-chat' },
+      { icon: Newspaper,     label: 'News',    view: 'news' },
+      { icon: Download,      label: 'Export',  view: 'export' },
+    ],
+  },
 ]
 
-const analysisNav: NavItem[] = [
-  { icon: Brain, label: 'Prediction Engine', view: 'prediction-engine' },
-  { icon: Target, label: 'Tactical', view: 'tactical', badge: 'soon' },
-  { icon: Users, label: 'Players', view: 'players' },
-  { icon: GitCompareArrows, label: 'Compare', view: 'compare' },
-  { icon: Award, label: 'Achievements', view: 'achievements', badge: 'soon' },
-  { icon: Download, label: 'Export', view: 'export' },
-  { icon: MessageCircle, label: 'Social', view: 'social', badge: 'soon' },
-]
-
-const bottomNav: NavItem[] = [
-  { icon: Settings, label: 'Settings', view: 'settings' },
-  { icon: Bell, label: 'Notifications', view: 'notifications', badgeCount: 0 },
-  { icon: CreditCard, label: 'Subscription', view: 'subscription' },
-  { icon: Shield, label: 'Admin Panel', view: 'admin', adminOnly: true },
-  { icon: Activity, label: 'System Monitor', view: 'system-monitor', adminOnly: true },
+const SYSTEM_ITEMS: NavItem[] = [
+  { icon: Settings,  label: 'Settings',       view: 'settings' },
+  { icon: Bell,      label: 'Notifications',  view: 'notifications' },
+  { icon: CreditCard,label: 'Subscription',    view: 'subscription' },
+  { icon: Shield,    label: 'Admin Panel',     view: 'admin',        adminOnly: true },
+  { icon: Activity,  label: 'System Monitor', view: 'system-monitor', adminOnly: true },
 ]
 
 // ── Section Label ─────────────────────────────────────────────────────────
@@ -84,8 +127,8 @@ const bottomNav: NavItem[] = [
 function SectionLabel({ children, collapsed }: { children: string; collapsed: boolean }) {
   if (collapsed) return null
   return (
-    <div className="px-3 pt-4 pb-1.5">
-      <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground/60">
+    <div className="px-3 pt-5 pb-1.5">
+      <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/50">
         {children}
       </span>
     </div>
@@ -95,8 +138,8 @@ function SectionLabel({ children, collapsed }: { children: string; collapsed: bo
 // ── Plan Badge ────────────────────────────────────────────────────────────
 
 const planStyles: Record<string, string> = {
-  free: 'bg-muted text-muted-foreground border-border',
-  pro: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  free:  'bg-muted text-muted-foreground border-border',
+  pro:   'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   elite: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
 }
 
@@ -133,76 +176,78 @@ export function Sidebar() {
   const isOpen = sidebarOpen
   const collapsed = !isOpen
 
-  const renderNav = (items: NavItem[], section?: string) => (
-    <>
-      {section && <SectionLabel collapsed={collapsed}>{section}</SectionLabel>}
+  const renderNavItem = (item: NavItem) => {
+    if (item.adminOnly && user?.role !== 'admin') return null
+    const active = currentView === item.view
+    const Icon = item.icon
+
+    const btn = (
+      <button
+        key={item.view}
+        onClick={() => handleNav(item.view)}
+        className={cn(
+          'group relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-all duration-150',
+          'outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          active
+            ? 'bg-sidebar-accent text-sidebar-primary-foreground'
+            : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
+          collapsed && !isMobile && 'justify-center px-0',
+        )}
+      >
+        {active && (
+          <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
+        )}
+        <Icon className={cn(
+          'size-[18px] shrink-0 transition-colors',
+          active ? 'text-sidebar-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground',
+        )} />
+        {(!collapsed || isMobile) && (
+          <>
+            <span className="truncate">{item.label}</span>
+            {item.badge === 'soon' && (
+              <Badge variant="secondary" className="ml-auto h-4.5 rounded-full px-1.5 text-[9px] font-semibold bg-muted text-muted-foreground border-border">
+                Soon
+              </Badge>
+            )}
+            {item.badge === 'live' && liveCount > 0 && (
+              <span className="ml-auto flex items-center gap-1.5">
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+                </span>
+                <Badge variant="secondary" className="h-4.5 min-w-5 rounded-full px-1.5 text-[10px] font-bold bg-red-500/15 text-red-400 border-red-500/30">
+                  {liveCount}
+                </Badge>
+              </span>
+            )}
+            {item.view === 'notifications' && unreadCount > 0 && (
+              <Badge variant="secondary" className="ml-auto h-4.5 min-w-5 rounded-full px-1.5 text-[10px] font-bold bg-primary/15 text-primary border-primary/30">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Badge>
+            )}
+          </>
+        )}
+      </button>
+    )
+
+    if (collapsed && !isMobile) {
+      return (
+        <Tooltip key={item.view}>
+          <TooltipTrigger asChild>{btn}</TooltipTrigger>
+          <TooltipContent side="right" sideOffset={8}><p>{item.label}</p></TooltipContent>
+        </Tooltip>
+      )
+    }
+    return btn
+  }
+
+  const renderGroup = (group: NavGroup) => (
+    <div key={group.id}>
+      <SectionLabel collapsed={collapsed}>{group.label}</SectionLabel>
       <ul className="flex flex-col gap-0.5 px-2" role="list">
-        {items.map(item => {
-          if (item.adminOnly && user?.role !== 'admin') return null
-          const active = currentView === item.view
-          const Icon = item.icon
-
-          const btn = (
-            <button
-              key={item.view}
-              onClick={() => handleNav(item.view)}
-              className={cn(
-                'group relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200',
-                'outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                active
-                  ? 'bg-sidebar-accent text-sidebar-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
-                collapsed && !isMobile && 'justify-center px-0',
-              )}
-            >
-              {active && (
-                <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
-              )}
-              <Icon className={cn(
-                'size-[18px] shrink-0 transition-colors',
-                active ? 'text-sidebar-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground',
-              )} />
-              {(!collapsed || isMobile) && (
-                <>
-                  <span className="truncate">{item.label}</span>
-                  {item.badge === 'soon' && (
-                    <Badge variant="secondary" className="ml-auto h-5 rounded-full px-1.5 text-[9px] font-semibold bg-muted text-muted-foreground border-border">
-                      Soon
-                    </Badge>
-                  )}
-                  {item.badge === 'live' && liveCount > 0 && (
-                    <span className="ml-auto flex items-center gap-1.5">
-                      <span className="relative flex size-2">
-                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex size-2 rounded-full bg-red-500" />
-                      </span>
-                      <Badge variant="secondary" className="h-5 min-w-5 rounded-full px-1.5 text-[10px] font-bold bg-red-500/15 text-red-400 border-red-500/30">
-                        {liveCount}
-                      </Badge>
-                    </span>
-                  )}
-                  {item.view === 'notifications' && unreadCount > 0 && (
-                    <Badge variant="secondary" className="ml-auto h-5 min-w-5 rounded-full px-1.5 text-[10px] font-bold bg-primary/15 text-primary border-primary/30">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </Badge>
-                  )}
-                </>
-              )}
-            </button>
-          )
-
-          if (collapsed && !isMobile) {
-            return (
-              <Tooltip key={item.view}>
-                <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}><p>{item.label}</p></TooltipContent>
-              </Tooltip>
-            )
-          }
-          return btn
-        })}
+        {group.items.map(renderNavItem)}
       </ul>
-    </>
+    </div>
   )
 
   return (
@@ -221,7 +266,7 @@ export function Sidebar() {
           isMobile && 'w-[280px]',
         )}
       >
-        {/* Logo */}
+        {/* ── Logo ──────────────────────────────────────────────────── */}
         <div className="flex h-14 items-center gap-2.5 px-4 border-b border-border">
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
             <Zap className="size-4 text-primary" />
@@ -235,7 +280,10 @@ export function Sidebar() {
             <Button
               variant="ghost"
               size="icon"
-              className={cn('ml-auto size-7 shrink-0 text-muted-foreground hover:text-foreground', collapsed && 'ml-0 mx-auto')}
+              className={cn(
+                'ml-auto size-7 shrink-0 text-muted-foreground hover:text-foreground',
+                collapsed && 'ml-0 mx-auto',
+              )}
               onClick={() => setSidebarOpen(!isOpen)}
               aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             >
@@ -244,21 +292,22 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Scrollable nav area */}
-        <div className="flex-1 overflow-y-auto py-2">
-          {renderNav(mainNav, 'Main')}
+        {/* ── Scrollable nav area ────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto py-1">
+          {NAV_GROUPS.map(renderGroup)}
           <div className="mx-3 my-2 h-px bg-white/[0.06]" />
-          {renderNav(analysisNav, 'Analysis')}
-          <div className="mx-3 my-2 h-px bg-white/[0.06]" />
-          {renderNav(bottomNav, 'System')}
+          <SectionLabel collapsed={collapsed}>System</SectionLabel>
+          <ul className="flex flex-col gap-0.5 px-2" role="list">
+            {SYSTEM_ITEMS.map(renderNavItem)}
+          </ul>
         </div>
 
-        {/* Command palette shortcut */}
+        {/* ── Command palette shortcut ───────────────────────────────── */}
         <div className="border-t border-border px-2 py-2">
           <Button
             variant="ghost"
             className={cn(
-              'w-full text-sm transition-colors',
+              'w-full text-[13px] transition-colors',
               collapsed && !isMobile
                 ? 'justify-center text-muted-foreground hover:text-foreground'
                 : 'justify-start gap-2.5 text-muted-foreground hover:text-foreground',
@@ -277,7 +326,7 @@ export function Sidebar() {
           </Button>
         </div>
 
-        {/* User profile */}
+        {/* ── User profile ───────────────────────────────────────────── */}
         {user && (
           <div className={cn(
             'flex items-center gap-2.5 border-t border-border px-3 py-3',

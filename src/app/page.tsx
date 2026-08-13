@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useCallback, useState, useRef, lazy, Suspense } from 'react'
+import { useEffect, useCallback, lazy, Suspense } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Toaster } from '@/components/ui/sonner'
 import { Sidebar } from '@/components/elastico/sidebar'
@@ -124,12 +124,13 @@ export default function Home() {
     if (cmd && e.key === 'd') { e.preventDefault(); store.setView('dashboard') }
     if (cmd && e.key === 'm') { e.preventDefault(); store.setView('matches') }
     if (cmd && e.key === 'p') { e.preventDefault(); store.setView('predictions') }
-    if (cmd && e.key === 't') { e.preventDefault(); store.setView('tournament') }
+    if (cmd && e.key === 't') { e.preventDefault(); store.setView('tactical') }
     if (cmd && e.key === 'l') { e.preventDefault(); store.setView('leaderboard') }
     if (cmd && e.key === 'c') { e.preventDefault(); store.setView('ai-chat') }
     if (cmd && e.key === 'n') { e.preventDefault(); store.setView('news') }
     if (cmd && e.key === ',') { e.preventDefault(); store.setView('settings') }
     if (cmd && e.key === 'b') { e.preventDefault(); store.setView('notifications') }
+    if (cmd && e.key === 's') { e.preventDefault(); store.setView('tournament') }
   }, [isAuthenticated])
 
   useEffect(() => {

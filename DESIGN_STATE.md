@@ -52,3 +52,31 @@ DS-019 | Primitives | 8 components in `src/components/elastico/primitives/` | Te
 DS-020 | Image Loading | All images use `loading="lazy"` + `decoding="async"` | Performance baseline for asset-heavy screens.
 
 DS-021 | No Raw `<img>` Rule | Views must use TeamCrest/PlayerHeadshot/FlagIcon primitives | Enforced by convention. Lint rule to be added in Phase 17.
+
+---
+
+## Phase 3: Shell/Navigation Redesign
+
+DS-022 | Workflow Groups | Sidebar organized by football workflow: Intelligence / Analysis / Leagues / Tools / System | User thinks "I need to analyze a match" not "I need the tactical tool".
+
+DS-023 | Intelligence Group | Dashboard, Live Matches, Match Analysis — the core match-day workflow | These 3 views are the primary daily use case.
+
+DS-024 | Analysis Group | Tactical, Players, Compare, Predictions, Pred. Engine — deep-dive tools | Secondary workflow: detailed analysis after initial intelligence.
+
+DS-025 | Leagues Group | Standings, Leaderboard — competition context | Separated from intelligence because it's reference, not action.
+
+DS-026 | Tools Group | AI Chat, News, Export — utilities | Not core workflow, but frequently needed.
+
+DS-027 | System Group | Settings, Notifications, Subscription, Admin, System Monitor | App management. Admin-only items filtered by user role.
+
+DS-028 | Header Minimalism | Removed zoom controls and plan badge from header. Kept: title, live indicator, search, notifications, theme, user menu. | Header should be a thin context bar, not a control panel. Zoom moved to Settings.
+
+DS-029 | "Match Analysis" Label | `match-detail` view now called "Match Analysis" in header and sidebar | Descriptive, not generic. Tells the user what they'll find.
+
+DS-030 | "Standings" Label | `tournament` view now called "Standings" everywhere | Matches user expectation. "Tournament" was misleading for league tables.
+
+DS-031 | Removed Nav Items | Achievements and Social removed from sidebar (marked "Soon", no existence justification) | Rule: each component must justify its existence. Can return when built.
+
+DS-032 | Active Indicator | 3px left bar in sidebar-primary color, unchanged | Works well. No change needed.
+
+DS-033 | Keyboard Shortcuts | ⌘T now opens Tactical (was Standings). ⌘S opens Standings. | Matches new workflow grouping.
