@@ -1,18 +1,20 @@
 /*
- * ELASTICO Sidebar — Workflow-grouped navigation
+ * ELASTICO Sidebar — Workflow-grouped navigation (Phase 3 refined)
  *
- * Navigation is organized by football workflow, not feature category:
- *   INTELLIGENCE — core match-day workflow (dashboard, live, match detail)
- *   ANALYSIS     — deep-dive tools (tactical, players, compare, predictions)
+ * Navigation organized by football intelligence workflow:
+ *   INTELLIGENCE — core match-day (dashboard, live, match detail)
+ *   ANALYSIS     — deep-dive tools (tactical, players, compare, predictions, engine)
  *   LEAGUES      — competition context (standings, leaderboard)
- *   TOOLS        — utilities (AI chat, news, export)
- *   SYSTEM       — app management (settings, notifications, subscription, admin)
+ *   TOOLS        — utilities (AI chat, news, export, social)
+ *   SYSTEM       — app management (settings, notifications, subscription, achievements, admin, monitor)
  *
  * Design rules:
- *   - Active indicator: 3px left bar in sidebar-primary color
- *   - Collapsed: icon-only with tooltips
- *   - Mobile: slide-over with backdrop
- *   - No more than 7 items visible at once in any section
+ *   - Active: 3px left bar in sidebar-primary
+ *   - Collapsed: icon-only with tooltips, 60px wide (15 × 4px grid)
+ *   - Expanded: 256px wide (64 × 4px grid)
+ *   - Mobile: 280px slide-over with backdrop
+ *   - Max 7 items per section
+ *   - All sizes from ELASTICO design system tokens
  */
 
 'use client'
@@ -43,6 +45,8 @@ import {
   MessageSquare,
   Crosshair,
   TrendingUp,
+  Award,
+  UsersRound,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -72,6 +76,20 @@ interface NavGroup {
   items: NavItem[]
 }
 
+// ── Sidebar Layout Tokens ──────────────────────────────────────────────────
+// Aligned to 4px grid. Expanded = 64 units. Collapsed = 15 units.
+
+const SIDEBAR = {
+  expandedW: 'w-[256px]',
+  collapsedW: 'w-[60px]',
+  mobileW: 'w-[280px]',
+  headerH: 'h-14',          // 56px = 14 × 4px
+  iconSize: 'size-[18px]',   // nav icon size
+  collapsedIcon: 'size-5',   // slightly larger when icon-only
+  logoBox: 'size-8',          // 32px logo container
+  avatarSize: 'size-8',       // 32px user avatar
+} as const
+
 // ── Navigation Groups (workflow-based) ─────────────────────────────────────
 
 const NAV_GROUPS: NavGroup[] = [
@@ -79,8 +97,8 @@ const NAV_GROUPS: NavGroup[] = [
     id: 'intelligence',
     label: 'Intelligence',
     items: [
-      { icon: LayoutDashboard, label: 'Dashboard', view: 'dashboard' },
-      { icon: Swords,         label: 'Live Matches', view: 'matches', badge: 'live' },
+      { icon: LayoutDashboard, label: 'Dashboard',     view: 'dashboard' },
+      { icon: Swords,         label: 'Live Matches',   view: 'matches', badge: 'live' },
       { icon: Crosshair,      label: 'Match Analysis', view: 'match-detail' },
     ],
   },
@@ -107,9 +125,10 @@ const NAV_GROUPS: NavGroup[] = [
     id: 'tools',
     label: 'Tools',
     items: [
-      { icon: MessageSquare, label: 'AI Chat', view: 'ai-chat' },
-      { icon: Newspaper,     label: 'News',    view: 'news' },
-      { icon: Download,      label: 'Export',  view: 'export' },
+      { icon: MessageSquare, label: 'AI Chat',   view: 'ai-chat' },
+      { icon: Newspaper,     label: 'News',       view: 'news' },
+      { icon: UsersRound,    label: 'Social',     view: 'social' },
+      { icon: Download,      label: 'Export',     view: 'export' },
     ],
   },
 ]
@@ -117,12 +136,14 @@ const NAV_GROUPS: NavGroup[] = [
 const SYSTEM_ITEMS: NavItem[] = [
   { icon: Settings,  label: 'Settings',       view: 'settings' },
   { icon: Bell,      label: 'Notifications',  view: 'notifications' },
+  { icon: Award,     label: 'Achievements',    view: 'achievements' },
   { icon: CreditCard,label: 'Subscription',    view: 'subscription' },
   { icon: Shield,    label: 'Admin Panel',     view: 'admin',        adminOnly: true },
   { icon: Activity,  label: 'System Monitor', view: 'system-monitor', adminOnly: true },
 ]
 
 // ── Section Label ─────────────────────────────────────────────────────────
+// Uses TYPE.micro (10px) from design system
 
 function SectionLabel({ children, collapsed }: { children: string; collapsed: boolean }) {
   if (collapsed) return null
@@ -176,6 +197,7 @@ export function Sidebar() {
   const isOpen = sidebarOpen
   const collapsed = !isOpen
 
+  // ── Nav item renderer ──────────────────────────────────────────────────
   const renderNavItem = (item: NavItem) => {
     if (item.adminOnly && user?.role !== 'admin') return null
     const active = currentView === item.view
@@ -194,11 +216,13 @@ export function Sidebar() {
           collapsed && !isMobile && 'justify-center px-0',
         )}
       >
+        {/* Active left indicator — 3px bar */}
         {active && (
           <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
         )}
         <Icon className={cn(
-          'size-[18px] shrink-0 transition-colors',
+          'shrink-0 transition-colors',
+          collapsed && !isMobile ? SIDEBAR.collapsedIcon : SIDEBAR.iconSize,
           active ? 'text-sidebar-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground',
         )} />
         {(!collapsed || isMobile) && (
@@ -241,6 +265,7 @@ export function Sidebar() {
     return btn
   }
 
+  // ── Group renderer ─────────────────────────────────────────────────────
   const renderGroup = (group: NavGroup) => (
     <div key={group.id}>
       <SectionLabel collapsed={collapsed}>{group.label}</SectionLabel>
@@ -252,8 +277,13 @@ export function Sidebar() {
 
   return (
     <>
+      {/* Mobile backdrop */}
       {isMobile && isOpen && (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={handleOverlay} aria-hidden="true" />
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          onClick={handleOverlay}
+          aria-hidden="true"
+        />
       )}
 
       <aside
@@ -261,14 +291,16 @@ export function Sidebar() {
           'fixed top-0 left-0 z-50 flex h-screen flex-col border-r border-border transition-all duration-300 ease-in-out',
           'bg-sidebar',
           'md:relative md:z-0',
+          // Mobile: slide in/out
           isMobile && (isOpen ? 'translate-x-0' : '-translate-x-full'),
-          !isMobile && (isOpen ? 'w-[260px]' : 'w-[64px]'),
-          isMobile && 'w-[280px]',
+          isMobile && SIDEBAR.mobileW,
+          // Desktop: collapsed or expanded
+          !isMobile && (isOpen ? SIDEBAR.expandedW : SIDEBAR.collapsedW),
         )}
       >
         {/* ── Logo ──────────────────────────────────────────────────── */}
-        <div className="flex h-14 items-center gap-2.5 px-4 border-b border-border">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+        <div className={cn('flex items-center gap-2.5 px-4 border-b border-border', SIDEBAR.headerH)}>
+          <div className={cn('flex items-center justify-center rounded-lg bg-primary/10', SIDEBAR.logoBox)}>
             <Zap className="size-4 text-primary" />
           </div>
           {(!collapsed || isMobile) && (
@@ -295,6 +327,8 @@ export function Sidebar() {
         {/* ── Scrollable nav area ────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto py-1">
           {NAV_GROUPS.map(renderGroup)}
+
+          {/* System separator */}
           <div className="mx-3 my-2 h-px bg-white/[0.06]" />
           <SectionLabel collapsed={collapsed}>System</SectionLabel>
           <ul className="flex flex-col gap-0.5 px-2" role="list">
@@ -332,7 +366,7 @@ export function Sidebar() {
             'flex items-center gap-2.5 border-t border-border px-3 py-3',
             collapsed && !isMobile && 'justify-center px-2',
           )}>
-            <Avatar className="size-8 shrink-0">
+            <Avatar className={cn('shrink-0', SIDEBAR.avatarSize)}>
               <AvatarImage src={user.avatarUrl || undefined} alt={user.displayName || user.name || ''} />
               <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
                 {getInitials(user.displayName || user.name || user.email)}
@@ -346,12 +380,21 @@ export function Sidebar() {
                   </span>
                   <Badge
                     variant="outline"
-                    className={cn('w-fit h-4 rounded px-1.5 text-[9px] font-semibold leading-none', planStyles[user.plan?.toLowerCase()] || planStyles.free)}
+                    className={cn(
+                      'w-fit h-4 rounded px-1.5 text-[9px] font-semibold leading-none',
+                      planStyles[user.plan?.toLowerCase()] || planStyles.free,
+                    )}
                   >
                     {(user.plan || 'Free').toUpperCase()}
                   </Badge>
                 </div>
-                <Button variant="ghost" size="icon" className="size-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={logout} aria-label="Logout">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={logout}
+                  aria-label="Logout"
+                >
                   <LogOut className="size-3.5" />
                 </Button>
               </>
@@ -362,6 +405,8 @@ export function Sidebar() {
     </>
   )
 }
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/)

@@ -191,9 +191,13 @@ export default function Home() {
               </Suspense>
             </ErrorBoundary>
           </main>
-          <footer className="shrink-0 border-t border-border px-6 md:px-8 py-3 flex items-center justify-between text-xs text-muted-foreground">
-            <span>2026 ELASTICO</span>
-            <span className="hidden sm:inline truncate">ELO / Poisson / Dixon-Coles / Merton Jump-Diffusion / GARCH / Kelly Criterion</span>
+          <footer className="shrink-0 border-t border-border px-6 md:px-8 py-2.5 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className="font-mono tabular-nums">2026 ELASTICO</span>
+            <div className="hidden sm:flex items-center gap-4">
+              <span className="truncate">ELO / Poisson / Dixon-Coles / Merton J-D / GARCH / Kelly</span>
+              <span className="text-muted-foreground/40">|</span>
+              <span className="text-muted-foreground/60">Data: ESPN · TheSportsDB · flagcdn</span>
+            </div>
           </footer>
         </div>
       </div>

@@ -75,7 +75,7 @@ DS-029 | "Match Analysis" Label | `match-detail` view now called "Match Analysis
 
 DS-030 | "Standings" Label | `tournament` view now called "Standings" everywhere | Matches user expectation. "Tournament" was misleading for league tables.
 
-DS-031 | Removed Nav Items | Achievements and Social removed from sidebar (marked "Soon", no existence justification) | Rule: each component must justify its existence. Can return when built.
+DS-031 | Complete Nav Coverage | All 22 views mapped in sidebar. Achievements → System group. Social → Tools group. Profile maps to Settings view. | No orphaned views. Every view reachable from sidebar.
 
 DS-032 | Active Indicator | 3px left bar in sidebar-primary color, unchanged | Works well. No change needed.
 
@@ -89,7 +89,15 @@ DS-036 | Match Analysis in Palette | `match-detail` added to command palette und
 
 DS-037 | Typed Palette Icons | Command palette icons use `React.ElementType` instead of `any` | Type safety for icon components.
 
-DS-038 | Shell Layout Stability | Shell layout (sidebar + header + main + footer) preserved as-is. No structural changes. | The layout works. Phase 3 scope was navigation completeness and consistency, not architecture redesign.
+DS-038 | Shell Layout Stability | Shell layout (sidebar + header + main + footer) preserved. No structural changes. | The layout works. Phase 3 scope was navigation completeness and consistency, not architecture redesign.
+
+DS-038b | Sidebar Grid Alignment | Expanded=256px (64×4px), Collapsed=60px (15×4px), Header=56px (14×4px). All sidebar sizes from SIDEBAR token object. | Every dimension is a multiple of 4px.
+
+DS-038c | Header Grid Alignment | Height=48px (12×4px). Action icons=18px. KBD uses monoSm pattern (10px mono). | Consistent with 4px grid and TYPE scale.
+
+DS-038d | Footer Data Credits | Footer shows data sources: ESPN · TheSportsDB · flagcdn. Model names abbreviated (Merton J-D). | Data honesty: users see where data comes from.
+
+DS-038e | View Title Completeness | Header viewTitles map covers all 22 views including achievements and social. | No 'ELASTICO' fallback title for any registered view.
 
 ---
 
