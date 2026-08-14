@@ -17,6 +17,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, Cell,
 } from 'recharts'
+import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
 import {
   Target, ArrowUpDown, Flame, CheckCircle2, XCircle, Brain, Calendar, Crown, Download, Trophy, Zap, TrendingUp, Send,
 } from 'lucide-react'
@@ -291,12 +292,12 @@ export default function PredictionsView() {
               <CardContent>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={accuracyByModel} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                    <YAxis type="category" dataKey="model" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} width={80} />
-                    <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
-                    <Bar dataKey="accuracy" radius={[0, 4, 4, 0]}>
-                      {accuracyByModel.map((_, i) => <Cell key={i} fill={i === 0 ? '#00e676' : i === 1 ? '#00b4d8' : i === 2 ? '#ffd700' : '#a855f7'} />)}
+                    <CartesianGrid {...cartesianGridProps} />
+                    <XAxis type="number" domain={[0, 100]} {...axisProps} />
+                    <YAxis type="category" dataKey="model" {...axisProps} width={80} />
+                    <RTooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+                    <Bar dataKey="accuracy" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                      {accuracyByModel.map((_, i) => <Cell key={i} fill={chartColor(i)} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>

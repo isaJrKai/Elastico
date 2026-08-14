@@ -43,7 +43,6 @@ import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts'
 import { useElasticoStore } from '@/store/use-elastico-store'
 
 // ── Types ────────────────────────────────────────────────────────────────────

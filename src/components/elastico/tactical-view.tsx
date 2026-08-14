@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { useElasticoStore } from '@/store/use-elastico-store'
-import { SPACE } from '@/lib/design-system'
 import { TYPE } from '@/lib/design-system'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, legendProps, chartColor } from '@/lib/chart-theme'
 import { TeamCrest } from '@/components/elastico/primitives/team-crest'
@@ -484,7 +483,10 @@ export function TacticalView() {
                     const winner = hVal > aVal ? 'home' : aVal > hVal ? 'away' : 'tie'
                     return (
                       <div key={dim.key} className="flex flex-col gap-1 p-2 rounded-lg bg-muted/30">
-                        <span className={TYPE.caption}>{dim.label}</span>
+                        <div className="flex items-center justify-between">
+                          <span className={TYPE.caption}>{dim.label}</span>
+                          <StatusBadge variant="dataclass" value="DEMO" />
+                        </div>
                         <div className="flex items-baseline gap-1">
                           <span className={cn('text-sm font-bold tabular-nums', winner === 'home' ? 'text-emerald-400' : 'text-muted-foreground')}>
                             {Math.round(hVal)}
@@ -578,35 +580,41 @@ export function TacticalView() {
                   ) : (
                     <div className="flex flex-col gap-2">
                       {homeKeyPlayers.map((player, i) => (
-                        <div
+                        <button
                           key={player.id}
-                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors cursor-default"
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors w-full text-left"
+                          onClick={() => useElasticoStore.getState().setView('players')}
                         >
-                          <span className={cn('text-xs font-bold tabular-nums w-4 text-center text-muted-foreground')}>{i + 1}</span>
-                          <div className="size-8 rounded-full bg-muted/40 flex items-center justify-center">
-                            <span className="text-xs font-bold text-foreground">{player.number}</span>
-                          </div>
+                          <span className="text-xs font-bold tabular-nums w-4 text-center text-muted-foreground">{i + 1}</span>
+                          <PlayerHeadshot name={player.name} position={player.position} size="lg" />
                           <div className="flex-1 min-w-0">
-                            <p className={cn('text-sm font-medium truncate', TYPE.body)}>{player.name}</p>
+                            <p className={TYPE.body + ' font-medium truncate'}>{player.name}</p>
                             <p className={TYPE.caption}>{player.position}</p>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <span className={cn('text-xs text-muted-foreground')}>G</span>
-                              <span className={cn('text-sm font-bold tabular-nums ml-1')}>{player.goals}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">G</span>
+                                <span className="text-sm font-bold tabular-nums">{player.goals}</span>
+                                <StatusBadge variant="dataclass" value="REAL" />
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">A</span>
+                                <span className="text-sm font-bold tabular-nums">{player.assists}</span>
+                                <StatusBadge variant="dataclass" value="REAL" />
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className={cn('text-xs text-muted-foreground')}>A</span>
-                              <span className={cn('text-sm font-bold tabular-nums ml-1')}>{player.assists}</span>
-                            </div>
-                            <div className="text-right">
-                              <span className={cn('text-sm font-bold tabular-nums', player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400')}>
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={cn(
+                                'text-sm font-bold tabular-nums',
+                                player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400',
+                              )}>
                                 {player.rating.toFixed(1)}
                               </span>
-                              <StatusBadge variant="dataclass" value="REAL" className="ml-1" />
+                              <StatusBadge variant="dataclass" value="REAL" />
                             </div>
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -625,35 +633,41 @@ export function TacticalView() {
                   ) : (
                     <div className="flex flex-col gap-2">
                       {awayKeyPlayers.map((player, i) => (
-                        <div
+                        <button
                           key={player.id}
-                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors cursor-default"
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors w-full text-left"
+                          onClick={() => useElasticoStore.getState().setView('players')}
                         >
-                          <span className={cn('text-xs font-bold tabular-nums w-4 text-center text-muted-foreground')}>{i + 1}</span>
-                          <div className="size-8 rounded-full bg-muted/40 flex items-center justify-center">
-                            <span className="text-xs font-bold text-foreground">{player.number}</span>
-                          </div>
+                          <span className="text-xs font-bold tabular-nums w-4 text-center text-muted-foreground">{i + 1}</span>
+                          <PlayerHeadshot name={player.name} position={player.position} size="lg" />
                           <div className="flex-1 min-w-0">
-                            <p className={cn('text-sm font-medium truncate', TYPE.body)}>{player.name}</p>
+                            <p className={TYPE.body + ' font-medium truncate'}>{player.name}</p>
                             <p className={TYPE.caption}>{player.position}</p>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <span className={cn('text-xs text-muted-foreground')}>G</span>
-                              <span className={cn('text-sm font-bold tabular-nums ml-1')}>{player.goals}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">G</span>
+                                <span className="text-sm font-bold tabular-nums">{player.goals}</span>
+                                <StatusBadge variant="dataclass" value="REAL" />
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground">A</span>
+                                <span className="text-sm font-bold tabular-nums">{player.assists}</span>
+                                <StatusBadge variant="dataclass" value="REAL" />
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className={cn('text-xs text-muted-foreground')}>A</span>
-                              <span className={cn('text-sm font-bold tabular-nums ml-1')}>{player.assists}</span>
-                            </div>
-                            <div className="text-right">
-                              <span className={cn('text-sm font-bold tabular-nums', player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400')}>
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={cn(
+                                'text-sm font-bold tabular-nums',
+                                player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400',
+                              )}>
                                 {player.rating.toFixed(1)}
                               </span>
-                              <StatusBadge variant="dataclass" value="REAL" className="ml-1" />
+                              <StatusBadge variant="dataclass" value="REAL" />
                             </div>
                           </div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}

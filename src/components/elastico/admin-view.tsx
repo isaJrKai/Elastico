@@ -20,7 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
+  Tooltip as RTooltip,
   ResponsiveContainer, Cell, PieChart, Pie
 } from 'recharts'
 import {

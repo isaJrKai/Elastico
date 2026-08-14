@@ -248,3 +248,31 @@ Stage Summary:
 - Files: src/components/elastico/prediction-engine-view.tsx
 
 ---
+Task ID: 6b
+Agent: main
+Task: Phase 6b — Tactical view deep audit + cross-view DS compliance sweep
+
+Work Log:
+- Re-audited tactical-view.tsx after context restore: found 6 remaining issues
+- Replaced raw <div> player avatar circles with PlayerHeadshot primitive (home + away player rows)
+- Added missing data-class badges to Goals/Assists numbers in Key Players tab (4 per row × 2 teams)
+- Added DEMO data-class badges to radar dimension breakdown (6 dimensions)
+- Changed style chart data-class from first-item to MIXED (has both REAL and DERIVED metrics)
+- Removed unused selectMatch/setView imports, removed unused SPACE import
+- Changed player rows from <div> to <button> navigating to players view
+- Fixed cn() redundancy (TYPE.body already includes text-sm)
+- Cross-view sweep: found 3 views with Recharts but no chart-theme
+- predictions-view: replaced 4 inline styles with chart-theme (cartesianGridProps, axisProps, tooltipContentStyle, chartColor)
+- admin-view: removed 4 dead Recharts imports (BarChart, Bar, XAxis, YAxis, CartesianGrid)
+- system-monitor-view: removed 5 dead Recharts imports (BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell)
+- match-detail-view: removed 2 dead Recharts imports (BarChart, Bar)
+- Final audit: 0 raw <img>, 0 dead Recharts imports, 0 redundant h1, 0 TS errors
+- Admin PieChart exempt from chart-theme (custom tooltip, data-driven plan colors, no axes)
+
+Stage Summary:
+- tactical-view.tsx: player rows now use PlayerHeadshot, all numbers have data-class badges
+- All views: chart-theme compliance 100% (only PieChart exception in admin)
+- All views: zero dead Recharts imports
+- Files: tactical-view.tsx, predictions-view.tsx, admin-view.tsx, system-monitor-view.tsx, match-detail-view.tsx
+
+---
