@@ -1,0 +1,521 @@
+   495→                          <GitBranch className="w-3.5 h-3.5 text-emerald-400" /> Totals Market
+   496→                        </CardTitle>
+   497→                      </CardHeader>
+   498→                      <CardContent className="space-y-3">
+   499→                        {[
+   500→                          { label: 'Over/Under 1.5', over: analysis.simulation.totalsMarket.over15 },
+   501→                          { label: 'Over/Under 2.5', over: analysis.simulation.totalsMarket.over25 },
+   502→                          { label: 'Over/Under 3.5', over: analysis.simulation.totalsMarket.over35 },
+   503→                        ].map(t => (
+   504→                          <div key={t.label} className="space-y-1">
+   505→                            <div className="flex items-center justify-between text-xs">
+   506→                              <span className="text-zinc-400">{t.label}</span>
+   507→                              <span className="text-zinc-300">O {(t.over * 100).toFixed(1)}% / U {((1 - t.over) * 100).toFixed(1)}%</span>
+   508→                            </div>
+   509→                            <div className="flex h-2 rounded-full overflow-hidden bg-zinc-800">
+   510→                              <motion.div initial={{ width: 0 }} animate={{ width: `${t.over * 100}%` }} transition={{ duration: 0.8 }} className="bg-emerald-500 rounded-l-full" />
+   511→                              <motion.div initial={{ width: 0 }} animate={{ width: `${(1 - t.over) * 100}%` }} transition={{ duration: 0.8 }} className="bg-red-500/70 rounded-r-full" />
+   512→                            </div>
+   513→                          </div>
+   514→                        ))}
+   515→                      </CardContent>
+   516→                    </Card>
+   517→                  </div>
+   518→
+   519→                  {/* Scorelines + xG + BTTS */}
+   520→                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   521→                    <Card className="glass-card border-zinc-800/50">
+   522→                      <CardHeader className="pb-2">
+   523→                        <CardTitle className="text-xs font-medium text-zinc-400">Top 5 Scorelines</CardTitle>
+   524→                      </CardHeader>
+   525→                      <CardContent>
+   526→                        <Table>
+   527→                          <TableHeader><TableRow className="border-zinc-800/50 hover:bg-transparent">
+   528→                            <TableHead className="text-xs text-zinc-500">Score</TableHead>
+   529→                            <TableHead className="text-xs text-zinc-500 text-right">Prob</TableHead>
+   530→                          </TableRow></TableHeader>
+   531→                          <TableBody>
+   532→                            {topScorelines.map((s, i) => (
+   533→                              <TableRow key={s.score} className="border-zinc-800/30 hover:bg-zinc-800/20">
+   534→                                <TableCell className="text-xs font-mono text-zinc-300">{s.score}</TableCell>
+   535→                                <TableCell className="text-xs text-right text-emerald-400 font-medium">{s.prob}%</TableCell>
+   536→                              </TableRow>
+   537→                            ))}
+   538→                          </TableBody>
+   539→                        </Table>
+   540→                      </CardContent>
+   541→                    </Card>
+   542→                    <Card className="glass-card border-zinc-800/50">
+   543→                      <CardHeader className="pb-2">
+   544→                        <CardTitle className="text-xs font-medium text-zinc-400">Expected Goals</CardTitle>
+   545→                      </CardHeader>
+   546→                      <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-3">
+   547→                        <div className="text-center">
+   548→                          <p className="text-3xl font-bold text-white">{analysis.simulation.expectedMeans.home.toFixed(2)}</p>
+   549→                          <p className="text-xs text-zinc-500">Home xG</p>
+   550→                        </div>
+   551→                        <div className="text-center">
+   552→                          <p className="text-3xl font-bold text-white">{analysis.simulation.expectedMeans.away.toFixed(2)}</p>
+   553→                          <p className="text-xs text-zinc-500">Away xG</p>
+   554→                        </div>
+   555→                        <Badge variant="outline" className="text-xs text-zinc-400 border-zinc-700/50">
+   556→                          Total: {analysis.simulation.expectedMeans.total.toFixed(2)}
+   557→                        </Badge>
+   558→                      </CardContent>
+   559→                    </Card>
+   560→                    <Card className="glass-card border-zinc-800/50">
+   561→                      <CardHeader className="pb-2">
+   562→                        <CardTitle className="text-xs font-medium text-zinc-400">BTTS & Volatility</CardTitle>
+   563→                      </CardHeader>
+   564→                      <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-4">
+   565→                        <div className="text-center">
+   566→                          <p className="text-2xl font-bold text-emerald-400">{(analysis.simulation.bothTeamsToScore * 100).toFixed(1)}%</p>
+   567→                          <p className="text-xs text-zinc-500">Both Teams To Score</p>
+   568→                        </div>
+   569→                        <Separator className="bg-zinc-800/50" />
+   570→                        <div className="text-center w-full">
+   571→                          <div className="flex items-center justify-between mb-1">
+   572→                            <span className="text-xs text-zinc-500">Volatility Index</span>
+   573→                            <span className="text-xs font-mono text-zinc-300">{analysis.simulation.volatilityIndex.toFixed(0)}</span>
+   574→                          </div>
+   575→                          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden">
+   576→                            <motion.div
+   577→                              initial={{ width: 0 }}
+   578→                              animate={{ width: `${analysis.simulation.volatilityIndex}%` }}
+   579→                              transition={{ duration: 1 }}
+   580→                              className={cn('h-full rounded-full', analysis.simulation.volatilityIndex > 70 ? 'bg-red-500' : analysis.simulation.volatilityIndex > 40 ? 'bg-amber-500' : 'bg-emerald-500')}
+   581→                            />
+   582→                          </div>
+   583→                        </div>
+   584→                      </CardContent>
+   585→                    </Card>
+   586→                  </div>
+   587→
+   588→                  {/* Asian Handicap */}
+   589→                  <Card className="glass-card border-zinc-800/50">
+   590→                    <CardHeader className="pb-2">
+   591→                      <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
+   592→                        <Gauge className="w-3.5 h-3.5 text-emerald-400" /> Asian Handicap Probabilities
+   593→                      </CardTitle>
+   594→                    </CardHeader>
+   595→                    <CardContent>
+   596→                      <div className="grid grid-cols-4 gap-4">
+   597→                        {ahData.map(ah => (
+   598→                          <div key={ah.line} className="text-center p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 space-y-2">
+   599→                            <p className="text-xs text-zinc-500 font-mono">Line {ah.line}</p>
+   600→                            <div className="space-y-1">
+   601→                              <div className="flex justify-between text-xs">
+   602→                                <span className="text-emerald-400">H {ah.home}%</span>
+   603→                                <span className="text-red-400">A {ah.away}%</span>
+   604→                              </div>
+   605→                              <div className="flex h-1.5 rounded-full overflow-hidden bg-zinc-800">
+   606→                                <motion.div initial={{ width: 0 }} animate={{ width: `${ah.home}%` }} transition={{ duration: 0.8 }} className="bg-emerald-500" />
+   607→                                <motion.div initial={{ width: 0 }} animate={{ width: `${ah.away}%` }} transition={{ duration: 0.8 }} className="bg-red-500/70" />
+   608→                              </div>
+   609→                            </div>
+   610→                          </div>
+   611→                        ))}
+   612→                      </div>
+   613→                    </CardContent>
+   614→                  </Card>
+   615→                </>
+   616→              )}
+   617→            </motion.div>
+   618→          </div>
+   619→        </TabsContent>
+   620→
+   621→        {/* ═════════════════════ TAB 2: KELLY BANKROLL MANAGER ═════════════════════ */}
+   622→        <TabsContent value="kelly" className="space-y-6 mt-6">
+   623→          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   624→            <div className="space-y-4">
+   625→              <Card className="glass-card border-zinc-800/50">
+   626→                <CardHeader className="pb-3">
+   627→                  <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   628→                    <DollarSign className="w-4 h-4 text-emerald-400" /> Bankroll Setup
+   629→                  </CardTitle>
+   630→                </CardHeader>
+   631→                <CardContent className="space-y-3">
+   632→                  <div>
+   633→                    <Label className="text-xs text-zinc-500">Total Bankroll ($)</Label>
+   634→                    <Input type="number" value={kellyBankroll} onChange={e => setKellyBankroll(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   635→                  </div>
+   636→                  <p className="text-xs text-zinc-600">Uses the last simulation results. Run a simulation first for Kelly analysis.</p>
+   637→                  <Button onClick={runKelly} disabled={kellyLoading || !analysis} className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
+   638→                    {kellyLoading ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Calculating...</> : <><Calculator className="w-4 h-4 mr-2" /> CALCULATE KELLY</>}
+   639→                  </Button>
+   640→                </CardContent>
+   641→              </Card>
+   642→
+   643→              {/* Portfolio summary */}
+   644→              {kellyResult && (
+   645→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+   646→                  <Card className="glass-card border-zinc-800/50">
+   647→                    <CardHeader className="pb-2">
+   648→                      <CardTitle className="text-xs font-medium text-zinc-400">Portfolio Summary</CardTitle>
+   649→                    </CardHeader>
+   650→                    <CardContent className="space-y-3">
+   651→                      <div className="flex justify-between text-sm">
+   652→                        <span className="text-zinc-500">Total Exposure</span>
+   653→                        <span className="text-white font-medium">${kellyResult.totalExposure.toFixed(2)}</span>
+   654→                      </div>
+   655→                      <div className="flex justify-between text-sm">
+   656→                        <span className="text-zinc-500">Expected Value</span>
+   657→                        <span className={cn('font-medium', kellyResult.totalExpectedValue >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+   658→                          ${kellyResult.totalExpectedValue.toFixed(2)}
+   659→                        </span>
+   660→                      </div>
+   661→                      <div className="flex justify-between text-sm">
+   662→                        <span className="text-zinc-500">Sharpe Ratio</span>
+   663→                        <span className="text-white font-medium">{kellyResult.sharpeRatio.toFixed(3)}</span>
+   664→                      </div>
+   665→                      <Separator className="bg-zinc-800/50" />
+   666→                      <div className="flex justify-between text-sm">
+   667→                        <span className="text-zinc-500">Bankroll Utilization</span>
+   668→                        <span className="text-emerald-400 font-medium">{((kellyResult.totalExposure / kellyResult.totalBankroll) * 100).toFixed(1)}%</span>
+   669→                      </div>
+   670→                    </CardContent>
+   671→                  </Card>
+   672→
+   673→                  {/* Pie chart */}
+   674→                  {kellyPie.length > 0 && (
+   675→                    <Card className="glass-card border-zinc-800/50">
+   676→                      <CardHeader className="pb-2">
+   677→                        <CardTitle className="text-xs font-medium text-zinc-400">Bankroll Allocation</CardTitle>
+   678→                      </CardHeader>
+   679→                      <CardContent>
+   680→                        <ResponsiveContainer width="100%" height={180}>
+   681→                          <PieChart>
+   682→                            <Pie data={kellyPie} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none" animationDuration={800}>
+   683→                              {kellyPie.map((_, i) => <Cell key={i} fill={chartColor(i)} />)}
+   684→                            </Pie>
+   685→                            <RTooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+   686→                          </PieChart>
+   687→                        </ResponsiveContainer>
+   688→                        <div className="flex flex-wrap gap-2 justify-center mt-1">
+   689→                          {kellyPie.map((p, i) => (
+   690→                            <div key={i} className="flex items-center gap-1 text-xs text-zinc-400">
+   691→                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ['#00e676', '#ffd700', '#ff4757', '#38bdf8', '#c084fc'][i % 5] }} />
+   692→                              {p.name}: ${p.value}
+   693→                            </div>
+   694→                          ))}
+   695→                        </div>
+   696→                      </CardContent>
+   697→                    </Card>
+   698→                  )}
+   699→                </motion.div>
+   700→              )}
+   701→            </div>
+   702→
+   703→            {/* Kelly results table */}
+   704→            <div className="lg:col-span-2">
+   705→              <Card className="glass-card border-zinc-800/50">
+   706→                <CardHeader className="pb-3">
+   707→                  <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   708→                    <Target className="w-4 h-4 text-emerald-400" /> Kelly Criterion Results
+   709→                  </CardTitle>
+   710→                </CardHeader>
+   711→                <CardContent>
+   712→                  {!kellyResult ? (
+   713→                    <div className="flex items-center justify-center h-[300px]">
+   714→                      <p className="text-sm text-zinc-600">Run a simulation, then calculate Kelly allocation</p>
+   715→                    </div>
+   716→                  ) : (
+   717→                    <Table>
+   718→                      <TableHeader>
+   719→                        <TableRow className="border-zinc-800/50 hover:bg-transparent">
+   720→                          <TableHead className="text-xs text-zinc-500">Outcome</TableHead>
+   721→                          <TableHead className="text-xs text-zinc-500 text-right">Model Prob</TableHead>
+   722→                          <TableHead className="text-xs text-zinc-500 text-right">Market Odds</TableHead>
+   723→                          <TableHead className="text-xs text-zinc-500 text-right">Edge %</TableHead>
+   724→                          <TableHead className="text-xs text-zinc-500 text-right">Fraction</TableHead>
+   725→                          <TableHead className="text-xs text-zinc-500 text-right">Wager</TableHead>
+   726→                          <TableHead className="text-xs text-zinc-500 text-center">Action</TableHead>
+   727→                        </TableRow>
+   728→                      </TableHeader>
+   729→                      <TableBody>
+   730→                        {kellyResult.outcomes.map((o, i) => (
+   731→                          <TableRow key={i} className="border-zinc-800/30 hover:bg-zinc-800/20">
+   732→                            <TableCell className="text-xs font-medium text-white">{o.label}</TableCell>
+   733→                            <TableCell className="text-xs text-right text-zinc-300">{(o.modelProb * 100).toFixed(1)}%</TableCell>
+   734→                            <TableCell className="text-xs text-right text-zinc-300">{o.marketOdds.toFixed(2)}</TableCell>
+   735→                            <TableCell className={cn('text-xs text-right font-medium', o.edge > 0 ? 'text-emerald-400' : 'text-red-400')}>
+   736→                              {o.edge > 0 ? '+' : ''}{(o.edge * 100).toFixed(1)}%
+   737→                            </TableCell>
+   738→                            <TableCell className="text-xs text-right text-zinc-300">{(o.kellyFraction * 100).toFixed(1)}%</TableCell>
+   739→                            <TableCell className="text-xs text-right text-white font-medium">${o.wagerAmount.toFixed(2)}</TableCell>
+   740→                            <TableCell className="text-center">
+   741→                              <Badge className={cn('text-[10px] font-bold', ACTION_STYLE[o.action])}>{o.action}</Badge>
+   742→                            </TableCell>
+   743→                          </TableRow>
+   744→                        ))}
+   745→                      </TableBody>
+   746→                    </Table>
+   747→                  )}
+   748→                </CardContent>
+   749→              </Card>
+   750→            </div>
+   751→          </div>
+   752→        </TabsContent>
+   753→
+   754→        {/* ═════════════════════ TAB 3: MARKET SIGNALS ═════════════════════ */}
+   755→        <TabsContent value="signals" className="space-y-6 mt-6">
+   756→          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   757→            <Card className="glass-card border-zinc-800/50">
+   758→              <CardHeader className="pb-3">
+   759→                <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   760→                  <Radio className="w-4 h-4 text-emerald-400" /> Signal Input
+   761→                </CardTitle>
+   762→              </CardHeader>
+   763→              <CardContent className="space-y-3">
+   764→                <div className="grid grid-cols-2 gap-3">
+   765→                  <div>
+   766→                    <Label className="text-xs text-zinc-500">Home Team</Label>
+   767→                    <Select value={sigHomeTeam} onValueChange={setSigHomeTeam}>
+   768→                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Home" /></SelectTrigger>
+   769→                      <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+   770→                    </Select>
+   771→                  </div>
+   772→                  <div>
+   773→                    <Label className="text-xs text-zinc-500">Away Team</Label>
+   774→                    <Select value={sigAwayTeam} onValueChange={setSigAwayTeam}>
+   775→                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Away" /></SelectTrigger>
+   776→                      <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+   777→                    </Select>
+   778→                  </div>
+   779→                </div>
+   780→                <Separator className="bg-zinc-800/50" />
+   781→                <p className="text-xs text-zinc-500 font-medium">Opening Odds</p>
+   782→                <div className="grid grid-cols-3 gap-2">
+   783→                  <Input type="number" step="0.01" placeholder="Home" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   784→                  <Input type="number" step="0.01" placeholder="Draw" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   785→                  <Input type="number" step="0.01" placeholder="Away" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   786→                </div>
+   787→                <p className="text-xs text-zinc-500 font-medium">Current Odds</p>
+   788→                <div className="grid grid-cols-3 gap-2">
+   789→                  <Input type="number" step="0.01" placeholder="Home" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   790→                  <Input type="number" step="0.01" placeholder="Draw" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   791→                  <Input type="number" step="0.01" placeholder="Away" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   792→                </div>
+   793→                <Button onClick={runSignals} disabled={sigLoading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
+   794→                  {sigLoading ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</> : <><Eye className="w-4 h-4 mr-2" /> ANALYZE</>}
+   795→                </Button>
+   796→              </CardContent>
+   797→            </Card>
+   798→
+   799→            <div className="lg:col-span-2 space-y-4">
+   800→              {!signalResult ? (
+   801→                <Card className="glass-card border-zinc-800/50 h-full min-h-[400px] flex items-center justify-center">
+   802→                  <div className="text-center space-y-3">
+   803→                    <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+   804→                      <Radio className="w-8 h-8 text-emerald-400/50" />
+   805→                    </div>
+   806→                    <p className="text-zinc-600 text-sm">Enter opening & current odds to analyze line movements</p>
+   807→                  </div>
+   808→                </Card>
+   809→              ) : (
+   810→                <>
+   811→                  {/* Line Velocity */}
+   812→                  <Card className="glass-card border-zinc-800/50">
+   813→                    <CardHeader className="pb-2">
+   814→                      <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
+   815→                        <Activity className="w-3.5 h-3.5 text-emerald-400" /> Line Velocity
+   816→                      </CardTitle>
+   817→                    </CardHeader>
+   818→                    <CardContent>
+   819→                      <div className="grid grid-cols-3 gap-4">
+   820→                        {(['home', 'draw', 'away'] as const).map(side => {
+   821→                          const vel = signalResult.lineVelocity[side]
+   822→                          const direction = vel > 0 ? 'down' : vel < 0 ? 'up' : 'flat'
+   823→                          return (
+   824→                            <div key={side} className="text-center p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+   825→                              <p className="text-xs text-zinc-500 capitalize mb-1">{side}</p>
+   826→                              <div className="flex items-center justify-center gap-2">
+   827→                                {direction === 'up' && <ArrowUpRight className="w-5 h-5 text-emerald-400" />}
+   828→                                {direction === 'down' && <ArrowDownRight className="w-5 h-5 text-red-400" />}
+   829→                                {direction === 'flat' && <Minus className="w-5 h-5 text-zinc-500" />}
+   830→                                <span className={cn('text-lg font-bold', direction === 'up' ? 'text-emerald-400' : direction === 'down' ? 'text-red-400' : 'text-zinc-400')}>
+   831→                                  {vel > 0 ? '+' : ''}{vel.toFixed(4)}
+   832→                                </span>
+   833→                              </div>
+   834→                            </div>
+   835→                          )
+   836→                        })}
+   837→                      </div>
+   838→                    </CardContent>
+   839→                  </Card>
+   840→
+   841→                  {/* Alerts + Confidence */}
+   842→                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   843→                    <Card className="glass-card border-zinc-800/50">
+   844→                      <CardHeader className="pb-2">
+   845→                        <CardTitle className="text-xs font-medium text-zinc-400">Detection Alerts</CardTitle>
+   846→                      </CardHeader>
+   847→                      <CardContent className="space-y-3">
+   848→                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+   849→                          <div className="flex items-center gap-2">
+   850→                            <Flame className={cn('w-4 h-4', signalResult.steamMove ? 'text-orange-400' : 'text-zinc-600')} />
+   851→                            <span className="text-sm text-zinc-300">Steam Move</span>
+   852→                          </div>
+   853→                          {signalResult.steamMove
+   854→                            ? <Badge className="text-[10px] font-bold bg-orange-500/20 text-orange-400 border-orange-500/30">DETECTED</Badge>
+   855→                            : <Badge className="text-[10px] font-bold bg-zinc-800/60 text-zinc-500 border-zinc-700/50">NONE</Badge>
+   856→                          }
+   857→                        </div>
+   858→                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+   859→                          <div className="flex items-center gap-2">
+   860→                            <AlertOctagon className={cn('w-4 h-4', signalResult.rlmDetected ? 'text-purple-400' : 'text-zinc-600')} />
+   861→                            <span className="text-sm text-zinc-300">RLM Detected</span>
+   862→                          </div>
+   863→                          {signalResult.rlmDetected
+   864→                            ? <Badge className="text-[10px] font-bold bg-purple-500/20 text-purple-400 border-purple-500/30">DETECTED</Badge>
+   865→                            : <Badge className="text-[10px] font-bold bg-zinc-800/60 text-zinc-500 border-zinc-700/50">NONE</Badge>
+   866→                          }
+   867→                        </div>
+   868→                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+   869→                          <div className="flex items-center gap-2">
+   870→                            <Eye className={cn('w-4 h-4', signalResult.sharpAction !== 'neutral' ? 'text-emerald-400' : 'text-zinc-600')} />
+   871→                            <span className="text-sm text-zinc-300">Sharp Action</span>
+   872→                          </div>
+   873→                          <Badge className={cn('text-[10px] font-bold border',
+   874→                            signalResult.sharpAction === 'neutral' ? 'bg-zinc-800/60 text-zinc-500 border-zinc-700/50' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+   875→                          )}>
+   876→                            {signalResult.sharpAction === 'neutral' ? 'NEUTRAL' : signalResult.sharpAction.toUpperCase()}
+   877→                          </Badge>
+   878→                        </div>
+   879→                      </CardContent>
+   880→                    </Card>
+   881→                    <Card className="glass-card border-zinc-800/50">
+   882→                      <CardHeader className="pb-2">
+   883→                        <CardTitle className="text-xs font-medium text-zinc-400">Signal Confidence</CardTitle>
+   884→                      </CardHeader>
+   885→                      <CardContent className="flex flex-col items-center justify-center h-[160px] space-y-3">
+   886→                        <p className="text-4xl font-bold text-white">{(signalResult.confidence * 100).toFixed(0)}%</p>
+   887→                        <div className="w-full h-3 rounded-full bg-zinc-800 overflow-hidden">
+   888→                          <motion.div
+   889→                            initial={{ width: 0 }}
+   890→                            animate={{ width: `${signalResult.confidence * 100}%` }}
+   891→                            transition={{ duration: 1 }}
+   892→                            className={cn('h-full rounded-full', signalResult.confidence > 0.7 ? 'bg-emerald-500' : signalResult.confidence > 0.4 ? 'bg-amber-500' : 'bg-red-500')}
+   893→                          />
+   894→                        </div>
+   895→                        <p className="text-xs text-zinc-500">{signalResult.homeTeam} vs {signalResult.awayTeam}</p>
+   896→                      </CardContent>
+   897→                    </Card>
+   898→                  </div>
+   899→                </>
+   900→              )}
+   901→            </div>
+   902→          </div>
+   903→        </TabsContent>
+   904→
+   905→        {/* ═════════════════════ TAB 4: ENGINE CONFIG ═════════════════════ */}
+   906→        <TabsContent value="config" className="space-y-6 mt-6">
+   907→          <div className="max-w-2xl mx-auto space-y-6">
+   908→            <Card className="glass-card border-zinc-800/50">
+   909→              <CardHeader>
+   910→                <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   911→                  <Settings className="w-4 h-4 text-emerald-400" /> Engine Configuration
+   912→                </CardTitle>
+   913→                <CardDescription className="text-xs text-zinc-500">Fine-tune the stochastic engine parameters</CardDescription>
+   914→              </CardHeader>
+   915→              <CardContent className="space-y-6">
+   916→                {/* Simulation runs */}
+   917→                <div className="space-y-2">
+   918→                  <div className="flex items-center justify-between">
+   919→                    <Label className="text-sm text-zinc-300">Simulation Runs</Label>
+   920→                    <span className="text-xs font-mono text-emerald-400">{config.simulationRuns.toLocaleString()}</span>
+   921→                  </div>
+   922→                  <Slider
+   923→                    value={[config.simulationRuns]}
+   924→                    min={10000} max={500000} step={10000}
+   925→                    onValueChange={([v]) => setConfig(p => ({ ...p, simulationRuns: v }))}
+   926→                  />
+   927→                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>500K</span></div>
+   928→                </div>
+   929→
+   930→                <Separator className="bg-zinc-800/50" />
+   931→
+   932→                {/* Kelly fraction */}
+   933→                <div className="space-y-2">
+   934→                  <div className="flex items-center justify-between">
+   935→                    <Label className="text-sm text-zinc-300">Kelly Fraction</Label>
+   936→                    <span className="text-xs font-mono text-emerald-400">{(config.kellyFraction * 100).toFixed(0)}%</span>
+   937→                  </div>
+   938→                  <Slider
+   939→                    value={[config.kellyFraction * 100]}
+   940→                    min={5} max={100} step={5}
+   941→                    onValueChange={([v]) => setConfig(p => ({ ...p, kellyFraction: v / 100 }))}
+   942→                  />
+   943→                  <div className="flex justify-between text-[10px] text-zinc-600"><span>5% (Quarter)</span><span>100% (Full)</span></div>
+   944→                </div>
+   945→
+   946→                <Separator className="bg-zinc-800/50" />
+   947→
+   948→                {/* Min edge threshold */}
+   949→                <div className="space-y-2">
+   950→                  <div className="flex items-center justify-between">
+   951→                    <Label className="text-sm text-zinc-300">Min Edge Threshold</Label>
+   952→                    <span className="text-xs font-mono text-emerald-400">{(config.minEdgeThreshold * 100).toFixed(1)}%</span>
+   953→                  </div>
+   954→                  <Slider
+   955→                    value={[config.minEdgeThreshold * 100]}
+   956→                    min={0} max={10} step={0.5}
+   957→                    onValueChange={([v]) => setConfig(p => ({ ...p, minEdgeThreshold: v / 100 }))}
+   958→                  />
+   959→                  <div className="flex justify-between text-[10px] text-zinc-600"><span>0%</span><span>10%</span></div>
+   960→                </div>
+   961→
+   962→                <Separator className="bg-zinc-800/50" />
+   963→
+   964→                {/* Max bankroll risk */}
+   965→                <div className="space-y-2">
+   966→                  <div className="flex items-center justify-between">
+   967→                    <Label className="text-sm text-zinc-300">Max Bankroll Risk</Label>
+   968→                    <span className="text-xs font-mono text-emerald-400">{(config.maxBankrollRisk * 100).toFixed(0)}%</span>
+   969→                  </div>
+   970→                  <Slider
+   971→                    value={[config.maxBankrollRisk * 100]}
+   972→                    min={1} max={25} step={1}
+   973→                    onValueChange={([v]) => setConfig(p => ({ ...p, maxBankrollRisk: v / 100 }))}
+   974→                  />
+   975→                  <div className="flex justify-between text-[10px] text-zinc-600"><span>1%</span><span>25%</span></div>
+   976→                </div>
+   977→
+   978→                <Separator className="bg-zinc-800/50" />
+   979→
+   980→                {/* Toggles */}
+   981→                <div className="space-y-4">
+   982→                  <div className="flex items-center justify-between">
+   983→                    <div className="space-y-0.5">
+   984→                      <Label className="text-sm text-zinc-300">GARCH Volatility Model</Label>
+   985→                      <p className="text-[10px] text-zinc-600">Conditional variance estimation for volatility clustering</p>
+   986→                    </div>
+   987→                    <Switch checked={config.garchEnabled} onCheckedChange={v => setConfig(p => ({ ...p, garchEnabled: v }))} />
+   988→                  </div>
+   989→                  <div className="flex items-center justify-between">
+   990→                    <div className="space-y-0.5">
+   991→                      <Label className="text-sm text-zinc-300">Jump-Diffusion Model</Label>
+   992→                      <p className="text-[10px] text-zinc-600">Merton jump process for sudden momentum shifts</p>
+   993→                    </div>
+   994→                    <Switch checked={config.jumpDiffusionEnabled} onCheckedChange={v => setConfig(p => ({ ...p, jumpDiffusionEnabled: v }))} />
+   995→                  </div>
+   996→                </div>
+   997→
+   998→                <Separator className="bg-zinc-800/50" />
+   999→
+  1000→                <div className="flex gap-3">
+  1001→                  <Button onClick={saveConfig} disabled={configLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
+  1002→                    <Save className="w-4 h-4 mr-2" /> {configLoading ? 'Saving...' : 'Save Configuration'}
+  1003→                  </Button>
+  1004→                  <Button onClick={resetConfig} variant="outline" className="border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl">
+  1005→                    <RotateCcw className="w-4 h-4 mr-2" /> Reset
+  1006→                  </Button>
+  1007→                </div>
+  1008→              </CardContent>
+  1009→            </Card>
+  1010→          </div>
+  1011→        </TabsContent>
+  1012→      </Tabs>
+  1013→    </div>
+  1014→  )
+  1015→}

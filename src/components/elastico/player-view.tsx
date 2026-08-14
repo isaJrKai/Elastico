@@ -55,6 +55,8 @@ import {
 import { useElasticoStore, type Player } from '@/store/use-elastico-store'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
+import { StatusBadge } from '@/components/elastico/primitives/status-badge'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -500,10 +502,10 @@ export function PlayerView() {
                         <div className="h-48">
                           <ResponsiveContainer width="100%" height="100%">
                             <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="65%">
-                              <PolarGrid stroke="hsl(var(--border))" />
-                              <PolarAngleAxis dataKey="stat" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                              <PolarRadiusAxis tick={{ fontSize: 8 }} stroke="hsl(var(--muted-foreground))" domain={[0, 100]} />
-                              <Radar dataKey="value" stroke="#00e676" fill="#00e676" fillOpacity={0.15} strokeWidth={2} />
+                              <PolarGrid stroke="rgba(255,255,255,0.06)" />
+                              <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 9, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
+                              <PolarRadiusAxis tick={false} domain={[0, 100]} axisLine={false} />
+                              <Radar dataKey="value" stroke={chartColor(0)} fill={chartColor(0)} fillOpacity={0.15} strokeWidth={2} />
                             </RadarChart>
                           </ResponsiveContainer>
                         </div>
@@ -573,10 +575,10 @@ export function PlayerView() {
                     <p className="text-xs text-center text-primary mb-1">{selectedPlayer.name}</p>
                     <ResponsiveContainer width="100%" height="100%">
                       <RadarChart data={Object.entries(generateRadarStats(selectedPlayer)).map(([k, v]) => ({ stat: k, value: v }))}>
-                        <PolarGrid stroke="hsl(var(--border))" />
-                        <PolarAngleAxis dataKey="stat" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                        <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 8 }} stroke="hsl(var(--muted-foreground))" />
-                        <Radar dataKey="value" stroke="#00e676" fill="#00e676" fillOpacity={0.15} strokeWidth={2} />
+                        <PolarGrid stroke="rgba(255,255,255,0.06)" />
+                        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 9, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
+                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                        <Radar dataKey="value" stroke={chartColor(0)} fill={chartColor(0)} fillOpacity={0.15} strokeWidth={2} />
                       </RadarChart>
                     </ResponsiveContainer>
                   </div>
@@ -584,10 +586,10 @@ export function PlayerView() {
                     <p className="text-xs text-center text-orange-400 mb-1">{comparePlayer.name}</p>
                     <ResponsiveContainer width="100%" height="100%">
                       <RadarChart data={Object.entries(generateRadarStats(comparePlayer)).map(([k, v]) => ({ stat: k, value: v }))}>
-                        <PolarGrid stroke="hsl(var(--border))" />
-                        <PolarAngleAxis dataKey="stat" tick={{ fontSize: 9 }} stroke="hsl(var(--muted-foreground))" />
-                        <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 8 }} stroke="hsl(var(--muted-foreground))" />
-                        <Radar dataKey="value" stroke="#ff5252" fill="#ff5252" fillOpacity={0.15} strokeWidth={2} />
+                        <PolarGrid stroke="rgba(255,255,255,0.06)" />
+                        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 9, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
+                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                        <Radar dataKey="value" stroke={chartColor(1)} fill={chartColor(1)} fillOpacity={0.15} strokeWidth={2} />
                       </RadarChart>
                     </ResponsiveContainer>
                   </div>
@@ -609,11 +611,11 @@ export function PlayerView() {
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={topByValue} layout="vertical" barSize={18}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis type="number" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" unit="M" />
-                    <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={110} />
-                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `€${v}M`} />
-                    <Bar dataKey="marketValue" fill="#00e676" radius={[0, 4, 4, 0]} />
+                    <CartesianGrid {...cartesianGridProps} />
+                    <XAxis type="number" {...axisProps} tick={{ ...axisProps.tick, fontSize: 10 }} unit="M" />
+                    <YAxis dataKey="name" type="category" {...axisProps} tick={{ ...axisProps.tick, fontSize: 10 }} width={110} />
+                    <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => `€${v}M`} />
+                    <Bar dataKey="marketValue" fill={chartColor(0)} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -636,17 +638,26 @@ export function PlayerView() {
                     <span className="text-xs text-muted-foreground">{group.length} players</span>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Avg Rating</span>
-                      <span className={cn('font-bold', getRatingColor(parseFloat(avgRating)))}>{avgRating}</span>
+                      <div className="flex items-center gap-1">
+                        <span className={cn('font-bold', getRatingColor(parseFloat(avgRating)))}>{avgRating}</span>
+                        <StatusBadge variant="dataclass" value="REAL" />
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Total Goals</span>
-                      <span className="font-bold">{totalGoals}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-bold">{totalGoals}</span>
+                        <StatusBadge variant="dataclass" value="REAL" />
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Total Assists</span>
-                      <span className="font-bold">{totalAssists}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-bold">{totalAssists}</span>
+                        <StatusBadge variant="dataclass" value="REAL" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -665,11 +676,11 @@ export function PlayerView() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={ageData} barSize={40}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="range" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-                    <Bar dataKey="count" fill="#00e676" radius={[4, 4, 0, 0]} name="Players" />
+                    <CartesianGrid {...cartesianGridProps} />
+                    <XAxis dataKey="range" {...axisProps} />
+                    <YAxis {...axisProps} />
+                    <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+                    <Bar dataKey="count" fill={chartColor(0)} radius={[4, 4, 0, 0]} name="Players" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -802,7 +813,10 @@ export function PlayerView() {
                           <div className="text-[10px] text-muted-foreground">{player.position} · {player.teamName}</div>
                         </div>
                         <div className="text-right">
-                          <div className="text-lg font-bold text-primary">{similarity}%</div>
+                          <div className="flex items-center gap-1 justify-end">
+                            <span className="text-lg font-bold text-primary">{similarity}%</span>
+                            <StatusBadge variant="dataclass" value="DERIVED" />
+                          </div>
                           <div className="text-[10px] text-muted-foreground">similar</div>
                         </div>
                       </div>
@@ -887,10 +901,10 @@ export function PlayerView() {
                 <p className="text-xs text-muted-foreground mb-2 text-center">Attribute Radar</p>
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={Object.entries(generateRadarStats(selectedPlayer)).map(([k, v]) => ({ stat: k, value: v }))}>
-                    <PolarGrid stroke="hsl(var(--border))" />
-                    <PolarAngleAxis dataKey="stat" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                    <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 8 }} stroke="hsl(var(--muted-foreground))" />
-                    <Radar dataKey="value" stroke="#00e676" fill="#00e676" fillOpacity={0.15} strokeWidth={2} />
+                    <PolarGrid stroke="rgba(255,255,255,0.06)" />
+                    <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 10, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
+                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar dataKey="value" stroke={chartColor(0)} fill={chartColor(0)} fillOpacity={0.15} strokeWidth={2} />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>

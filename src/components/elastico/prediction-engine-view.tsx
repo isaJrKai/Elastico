@@ -25,6 +25,8 @@ import {
 } from 'lucide-react'
 import type { MatchInput, FullMatchAnalysis, EngineConfig, InjuryAdjustment } from '@/lib/prediction-engine'
 import { cn } from '@/lib/utils'
+import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
+import { StatusBadge } from '@/components/elastico/primitives/status-badge'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
@@ -230,9 +232,9 @@ export default function PredictionEngineView() {
 
   // ── Derived visuals ───────────────────────────────────────────────────────────
   const probBars = analysis ? [
-    { name: 'Home', value: +(analysis.simulation.matchProbabilities.homeVictory * 100).toFixed(1), fill: '#00e676' },
-    { name: 'Draw', value: +(analysis.simulation.matchProbabilities.draw * 100).toFixed(1), fill: '#ffd700' },
-    { name: 'Away', value: +(analysis.simulation.matchProbabilities.awayVictory * 100).toFixed(1), fill: '#ff4757' },
+    { name: 'Home', value: +(analysis.simulation.matchProbabilities.homeVictory * 100).toFixed(1), fill: chartColor(0) },
+    { name: 'Draw', value: +(analysis.simulation.matchProbabilities.draw * 100).toFixed(1), fill: chartColor(2) },
+    { name: 'Away', value: +(analysis.simulation.matchProbabilities.awayVictory * 100).toFixed(1), fill: chartColor(4) },
   ] : []
 
   const topScorelines = analysis
@@ -242,12 +244,12 @@ export default function PredictionEngineView() {
     : []
 
   const totalsData = analysis ? [
-    { name: 'O1.5', value: +(analysis.simulation.totalsMarket.over15 * 100).toFixed(1), fill: '#00e676' },
-    { name: 'U1.5', value: +(100 - analysis.simulation.totalsMarket.over15 * 100).toFixed(1), fill: '#ff4757' },
-    { name: 'O2.5', value: +(analysis.simulation.totalsMarket.over25 * 100).toFixed(1), fill: '#00e676' },
-    { name: 'U2.5', value: +(analysis.simulation.totalsMarket.under25 * 100).toFixed(1), fill: '#ff4757' },
-    { name: 'O3.5', value: +(analysis.simulation.totalsMarket.over35 * 100).toFixed(1), fill: '#00e676' },
-    { name: 'U3.5', value: +(100 - analysis.simulation.totalsMarket.over35 * 100).toFixed(1), fill: '#ff4757' },
+    { name: 'O1.5', value: +(analysis.simulation.totalsMarket.over15 * 100).toFixed(1), fill: chartColor(0) },
+    { name: 'U1.5', value: +(100 - analysis.simulation.totalsMarket.over15 * 100).toFixed(1), fill: chartColor(4) },
+    { name: 'O2.5', value: +(analysis.simulation.totalsMarket.over25 * 100).toFixed(1), fill: chartColor(0) },
+    { name: 'U2.5', value: +(analysis.simulation.totalsMarket.under25 * 100).toFixed(1), fill: chartColor(4) },
+    { name: 'O3.5', value: +(analysis.simulation.totalsMarket.over35 * 100).toFixed(1), fill: chartColor(0) },
+    { name: 'U3.5', value: +(100 - analysis.simulation.totalsMarket.over35 * 100).toFixed(1), fill: chartColor(4) },
   ] : []
 
   const ahData = analysis ? [
@@ -259,7 +261,7 @@ export default function PredictionEngineView() {
 
   const kellyPie = kellyResult ? kellyResult.outcomes
     .filter(o => o.action === 'BET')
-    .map(o => ({ name: o.label, value: +o.wagerAmount.toFixed(2), fill: '#00e676' }))
+    .map(o => ({ name: o.label, value: +o.wagerAmount.toFixed(2), fill: chartColor(0) }))
     : []
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -477,9 +479,9 @@ export default function PredictionEngineView() {
                       <CardContent>
                         <ResponsiveContainer width="100%" height={160}>
                           <BarChart data={probBars} barSize={32} layout="vertical">
-                            <XAxis type="number" domain={[0, 100]} tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} />
-                            <YAxis dataKey="name" type="category" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} width={45} />
-                            <RTooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 8, fontSize: 12 }} />
+                            <XAxis type="number" domain={[0, 100]} {...axisProps} axisLine={false} tickLine={false} />
+                            <YAxis dataKey="name" type="category" {...axisProps} axisLine={false} tickLine={false} width={45} />
+                            <RTooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
                             <Bar dataKey="value" radius={[0, 6, 6, 0]} animationDuration={800}>
                               {probBars.map((e, idx) => <Cell key={idx} fill={e.fill} />)}
                             </Bar>
@@ -678,9 +680,9 @@ export default function PredictionEngineView() {
                         <ResponsiveContainer width="100%" height={180}>
                           <PieChart>
                             <Pie data={kellyPie} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none" animationDuration={800}>
-                              {kellyPie.map((_, i) => <Cell key={i} fill={['#00e676', '#ffd700', '#ff4757', '#38bdf8', '#c084fc'][i % 5]} />)}
+                              {kellyPie.map((_, i) => <Cell key={i} fill={chartColor(i)} />)}
                             </Pie>
-                            <RTooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 8, fontSize: 12 }} />
+                            <RTooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
                           </PieChart>
                         </ResponsiveContainer>
                         <div className="flex flex-wrap gap-2 justify-center mt-1">

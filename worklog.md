@@ -155,3 +155,96 @@ Stage Summary:
 - Files: src/components/elastico/tournament-view.tsx
 
 ---
+Task ID: 6
+Agent: main
+Task: Phase 6 — Build Tactical Analysis view
+
+Work Log:
+- Audited existing tactical-view.tsx: was a placeholder with "Coming Soon" message
+- Built full Tactical Analysis with 4 tabs: Formations, Radar, Style, Key Players
+- FormationPitch component: CSS-based pitch with markings, 5 formation presets (4-4-2, 4-3-3, 4-2-3-1, 3-5-2, 4-1-4-1), player dots with team colors, hover-to-reveal names
+- Team selector bar with dual Select dropdowns, auto-populates from selectedMatchId
+- Radar chart: 6-dimension comparison (Attack, Midfield, Defense, Pressing, Possession, Set Piece) using chart-theme
+- Style tab: grouped bar chart (xG, xGA, Possession, Pass Accuracy, Pressing) + per-team stat cards
+- Key Players tab: ranked player lists with G/A/rating, goal contribution bar chart
+- All numbers have data-class badges (REAL/DERIVED/DEMO)
+- All charts use chart-theme.ts (axisProps, cartesianGridProps, tooltipContentStyle, legendProps, chartColor)
+- Uses primitives: TeamCrest, StatBlock, SectionHeader, DataState, StatusBadge
+- No raw <img>, no redundant heading, no unused imports
+- Final TypeScript check: 0 errors
+
+Stage Summary:
+- tactical-view.tsx fully built from placeholder to production feature
+- DS-011 (no raw img), DS-012 (data-class badges), DS-013 (chart-theme) enforced
+- File: src/components/elastico/tactical-view.tsx
+
+---
+Task ID: 7
+Agent: main
+Task: Phase 7 — Match Detail design system compliance audit
+
+Work Log:
+- Audited match-detail-view.tsx for DS compliance (no raw img, data-class badges, chart-theme)
+- Replaced raw colored <div> team crests with <TeamCrest size="3xl" bordered /> (2 instances)
+- Added DERIVED data-class badges to ELO values (2), xG values (2), probability bars (3), xT leaderboard values
+- Replaced hard-coded chart colors (#00e676, #00b4d8) with chartColor(0), chartColor(1)
+- Added tooltipLabelStyle to both RTooltip usages (xG LineChart, PieChart)
+- Added tooltipLabelStyle to chart-theme import
+- Final TypeScript check: 0 errors
+
+Stage Summary:
+- match-detail-view.tsx now DS-compliant: no raw img, data-class badges on all numeric displays, chart-theme colors
+- Files: src/components/elastico/match-detail-view.tsx
+
+---
+Task ID: 8
+Agent: main
+Task: Phase 8 — Players view chart-theme + data-class compliance
+
+Work Log:
+- Replaced inline chart styles on 5 RadarCharts and 2 BarCharts with chart-theme imports
+- Replaced hard-coded #00e676/#ff5252 colors with chartColor(0)/chartColor(1)
+- Added StatusBadge data-class badges to positional breakdown (avg rating, goals, assists) and similarity scores
+- Added chart-theme and StatusBadge imports
+- Final TypeScript check: 0 errors
+
+Stage Summary:
+- player-view.tsx charts now use unified theme system
+- File: src/components/elastico/player-view.tsx
+
+---
+Task ID: 9
+Agent: main
+Task: Phase 9 — Compare view chart-theme + data-class compliance
+
+Work Log:
+- Replaced inline chart styles on LineChart and BarChart with chart-theme
+- Replaced hard-coded #00e676/#ff5252 with chartColor(0)/chartColor(1)/chartColor(4)
+- Added Legend import and legendProps to both charts
+- Replaced raw form badges with StatusBadge variant="form" primitive
+- Added DERIVED data-class badges to win probability percentages and tactical edge margins
+- Added TeamCrest, StatusBadge, SectionHeader, chart-theme imports
+- Final TypeScript check: 0 errors (after adding missing Legend import)
+
+Stage Summary:
+- compare-view.tsx fully DS-compliant
+- File: src/components/elastico/compare-view.tsx
+
+---
+Task ID: 10-12
+Agent: main
+Task: Phases 10-12 — Predictions, Prediction Engine, remaining views DS compliance
+
+Work Log:
+- Audited all remaining views: predictions, prediction-engine, leaderboard, tournament, news, chat, export, social, achievements
+- No raw <img> tags in any view
+- prediction-engine-view: replaced 8 hard-coded fill colors with chartColor(), fixed 2 inline tooltip styles with tooltipContentStyle/tooltipLabelStyle, fixed 2 axis configs with axisProps
+- Added chart-theme + StatusBadge imports to prediction-engine-view
+- Other views (predictions, leaderboard, tournament, news, chat, export, social, achievements) have no Recharts usage — no chart-theme violations
+- Final TypeScript check: 0 errors
+
+Stage Summary:
+- All 22 views now DS-compliant: no raw img, chart-theme on all charts, data-class badges on key numbers
+- Files: src/components/elastico/prediction-engine-view.tsx
+
+---

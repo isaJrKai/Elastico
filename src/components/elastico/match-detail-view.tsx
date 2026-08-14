@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { axisProps, cartesianGridProps, tooltipContentStyle, chartColor } from '@/lib/chart-theme'
+import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
 import { TeamCrest, StatusBadge } from '@/components/elastico/primitives'
 
 // ── Extended Types ──────────────────────────────────────────────────────────
@@ -231,9 +231,9 @@ export default function MatchDetailView() {
   const totalVotes = (match?.voteDistribution?.home ?? 0) + (match?.voteDistribution?.draw ?? 0) + (match?.voteDistribution?.away ?? 0)
 
   const votePieData = useMemo(() => [
-    { name: 'Home', value: match?.voteDistribution?.home ?? 0, fill: '#00e676' },
-    { name: 'Draw', value: match?.voteDistribution?.draw ?? 0, fill: '#ffd700' },
-    { name: 'Away', value: match?.voteDistribution?.away ?? 0, fill: '#ff4757' },
+    { name: 'Home', value: match?.voteDistribution?.home ?? 0, fill: chartColor(0) },
+    { name: 'Draw', value: match?.voteDistribution?.draw ?? 0, fill: chartColor(2) },
+    { name: 'Away', value: match?.voteDistribution?.away ?? 0, fill: chartColor(4) },
   ].filter(d => d.value > 0), [match])
 
   const xgTimeline = useMemo(() => {
@@ -376,11 +376,12 @@ export default function MatchDetailView() {
               {/* Home */}
               <div className="flex-1 text-center">
                 <div className="flex justify-center mb-3">
-                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: homeTeam?.primaryColor ?? '#555' }}>{homeTeam?.code ?? '?'}</div>
+                  <TeamCrest code={homeTeam?.code ?? '?'} espnLogo={homeTeam?.logo} color={homeTeam?.primaryColor} size="3xl" bordered />
                 </div>
                 <h2 className="text-lg font-bold">{homeTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
                   <Badge variant="outline" className="text-[10px] border-border/50">ELO {match.homeEloBefore ?? homeTeam?.eloRating ?? '—'}</Badge>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
                   {homeTeam?.form && <div className="flex gap-0.5">{homeTeam.form.split('').map((f, i) => <span key={i} className={cn('inline-flex size-4 items-center justify-center rounded text-[9px] font-bold', f === 'W' ? 'bg-emerald-500/20 text-emerald-400' : f === 'D' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400')}>{f}</span>)}</div>}
                 </div>
               </div>
@@ -399,10 +400,16 @@ export default function MatchDetailView() {
                       <span className="text-2xl text-muted-foreground font-light">:</span>
                       <span className={cn('text-5xl font-black tabular-nums', match.awayScore > match.homeScore && isFinished && 'text-primary')}>{match.awayScore}</span>
                     </div>
-                    <div className="flex items-center justify-center gap-3 mt-1 text-[11px] text-cyan-400 font-medium">
-                      <span>xG {match.homeXg.toFixed(1)}</span>
+                    <div className="flex items-center justify-center gap-3 mt-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-cyan-400 font-medium">xG {match.homeXg.toFixed(1)}</span>
+                        <StatusBadge variant="dataclass" value="DERIVED" />
+                      </div>
                       <span className="text-muted-foreground">·</span>
-                      <span>xG {match.awayXg.toFixed(1)}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-cyan-400 font-medium">xG {match.awayXg.toFixed(1)}</span>
+                        <StatusBadge variant="dataclass" value="DERIVED" />
+                      </div>
                     </div>
                   </>
                 )}
@@ -411,11 +418,12 @@ export default function MatchDetailView() {
               {/* Away */}
               <div className="flex-1 text-center">
                 <div className="flex justify-center mb-3">
-                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: awayTeam?.primaryColor ?? '#555' }}>{awayTeam?.code ?? '?'}</div>
+                  <TeamCrest code={awayTeam?.code ?? '?'} espnLogo={awayTeam?.logo} color={awayTeam?.primaryColor} size="3xl" bordered />
                 </div>
                 <h2 className="text-lg font-bold">{awayTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
                   <Badge variant="outline" className="text-[10px] border-border/50">ELO {match.awayEloBefore ?? awayTeam?.eloRating ?? '—'}</Badge>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
                   {awayTeam?.form && <div className="flex gap-0.5">{awayTeam.form.split('').map((f, i) => <span key={i} className={cn('inline-flex size-4 items-center justify-center rounded text-[9px] font-bold', f === 'W' ? 'bg-emerald-500/20 text-emerald-400' : f === 'D' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400')}>{f}</span>)}</div>}
                 </div>
               </div>
@@ -433,17 +441,26 @@ export default function MatchDetailView() {
               <div className="flex items-center gap-2">
                 <span className="text-[10px] w-10 text-right text-emerald-400 font-medium">Home</span>
                 <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-1000" style={{ width: `${homeWinProb}%` }} /></div>
-                <span className="text-[11px] font-bold tabular-nums w-10">{homeWinProb}%</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-bold tabular-nums">{homeWinProb}%</span>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] w-10 text-right text-amber-400 font-medium">Draw</span>
                 <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-1000" style={{ width: `${drawProb}%` }} /></div>
-                <span className="text-[11px] font-bold tabular-nums w-10">{drawProb}%</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-bold tabular-nums">{drawProb}%</span>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] w-10 text-right text-red-400 font-medium">Away</span>
                 <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-red-600 to-red-400 transition-all duration-1000" style={{ width: `${awayWinProb}%` }} /></div>
-                <span className="text-[11px] font-bold tabular-nums w-10">{awayWinProb}%</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-bold tabular-nums">{awayWinProb}%</span>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
+                </div>
               </div>
             </div>
 
@@ -521,9 +538,9 @@ export default function MatchDetailView() {
                     <CartesianGrid {...cartesianGridProps} />
                     <XAxis dataKey="minute" {...axisProps} tick={{ ...axisProps.tick, fontSize: 10 }} />
                     <YAxis {...axisProps} tick={{ ...axisProps.tick, fontSize: 10 }} />
-                    <RTooltip contentStyle={tooltipContentStyle} />
-                    <Line type="monotone" dataKey="Home" stroke="#00e676" strokeWidth={2} dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="Away" stroke="#00b4d8" strokeWidth={2} dot={{ r: 3 }} />
+                    <RTooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+                    <Line type="monotone" dataKey="Home" stroke={chartColor(0)} strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="Away" stroke={chartColor(1)} strokeWidth={2} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : <p className="text-sm text-muted-foreground text-center py-8">No xG data available</p>}
@@ -596,7 +613,10 @@ export default function MatchDetailView() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className="text-sm font-black tabular-nums text-primary">{p.totalXtGained.toFixed(3)}</span>
+                        <div className="flex items-center gap-1 justify-end">
+                          <span className="text-sm font-black tabular-nums text-primary">{p.totalXtGained.toFixed(3)}</span>
+                          <StatusBadge variant="dataclass" value="DERIVED" />
+                        </div>
                         <div className="text-[9px] text-muted-foreground">xT total</div>
                       </div>
                     </div>
@@ -624,7 +644,7 @@ export default function MatchDetailView() {
                         <Pie data={votePieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none">
                           {votePieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                         </Pie>
-                        <RTooltip contentStyle={tooltipContentStyle} />
+                        <RTooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="flex justify-center gap-4 mt-2 text-[11px]">

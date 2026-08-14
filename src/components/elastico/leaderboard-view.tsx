@@ -17,6 +17,7 @@ import {
   Zap, Search, Download, Goal, Users, BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
 import { generateCSV } from '@/lib/export'
 import { toast } from 'sonner'
 
@@ -92,11 +93,11 @@ export default function LeaderboardView() {
       else buckets[4]++
     }
     return [
-      { range: '0-20%', count: buckets[0], fill: '#ff4757' },
-      { range: '20-40%', count: buckets[1], fill: '#ff6b6b' },
-      { range: '40-60%', count: buckets[2], fill: '#ffd700' },
-      { range: '60-80%', count: buckets[3], fill: '#00b4d8' },
-      { range: '80-100%', count: buckets[4], fill: '#00e676' },
+      { range: '0-20%', count: buckets[0], fill: chartColor(4) },
+      { range: '20-40%', count: buckets[1], fill: chartColor(4) },
+      { range: '40-60%', count: buckets[2], fill: chartColor(2) },
+      { range: '60-80%', count: buckets[3], fill: chartColor(1) },
+      { range: '80-100%', count: buckets[4], fill: chartColor(0) },
     ].filter(d => d.count > 0)
   }, [predictors])
 
@@ -270,10 +271,10 @@ export default function LeaderboardView() {
                 {accuracyDistribution.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={accuracyDistribution}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                      <XAxis dataKey="range" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                      <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                      <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+                      <CartesianGrid {...cartesianGridProps} />
+                      <XAxis dataKey="range" {...axisProps} />
+                      <YAxis {...axisProps} />
+                      <RTooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
                       <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                         {accuracyDistribution.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Bar>

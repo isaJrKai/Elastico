@@ -34,9 +34,14 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  Legend,
 } from 'recharts'
 import { useElasticoStore, type Team } from '@/store/use-elastico-store'
 import { cn } from '@/lib/utils'
+import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, legendProps, chartColor } from '@/lib/chart-theme'
+import { TeamCrest } from '@/components/elastico/primitives/team-crest'
+import { StatusBadge } from '@/components/elastico/primitives/status-badge'
+import { SectionHeader } from '@/components/elastico/primitives/section-header'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -125,12 +130,8 @@ export function CompareView() {
   }, [homeTeam, awayTeam])
 
   const getFormBadge = (r: string) => {
-    switch (r) {
-      case 'W': return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 text-xs px-2 py-0">W</Badge>
-      case 'D': return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/20 text-xs px-2 py-0">D</Badge>
-      case 'L': return <Badge className="bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/20 text-xs px-2 py-0">L</Badge>
-      default: return <Badge variant="outline" className="text-xs px-2 py-0">-</Badge>
-    }
+    if (r === 'W' || r === 'D' || r === 'L') return <StatusBadge variant="form" value={r} />
+    return <StatusBadge variant="custom" value="-" />
   }
 
   return (
@@ -223,21 +224,30 @@ export function CompareView() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-primary font-medium">{homeTeam.name}</span>
-                    <span className="font-bold text-primary">{winProb.home}%</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-primary">{winProb.home}%</span>
+                      <StatusBadge variant="dataclass" value="DERIVED" />
+                    </div>
                   </div>
                   <Progress value={winProb.home} className="h-3" />
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Draw</span>
-                    <span className="font-bold">{winProb.draw}%</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold">{winProb.draw}%</span>
+                      <StatusBadge variant="dataclass" value="DERIVED" />
+                    </div>
                   </div>
                   <Progress value={winProb.draw} className="h-3" />
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-orange-400 font-medium">{awayTeam.name}</span>
-                    <span className="font-bold text-orange-400">{winProb.away}%</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-orange-400">{winProb.away}%</span>
+                      <StatusBadge variant="dataclass" value="DERIVED" />
+                    </div>
                   </div>
                   <Progress value={winProb.away} className="h-3" />
                 </div>
@@ -296,12 +306,13 @@ export function CompareView() {
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={eloHistory}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-                        <Line type="monotone" dataKey="home" stroke="#00e676" strokeWidth={2} dot={{ r: 3 }} name={homeTeam.name} />
-                        <Line type="monotone" dataKey="away" stroke="#ff5252" strokeWidth={2} dot={{ r: 3 }} name={awayTeam.name} />
+                        <CartesianGrid {...cartesianGridProps} />
+                        <XAxis dataKey="month" {...axisProps} />
+                        <YAxis {...axisProps} />
+                        <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+                        <Legend {...legendProps} />
+                        <Line type="monotone" dataKey="home" stroke={chartColor(0)} strokeWidth={2} dot={{ r: 3 }} name={homeTeam.name} />
+                        <Line type="monotone" dataKey="away" stroke={chartColor(1)} strokeWidth={2} dot={{ r: 3 }} name={awayTeam.name} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -320,14 +331,15 @@ export function CompareView() {
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={scoringTrends}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="match" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                        <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-                        <Bar dataKey="homeScored" fill="#00e676" radius={[2, 2, 0, 0]} name={`${homeTeam.name} Scored`} />
-                        <Bar dataKey="homeConceded" fill="#00e67640" radius={[2, 2, 0, 0]} name={`${homeTeam.name} Conceded`} />
-                        <Bar dataKey="awayScored" fill="#ff5252" radius={[2, 2, 0, 0]} name={`${awayTeam.name} Scored`} />
-                        <Bar dataKey="awayConceded" fill="#ff525240" radius={[2, 2, 0, 0]} name={`${awayTeam.name} Conceded`} />
+                        <CartesianGrid {...cartesianGridProps} />
+                        <XAxis dataKey="match" {...axisProps} />
+                        <YAxis {...axisProps} />
+                        <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+                        <Legend {...legendProps} />
+                        <Bar dataKey="homeScored" fill={chartColor(0)} radius={[2, 2, 0, 0]} name={`${homeTeam.name} Scored`} />
+                        <Bar dataKey="homeConceded" fill={chartColor(0)} fillOpacity={0.25} radius={[2, 2, 0, 0]} name={`${homeTeam.name} Conceded`} />
+                        <Bar dataKey="awayScored" fill={chartColor(4)} radius={[2, 2, 0, 0]} name={`${awayTeam.name} Scored`} />
+                        <Bar dataKey="awayConceded" fill={chartColor(4)} fillOpacity={0.25} radius={[2, 2, 0, 0]} name={`${awayTeam.name} Conceded`} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -396,9 +408,12 @@ export function CompareView() {
                     <span className="text-sm">{phase}</span>
                     <div className="flex items-center gap-2">
                       <ArrowRight className={cn('size-4', home ? 'text-primary' : 'text-orange-400 rotate-180')} />
-                      <Badge variant="outline" className={cn('text-[10px]', home ? 'text-primary border-primary/30' : 'text-orange-400 border-orange-400/30')}>
-                        {home ? homeTeam.code : awayTeam.code} +{margin}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className={cn('text-[10px]', home ? 'text-primary border-primary/30' : 'text-orange-400 border-orange-400/30')}>
+                          {home ? homeTeam.code : awayTeam.code} +{margin}
+                        </Badge>
+                        <StatusBadge variant="dataclass" value="DERIVED" />
+                      </div>
                     </div>
                   </div>
                 ))}
