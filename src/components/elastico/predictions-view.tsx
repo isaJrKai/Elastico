@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DataState } from '@/components/elastico/primitives'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import {
@@ -46,6 +47,7 @@ export default function PredictionsView() {
   const [predictions, setPredictions] = useState<PredictionRecord[]>([])
   const [leaderboardPos, setLeaderboardPos] = useState<number>(0)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const [sortBy, setSortBy] = useState<'date' | 'confidence' | 'model'>('date')
   const [modelFilter, setModelFilter] = useState('all')
   const [resultFilter, setResultFilter] = useState<'all' | 'correct' | 'incorrect'>('all')
@@ -68,7 +70,7 @@ export default function PredictionsView() {
         const pos = entries.findIndex((e: LeaderboardEntry) => e.id === user?.id)
         setLeaderboardPos(pos >= 0 ? pos + 1 : 0)
       }
-    } catch { /* silent */ } finally { setLoading(false) }
+    } catch { setFetchError(true) } finally { setLoading(false) }
   }, [token, user?.id])
 
   useEffect(() => { fetchPredictions() }, [fetchPredictions])
@@ -131,6 +133,7 @@ export default function PredictionsView() {
   }, [token, fetchPredictions])
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-32 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div>
+  if (fetchError) return <DataState type="error" message="Failed to load predictions. Check your connection and try again." />
 
   return (
     <div className="space-y-5 animate-fade-in-up">

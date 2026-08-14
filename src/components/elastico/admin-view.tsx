@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
+import { StatusBadge } from '@/components/elastico/primitives'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +40,6 @@ import {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const CHART_COLORS = ['#00e676', '#00b4d8', '#ffd700', '#ff4757', '#a855f7', '#f97316', '#06b6d4', '#ec4899']
 const PLAN_COLORS: Record<string, string> = { free: 'bg-gray-500/20 text-gray-300 border-gray-500/30', pro: 'bg-blue-500/20 text-blue-300 border-blue-500/30', elite: 'bg-amber-500/20 text-amber-300 border-amber-500/30' }
 const ROLE_COLORS: Record<string, string> = { admin: 'bg-red-500/20 text-red-300 border-red-500/30', user: 'bg-gray-500/20 text-gray-300 border-gray-500/30', pro: 'bg-blue-500/20 text-blue-300 border-blue-500/30' }
 const ANNOUNCEMENT_TYPES = ['info', 'warning', 'success', 'maintenance']
@@ -55,8 +55,8 @@ function authHeaders() {
 
 // ── Sub-Components ───────────────────────────────────────────────────────────
 
-function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix = '' }: {
-  title: string; value: string | number; icon: any; change?: number; color?: string; suffix?: string
+function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix = '', dataClass }: {
+  title: string; value: string | number; icon: React.ElementType; change?: number; color?: string; suffix?: string; dataClass?: 'REAL' | 'DERIVED' | 'DEMO' | 'SIMULATION' | 'BUG' | 'MIXED'
 }) {
   const isPositive = change !== undefined && change >= 0
   const colorMap: Record<string, string> = {
@@ -76,7 +76,10 @@ function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix 
               <Icon className="h-3 w-3" />
               {title}
             </p>
-            <p className="text-2xl font-bold truncate">{value}{suffix}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-2xl font-bold truncate">{value}{suffix}</p>
+              {dataClass && <StatusBadge variant="dataclass" value={dataClass} />}
+            </div>
             {change !== undefined && (
               <div className={`flex items-center gap-1 text-xs ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                 {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
@@ -94,7 +97,7 @@ function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix 
   )
 }
 
-function SectionCard({ title, icon: Icon, children, className = '' }: { title: string; icon: any; children: React.ReactNode; className?: string }) {
+function SectionCard({ title, icon: Icon, children, className = '' }: { title: string; icon: React.ElementType; children: React.ReactNode; className?: string }) {
   return (
     <Card className={`glass-card animate-fade-in-up ${className}`}>
       <CardHeader className="pb-3 pt-4 px-4">
@@ -581,12 +584,12 @@ export default function AdminView() {
         <TabsContent value="overview" className="space-y-6 mt-6">
           {/* Feature 1: KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <StatCard title="Total Users" value={stats?.totalUsers || 0} icon={Users} color="emerald" />
-            <StatCard title="Active Today" value={stats?.activeToday || 0} icon={Activity} color="blue" />
-            <StatCard title="MRR Revenue" value={`$${(stats?.revenueEstimate || 0).toFixed(0)}`} icon={DollarSign} color="gold" />
-            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate || 0) * 2).toFixed(1) : '—'}`} icon={Target} color="emerald" />
-            <StatCard title="AI Queries" value={stats?.totalApiCalls24h || 0} icon={Brain} color="purple" />
-            <StatCard title="Uptime" value={stats?.uptime ?? '—'} icon={Server} color="emerald" />
+            <StatCard title="Total Users" value={stats?.totalUsers || 0} icon={Users} color="emerald" dataClass="REAL" />
+            <StatCard title="Active Today" value={stats?.activeToday || 0} icon={Activity} color="blue" dataClass="REAL" />
+            <StatCard title="MRR Revenue" value={`$${(stats?.revenueEstimate || 0).toFixed(0)}`} icon={DollarSign} color="gold" dataClass="DERIVED" />
+            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate || 0) * 2).toFixed(1) : '—'}`} icon={Target} color="emerald" dataClass="DERIVED" />
+            <StatCard title="AI Queries" value={stats?.totalApiCalls24h || 0} icon={Brain} color="purple" dataClass="REAL" />
+            <StatCard title="Uptime" value={stats?.uptime ?? '—'} icon={Server} color="emerald" dataClass="REAL" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -600,7 +603,7 @@ export default function AdminView() {
             </SectionCard>
 
             {/* Feature 3: Revenue Breakdown */}
-            <SectionCard title="Revenue Breakdown" icon={PieChart as any}>
+            <SectionCard title="Revenue Breakdown" icon={PieIcon}>
               <div className="h-64 flex items-center">
                 <div className="w-1/2 h-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -619,15 +622,21 @@ export default function AdminView() {
                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                         <span className="text-sm">{item.name}</span>
                       </div>
-                      <span className="text-sm font-bold">{item.value}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold">{item.value}</span>
+                        <StatusBadge variant="dataclass" value="REAL" />
+                      </div>
                     </div>
                   ))}
                   <Separator className="my-2" />
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Pro + Elite Revenue</span>
-                    <span className="text-emerald-400 font-bold text-sm">
-                      ${((stats?.proCount || 0) * 9.99 + (stats?.eliteCount || 0) * 24.99).toFixed(2)}/mo
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-emerald-400 font-bold text-sm">
+                        ${((stats?.proCount || 0) * 9.99 + (stats?.eliteCount || 0) * 24.99).toFixed(2)}/mo
+                      </span>
+                      <StatusBadge variant="dataclass" value="DERIVED" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -688,35 +697,50 @@ export default function AdminView() {
             <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30" onClick={() => { setUserPlanFilter('all'); setUserRoleFilter('all'); setUserStatusFilter('active') }}>
               <CardContent className="p-3 text-center">
                 <Zap className="h-4 w-4 text-amber-400 mx-auto mb-1" />
-                <p className="text-lg font-bold">{userSegments.power}</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <p className="text-lg font-bold">{userSegments.power}</p>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
+                </div>
                 <p className="text-xs text-muted-foreground">Power Users</p>
               </CardContent>
             </Card>
             <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
               <CardContent className="p-3 text-center">
                 <UserX className="h-4 w-4 text-red-400 mx-auto mb-1" />
-                <p className="text-lg font-bold">{userSegments.dormant}</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <p className="text-lg font-bold">{userSegments.dormant}</p>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
+                </div>
                 <p className="text-xs text-muted-foreground">Dormant (7d+)</p>
               </CardContent>
             </Card>
             <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
               <CardContent className="p-3 text-center">
                 <UserPlus className="h-4 w-4 text-emerald-400 mx-auto mb-1" />
-                <p className="text-lg font-bold">{userSegments.newSignups}</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <p className="text-lg font-bold">{userSegments.newSignups}</p>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
+                </div>
                 <p className="text-xs text-muted-foreground">New Signups (7d)</p>
               </CardContent>
             </Card>
             <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
               <CardContent className="p-3 text-center">
                 <Target className="h-4 w-4 text-cyan-400 mx-auto mb-1" />
-                <p className="text-lg font-bold">{userSegments.highAccuracy}</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <p className="text-lg font-bold">{userSegments.highAccuracy}</p>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
+                </div>
                 <p className="text-xs text-muted-foreground">High Accuracy</p>
               </CardContent>
             </Card>
             <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
               <CardContent className="p-3 text-center">
                 <Crown className="h-4 w-4 text-amber-400 mx-auto mb-1" />
-                <p className="text-lg font-bold">{userSegments.paying}</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <p className="text-lg font-bold">{userSegments.paying}</p>
+                  <StatusBadge variant="dataclass" value="DERIVED" />
+                </div>
                 <p className="text-xs text-muted-foreground">Paying Users</p>
               </CardContent>
             </Card>
@@ -974,19 +998,31 @@ export default function AdminView() {
                       </div>
                       <div className="p-3 rounded-lg bg-muted/30">
                         <p className="text-xs text-muted-foreground">Predictions</p>
-                        <p className="text-lg font-bold">{selectedUser.totalPredictions || 0}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-lg font-bold">{selectedUser.totalPredictions || 0}</p>
+                          <StatusBadge variant="dataclass" value="REAL" />
+                        </div>
                       </div>
                       <div className="p-3 rounded-lg bg-muted/30">
                         <p className="text-xs text-muted-foreground">Accuracy</p>
-                        <p className="text-lg font-bold text-emerald-400">{selectedUser.predictionAccuracy || 0}%</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-lg font-bold text-emerald-400">{selectedUser.predictionAccuracy || 0}%</p>
+                          <StatusBadge variant="dataclass" value="DERIVED" />
+                        </div>
                       </div>
                       <div className="p-3 rounded-lg bg-muted/30">
                         <p className="text-xs text-muted-foreground">Best Streak</p>
-                        <p className="text-lg font-bold text-amber-400">{selectedUser.bestStreak || 0}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-lg font-bold text-amber-400">{selectedUser.bestStreak || 0}</p>
+                          <StatusBadge variant="dataclass" value="DERIVED" />
+                        </div>
                       </div>
                       <div className="p-3 rounded-lg bg-muted/30">
                         <p className="text-xs text-muted-foreground">Login Count</p>
-                        <p className="text-lg font-bold">{selectedUser.loginCount || 0}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-lg font-bold">{selectedUser.loginCount || 0}</p>
+                          <StatusBadge variant="dataclass" value="REAL" />
+                        </div>
                       </div>
                     </div>
                     <Separator />
@@ -1358,11 +1394,11 @@ export default function AdminView() {
         <TabsContent value="finance" className="space-y-6 mt-6">
           {/* Feature 23: Revenue Dashboard */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard title="MRR" value={`$${(stats?.revenueEstimate || 0).toFixed(2)}`} icon={DollarSign} color="emerald" />
-            <StatCard title="ARR" value={`$${((stats?.revenueEstimate || 0) * 12).toFixed(0)}`} icon={TrendingUp} color="emerald" />
-            <StatCard title="Churn Rate" value={stats?.churnRate ? `${stats.churnRate}%` : '—'} icon={TrendingDown} color="red" />
-            <StatCard title="LTV" value={stats?.ltv ? `$${stats.ltv}` : '—'} icon={Crown} color="gold" />
-            <StatCard title="ARPU" value={stats?.arpu ? `$${stats.arpu}` : '—'} icon={Users} color="blue" />
+            <StatCard title="MRR" value={`$${(stats?.revenueEstimate || 0).toFixed(2)}`} icon={DollarSign} color="emerald" dataClass="DERIVED" />
+            <StatCard title="ARR" value={`$${((stats?.revenueEstimate || 0) * 12).toFixed(0)}`} icon={TrendingUp} color="emerald" dataClass="DERIVED" />
+            <StatCard title="Churn Rate" value={stats?.churnRate ? `${stats.churnRate}%` : '—'} icon={TrendingDown} color="red" dataClass="DERIVED" />
+            <StatCard title="LTV" value={stats?.ltv ? `$${stats.ltv}` : '—'} icon={Crown} color="gold" dataClass="DERIVED" />
+            <StatCard title="ARPU" value={stats?.arpu ? `$${stats.arpu}` : '—'} icon={Users} color="blue" dataClass="DERIVED" />
           </div>
 
           {/* Revenue Trend Chart */}
@@ -1375,7 +1411,7 @@ export default function AdminView() {
           </SectionCard>
 
           {/* Feature 25: Revenue by Plan Chart */}
-          <SectionCard title="Revenue by Plan (Over Time)" icon={PieChart as any}>
+          <SectionCard title="Revenue by Plan (Over Time)" icon={PieIcon}>
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <PieChart className="size-8 text-muted-foreground/50 mb-3" />
               <p className="text-sm font-medium text-foreground">Revenue by Plan History</p>

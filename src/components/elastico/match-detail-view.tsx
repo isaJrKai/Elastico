@@ -15,7 +15,7 @@ import {
 import {
   ArrowLeft, Bookmark, BookmarkCheck, Share2, Sparkles, Brain, MapPin, Cloud,
   Thermometer, Users, Trophy, Clock, Zap, Target, Activity, ChevronDown,
-  Loader2, AlertCircle, Swords, Flame, MessageSquare, Copy, Check,
+  Loader2, AlertCircle, Swords, Flame, MessageSquare, Copy, Check, RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -336,6 +336,7 @@ export default function MatchDetailView() {
         {/* ── ACTION BAR ── */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" className="h-8 gap-1.5 border-border text-xs" onClick={() => setView('matches')}><ArrowLeft className="size-3.5" />Back</Button>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => { fetchMatch(); toast.success('Match data refreshed') }} disabled={loading}><RefreshCw className={cn('size-3.5', loading && 'animate-spin')} />Refresh</Button>
           <div className="flex-1" />
           <Button variant="ghost" size="sm" className={cn('h-8 gap-1.5 text-xs', bookmarked && 'text-primary')} onClick={handleToggleBookmark}>
             {bookmarked ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />}{bookmarked ? 'Saved' : 'Bookmark'}

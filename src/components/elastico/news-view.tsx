@@ -27,9 +27,11 @@ import {
   ExternalLink,
   ChevronDown,
   Zap,
+  RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { DataState } from '@/components/elastico/primitives'
 
 // ── Categories ────────────────────────────────────────────────────────────────
 
@@ -125,6 +127,7 @@ export default function NewsView() {
 
   const [newsItems, setNewsItems] = useState<NewsItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('')
   const [page, setPage] = useState(1)
@@ -156,7 +159,7 @@ export default function NewsView() {
         setTotalPages(data.pagination?.totalPages || 1)
         setPage(pageNum)
       } catch {
-        // Silent error – show empty state
+        setFetchError(true)
       } finally {
         setIsLoading(false)
       }
@@ -177,7 +180,7 @@ export default function NewsView() {
         setPage(1)
         if (data.news) setNews(data.news)
       })
-      .catch(() => {})
+      .catch(() => { setFetchError(true) })
       .finally(() => setIsLoading(false))
   }, [activeCategory, setNews])
 
@@ -196,7 +199,7 @@ export default function NewsView() {
           setPage(1)
           if (data.news) setNews(data.news)
         })
-        .catch(() => {})
+        .catch(() => { setFetchError(true) })
         .finally(() => setIsLoading(false))
     }, 400)
     return () => clearTimeout(timer)
@@ -244,7 +247,8 @@ export default function NewsView() {
       </div>
 
       {/* ── Search Bar ──────────────────────────────────────────────────────── */}
-      <div className="relative">
+      <div className="flex gap-2">
+        <div className="relative flex-1">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={search}
@@ -252,6 +256,10 @@ export default function NewsView() {
           placeholder="Search news..."
           className="h-10 pl-10 glass-card border-border bg-secondary/30 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-primary/30"
         />
+        </div>
+        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-border bg-secondary/50 hover:bg-accent" onClick={() => { setFetchError(false); fetchNews(1, true) }} disabled={isLoading}>
+          <RefreshCw className={cn('size-4', isLoading && 'animate-spin')} />
+        </Button>
       </div>
 
       {/* ── Category Filter Pills ───────────────────────────────────────────── */}
@@ -297,6 +305,8 @@ export default function NewsView() {
               </Card>
             ))}
           </div>
+        ) : fetchError && newsItems.length === 0 ? (
+          <DataState type="error" message="Failed to load news. Check your connection and try again." />
         ) : newsItems.length === 0 ? (
           // Empty State
           <div className="flex flex-col items-center justify-center gap-4 py-16">

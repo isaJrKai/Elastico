@@ -16,6 +16,7 @@ import {
   Trophy, Target, Crown, Star, Flame, ArrowUp, ArrowDown, Minus,
   Search, Download, Users, BarChart3,
 } from 'lucide-react'
+import { DataState } from '@/components/elastico/primitives/data-state'
 import { StatusBadge } from '@/components/elastico/primitives/status-badge'
 import { cn } from '@/lib/utils'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
@@ -43,6 +44,7 @@ export default function LeaderboardView() {
   const user = useElasticoStore(s => s.user)
   const [predictors, setPredictors] = useState<PredictorEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all')
   const [page, setPage] = useState(1)
@@ -61,7 +63,7 @@ export default function LeaderboardView() {
           rankChange: null,
         })))
       }
-    } catch { /* silent */ } finally { setLoading(false) }
+    } catch { setFetchError(true) } finally { setLoading(false) }
   }, [])
 
   useEffect(() => { fetchLeaderboard() }, [fetchLeaderboard])
@@ -117,6 +119,7 @@ export default function LeaderboardView() {
   const medalColors = ['text-amber-400', 'text-gray-300', 'text-amber-700']
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-64 w-full rounded-xl" /><Skeleton className="h-96 w-full rounded-xl" /></div>
+  if (fetchError) return <DataState type="error" message="Failed to load leaderboard. Check your connection and try again." />
 
   return (
     <div className="space-y-6 animate-fade-in-up">

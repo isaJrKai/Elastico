@@ -276,3 +276,130 @@ Stage Summary:
 - Files: tactical-view.tsx, predictions-view.tsx, admin-view.tsx, system-monitor-view.tsx, match-detail-view.tsx
 
 ---
+---
+Task ID: 13
+Agent: main
+Task: Phase 13 — Secondary screens DS compliance audit
+
+Work Log:
+- Scanned all 22 views + header + command-palette for overlay/panel patterns (Dialog, Sheet, Drawer, Popover, AlertDialog, TabsContent)
+- Found 5 files using overlay components: admin-view (4 Dialogs), news-view (1 Dialog), header (DropdownMenu), settings-view (AlertDialog), command-palette (Dialog)
+- Found 10 files using TabsContent for tab panels
+- Built audit script checking: raw <img>, chart-theme compliance, data-class badges, 'as any' casts, icon: any types, dead imports, local CHART_COLORS
+- Fixed admin-view.tsx (primary target, 1684 lines):
+  - Removed dead CHART_COLORS constant (defined but never referenced)
+  - Typed StatCard icon prop: any → React.ElementType
+  - Typed SectionCard icon prop: any → React.ElementType
+  - Replaced PieChart as any → PieIcon (lucide) in 2 SectionCard usages
+  - Added dataClass prop to StatCard component for inline data-class badge rendering
+  - Added data-class badges to 6 overview KPI StatCards (Total Users=REAL, Active Today=REAL, MRR=DERIVED, Prediction Acc=DERIVED, AI Queries=REAL, Uptime=REAL)
+  - Added data-class badges to 5 finance StatCards (MRR=DERIVED, ARR=DERIVED, Churn=DERIVED, LTV=DERIVED, ARPU=DERIVED)
+  - Added data-class badges to 5 user segmentation cards (all DERIVED: power/dormant/newSignups/highAccuracy/paying)
+  - Added data-class badges to 4 user detail dialog metrics (Predictions=REAL, Accuracy=DERIVED, Best Streak=DERIVED, Login Count=REAL)
+  - Added data-class badges to revenue breakdown legend values (REAL) and Pro+Elite revenue (DERIVED)
+  - Added StatusBadge import from primitives
+- Fixed settings-view.tsx: removed dead Dialog/DialogContent/DialogHeader/DialogTitle/DialogDescription imports (only AlertDialog is used)
+- Verified: command-palette, news-view, header have no DS violations (no numbers/charts/images in their overlays)
+- Final verification: 0 raw <img>, 0 'as any', 0 'icon: any', 0 dead Dialog imports, 0 local CHART_COLORS, 0 TS errors in src/
+
+Stage Summary:
+- admin-view.tsx: 17 data-class badges added across KPI cards, user segments, user detail dialog, revenue breakdown
+- admin-view.tsx: type safety fixed (React.ElementType, PieIcon), dead code removed
+- settings-view.tsx: 5 dead Dialog imports removed
+- All secondary screens (Dialogs, DropdownMenus, AlertDialogs, Tab panels) now DS-compliant
+- Files: admin-view.tsx, settings-view.tsx
+---
+Task ID: 14
+Agent: main
+Task: Phase 14 — Data-truth audit and silent error fix
+
+Work Log:
+- Scanned all views for silent catch blocks that hide data-fetch failures
+- Found 40+ catch blocks across 15 view files
+- Categorized: acceptable (intentional fallback, toast, state update) vs problematic (silent empty)
+- Fixed 4 critical views with silent data-fetch failures:
+  - predictions-view: Added fetchError state + DataState error component + import
+  - leaderboard-view: Added fetchError state + DataState error component + import
+  - news-view: Added fetchError state + DataState in grid (3 fetch locations fixed)
+  - tournament-view: Added fetchError state + DataState in standings table
+- All 4 views now show DataState type="error" with actionable message when fetch fails
+- Error UI differentiates from empty state ("No data" vs "Failed to load")
+- Acceptable catches left untouched (login error states, toast notifications, optimistic update rollbacks, intentional fallbacks)
+- Final TS check: 0 errors in src/
+
+Stage Summary:
+- 4 data-fetching views now surface errors instead of silently showing empty
+- DataState primitive used consistently for error states
+- Files: predictions-view.tsx, leaderboard-view.tsx, news-view.tsx, tournament-view.tsx
+---
+Task ID: 15
+Agent: main
+Task: Phase 15 — Temporal-truth: refresh buttons, loading/error states
+
+Work Log:
+- Audited all 22 views for loading states, refresh mechanisms, and polling
+- Found 8/22 views with Skeleton loading, 6 with refresh buttons, 5 with DataState
+- Only 2 views with auto-polling (matches 30s, settings 2s bandwidth)
+- No views had stale data indicators (deferred — low impact for MVP)
+- Added refresh button to match-detail-view (8 API fetches, was completely missing manual refresh)
+- Added refresh button to news-view (search bar now has a refresh icon button)
+- RefreshCw icon imported in both views, spins during loading, resets error state
+- Match-detail refresh: calls fetchMatch() + toast confirmation
+- News refresh: calls fetchNews(1, true) to reset to page 1 + clears error state
+- Final TS check: 0 errors in src/
+
+Stage Summary:
+- 2 views gained manual refresh capability (match-detail, news)
+- All data-fetching views now have either: Skeleton, DataState, or auto-polling
+- Files: match-detail-view.tsx, news-view.tsx
+---
+Task ID: 16
+Agent: main
+Task: Phase 16 — Performance audit
+
+Work Log:
+- Audited lazy loading: all 22 views already use React.lazy() + Suspense in page.tsx
+- No inline style objects found across any view
+- 4 asset primitives (TeamCrest, PlayerHeadshot, FlagIcon, LeagueBadge) already use React.memo
+- ViewSkeleton component provides consistent loading state during code-splitting
+- No dynamic import needed — architecture already optimized
+
+Stage Summary:
+- No performance changes needed — architecture already well-optimized
+- File sizes: admin 1719 lines (largest), but lazy-loaded so no initial bundle impact
+
+---
+Task ID: 17
+Agent: main
+Task: Phase 17 — Security audit
+
+Work Log:
+- Checked for dangerouslySetInnerHTML: none found
+- Checked for innerHTML: none found
+- Checked for API key exposure: none in client code (settings shows env var name only)
+- Checked localStorage usage: login-view (6), prediction-engine (1), admin (1) — standard JWT patterns
+- Checked auth routes: rate limiting, input sanitization, email/password validation, account lockout
+- Checked for XSS vectors: none found
+
+Stage Summary:
+- No security changes needed — codebase already follows best practices
+- Auth has rate limiting, input sanitization, and account protection
+Task ID: 18
+Agent: main
+Task: Phase 18 — Final polish: accessibility, edge cases, responsive
+
+Work Log:
+- Audited all views for accessibility issues
+- Found 2 icon-only buttons missing aria-label (export-view, player-view)
+- Added aria-label="Share report" to export-view share button
+- Added aria-label="Close player detail" to player-view close button
+- Verified: command-palette has proper role="option" and role="listbox"
+- Verified: login-view password toggle buttons have tabIndex={-1} (intentionally non-tabbable)
+- Verified: chat-view has keyboard handling
+- Responsive: 10/22 views have sm: breakpoints for mobile adaptation
+- No dangerouslySetInnerHTML, no innerHTML, no raw <img>
+- Final TS check: 0 errors in src/
+
+Stage Summary:
+- 2 accessibility fixes (aria-label on icon-only buttons)
+- Files: export-view.tsx, player-view.tsx

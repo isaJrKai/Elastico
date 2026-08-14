@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table'
 import { Trophy, Star, TrendingUp, Zap, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TeamCrest, SectionHeader } from '@/components/elastico/primitives'
+import { TeamCrest, SectionHeader, DataState } from '@/components/elastico/primitives'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -58,6 +58,7 @@ export default function TournamentView() {
   const [selectedLeague, setSelectedLeague] = useState('PL')
   const [standings, setStandings] = useState<StandingTeam[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
 
   const fetchStandings = useCallback(async () => {
     setLoading(true)
@@ -70,6 +71,7 @@ export default function TournamentView() {
         setStandings([])
       }
     } catch {
+      setFetchError(true)
       setStandings([])
     } finally {
       setLoading(false)
@@ -189,6 +191,8 @@ export default function TournamentView() {
         <CardContent className="px-3 pb-3">
           {loading ? (
             <div className="space-y-2">{Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : fetchError && standings.length === 0 ? (
+            <DataState type="error" message="Failed to load standings. Check your connection and try again." />
           ) : standings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Trophy className="mb-3 size-10 opacity-30" />

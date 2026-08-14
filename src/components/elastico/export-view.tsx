@@ -372,7 +372,7 @@ export function ExportView() {
                       {record.status}
                     </Badge>
                     {record.status === 'completed' && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleShareReport(record)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleShareReport(record)} aria-label="Share report">
                         <Share2 className="size-3" />
                       </Button>
                     )}

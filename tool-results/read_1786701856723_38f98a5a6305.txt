@@ -1,0 +1,1259 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react'
+     4→import { useElasticoStore, type Team } from '@/store/use-elastico-store'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Label } from '@/components/ui/label'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Switch } from '@/components/ui/switch'
+    11→import { Separator } from '@/components/ui/separator'
+    12→import { Badge } from '@/components/ui/badge'
+    13→import {
+    14→  Select,
+    15→  SelectContent,
+    16→  SelectItem,
+    17→  SelectTrigger,
+    18→  SelectValue,
+    19→} from '@/components/ui/select'
+    20→import {
+    21→  Dialog,
+    22→  DialogContent,
+    23→  DialogHeader,
+    24→  DialogTitle,
+    25→  DialogDescription,
+    26→} from '@/components/ui/dialog'
+    27→import {
+    28→  AlertDialog,
+    29→  AlertDialogAction,
+    30→  AlertDialogCancel,
+    31→  AlertDialogContent,
+    32→  AlertDialogDescription,
+    33→  AlertDialogFooter,
+    34→  AlertDialogHeader,
+    35→  AlertDialogTitle,
+    36→  AlertDialogTrigger,
+    37→} from '@/components/ui/alert-dialog'
+    38→import { useTheme } from 'next-themes'
+    39→import { toast } from 'sonner'
+    40→import {
+    41→  Settings,
+    42→  User,
+    43→  Palette,
+    44→  Bell,
+    45→  Shield,
+    46→  Heart,
+    47→  Keyboard,
+    48→  Save,
+    49→  Download,
+    50→  Trash2,
+    51→  Loader2,
+    52→  Moon,
+    53→  Sun,
+    54→  PanelLeftClose,
+    55→  PanelLeft,
+    56→  Minimize2,
+    57→  Maximize2,
+    58→  Search,
+    59→  LayoutDashboard,
+    60→  Swords,
+    61→  MessageSquare,
+    62→  Newspaper,
+    63→  Trophy,
+    64→  Target,
+    65→  Star,
+    66→  Plus,
+    67→  X,
+    68→  Check,
+    69→  Monitor,
+    70→  Smartphone,
+    71→  Globe,
+    72→  Cpu,
+    73→  Wifi,
+    74→  WifiOff,
+    75→  CheckCircle2,
+    76→  XCircle,
+    77→  Info,
+    78→  Radio,
+    79→  Zap,
+    80→} from 'lucide-react'
+    81→import { cn } from '@/lib/utils'
+    82→import { usePWA } from '@/hooks/use-pwa'
+    83→
+    84→// ── Timezones ─────────────────────────────────────────────────────────────────
+    85→
+    86→const timezones = [
+    87→  'UTC',
+    88→  'America/New_York',
+    89→  'America/Chicago',
+    90→  'America/Denver',
+    91→  'America/Los_Angeles',
+    92→  'America/Sao_Paulo',
+    93→  'Europe/London',
+    94→  'Europe/Paris',
+    95→  'Europe/Berlin',
+    96→  'Europe/Madrid',
+    97→  'Europe/Rome',
+    98→  'Europe/Istanbul',
+    99→  'Asia/Dubai',
+   100→  'Asia/Kolkata',
+   101→  'Asia/Shanghai',
+   102→  'Asia/Tokyo',
+   103→  'Asia/Seoul',
+   104→  'Australia/Sydney',
+   105→]
+   106→
+   107→// ── Languages ─────────────────────────────────────────────────────────────────
+   108→
+   109→const languages = [
+   110→  { value: 'en', label: 'English' },
+   111→  { value: 'es', label: 'Español' },
+   112→  { value: 'pt', label: 'Português' },
+   113→  { value: 'fr', label: 'Français' },
+   114→  { value: 'de', label: 'Deutsch' },
+   115→  { value: 'ar', label: 'العربية' },
+   116→  { value: 'zh', label: '中文' },
+   117→  { value: 'ja', label: '日本語' },
+   118→  { value: 'ko', label: '한국어' },
+   119→]
+   120→
+   121→// ── Keyboard Shortcuts ────────────────────────────────────────────────────────
+   122→
+   123→const keyboardShortcuts = [
+   124→  { keys: '⌘K', description: 'Search / Command Palette', icon: Search },
+   125→  { keys: '⌘D', description: 'Dashboard', icon: LayoutDashboard },
+   126→  { keys: '⌘M', description: 'Live Matches', icon: Swords },
+   127→  { keys: '⌘C', description: 'AI Chat', icon: MessageSquare },
+   128→  { keys: '⌘N', description: 'News Feed', icon: Newspaper },
+   129→  { keys: '⌘T', description: 'Tournament', icon: Trophy },
+   130→  { keys: '⌘P', description: 'Predictions', icon: Target },
+   131→  { keys: '⌘S', description: 'Settings', icon: Settings },
+   132→  { keys: '⌘B', description: 'Toggle Sidebar', icon: PanelLeftClose },
+   133→  { keys: '⌘/', description: 'Show Shortcuts', icon: Keyboard },
+   134→]
+   135→
+   136→// ── Section Header ────────────────────────────────────────────────────────────
+   137→
+   138→function SectionHeader({
+   139→  icon: Icon,
+   140→  title,
+   141→  description,
+   142→}: {
+   143→  icon: React.ElementType
+   144→  title: string
+   145→  description?: string
+   146→}) {
+   147→  return (
+   148→    <div className="mb-4 flex items-center gap-3">
+   149→      <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15">
+   150→        <Icon className="size-4.5 text-primary" />
+   151→      </div>
+   152→      <div>
+   153→        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+   154→        {description && (
+   155→          <p className="text-xs text-muted-foreground">{description}</p>
+   156→        )}
+   157→      </div>
+   158→    </div>
+   159→  )
+   160→}
+   161→
+   162→// ── NVIDIA API Status Badge ────────────────────────────────────────────────────
+   163→
+   164→function NvidiaApiStatusBadge({ token }: { token?: string }) {
+   165→  const [status, setStatus] = React.useState<'loading' | 'connected' | 'disconnected'>('loading')
+   166→
+   167→  React.useEffect(() => {
+   168→    fetch('/api/chat', {
+   169→      method: 'POST',
+   170→      headers: {
+   171→        'Content-Type': 'application/json',
+   172→        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+   173→      },
+   174→      body: JSON.stringify({ message: '__status_check__', model: 'pro', stream: false }),
+   175→    })
+   176→      .then((res) => res.json())
+   177→      .then((data) => {
+   178→        if (data.model === 'pro') {
+   179→          setStatus('connected')
+   180→        } else if (data.model === 'mock-fallback') {
+   181→          setStatus('disconnected')
+   182→        } else {
+   183→          setStatus('disconnected')
+   184→        }
+   185→      })
+   186→      .catch(() => setStatus('disconnected'))
+   187→  }, [])
+   188→
+   189→  if (status === 'loading') {
+   190→    return (
+   191→      <Badge variant="outline" className="gap-1.5 text-xs border-border">
+   192→        <Loader2 className="size-3 animate-spin text-muted-foreground" />
+   193→        Checking...
+   194→      </Badge>
+   195→    )
+   196→  }
+   197→
+   198→  if (status === 'connected') {
+   199→    return (
+   200→      <Badge variant="outline" className="gap-1.5 text-xs border-emerald-500/30 text-emerald-400 bg-emerald-500/5">
+   201→        <CheckCircle2 className="size-3" />
+   202→        Connected
+   203→      </Badge>
+   204→    )
+   205→  }
+   206→
+   207→  return (
+   208→    <Badge variant="outline" className="gap-1.5 text-xs border-amber-500/30 text-amber-400 bg-amber-500/5">
+   209→      <XCircle className="size-3" />
+   210→      Not Configured
+   211→    </Badge>
+   212→  )
+   213→}
+   214→
+   215→// ── Model Row ──────────────────────────────────────────────────────────────────
+   216→
+   217→function ModelRow({
+   218→  name,
+   219→  model,
+   220→  description,
+   221→  icon: Icon,
+   222→  recommended = false,
+   223→  offline = false,
+   224→}: {
+   225→  name: string
+   226→  model: string
+   227→  description: string
+   228→  icon: React.ElementType
+   229→  recommended?: boolean
+   230→  offline?: boolean
+   231→}) {
+   232→  return (
+   233→    <div className="flex items-center gap-3 rounded-lg border border-border bg-secondary/20 p-3 transition-colors hover:bg-secondary/40">
+   234→      <div className={cn(
+   235→        'flex size-8 items-center justify-center rounded-lg',
+   236→        offline ? 'bg-muted' : 'bg-primary/10',
+   237→      )}>
+   238→        <Icon className={cn('size-4', offline ? 'text-muted-foreground' : 'text-primary')} />
+   239→      </div>
+   240→      <div className="flex-1 min-w-0">
+   241→        <div className="flex items-center gap-2">
+   242→          <p className="text-xs font-medium text-foreground">{name}</p>
+   243→          {recommended && (
+   244→            <Badge className="h-4 px-1.5 text-[9px] bg-primary/15 text-primary border-primary/20 hover:bg-primary/20">
+   245→              Recommended
+   246→            </Badge>
+   247→          )}
+   248→          {offline && (
+   249→            <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-border text-muted-foreground">
+   250→              Offline
+   251→            </Badge>
+   252→          )}
+   253→        </div>
+   254→        <p className="text-[11px] text-muted-foreground truncate">{description}</p>
+   255→        <p className="mt-0.5 font-mono text-[10px] text-muted-foreground/60 truncate">{model}</p>
+   256→      </div>
+   257→    </div>
+   258→  )
+   259→}
+   260→
+   261→// ── Bandwidth & Offline Section ────────────────────────────────────────────────
+   262→
+   263→function BandwidthSection() {
+   264→  const [bandwidth, setBandwidth] = useState<{ totalKB: number; requests: number; avgBytesPerRequest: number } | null>(null)
+   265→  const { isOffline, isRegistered, isStandalone, clearCache } = usePWA()
+   266→
+   267→  useEffect(() => {
+   268→    // Poll bandwidth tracker every 2 seconds
+   269→    const load = async () => {
+   270→      try {
+   271→        const mod = await import('@/lib/compressed-data-stream')
+   272→        setBandwidth(mod.BandwidthTracker.summary())
+   273→      } catch {}
+   274→    }
+   275→    load()
+   276→    const interval = setInterval(load, 2000)
+   277→    return () => clearInterval(interval)
+   278→  }, [])
+   279→
+   280→  return (
+   281→    <Card className="glass-card border-border">
+   282→      <CardHeader className="pb-4">
+   283→        <SectionHeader
+   284→          icon={Radio}
+   285→          title="Bandwidth & Offline"
+   286→          description="PWA caching & data usage monitoring"
+   287→        />
+   288→      </CardHeader>
+   289→      <CardContent className="space-y-4">
+   290→        {/* PWA Status Grid */}
+   291→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   292→          <StatusPill
+   293→            label="Network"
+   294→            value={isOffline ? 'Offline' : 'Online'}
+   295→            active={!isOffline}
+   296→            icon={isOffline ? WifiOff : Wifi}
+   297→          />
+   298→          <StatusPill
+   299→            label="App Cached"
+   300→            value={isRegistered ? 'Yes' : 'No'}
+   301→            active={isRegistered}
+   302→            icon={Smartphone}
+   303→          />
+   304→          <StatusPill
+   305→            label="Standalone"
+   306→            value={isStandalone ? 'Yes' : 'No'}
+   307→            active={isStandalone}
+   308→            icon={Monitor}
+   309→          />
+   310→          <StatusPill
+   311→            label="Data Used"
+   312→            value={bandwidth ? `${bandwidth.totalKB.toFixed(1)} KB` : '—'}
+   313→            active={bandwidth ? bandwidth.totalKB < 100 : true}
+   314→            icon={Zap}
+   315→          />
+   316→        </div>
+   317→
+   318→        {/* Bandwidth Details */}
+   319→        {bandwidth && (
+   320→          <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
+   321→            <div className="flex items-center justify-between text-sm">
+   322→              <span className="text-muted-foreground">API Requests</span>
+   323→              <span className="font-mono text-foreground">{bandwidth.requests}</span>
+   324→            </div>
+   325→            <div className="flex items-center justify-between text-sm">
+   326→              <span className="text-muted-foreground">Avg per Request</span>
+   327→              <span className="font-mono text-foreground">{bandwidth.avgBytesPerRequest} B</span>
+   328→            </div>
+   329→            <div className="flex items-center justify-between text-sm">
+   330→              <span className="text-muted-foreground">Total Today</span>
+   331→              <span className={cn(
+   332→                'font-mono font-medium',
+   333→                bandwidth.totalKB < 50 ? 'text-emerald-400' : bandwidth.totalKB < 200 ? 'text-amber-400' : 'text-red-400'
+   334→              )}>
+   335→                {bandwidth.totalKB.toFixed(1)} KB
+   336→              </span>
+   337→            </div>
+   338→          </div>
+   339→        )}
+   340→
+   341→        {/* Compression Features */}
+   342→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   343→          {[
+   344→            { label: 'Null Stripping', desc: 'Removes 30-60% empty fields' },
+   345→            { label: 'Key Compaction', desc: '2-char keys in compact mode' },
+   346→            { label: 'Service Worker', desc: '0 MB data on app reopen' },
+   347→            { label: 'Diff Updates', desc: 'Only changed data sent' },
+   348→          ].map((f) => (
+   349→            <div key={f.label} className="flex items-center gap-2.5 rounded-md border border-border bg-secondary/20 px-3 py-2">
+   350→              <CheckCircle2 className="size-3.5 text-primary shrink-0" />
+   351→              <div>
+   352→                <p className="text-xs font-medium text-foreground">{f.label}</p>
+   353→                <p className="text-[10px] text-muted-foreground">{f.desc}</p>
+   354→              </div>
+   355→            </div>
+   356→          ))}
+   357→        </div>
+   358→
+   359→        {/* Clear Cache Button */}
+   360→        {isRegistered && (
+   361→          <Button
+   362→            variant="outline"
+   363→            size="sm"
+   364→            className="w-full border-border text-xs"
+   365→            onClick={async () => {
+   366→              await clearCache()
+   367→              toast.success('Cache Cleared', { description: 'App will re-download fresh data on next load.' })
+   368→            }}
+   369→          >
+   370→            <Trash2 className="size-3.5 mr-2" />
+   371→            Clear Offline Cache & Re-download
+   372→          </Button>
+   373→        )}
+   374→
+   375→        <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
+   376→          <Info className="mt-0.5 size-4 shrink-0 text-primary/70" />
+   377→          <p className="text-[11px] leading-relaxed text-muted-foreground">
+   378→            After the first visit, ELASTICO caches itself (~5 MB) to your device storage.
+   379→            Subsequent opens load instantly from your phone — using <strong className="text-foreground">0 MB mobile data</strong>.
+   380→            Live match updates use compressed diff payloads under 5 KB per cycle.
+   381→          </p>
+   382→        </div>
+   383→      </CardContent>
+   384→    </Card>
+   385→  )
+   386→}
+   387→
+   388→function StatusPill({ label, value, active, icon: Icon }: { label: string; value: string; active: boolean; icon: React.ComponentType<{ className?: string }> }) {
+   389→  return (
+   390→    <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border bg-secondary/30 p-3 text-center">
+   391→      <Icon className={cn('size-4', active ? 'text-primary' : 'text-muted-foreground')} />
+   392→      <span className="text-[10px] text-muted-foreground">{label}</span>
+   393→      <span className={cn('text-xs font-medium', active ? 'text-foreground' : 'text-muted-foreground')}>{value}</span>
+   394→    </div>
+   395→  )
+   396→}
+   397→
+   398→// ── Settings View Component ───────────────────────────────────────────────────
+   399→
+   400→export default function SettingsView() {
+   401→  const user = useElasticoStore(s => s.user)
+   402→  const setSidebarOpen = useElasticoStore(s => s.setSidebarOpen)
+   403→  const sidebarOpen = useElasticoStore(s => s.sidebarOpen)
+   404→  const token = useElasticoStore(s => s.token)
+   405→  const { theme, setTheme } = useTheme()
+   406→
+   407→  // ── Profile State ─────────────────────────────────────────────────────────
+   408→  const [displayName, setDisplayName] = useState(user?.displayName || user?.name || '')
+   409→  const [bio, setBio] = useState('')
+   410→  const [location, setLocation] = useState('')
+   411→  const [timezone, setTimezone] = useState('UTC')
+   412→  const [language, setLanguage] = useState('en')
+   413→
+   414→  // ── Appearance State ──────────────────────────────────────────────────────
+   415→  const [compactMode, setCompactMode] = useState(false)
+   416→
+   417→  // ── Notification State ────────────────────────────────────────────────────
+   418→  const [notifications, setNotifications] = useState({
+   419→    goals: true,
+   420→    cards: true,
+   421→    kickoff: true,
+   422→    predictionResults: true,
+   423→    system: false,
+   424→    news: true,
+   425→    sound: true,
+   426→    push: false,
+   427→  })
+   428→
+   429→  // ── Security State ────────────────────────────────────────────────────────
+   430→  const [currentPassword, setCurrentPassword] = useState('')
+   431→  const [newPassword, setNewPassword] = useState('')
+   432→  const [confirmPassword, setConfirmPassword] = useState('')
+   433→  const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.twoFactorEnabled || false)
+   434→
+   435→  // ── Favorite Teams ────────────────────────────────────────────────────────
+   436→  const [favoriteTeams, setFavoriteTeams] = useState<string[]>(() => {
+   437→    try {
+   438→      return user?.favoriteTeams ? JSON.parse(user.favoriteTeams) : []
+   439→    } catch {
+   440→      return []
+   441→    }
+   442→  })
+   443→  const [availableTeams, setAvailableTeams] = useState<Team[]>([])
+   444→  const [teamsLoading, setTeamsLoading] = useState(false)
+   445→  const [teamSearch, setTeamSearch] = useState('')
+   446→
+   447→  // ── Fetch Teams ───────────────────────────────────────────────────────────
+   448→
+   449→  useEffect(() => {
+   450→    const fetchTeams = async () => {
+   451→      setTeamsLoading(true)
+   452→      try {
+   453→        const res = await fetch('/api/teams')
+   454→        if (res.ok) {
+   455→          const data = await res.json()
+   456→          setAvailableTeams(data.teams || [])
+   457→        }
+   458→      } catch {
+   459→        // Silent error
+   460→      } finally {
+   461→        setTeamsLoading(false)
+   462→      }
+   463→    }
+   464→    fetchTeams()
+   465→  }, [])
+   466→
+   467→  // ── Save Profile ─────────────────────────────────────────────────────────
+   468→
+   469→  const handleSaveProfile = useCallback(() => {
+   470→    toast.success('Profile saved', {
+   471→      description: 'Your profile has been updated successfully.',
+   472→    })
+   473→  }, [])
+   474→
+   475→  // ── Change Password ───────────────────────────────────────────────────────
+   476→
+   477→  const handleChangePassword = useCallback(() => {
+   478→    if (!currentPassword || !newPassword || !confirmPassword) {
+   479→      toast.error('Error', {
+   480→        description: 'Please fill in all password fields.',
+   481→      })
+   482→      return
+   483→    }
+   484→    if (newPassword !== confirmPassword) {
+   485→      toast.error('Error', {
+   486→        description: 'New passwords do not match.',
+   487→      })
+   488→      return
+   489→    }
+   490→    if (newPassword.length < 8) {
+   491→      toast.error('Error', {
+   492→        description: 'Password must be at least 8 characters.',
+   493→      })
+   494→      return
+   495→    }
+   496→
+   497→    toast.success('Password updated', {
+   498→      description: 'Your password has been changed successfully.',
+   499→    })
+   500→    setCurrentPassword('')
+   501→    setNewPassword('')
+   502→    setConfirmPassword('')
+   503→  }, [currentPassword, newPassword, confirmPassword])
+   504→
+   505→  // ── Toggle Favorite Team ──────────────────────────────────────────────────
+   506→
+   507→  const toggleFavoriteTeam = useCallback((teamId: string) => {
+   508→    setFavoriteTeams((prev) =>
+   509→      prev.includes(teamId)
+   510→        ? prev.filter((id) => id !== teamId)
+   511→        : [...prev, teamId],
+   512→    )
+   513→  }, [])
+   514→
+   515→  // ── Export Data ───────────────────────────────────────────────────────────
+   516→
+   517→  const handleExportData = useCallback(() => {
+   518→    const data = {
+   519→      user,
+   520→      favoriteTeams,
+   521→      exportedAt: new Date().toISOString(),
+   522→    }
+   523→    const blob = new Blob([JSON.stringify(data, null, 2)], {
+   524→      type: 'application/json',
+   525→    })
+   526→    const url = URL.createObjectURL(blob)
+   527→    const a = document.createElement('a')
+   528→    a.href = url
+   529→    a.download = 'elastico-data-export.json'
+   530→    a.click()
+   531→    URL.revokeObjectURL(url)
+   532→
+   533→    toast.success('Data exported', {
+   534→      description: 'Your data has been downloaded.',
+   535→    })
+   536→  }, [user, favoriteTeams])
+   537→
+   538→  // ── Delete Account ────────────────────────────────────────────────────────
+   539→
+   540→  const handleDeleteAccount = useCallback(() => {
+   541→    toast('Account deletion requested', {
+   542→      description: 'This is a demo — your account was not deleted.',
+   543→    })
+   544→  }, [])
+   545→
+   546→  // ── Filter Teams for Search ───────────────────────────────────────────────
+   547→
+   548→  const filteredTeams = availableTeams.filter((team) =>
+   549→    team.name.toLowerCase().includes(teamSearch.toLowerCase()),
+   550→  )
+   551→
+   552→  return (
+   553→    <div className="flex h-full flex-col gap-6 overflow-y-auto pb-8">
+   554→      {/* ── Page Header ──────────────────────────────────────────────────────── */}
+   555→      <div className="flex items-center gap-3">
+   556→        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/15">
+   557→          <Settings className="size-5 text-primary" />
+   558→        </div>
+   559→        <div>
+   560→<p className="text-xs text-muted-foreground">
+   561→            Manage your account and preferences
+   562→          </p>
+   563→        </div>
+   564→      </div>
+   565→
+   566→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   567→      {/* ── 1. Profile Section ───────────────────────────────────────────────── */}
+   568→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   569→      <Card className="glass-card border-border">
+   570→        <CardHeader className="pb-4">
+   571→          <SectionHeader
+   572→            icon={User}
+   573→            title="Profile"
+   574→            description="Update your personal information"
+   575→          />
+   576→        </CardHeader>
+   577→        <CardContent className="space-y-4">
+   578→          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+   579→            {/* Display Name */}
+   580→            <div className="space-y-2">
+   581→              <Label htmlFor="displayName" className="text-xs text-muted-foreground">
+   582→                Display Name
+   583→              </Label>
+   584→              <Input
+   585→                id="displayName"
+   586→                value={displayName}
+   587→                onChange={(e) => setDisplayName(e.target.value)}
+   588→                placeholder="Enter display name"
+   589→                className="h-9 border-border bg-secondary/50 text-sm"
+   590→              />
+   591→            </div>
+   592→
+   593→            {/* Location */}
+   594→            <div className="space-y-2">
+   595→              <Label htmlFor="location" className="text-xs text-muted-foreground">
+   596→                Location
+   597→              </Label>
+   598→              <Input
+   599→                id="location"
+   600→                value={location}
+   601→                onChange={(e) => setLocation(e.target.value)}
+   602→                placeholder="City, Country"
+   603→                className="h-9 border-border bg-secondary/50 text-sm"
+   604→              />
+   605→            </div>
+   606→
+   607→            {/* Timezone */}
+   608→            <div className="space-y-2">
+   609→              <Label className="text-xs text-muted-foreground">Timezone</Label>
+   610→              <Select value={timezone} onValueChange={setTimezone}>
+   611→                <SelectTrigger className="h-9 border-border bg-secondary/50 text-sm">
+   612→                  <SelectValue />
+   613→                </SelectTrigger>
+   614→                <SelectContent>
+   615→                  {timezones.map((tz) => (
+   616→                    <SelectItem key={tz} value={tz} className="text-sm">
+   617→                      {tz}
+   618→                    </SelectItem>
+   619→                  ))}
+   620→                </SelectContent>
+   621→              </Select>
+   622→            </div>
+   623→
+   624→            {/* Language */}
+   625→            <div className="space-y-2">
+   626→              <Label className="text-xs text-muted-foreground">Language</Label>
+   627→              <Select value={language} onValueChange={setLanguage}>
+   628→                <SelectTrigger className="h-9 border-border bg-secondary/50 text-sm">
+   629→                  <SelectValue />
+   630→                </SelectTrigger>
+   631→                <SelectContent>
+   632→                  {languages.map((lang) => (
+   633→                    <SelectItem key={lang.value} value={lang.value} className="text-sm">
+   634→                      {lang.label}
+   635→                    </SelectItem>
+   636→                  ))}
+   637→                </SelectContent>
+   638→              </Select>
+   639→            </div>
+   640→          </div>
+   641→
+   642→          {/* Bio */}
+   643→          <div className="space-y-2">
+   644→            <Label htmlFor="bio" className="text-xs text-muted-foreground">
+   645→              Bio
+   646→            </Label>
+   647→            <Textarea
+   648→              id="bio"
+   649→              value={bio}
+   650→              onChange={(e) => setBio(e.target.value)}
+   651→              placeholder="Tell us about yourself..."
+   652→              rows={3}
+   653→              className="border-border bg-secondary/50 text-sm resize-none"
+   654→            />
+   655→          </div>
+   656→
+   657→          <div className="flex justify-end">
+   658→            <Button
+   659→              onClick={handleSaveProfile}
+   660→              className="h-9 bg-primary text-primary-foreground hover:bg-primary/90 text-sm"
+   661→            >
+   662→              <Save className="mr-2 size-4" />
+   663→              Save Profile
+   664→            </Button>
+   665→          </div>
+   666→        </CardContent>
+   667→      </Card>
+   668→
+   669→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   670→      {/* ── 2. Appearance Section ────────────────────────────────────────────── */}
+   671→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   672→      <Card className="glass-card border-border">
+   673→        <CardHeader className="pb-4">
+   674→          <SectionHeader
+   675→            icon={Palette}
+   676→            title="Appearance"
+   677→            description="Customize how ELASTICO looks"
+   678→          />
+   679→        </CardHeader>
+   680→        <CardContent className="space-y-4">
+   681→          {/* Theme Toggle */}
+   682→          <div className="flex items-center justify-between">
+   683→            <div className="flex items-center gap-3">
+   684→              {theme === 'dark' ? (
+   685→                <Moon className="size-4 text-primary" />
+   686→              ) : (
+   687→                <Sun className="size-4 text-primary" />
+   688→              )}
+   689→              <div>
+   690→                <p className="text-sm font-medium text-foreground">Theme</p>
+   691→                <p className="text-xs text-muted-foreground">
+   692→                  Toggle between dark and light mode
+   693→                </p>
+   694→              </div>
+   695→            </div>
+   696→            <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 p-1">
+   697→              <button
+   698→                onClick={() => setTheme('dark')}
+   699→                className={cn(
+   700→                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+   701→                  theme === 'dark'
+   702→                    ? 'bg-primary text-primary-foreground shadow-sm'
+   703→                    : 'text-muted-foreground hover:text-foreground',
+   704→                )}
+   705→              >
+   706→                <Moon className="size-3.5" />
+   707→                Dark
+   708→              </button>
+   709→              <button
+   710→                onClick={() => setTheme('light')}
+   711→                className={cn(
+   712→                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+   713→                  theme === 'light'
+   714→                    ? 'bg-primary text-primary-foreground shadow-sm'
+   715→                    : 'text-muted-foreground hover:text-foreground',
+   716→                )}
+   717→              >
+   718→                <Sun className="size-3.5" />
+   719→                Light
+   720→              </button>
+   721→            </div>
+   722→          </div>
+   723→
+   724→          <Separator className="opacity-50" />
+   725→
+   726→          {/* Sidebar Collapsed Toggle */}
+   727→          <div className="flex items-center justify-between">
+   728→            <div className="flex items-center gap-3">
+   729→              {sidebarOpen ? (
+   730→                <PanelLeft className="size-4 text-primary" />
+   731→              ) : (
+   732→                <PanelLeftClose className="size-4 text-primary" />
+   733→              )}
+   734→              <div>
+   735→                <p className="text-sm font-medium text-foreground">Sidebar</p>
+   736→                <p className="text-xs text-muted-foreground">
+   737→                  Show or collapse the navigation sidebar
+   738→                </p>
+   739→              </div>
+   740→            </div>
+   741→            <Switch
+   742→              checked={sidebarOpen}
+   743→              onCheckedChange={setSidebarOpen}
+   744→            />
+   745→          </div>
+   746→
+   747→          <Separator className="opacity-50" />
+   748→
+   749→          {/* Compact Mode Toggle */}
+   750→          <div className="flex items-center justify-between">
+   751→            <div className="flex items-center gap-3">
+   752→              {compactMode ? (
+   753→                <Minimize2 className="size-4 text-primary" />
+   754→              ) : (
+   755→                <Maximize2 className="size-4 text-primary" />
+   756→              )}
+   757→              <div>
+   758→                <p className="text-sm font-medium text-foreground">Compact Mode</p>
+   759→                <p className="text-xs text-muted-foreground">
+   760→                  Reduce spacing and card sizes
+   761→                </p>
+   762→              </div>
+   763→            </div>
+   764→            <Switch
+   765→              checked={compactMode}
+   766→              onCheckedChange={setCompactMode}
+   767→            />
+   768→          </div>
+   769→        </CardContent>
+   770→      </Card>
+   771→
+   772→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   773→      {/* ── 3. Notifications Section ─────────────────────────────────────────── */}
+   774→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   775→      <Card className="glass-card border-border">
+   776→        <CardHeader className="pb-4">
+   777→          <SectionHeader
+   778→            icon={Bell}
+   779→            title="Notifications"
+   780→            description="Choose what you want to be notified about"
+   781→          />
+   782→        </CardHeader>
+   783→        <CardContent className="space-y-3">
+   784→          {[
+   785→            {
+   786→              key: 'goals' as const,
+   787→              label: 'Goals',
+   788→              desc: 'Get notified when a goal is scored in a match you follow',
+   789→            },
+   790→            {
+   791→              key: 'cards' as const,
+   792→              label: 'Cards',
+   793→              desc: 'Yellow and red card notifications',
+   794→            },
+   795→            {
+   796→              key: 'kickoff' as const,
+   797→              label: 'Kickoff',
+   798→              desc: 'Match start reminders',
+   799→            },
+   800→            {
+   801→              key: 'predictionResults' as const,
+   802→              label: 'Prediction Results',
+   803→              desc: 'When your predictions are evaluated',
+   804→            },
+   805→            {
+   806→              key: 'system' as const,
+   807→              label: 'System',
+   808→              desc: 'Platform updates and announcements',
+   809→            },
+   810→            {
+   811→              key: 'news' as const,
+   812→              label: 'News',
+   813→              desc: 'Breaking football news',
+   814→            },
+   815→          ].map((item) => (
+   816→            <div key={item.key} className="flex items-center justify-between py-1">
+   817→              <div>
+   818→                <p className="text-sm font-medium text-foreground">{item.label}</p>
+   819→                <p className="text-xs text-muted-foreground">{item.desc}</p>
+   820→              </div>
+   821→              <Switch
+   822→                checked={notifications[item.key]}
+   823→                onCheckedChange={(checked) =>
+   824→                  setNotifications((prev) => ({ ...prev, [item.key]: checked }))
+   825→                }
+   826→              />
+   827→            </div>
+   828→          ))}
+   829→
+   830→          <Separator className="my-2 opacity-50" />
+   831→
+   832→          {/* Sound Toggle */}
+   833→          <div className="flex items-center justify-between py-1">
+   834→            <div>
+   835→              <p className="text-sm font-medium text-foreground">Sound</p>
+   836→              <p className="text-xs text-muted-foreground">
+   837→                Play sounds for notifications
+   838→              </p>
+   839→            </div>
+   840→            <Switch
+   841→              checked={notifications.sound}
+   842→              onCheckedChange={(checked) =>
+   843→                setNotifications((prev) => ({ ...prev, sound: checked }))
+   844→              }
+   845→            />
+   846→          </div>
+   847→
+   848→          {/* Push Notification Toggle */}
+   849→          <div className="flex items-center justify-between py-1">
+   850→            <div>
+   851→              <p className="text-sm font-medium text-foreground">
+   852→                Push Notifications
+   853→              </p>
+   854→              <p className="text-xs text-muted-foreground">
+   855→                Receive push notifications in your browser
+   856→              </p>
+   857→            </div>
+   858→            <Switch
+   859→              checked={notifications.push}
+   860→              onCheckedChange={(checked) =>
+   861→                setNotifications((prev) => ({ ...prev, push: checked }))
+   862→              }
+   863→            />
+   864→          </div>
+   865→        </CardContent>
+   866→      </Card>
+   867→
+   868→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   869→      {/* ── 4. Privacy & Security Section ────────────────────────────────────── */}
+   870→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+   871→      <Card className="glass-card border-border">
+   872→        <CardHeader className="pb-4">
+   873→          <SectionHeader
+   874→            icon={Shield}
+   875→            title="Privacy & Security"
+   876→            description="Manage your account security settings"
+   877→          />
+   878→        </CardHeader>
+   879→        <CardContent className="space-y-6">
+   880→          {/* Change Password */}
+   881→          <div className="space-y-3">
+   882→            <p className="text-sm font-medium text-foreground">Change Password</p>
+   883→            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+   884→              <div className="space-y-1.5">
+   885→                <Label htmlFor="currentPw" className="text-xs text-muted-foreground">
+   886→                  Current Password
+   887→                </Label>
+   888→                <Input
+   889→                  id="currentPw"
+   890→                  type="password"
+   891→                  value={currentPassword}
+   892→                  onChange={(e) => setCurrentPassword(e.target.value)}
+   893→                  placeholder="••••••••"
+   894→                  className="h-9 border-border bg-secondary/50 text-sm"
+   895→                />
+   896→              </div>
+   897→              <div className="space-y-1.5">
+   898→                <Label htmlFor="newPw" className="text-xs text-muted-foreground">
+   899→                  New Password
+   900→                </Label>
+   901→                <Input
+   902→                  id="newPw"
+   903→                  type="password"
+   904→                  value={newPassword}
+   905→                  onChange={(e) => setNewPassword(e.target.value)}
+   906→                  placeholder="••••••••"
+   907→                  className="h-9 border-border bg-secondary/50 text-sm"
+   908→                />
+   909→              </div>
+   910→              <div className="space-y-1.5">
+   911→                <Label htmlFor="confirmPw" className="text-xs text-muted-foreground">
+   912→                  Confirm Password
+   913→                </Label>
+   914→                <Input
+   915→                  id="confirmPw"
+   916→                  type="password"
+   917→                  value={confirmPassword}
+   918→                  onChange={(e) => setConfirmPassword(e.target.value)}
+   919→                  placeholder="••••••••"
+   920→                  className="h-9 border-border bg-secondary/50 text-sm"
+   921→                />
+   922→              </div>
+   923→            </div>
+   924→            <div className="flex justify-end">
+   925→              <Button
+   926→                onClick={handleChangePassword}
+   927→                variant="outline"
+   928→                className="h-8 border-border text-xs text-muted-foreground hover:text-foreground"
+   929→              >
+   930→                Update Password
+   931→              </Button>
+   932→            </div>
+   933→          </div>
+   934→
+   935→          <Separator className="opacity-50" />
+   936→
+   937→          {/* Two-Factor Authentication */}
+   938→          <div className="flex items-center justify-between">
+   939→            <div>
+   940→              <p className="text-sm font-medium text-foreground">
+   941→                Two-Factor Authentication
+   942→              </p>
+   943→              <p className="text-xs text-muted-foreground">
+   944→                Add an extra layer of security to your account
+   945→              </p>
+   946→            </div>
+   947→            <Switch
+   948→              checked={twoFactorEnabled}
+   949→              onCheckedChange={setTwoFactorEnabled}
+   950→            />
+   951→          </div>
+   952→
+   953→          <Separator className="opacity-50" />
+   954→
+   955→          {/* Active Sessions */}
+   956→          <div className="space-y-3">
+   957→            <p className="text-sm font-medium text-foreground">Active Sessions</p>
+   958→            <div className="space-y-2">
+   959→              {[
+   960→                {
+   961→                  device: 'Chrome on macOS',
+   962→                  icon: Monitor,
+   963→                  location: 'San Francisco, US',
+   964→                  current: true,
+   965→                },
+   966→                {
+   967→                  device: 'Safari on iPhone',
+   968→                  icon: Smartphone,
+   969→                  location: 'San Francisco, US',
+   970→                  current: false,
+   971→                },
+   972→              ].map((session, i) => (
+   973→                <div
+   974→                  key={i}
+   975→                  className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-3 py-2.5"
+   976→                >
+   977→                  <div className="flex items-center gap-3">
+   978→                    <session.icon className="size-4 text-muted-foreground" />
+   979→                    <div>
+   980→                      <div className="flex items-center gap-2">
+   981→                        <p className="text-xs font-medium text-foreground">
+   982→                          {session.device}
+   983→                        </p>
+   984→                        {session.current && (
+   985→                          <Badge className="h-4 bg-primary/15 px-1.5 text-[9px] font-semibold text-primary border-primary/30">
+   986→                            Current
+   987→                          </Badge>
+   988→                        )}
+   989→                      </div>
+   990→                      <p className="text-[10px] text-muted-foreground">
+   991→                        {session.location} · Active now
+   992→                      </p>
+   993→                    </div>
+   994→                  </div>
+   995→                  {!session.current && (
+   996→                    <Button
+   997→                      variant="ghost"
+   998→                      size="sm"
+   999→                      className="h-7 text-[10px] text-muted-foreground hover:text-destructive"
+  1000→                    >
+  1001→                      Revoke
+  1002→                    </Button>
+  1003→                  )}
+  1004→                </div>
+  1005→              ))}
+  1006→            </div>
+  1007→          </div>
+  1008→
+  1009→          <Separator className="opacity-50" />
+  1010→
+  1011→          {/* Data Export & Delete */}
+  1012→          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  1013→            <div>
+  1014→              <p className="text-sm font-medium text-foreground">Data & Account</p>
+  1015→              <p className="text-xs text-muted-foreground">
+  1016→                Export your data or delete your account
+  1017→              </p>
+  1018→            </div>
+  1019→            <div className="flex items-center gap-2">
+  1020→              <Button
+  1021→                variant="outline"
+  1022→                onClick={handleExportData}
+  1023→                className="h-9 border-border text-xs text-muted-foreground hover:text-foreground"
+  1024→              >
+  1025→                <Download className="mr-2 size-3.5" />
+  1026→                Export Data
+  1027→              </Button>
+  1028→
+  1029→              <AlertDialog>
+  1030→                <AlertDialogTrigger asChild>
+  1031→                  <Button
+  1032→                    variant="destructive"
+  1033→                    className="h-9 text-xs"
+  1034→                  >
+  1035→                    <Trash2 className="mr-2 size-3.5" />
+  1036→                    Delete Account
+  1037→                  </Button>
+  1038→                </AlertDialogTrigger>
+  1039→                <AlertDialogContent className="glass-card border-border">
+  1040→                  <AlertDialogHeader>
+  1041→                    <AlertDialogTitle className="text-foreground">
+  1042→                      Are you sure?
+  1043→                    </AlertDialogTitle>
+  1044→                    <AlertDialogDescription>
+  1045→                      This action cannot be undone. All your data including
+  1046→                      predictions, favorites, and profile information will be
+  1047→                      permanently deleted.
+  1048→                    </AlertDialogDescription>
+  1049→                  </AlertDialogHeader>
+  1050→                  <AlertDialogFooter>
+  1051→                    <AlertDialogCancel className="border-border bg-secondary text-muted-foreground hover:text-foreground">
+  1052→                      Cancel
+  1053→                    </AlertDialogCancel>
+  1054→                    <AlertDialogAction
+  1055→                      onClick={handleDeleteAccount}
+  1056→                      className="bg-destructive text-white hover:bg-destructive/90"
+  1057→                    >
+  1058→                      Delete Account
+  1059→                    </AlertDialogAction>
+  1060→                  </AlertDialogFooter>
+  1061→                </AlertDialogContent>
+  1062→              </AlertDialog>
+  1063→            </div>
+  1064→          </div>
+  1065→        </CardContent>
+  1066→      </Card>
+  1067→
+  1068→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+  1069→      {/* ── 5. Favorite Teams Section ────────────────────────────────────────── */}
+  1070→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+  1071→      <Card className="glass-card border-border">
+  1072→        <CardHeader className="pb-4">
+  1073→          <SectionHeader
+  1074→            icon={Heart}
+  1075→            title="Favorite Teams"
+  1076→            description="Select teams you want to follow"
+  1077→          />
+  1078→        </CardHeader>
+  1079→        <CardContent className="space-y-4">
+  1080→          {/* Current Favorites */}
+  1081→          {favoriteTeams.length > 0 && (
+  1082→            <div className="space-y-2">
+  1083→              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+  1084→                Your Favorites
+  1085→              </p>
+  1086→              <div className="flex flex-wrap gap-2">
+  1087→                {favoriteTeams.map((teamId) => {
+  1088→                  const team = availableTeams.find((t) => t.id === teamId)
+  1089→                  return (
+  1090→                    <Badge
+  1091→                      key={teamId}
+  1092→                      className="flex items-center gap-1.5 h-7 px-3 bg-primary/10 text-primary border-primary/30 cursor-pointer hover:bg-primary/20 transition-colors"
+  1093→                      onClick={() => toggleFavoriteTeam(teamId)}
+  1094→                    >
+  1095→                      <Star className="size-3 fill-primary text-primary" />
+  1096→                      {team?.name || 'Unknown Team'}
+  1097→                      <X className="size-3 opacity-60" />
+  1098→                    </Badge>
+  1099→                  )
+  1100→                })}
+  1101→              </div>
+  1102→            </div>
+  1103→          )}
+  1104→
+  1105→          <Separator className="opacity-50" />
+  1106→
+  1107→          {/* Team Search */}
+  1108→          <div className="space-y-2">
+  1109→            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+  1110→              Add Teams
+  1111→            </p>
+  1112→            <Input
+  1113→              value={teamSearch}
+  1114→              onChange={(e) => setTeamSearch(e.target.value)}
+  1115→              placeholder="Search for a team..."
+  1116→              className="h-9 border-border bg-secondary/50 text-sm placeholder:text-muted-foreground/60"
+  1117→            />
+  1118→          </div>
+  1119→
+  1120→          {/* Team Grid */}
+  1121→          <div className="max-h-64 overflow-y-auto rounded-lg border border-border/50">
+  1122→            {teamsLoading ? (
+  1123→              <div className="grid grid-cols-1 gap-1 p-2 sm:grid-cols-2">
+  1124→                {Array.from({ length: 6 }).map((_, i) => (
+  1125→                  <div
+  1126→                    key={i}
+  1127→                    className="h-10 animate-pulse rounded-md bg-secondary/50"
+  1128→                  />
+  1129→                ))}
+  1130→              </div>
+  1131→            ) : filteredTeams.length === 0 ? (
+  1132→              <div className="flex items-center justify-center py-8">
+  1133→                <p className="text-xs text-muted-foreground">No teams found</p>
+  1134→              </div>
+  1135→            ) : (
+  1136→              <div className="grid grid-cols-1 gap-1 p-2 sm:grid-cols-2">
+  1137→                {filteredTeams.map((team) => {
+  1138→                  const isFav = favoriteTeams.includes(team.id)
+  1139→                  return (
+  1140→                    <button
+  1141→                      key={team.id}
+  1142→                      onClick={() => toggleFavoriteTeam(team.id)}
+  1143→                      className={cn(
+  1144→                        'flex items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs transition-all',
+  1145→                        isFav
+  1146→                          ? 'bg-primary/10 text-primary border border-primary/30'
+  1147→                          : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground border border-transparent',
+  1148→                      )}
+  1149→                    >
+  1150→                      <div className="flex items-center gap-2 min-w-0">
+  1151→                        <div
+  1152→                          className="size-5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+  1153→                          style={{ backgroundColor: team.primaryColor }}
+  1154→                        >
+  1155→                          {team.code.slice(0, 2)}
+  1156→                        </div>
+  1157→                        <span className="truncate">{team.name}</span>
+  1158→                      </div>
+  1159→                      <div className="flex items-center gap-1.5 shrink-0">
+  1160→                        <span className="text-[10px] opacity-60">
+  1161→                          ELO {team.eloRating}
+  1162→                        </span>
+  1163→                        {isFav && (
+  1164→                          <Check className="size-3.5 text-primary" />
+  1165→                        )}
+  1166→                        {!isFav && (
+  1167→                          <Plus className="size-3.5 opacity-40" />
+  1168→                        )}
+  1169→                      </div>
+  1170→                    </button>
+  1171→                  )
+  1172→                })}
+  1173→              </div>
+  1174→            )}
+  1175→          </div>
+  1176→        </CardContent>
+  1177→      </Card>
+  1178→
+  1179→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+  1180→      {/* ── 6. Keyboard Shortcuts Section ────────────────────────────────────── */}
+  1181→      {/* ═══════════════════════════════════════════════════════════════════════ */}
+  1182→      <Card className="glass-card border-border">
+  1183→        <CardHeader className="pb-4">
+  1184→          <SectionHeader
+  1185→            icon={Keyboard}
+  1186→            title="Keyboard Shortcuts"
+  1187→            description="Navigate faster with keyboard shortcuts"
+  1188→          />
+  1189→        </CardHeader>
+  1190→        <CardContent>
+  1191→          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+  1192→            {keyboardShortcuts.map((shortcut) => (
+  1193→              <div
+  1194→                key={shortcut.keys}
+  1195→                className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/50"
+  1196→              >
+  1197→                <div className="flex items-center gap-2.5">
+  1198→                  <shortcut.icon className="size-4 text-muted-foreground" />
+  1199→                  <span className="text-xs text-muted-foreground">
+  1200→                    {shortcut.description}
+  1201→                  </span>
+  1202→                </div>
+  1203→                <kbd className="rounded-md border border-border bg-secondary px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+  1204→                  {shortcut.keys}
+  1205→                </kbd>
+  1206→              </div>
+  1207→            ))}
+  1208→          </div>
+  1209→        </CardContent>
+  1210→      </Card>
+  1211→
+  1212→      {/* 8. Bandwidth & Offline (PWA) */}
+  1213→      <BandwidthSection />
+  1214→
+  1215→      {/* 9. AI and NVIDIA Settings */}
+  1216→      <Card className="glass-card border-border">
+  1217→        <CardHeader className="pb-4">
+  1218→          <SectionHeader
+  1219→            icon={Cpu}
+  1220→            title="AI & NVIDIA Integration"
+  1221→            description="Configure the AI analysis engine"
+  1222→          />
+  1223→        </CardHeader>
+  1224→        <CardContent className="space-y-4">
+  1225→          <div className="rounded-lg border border-border bg-secondary/30 p-4">
+  1226→            <div className="flex items-center justify-between">
+  1227→              <div className="flex items-center gap-3">
+  1228→                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
+  1229→                  <Cpu className="size-4 text-primary" />
+  1230→                </div>
+  1231→                <div>
+  1232→                  <p className="text-sm font-medium text-foreground">NVIDIA NIM API</p>
+  1233→                  <p className="text-xs text-muted-foreground">Powers real-time LLM football analysis</p>
+  1234→                </div>
+  1235→              </div>
+  1236→              <NvidiaApiStatusBadge token={token || undefined} />
+  1237→            </div>
+  1238→          </div>
+  1239→          <div className="space-y-3">
+  1240→            <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Available AI Models</h4>
+  1241→            <div className="space-y-2">
+  1242→              <ModelRow name="ELASTICO Pro" model="meta/llama-3.1-405b-instruct" description="405B parameters - Best quality" icon={Cpu} recommended />
+  1243→              <ModelRow name="ELASTICO Fast" model="meta/llama-3.1-70b-instruct" description="70B parameters - Faster response" icon={Cpu} />
+  1244→              <ModelRow name="ELASTICO Local" model="Built-in analysis engine" description="No API required - Works offline" icon={WifiOff} offline />
+  1245→            </div>
+  1246→          </div>
+  1247→          <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
+  1248→            <Info className="mt-0.5 size-4 shrink-0 text-primary/70" />
+  1249→            <p className="text-[11px] leading-relaxed text-muted-foreground">
+  1250→              To use NVIDIA-powered AI, set the <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">NVIDIA_API_KEY</code> environment variable.
+  1251→              Without it, ELASTICO falls back to the offline analysis engine.
+  1252→            </p>
+  1253→          </div>
+  1254→        </CardContent>
+  1255→      </Card>
+  1256→    </div>
+  1257→  )
+  1258→}
+  1259→
