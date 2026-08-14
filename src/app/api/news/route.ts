@@ -24,10 +24,14 @@ export const dynamic = 'force-dynamic'
 async function fetchESPNNewsDirect(leagueCode: string): Promise<any[]> {
   const espnUrl = ESPN_NEWS_URLS[leagueCode] || ESPN_NEWS_URLS.PL
   try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 8000) // 8s timeout for edge
     const res = await fetch(espnUrl, {
-      next: { revalidate: 300 },
-      headers: { 'User-Agent': 'ELASTICO/1.0' },
+      signal: controller.signal,
+      cache: 'no-store',
+      headers: { 'User-Agent': 'Mozilla/5.0 ELASTICO/1.0' },
     })
+    clearTimeout(timeoutId)
     if (!res.ok) {
       console.error(`[News] ESPN direct fetch ${res.status} from ${espnUrl}`)
       return []
@@ -51,14 +55,28 @@ export async function GET(req: NextRequest) {
     const topic = searchParams.get('topic') || undefined
     const league = searchParams.get('league') || undefined
 
-    // ── Primary: ESPN news (direct fetch, no API key needed) ───────────────
+    // ── Primary: ESPN news from multiple leagues (direct fetch, no API key needed) ─
     try {
-      const newsLeague = league || 'PL'
-      const espnArticles = await fetchESPNNewsDirect(newsLeague)
+      const leagues = league ? [league] : ['PL', 'LIGA', 'SA', 'BL', 'L1', 'UCL']
+      let allEspnArticles: any[] = []
+      for (const lg of leagues) {
+        const articles = await fetchESPNNewsDirect(lg)
+        if (articles.length > 0) {
+          allEspnArticles = [...allEspnArticles, ...articles.map(a => ({ ...a, _league: lg }))]
+        }
+      }
+      // Deduplicate by headline
+      const seen = new Set<string>()
+      allEspnArticles = allEspnArticles.filter(a => {
+        const key = (a.headline || '').toLowerCase().trim()
+        if (!key || seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
 
-      if (espnArticles.length > 0) {
-        const newsItems = espnArticles.slice(0, limit).map((a: any, i: number) => ({
-          id: `espn-${newsLeague}-${i}-${Date.now()}`,
+      if (allEspnArticles.length > 0) {
+        const newsItems = allEspnArticles.slice(0, limit).map((a: any, i: number) => ({
+          id: `espn-${a._league || league || 'PL'}-${i}-${Date.now()}`,
           title: a.headline || '',
           summary: a.description || '',
           content: null,
@@ -73,7 +91,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({
           news: newsItems,
-          source: `espn:${newsLeague}`,
+          source: `espn:${leagues.join(',')}`,
           pagination: { page, limit, total: newsItems.length, totalPages: 1 },
         })
       }
