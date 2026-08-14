@@ -197,14 +197,11 @@ export default function NotificationsView() {
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/15">
             <Bell className="h-5 w-5 text-emerald-400" />
           </div>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Notifications</h2>
-            <p className="text-sm text-muted-foreground">
-              {unreadCount > 0
-                ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
-                : 'You&apos;re all caught up'}
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            {unreadCount > 0
+              ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+              : 'You&apos;re all caught up'}
+          </p>
         </div>
 
         <Button

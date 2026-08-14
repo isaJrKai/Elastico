@@ -17,10 +17,11 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import {
-  Check, X, Crown, Zap, Star, Shield, Sparkles, TrendingUp, BarChart3,
-  MessageSquare, Globe, Lock, Users, Rocket, CheckCircle2,
+  Check, X, Crown, Zap, Star, Shield, BarChart3,
+  MessageSquare, Lock, Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SectionHeader } from '@/components/elastico/primitives/section-header'
 
 // ── Types & Constants ────────────────────────────────────────────────────
 
@@ -119,10 +120,7 @@ export default function SubscriptionView() {
     <div className="space-y-10 animate-fade-in-up">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight text-gradient-primary">Subscription Plans</h2>
-          <p className="text-sm text-muted-foreground">Choose the plan that matches your analysis depth. Upgrade anytime.</p>
-        </div>
+        <p className="text-sm text-muted-foreground">Choose the plan that matches your analysis depth. Upgrade anytime.</p>
         <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5">
           <Shield className="h-4 w-4 text-emerald-400" />
           <span className="text-sm font-medium text-emerald-400">Current: <span className="text-emerald-300 capitalize">{currentPlan}</span></span>
@@ -194,7 +192,7 @@ export default function SubscriptionView() {
 
       {/* Testimonials */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3"><Users className="h-5 w-5 text-primary" /><h3 className="text-xl font-bold tracking-tight">What Users Say</h3></div>
+        <div className="flex items-center gap-2"><Users className="size-4 text-primary" /><SectionHeader label="What Users Say" /></div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {TESTIMONIALS.map((t, i) => (
             <Card key={i} className="glass-card-premium rounded-xl">
@@ -214,7 +212,7 @@ export default function SubscriptionView() {
 
       {/* Feature Comparison Table */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3"><BarChart3 className="h-5 w-5 text-emerald-400" /><h3 className="text-xl font-bold tracking-tight">Feature Comparison</h3></div>
+        <div className="flex items-center gap-2"><BarChart3 className="size-4 text-emerald-400" /><SectionHeader label="Feature Comparison" /></div>
         <Card className="glass-card-premium overflow-hidden rounded-xl">
           <div className="overflow-x-auto">
             <Table>
@@ -239,7 +237,7 @@ export default function SubscriptionView() {
 
       {/* FAQ */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3"><MessageSquare className="h-5 w-5 text-emerald-400" /><h3 className="text-xl font-bold tracking-tight">Frequently Asked Questions</h3></div>
+        <div className="flex items-center gap-2"><MessageSquare className="size-4 text-emerald-400" /><SectionHeader label="Frequently Asked Questions" /></div>
         <Card className="glass-card-premium overflow-hidden rounded-xl">
           <CardContent className="p-0">
             <Accordion type="single" collapsible className="w-full">

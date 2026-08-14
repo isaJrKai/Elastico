@@ -13,9 +13,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, Cell,
 } from 'recharts'
 import {
-  Trophy, Medal, Target, Crown, TrendingUp, Star, Flame, ArrowUp, ArrowDown, Minus,
-  Zap, Search, Download, Goal, Users, BarChart3,
+  Trophy, Target, Crown, Star, Flame, ArrowUp, ArrowDown, Minus,
+  Search, Download, Users, BarChart3,
 } from 'lucide-react'
+import { StatusBadge } from '@/components/elastico/primitives/status-badge'
 import { cn } from '@/lib/utils'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
 import { generateCSV } from '@/lib/export'
@@ -126,6 +127,7 @@ export default function LeaderboardView() {
 <p className="text-sm text-muted-foreground">Top predictors & golden boot race</p>
         </div>
         <Button variant="outline" size="sm" className="gap-1.5 border-border text-xs" onClick={handleExport}><Download className="size-3.5" />Export</Button>
+        <StatusBadge variant="dataclass" value="REAL" />
       </div>
 
       {/* Your Position Card */}
