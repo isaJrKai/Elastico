@@ -130,42 +130,132 @@ function CircGauge({ value, max = 100, size = 120, label, strokeColor }: {
 
 // ── Non-Admin View (Simple Status Page) ──────────────────────────────────────
 
+// ── Health check helpers for non-admin view ──────────────────────────────
+
+interface ServiceStatus {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  status: 'HEALTHY' | 'DEGRADED' | 'DOWN'
+  sublabel: string
+  responseTime?: number
+}
+
+async function checkServiceHealth(url: string, timeoutMs = 5000): Promise<{ ok: boolean; timeMs: number; data?: any }> {
+  const start = Date.now()
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const res = await fetch(url, { signal: controller.signal })
+    clearTimeout(timer)
+    const data = await res.json().catch(() => null)
+    return { ok: res.ok, timeMs: Date.now() - start, data }
+  } catch {
+    return { ok: false, timeMs: Date.now() - start }
+  }
+}
+
 function NonAdminSystemMonitor() {
+  const [services, setServices] = useState<ServiceStatus[]>([
+    { label: 'ESPN Live API', icon: Brain, status: 'DOWN', sublabel: 'Checking...' },
+    { label: 'Prediction Engine', icon: Server, status: 'DOWN', sublabel: 'Checking...' },
+    { label: 'Database', icon: Database, status: 'DOWN', sublabel: 'Checking...' },
+  ])
+  const [checking, setChecking] = useState(false)
+
+  const runHealthChecks = async () => {
+    setChecking(true)
+
+    // Check all services in parallel
+    const [liveRes, matchesRes, standingsRes, newsRes, playersRes] = await Promise.all([
+      checkServiceHealth('/api/live?action=leagues'),
+      checkServiceHealth('/api/matches?limit=1'),
+      checkServiceHealth('/api/standings'),
+      checkServiceHealth('/api/news?limit=1'),
+      checkServiceHealth('/api/players?limit=1'),
+    ])
+
+    // ESPN is healthy if live API returns OK
+    const espnOk = liveRes.ok && liveRes.data?.success !== false
+    const espnTime = liveRes.timeMs
+
+    // Prediction engine: check if matches endpoint works (it powers predictions)
+    const predictionOk = matchesRes.ok || standingsRes.ok
+    const predictionTime = Math.max(matchesRes.timeMs, standingsRes.timeMs)
+
+    // Database: if matches/players return source:'database', DB is working
+    const dbWorking = matchesRes.data?.source === 'database' || playersRes.data?.source === 'database'
+    const dbDegraded = !dbWorking && (matchesRes.ok || playersRes.ok) // using ESPN fallback
+
+    const newServices: ServiceStatus[] = [
+      {
+        label: 'ESPN Live API',
+        icon: Brain,
+        status: espnOk ? 'HEALTHY' : 'DOWN',
+        sublabel: espnOk
+          ? `Responding normally (${espnTime}ms)`
+          : `Unavailable (${espnTime}ms)`,
+        responseTime: espnTime,
+      },
+      {
+        label: 'Prediction Engine',
+        icon: Server,
+        status: predictionOk ? 'HEALTHY' : 'DOWN',
+        sublabel: predictionOk
+          ? `Models ready (${predictionTime}ms)`
+          : `Service error (${predictionTime}ms)`,
+        responseTime: predictionTime,
+      },
+      {
+        label: 'Database',
+        icon: Database,
+        status: dbWorking ? 'HEALTHY' : dbDegraded ? 'DEGRADED' : 'DOWN',
+        sublabel: dbWorking
+          ? 'All connections healthy'
+          : dbDegraded
+            ? 'Using ESPN fallback (no DB configured)'
+            : 'Not configured — using live data',
+      },
+    ]
+
+    setServices(newServices)
+    setChecking(false)
+  }
+
+  useEffect(() => {
+    runHealthChecks()
+    // Re-check every 60 seconds
+    const interval = setInterval(runHealthChecks, 60_000)
+    return () => clearInterval(interval)
+  }, [])
+
   return (
     <div className="animate-fade-in-up space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-          <Activity className="size-5 text-primary" />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+            <Activity className="size-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold">System Monitor</h2>
+            <p className="text-sm text-muted-foreground">Real-time platform health overview</p>
+          </div>
         </div>
-        <div>
-<p className="text-sm text-muted-foreground">Platform health overview</p>
-        </div>
+        <Button
+          size="sm" variant="outline" className="gap-2"
+          onClick={runHealthChecks}
+          disabled={checking}
+        >
+          {checking ? <RefreshCw className="size-3.5 animate-spin" /> : <Radio className="size-3.5" />}
+          Refresh
+        </Button>
       </div>
 
-      {/* Under Construction Notice */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <Card className="glass-card-premium border-primary/20">
-          <CardContent className="py-5">
-            <div className="flex items-start gap-3">
-              <Info className="size-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-sm text-muted-foreground">
-                System monitoring is under construction. Core systems (AI Gateway, Prediction Engine, Database) are operational.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* 3 Green Status Indicators */}
+      {/* Health Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { label: 'AI Gateway', icon: Brain, sublabel: 'Processing requests normally' },
-          { label: 'Prediction Engine', icon: Server, sublabel: 'Models loaded and ready' },
-          { label: 'Database', icon: Database, sublabel: 'All connections healthy' },
-        ].map((card, i) => (
+        {services.map((svc, i) => (
           <motion.div
-            key={card.label}
+            key={svc.label}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 + i * 0.05 }}
@@ -173,29 +263,47 @@ function NonAdminSystemMonitor() {
             <Card className="glass-card-premium">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{card.label}</CardTitle>
-                  <card.icon className="size-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{svc.label}</CardTitle>
+                  <svc.icon className="size-4 text-muted-foreground" />
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-3">
                   <div
                     className="size-3 rounded-full"
-                    style={{ backgroundColor: '#00e676', boxShadow: '0 0 8px #00e67660' }}
+                    style={{ backgroundColor: statusColor(svc.status), boxShadow: `0 0 8px ${statusColor(svc.status)}60` }}
                   />
-                  <span className="text-lg font-bold" style={{ color: '#00e676' }}>
-                    Operational
+                  <span className="text-lg font-bold" style={{ color: statusColor(svc.status) }}>
+                    {svc.status === 'HEALTHY' ? 'Operational' : svc.status === 'DEGRADED' ? 'Degraded' : 'Down'}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">{card.sublabel}</p>
+                <p className="text-xs text-muted-foreground">{svc.sublabel}</p>
               </CardContent>
             </Card>
           </motion.div>
         ))}
       </div>
 
-      {/* Admin Access Required Notice */}
+      {/* Data Sources Info */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <Card className="glass-card-premium border-primary/20">
+          <CardContent className="py-5">
+            <div className="flex items-start gap-3">
+              <Info className="size-4 text-primary shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Live Data from ESPN</p>
+                <p className="text-xs text-muted-foreground">
+                  Scores, standings, news, and player stats are powered by ESPN's public API — no configuration required.
+                  Advanced features (prediction models, historical analytics) are available with API key configuration.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Admin Access Required Notice */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
         <Card className="glass-card-premium border-yellow-500/20">
           <CardContent className="py-5">
             <div className="flex items-start gap-4">
