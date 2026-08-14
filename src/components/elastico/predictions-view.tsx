@@ -137,8 +137,7 @@ export default function PredictionsView() {
       <div className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15"><Target className="size-5 text-primary" /></div>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Predictions</h1>
-          <p className="text-sm text-muted-foreground">Track, analyze, and improve your prediction performance</p>
+<p className="text-sm text-muted-foreground">Track, analyze, and improve your prediction performance</p>
         </div>
         <Button variant="outline" size="sm" className="gap-1.5 border-border text-xs" onClick={handleExport}><Download className="size-3.5" />Export CSV</Button>
       </div>

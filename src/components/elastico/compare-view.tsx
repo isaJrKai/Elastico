@@ -141,10 +141,7 @@ export function CompareView() {
     >
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <GitCompareArrows className="text-primary" /> Team Comparison
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">Compare two teams across all metrics</p>
+        <p className="text-muted-foreground text-sm">Compare two teams across all metrics</p>
       </div>
 
       {/* Team Selectors */}

@@ -557,8 +557,7 @@ export default function SettingsView() {
           <Settings className="size-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Settings</h1>
-          <p className="text-xs text-muted-foreground">
+<p className="text-xs text-muted-foreground">
             Manage your account and preferences
           </p>
         </div>

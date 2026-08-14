@@ -537,8 +537,7 @@ export default function AdminView() {
             <Shield className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold gradient-text">Admin Dashboard</h1>
-            <p className="text-xs text-muted-foreground">ELASTICO System Management Console</p>
+<p className="text-xs text-muted-foreground">ELASTICO System Management Console</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

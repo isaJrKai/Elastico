@@ -273,8 +273,7 @@ export default function PredictionEngineView() {
           <Brain className="w-6 h-6 text-emerald-400" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Prediction Engine</h1>
-          <p className="text-sm text-zinc-500">Stochastic simulation • Kelly criterion • Market signals</p>
+<p className="text-sm text-zinc-500">Stochastic simulation • Kelly criterion • Market signals</p>
         </div>
       </div>
 

@@ -288,10 +288,7 @@ export function PlayerView() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="text-primary" /> Player Analytics
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">Search, analyze, and compare football players</p>
+        <p className="text-muted-foreground text-sm">Search, analyze, and compare football players</p>
         </div>
         <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
           <Download className="size-4" /> Export CSV

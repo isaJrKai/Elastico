@@ -197,10 +197,7 @@ export function ExportView() {
     >
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Download className="text-primary" /> Data Export & Reports
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">Export data, generate reports, and access the API</p>
+        <p className="text-muted-foreground text-sm">Export data, generate reports, and access the API</p>
       </div>
 
       <Tabs defaultValue="custom" className="space-y-4">

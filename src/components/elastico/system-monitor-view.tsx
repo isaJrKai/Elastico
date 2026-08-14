@@ -140,8 +140,7 @@ function NonAdminSystemMonitor() {
           <Activity className="size-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">System Status</h1>
-          <p className="text-sm text-muted-foreground">Platform health overview</p>
+<p className="text-sm text-muted-foreground">Platform health overview</p>
         </div>
       </div>
 
@@ -443,8 +442,7 @@ function AdminSystemMonitor() {
           <Shield className="size-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">System Integrity Monitor</h1>
-          <p className="text-sm text-muted-foreground">Audit, heal, secure, and forecast — all in one dashboard</p>
+<p className="text-sm text-muted-foreground">Audit, heal, secure, and forecast — all in one dashboard</p>
         </div>
       </div>
 

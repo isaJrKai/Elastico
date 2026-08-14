@@ -236,8 +236,7 @@ export default function NewsView() {
             <Newspaper className="size-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">News Feed</h1>
-            <p className="text-xs text-muted-foreground">
+<p className="text-xs text-muted-foreground">
               Latest football news and analysis
             </p>
           </div>

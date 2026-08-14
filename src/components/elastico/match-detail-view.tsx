@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { axisProps, cartesianGridProps, tooltipContentStyle, chartColor } from '@/lib/chart-theme'
+import { TeamCrest, StatusBadge } from '@/components/elastico/primitives'
 
 // ── Extended Types ──────────────────────────────────────────────────────────
 
@@ -516,10 +518,10 @@ export default function MatchDetailView() {
               {xgTimeline.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={xgTimeline}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis dataKey="minute" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                    <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+                    <CartesianGrid {...cartesianGridProps} />
+                    <XAxis dataKey="minute" {...axisProps} tick={{ ...axisProps.tick, fontSize: 10 }} />
+                    <YAxis {...axisProps} tick={{ ...axisProps.tick, fontSize: 10 }} />
+                    <RTooltip contentStyle={tooltipContentStyle} />
                     <Line type="monotone" dataKey="Home" stroke="#00e676" strokeWidth={2} dot={{ r: 3 }} />
                     <Line type="monotone" dataKey="Away" stroke="#00b4d8" strokeWidth={2} dot={{ r: 3 }} />
                   </LineChart>
@@ -594,7 +596,7 @@ export default function MatchDetailView() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className="text-sm font-black tabular-nums text-primary">{p.totalXT.toFixed(3)}</span>
+                        <span className="text-sm font-black tabular-nums text-primary">{p.totalXtGained.toFixed(3)}</span>
                         <div className="text-[9px] text-muted-foreground">xT total</div>
                       </div>
                     </div>
@@ -622,7 +624,7 @@ export default function MatchDetailView() {
                         <Pie data={votePieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none">
                           {votePieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                         </Pie>
-                        <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+                        <RTooltip contentStyle={tooltipContentStyle} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="flex justify-center gap-4 mt-2 text-[11px]">

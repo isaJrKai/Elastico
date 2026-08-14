@@ -365,8 +365,7 @@ export default function ChatView() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-foreground">AI Chat</h1>
-              {/* AI Provider Badge */}
+{/* AI Provider Badge */}
               <Badge
                 variant="outline"
                 className="gap-1.5 border-primary/30 bg-primary/5 px-2 py-0 text-[10px] font-medium text-primary"

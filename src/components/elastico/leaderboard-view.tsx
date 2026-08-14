@@ -122,8 +122,7 @@ export default function LeaderboardView() {
       <div className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15"><Trophy className="size-5 text-amber-400" /></div>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
-          <p className="text-sm text-muted-foreground">Top predictors & golden boot race</p>
+<p className="text-sm text-muted-foreground">Top predictors & golden boot race</p>
         </div>
         <Button variant="outline" size="sm" className="gap-1.5 border-border text-xs" onClick={handleExport}><Download className="size-3.5" />Export</Button>
       </div>

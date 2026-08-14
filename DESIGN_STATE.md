@@ -144,3 +144,17 @@ DS-051 | No Redundant Heading | Removed the h1 'Matches' title from the view —
 DS-051b | TooltipProvider Lifted | TooltipProvider moved from per-card wrapping to single wrap around the entire view | Avoids N+1 TooltipProvider instances for N match cards.
 
 ---
+
+## Phase 6-12: Feature Screens DS Compliance
+
+DS-052 | match-detail TS Fix | `totalXT` → `totalXtGained` on line 597 | Fixes the only project-level TypeScript error.
+
+DS-053 | match-detail Chart Theme | Replaced 5 hardcoded `oklch()` colors with `axisProps`, `cartesianGridProps`, `tooltipContentStyle` from chart-theme.ts | Enforces DS-006 across xG timeline and vote pie chart.
+
+DS-054 | Redundant h1 Removal | Removed `<h1>` from 11 views: predictions, player, compare, leaderboard, export, chat, settings, news, system-monitor (×2), prediction-engine, admin | DS-051 header minimalism. Header already shows the view title.
+
+DS-055 | Zero Project TS Errors | All TypeScript errors resolved. `npx tsc --noEmit` returns clean (excluding elastico-source/) | Build confidence for Phase 13+.
+
+DS-056 | match-detail Primitives | Added `TeamCrest` and `StatusBadge` imports from primitives/ | Ready for future replacement of any inline team rendering.
+
+---
