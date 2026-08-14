@@ -119,6 +119,14 @@ DS-045 | Match Rows Clickable | Live scores and results are buttons that navigat
 
 DS-046 | Compact Ticker | Ticker uses TeamCrest sm + StatusBadge instead of raw images and inline badges | Same visual density, proper component usage.
 
+DS-046b | Latest Results DB Fallback | Latest Results now renders DB matches as clickable rows when no ESPN finished matches exist | No dead-end "No recent results" when DB has data.
+
+DS-046c | Goals Chart Data Class | Goals per Match chart now shows REAL or DEMO badge based on data source | Extends DS-010 to chart sections.
+
+DS-046d | Streak Card Removed | Redundant streak card (right column) removed — data already in Quick Stats row | Reduces right-column height to fit 768px. Every pixel earns its place (DS-042).
+
+DS-046e | Results Rows Interactive | Both ESPN and DB result rows are now clickable buttons navigating to Match Analysis | Consistent with DS-045.
+
 ---
 
 ## Phase 5: Live Matches Rebuild

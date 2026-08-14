@@ -9,7 +9,7 @@
  *   DS-031: No placeholder cards — every section has real content or is removed
  *   DS-038: 1366x768 flagship — compact, information-dense, minimal scroll
  *
- * Layout (1366x768 target, ~1010x636px usable):
+ * Layout (1366x768 target, ~1062x640px usable):
  *   1. Live Score Ticker (full-width, ~56px)
  *   2. Quick Stats Row (4 StatBlocks, ~80px)
  *   3. Main Grid (3-col: 2+1)
@@ -26,9 +26,9 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
   ResponsiveContainer, BarChart, Bar,
 } from 'recharts'
-import { Zap, Swords, Target, MessageSquare, Clock, Trophy, Sparkles, TrendingUp } from 'lucide-react'
+import { Zap, Swords, Target, MessageSquare, Trophy, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { MATCH_STATUS, CHART_COLORS } from '@/lib/design-system'
+import { MATCH_STATUS } from '@/lib/design-system'
 import { axisProps, cartesianGridProps, tooltipContentStyle, chartColor } from '@/lib/chart-theme'
 import { TeamCrest, StatBlock, StatusBadge, SectionHeader } from '@/components/elastico/primitives'
 
@@ -109,7 +109,7 @@ function LiveTicker({ matches }: { matches: EspnMatch[] }) {
               </div>
               <span className="text-xs font-semibold">{m.awayTeam.abbreviation ?? '?'}</span>
               <TeamCrest code={m.awayTeam.abbreviation || ''} espnLogo={m.awayTeam.logo} color={m.awayTeam.color} size="sm" />
-              <StatusBadge variant="status" value={m.status} />
+              <StatusBadge variant="status" value={m.status} minute={m.minute} />
               <span className="text-border/30">|</span>
             </div>
           ))}
@@ -121,7 +121,7 @@ function LiveTicker({ matches }: { matches: EspnMatch[] }) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STANDINGS (compact top-5)
-// ═════════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function StandingsCompact() {
   const { rows, loading } = useEspnStandings('PL')
@@ -129,9 +129,7 @@ function StandingsCompact() {
     <div className="glass-card rounded-xl p-4">
       <SectionHeader
         label="Premier League"
-        action={
-          <span className="data-class-badge REAL">ESPN</span>
-        }
+        action={<span className="data-class-badge REAL">ESPN</span>}
         className="mb-3"
       />
       {loading ? (
@@ -221,6 +219,9 @@ export default function DashboardView() {
       goals: m.homeScore + m.awayScore,
     }))
   }, [liveMatches, finished])
+
+  // Determine goals chart data source
+  const goalsDataSource = liveMatches?.some(m => m.status === 'finished') ? 'REAL' as const : 'DEMO' as const
 
   // News
   const newsItems = useMemo(() => {
@@ -358,7 +359,7 @@ export default function DashboardView() {
                   </div>
                 </div>
                 <div className="text-center shrink-0 px-2">
-                  <p className={cn('text-lg font-black text-muted-foreground')}>VS</p>
+                  <p className="text-lg font-black text-muted-foreground">VS</p>
                   <p className="text-[10px] text-muted-foreground truncate max-w-24">{nextMatch.venue ?? 'TBD'}</p>
                 </div>
                 <div className="flex items-center gap-3 min-w-0 justify-end">
@@ -404,7 +405,7 @@ export default function DashboardView() {
             </div>
           )}
 
-          {/* LATEST RESULTS */}
+          {/* LATEST RESULTS — ESPN first, DB fallback */}
           <div className="glass-card rounded-xl p-4">
             <SectionHeader
               label="Latest Results"
@@ -414,8 +415,13 @@ export default function DashboardView() {
               className="mb-2"
             />
             <div className="space-y-0.5">
+              {/* ESPN finished matches */}
               {liveMatches && liveMatches.filter(m => m.status === 'finished').slice(0, 4).map((m) => (
-                <div key={m.id} className="flex items-center justify-between py-2 border-b border-border/10 last:border-0">
+                <button
+                  key={`espn-${m.id}`}
+                  onClick={() => navigateToMatch(m.id)}
+                  className="w-full flex items-center justify-between py-2 border-b border-border/10 last:border-0 hover:bg-white/[0.02] rounded px-1 transition-colors text-left"
+                >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <StatusBadge variant="status" value="finished" />
                     <TeamCrest code={m.homeTeam.abbreviation || ''} espnLogo={m.homeTeam.logo} color={m.homeTeam.color} size="xs" />
@@ -426,7 +432,26 @@ export default function DashboardView() {
                     <span className="text-xs font-medium truncate text-right">{m.awayTeam.name}</span>
                     <TeamCrest code={m.awayTeam.abbreviation || ''} espnLogo={m.awayTeam.logo} color={m.awayTeam.color} size="xs" />
                   </div>
-                </div>
+                </button>
+              ))}
+              {/* DB finished matches — only shown if no ESPN finished */}
+              {(!liveMatches || liveMatches.filter(m => m.status === 'finished').length === 0) && finished.map((m) => (
+                <button
+                  key={`db-${m.id}`}
+                  onClick={() => navigateToMatch(m.id)}
+                  className="w-full flex items-center justify-between py-2 border-b border-border/10 last:border-0 hover:bg-white/[0.02] rounded px-1 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <StatusBadge variant="status" value="finished" />
+                    <TeamCrest code={m.homeTeam?.code || ''} espnLogo={m.homeTeam?.logo} color={m.homeTeam?.primaryColor} size="xs" />
+                    <span className="text-xs font-medium truncate">{m.homeTeam?.name ?? 'TBD'}</span>
+                  </div>
+                  <span className="text-sm font-bold tabular-nums px-2 shrink-0">{m.homeScore}-{m.awayScore}</span>
+                  <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <span className="text-xs font-medium truncate text-right">{m.awayTeam?.name ?? 'TBD'}</span>
+                    <TeamCrest code={m.awayTeam?.code || ''} espnLogo={m.awayTeam?.logo} color={m.awayTeam?.primaryColor} size="xs" />
+                  </div>
+                </button>
               ))}
               {(!liveMatches || liveMatches.filter(m => m.status === 'finished').length === 0) && finished.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-3">No recent results</p>
@@ -441,7 +466,11 @@ export default function DashboardView() {
           {/* GOALS CHART */}
           {goalsChartData.length > 0 && (
             <div className="glass-card rounded-xl p-4">
-              <SectionHeader label="Goals per Match" className="mb-2" />
+              <SectionHeader
+                label="Goals per Match"
+                action={<span className="data-class-badge">{goalsDataSource}</span>}
+                className="mb-2"
+              />
               <ResponsiveContainer width="100%" height={160}>
                 <BarChart data={goalsChartData} barGap={4}>
                   <CartesianGrid {...cartesianGridProps} />
@@ -513,39 +542,6 @@ export default function DashboardView() {
                     )}
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* STREAK */}
-          {(user?.bestStreak || user?.predictionStreak) ? (
-            <div className="glass-card rounded-xl p-4 ring-glow-emerald">
-              <div className="flex items-center gap-4">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15">
-                  <Zap className="size-5 text-primary" />
-                </div>
-                <div>
-                  <p className={cn('text-xl font-black tabular-nums', streak > 0 ? 'text-primary' : 'text-muted-foreground')}>
-                    {streak}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">Current Streak</p>
-                </div>
-                <div className="ml-auto text-right">
-                  <p className="text-sm font-bold text-amber-400">Best: {bestStreak}</p>
-                  <p className="text-[10px] text-muted-foreground">All Time</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="glass-card rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15">
-                  <Zap className="size-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold">Start Your Streak!</p>
-                  <p className="text-[10px] text-muted-foreground">Make your first prediction to begin tracking.</p>
-                </div>
               </div>
             </div>
           )}
