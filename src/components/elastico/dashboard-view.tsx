@@ -49,32 +49,35 @@ interface StandingRow {
   played: number; wins: number; draws: number; losses: number; points: number
 }
 
-function useEspnStandings(league = 'PL') {
+function useLeagueStandings(competition = 'PL') {
   const [rows, setRows] = useState<StandingRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [source, setSource] = useState('')
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/live?action=standings&league=${league}`)
-      .then(r => r.ok ? r.json() : { data: [] })
+    // Use /api/standings which returns football-data.org data (real) with ESPN fallback
+    fetch(`/api/standings?competition=${competition}`)
+      .then(r => r.ok ? r.json() : { data: [], standings: [] })
       .then((data: any) => {
-        const items = (data.data || []).slice(0, 10).map((t: any, i: number) => ({
-          rank: i + 1,
-          name: t.name || t.team?.displayName || '?',
-          code: t.code || t.abbreviation || '',
-          logo: t.logo || t.team?.logo || '',
+        const items = (data.standings || []).slice(0, 10).map((t: any, i: number) => ({
+          rank: t.position ?? t.position ?? i + 1,
+          name: t.team || t.name || '?',
+          code: t.code || t.tla || '',
+          logo: t.crest || t.logo || '',
           color: t.color || '',
-          played: t.gamesPlayed ?? t.played ?? 0,
-          wins: t.wins ?? 0, draws: t.draws ?? 0, losses: t.losses ?? 0,
+          played: t.played ?? 0,
+          wins: t.won ?? 0, draws: t.drawn ?? 0, losses: t.lost ?? 0,
           points: t.points ?? 0,
         }))
         setRows(items)
+        setSource(data.source || 'unknown')
       })
       .catch(() => setRows([]))
       .finally(() => setLoading(false))
-  }, [league])
+  }, [competition])
 
-  return { rows, loading }
+  return { rows, loading, source }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -124,18 +127,21 @@ function LiveTicker({ matches }: { matches: EspnMatch[] }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function StandingsCompact() {
-  const { rows, loading } = useEspnStandings('PL')
+  const { rows, loading, source } = useLeagueStandings('PL')
+  const sourceLabel = source === 'football-data.org' ? 'F-DATA' : source === 'espn' ? 'ESPN' : source.toUpperCase()
   return (
     <div className="glass-card rounded-xl p-4">
       <SectionHeader
         label="Premier League"
-        action={<span className="data-class-badge REAL">ESPN</span>}
+        action={<span className="data-class-badge REAL">{sourceLabel}</span>}
         className="mb-3"
       />
       {loading ? (
         <div className="space-y-2 animate-pulse">
           {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-5 bg-muted/50 rounded" />)}
         </div>
+      ) : rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-3">No standings data</p>
       ) : (
         <div className="space-y-1">
           {rows.slice(0, 5).map((t, i) => (
