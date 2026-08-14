@@ -3,9 +3,11 @@
 import React, { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { useElasticoStore } from '@/store/use-elastico-store'
+import { SPACE } from '@/lib/design-system'
 import { TYPE } from '@/lib/design-system'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, legendProps, chartColor } from '@/lib/chart-theme'
 import { TeamCrest } from '@/components/elastico/primitives/team-crest'
+import { PlayerHeadshot } from '@/components/elastico/primitives/player-headshot'
 import { StatBlock } from '@/components/elastico/primitives/stat-block'
 import { SectionHeader } from '@/components/elastico/primitives/section-header'
 import { DataState } from '@/components/elastico/primitives/data-state'
@@ -170,7 +172,7 @@ function FormationPitch({
 // ── Main View ───────────────────────────────────────────────────────────
 
 export function TacticalView() {
-  const { teams, matches, selectedMatchId, selectMatch, setView } = useElasticoStore()
+  const { teams, matches, selectedMatchId } = useElasticoStore()
 
   const [homeTeamId, setHomeTeamId] = useState<string>('')
   const [awayTeamId, setAwayTeamId] = useState<string>('')
@@ -435,7 +437,8 @@ export function TacticalView() {
             <Card className="border-border/60 mt-3">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-4">
-                  <SectionHeader label="Tactical Radar Comparison" />\n                  <StatusBadge variant="dataclass" value="DEMO" />
+                  <SectionHeader label="Tactical Radar Comparison" />
+                  <StatusBadge variant="dataclass" value="DEMO" />
                 </div>
                 <div className="w-full mx-auto" style={{ maxWidth: 480 }}>
                   <ResponsiveContainer width="100%" aspect={1}>
@@ -506,7 +509,8 @@ export function TacticalView() {
               <Card className="border-border/60 lg:col-span-2">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <SectionHeader label="Playing Style Metrics" />\n                    <StatusBadge variant="dataclass" value={styleData[0]?.dataClass || 'REAL'} />
+                    <SectionHeader label="Playing Style Metrics" />
+                    <StatusBadge variant="dataclass" value="MIXED" />
                   </div>
                   <ResponsiveContainer width="100%" height={260}>
                     <BarChart data={styleData} barGap={4} barCategoryGap="20%">
