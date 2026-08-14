@@ -141,4 +141,6 @@ DS-050 | ESPN Data Class | Added `REAL` data-class badge next to match count | H
 
 DS-051 | No Redundant Heading | Removed the h1 'Matches' title from the view — header already shows 'Live Matches' | DS-028 header minimalism.
 
+DS-051b | TooltipProvider Lifted | TooltipProvider moved from per-card wrapping to single wrap around the entire view | Avoids N+1 TooltipProvider instances for N match cards.
+
 ---

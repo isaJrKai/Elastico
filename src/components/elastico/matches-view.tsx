@@ -22,13 +22,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import {
   Search, MapPin, Clock, Trophy, RefreshCw,
   Eye, Bookmark, BookmarkCheck, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TeamCrest, StatusBadge, SectionHeader } from '@/components/elastico/primitives'
+import { TeamCrest, StatusBadge } from '@/components/elastico/primitives'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,14 +96,13 @@ function MatchCard({ match, onClick }: { match: EspnMatch; onClick?: () => void 
   const [bookmarked, setBookmarked] = useState(false)
 
   return (
-    <TooltipProvider>
-      <Card
-        className={cn(
-          'glass-card-premium transition-all duration-200 animate-fade-in-up group',
-          isLive && 'border-red-500/20 hover:border-red-500/40',
-          !isLive && 'hover:border-primary/30',
-          bookmarked && 'ring-glow-emerald',
-        )}
+    <Card
+      className={cn(
+        'glass-card-premium transition-all duration-200 animate-fade-in-up group',
+        isLive && 'border-red-500/20 hover:border-red-500/40',
+        !isLive && 'hover:border-primary/30',
+        bookmarked && 'ring-glow-emerald',
+      )}
       >
         <CardContent className="p-4 space-y-3">
           {/* Header: Status + Competition + Bookmark */}
@@ -186,7 +185,6 @@ function MatchCard({ match, onClick }: { match: EspnMatch; onClick?: () => void 
           )}
         </CardContent>
       </Card>
-    </TooltipProvider>
   )
 }
 
@@ -269,6 +267,7 @@ export default function MatchesView() {
   }, [selectMatch, setView])
 
   return (
+    <TooltipProvider>
     <div className="flex flex-col gap-4 animate-fade-in-up">
       {/* Filter Bar */}
       <div className="glass-card rounded-xl p-4">
@@ -352,5 +351,6 @@ export default function MatchesView() {
         ))}
       </Tabs>
     </div>
+    </TooltipProvider>
   )
 }
