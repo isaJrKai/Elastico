@@ -1,0 +1,227 @@
+/home/z/my-project/src/app/api/statsbomb/route.ts:          homeXg: shots.filter(s => s.team === ht).reduce((sum, s) => sum + s.xg, 0).n(2),
+/home/z/my-project/src/app/api/statsbomb/route.ts:          awayXg: shots.filter(s => s.team === at).reduce((sum, s) => sum + s.xg, 0).n(2),
+/home/z/my-project/src/app/api/statsbomb/route.ts:              xg: +xg.home.totalXg.n(2),
+/home/z/my-project/src/app/api/statsbomb/route.ts:              xg: +xg.away.totalXg.n(2),
+/home/z/my-project/src/app/api/system/self-audit/route.ts:        details: `Mean CLV edge (${(meanClvEdge * 100).n(2)}%) is below threshold (${(CLV_THRESHOLD * 100).n(2)}%). Model edge is decaying — consider retraining or adjusting feature set.`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Coach is in high risk-seeking mode (CRI=${CRI.n(3)}). Loss aversion suppressed by game state. Expect unconventional tactical decisions.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Coach risk appetite elevated (CRI=${CRI.n(3)}). Prospect theory predicts slightly asymmetric decision weighting.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Coach operating conservatively (CRI=${CRI.n(3)}). Value function is loss-averse, favoring defensive stability.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Coach is in risk-averse lock (CRI=${CRI.n(3)}). High loss sensitivity — predictable substitutions and defensive posture expected.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { V: V.n(4), pi: pi.n(4), timePressure, scoreModifier, scoreDifferential, minutesRemaining }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Emotional momentum is ${totalSCS > 0 ? 'strongly amplifying' : 'strongly suppressing'} team performance (SCS=${totalSCS.n(3)}). ${totalSCS > 0 ? 'Positive emotional infection — expect elevated pressing intensity and risk-taking.' : 'Negative emotional cascade — withdrawal patterns and defensive errors likely within 8 minutes.'}`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Minimal emotional contagion (SCS=${totalSCS.n(3)}). Team emotional state is stable — no measurable momentum effect.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { totalSCS: totalSCS.n(4), affectedPlayers: playerEffects.length, window: `${currentMinute - triggerEvent.minute} min` }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Player under severe identity threat (ITI=${effectiveITI.n(3)}, expected ${Math.abs(performanceDelta * 100).n(1)}% performance drop). High neuroticism + low resilience + recent criticism = toxic combination. Expect timid play, reduced ball progression, and avoidance of risk.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Measurable identity threat (ITI=${effectiveITI.n(3)}, expected ${Math.abs(performanceDelta * 100).n(1)}% drop). Player may show reduced confidence in 1v1s and passing range.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Identity threat negligible (ITI=${effectiveITI.n(3)}, <${Math.abs(performanceDelta * 100).n(1)}% expected impact). Player's resilience or time since criticism has absorbed the effect.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { rawITI: rawITI.n(4), decayFactor: decayFactor.n(4), performanceDelta: `${(performanceDelta * 100).n(1)}%`, daysSinceCriticism }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Referee showing strong home bias drift (drift=${driftValue.n(3)}, error_prob=${(errorProbability * 100).n(1)}%). Fatigue (${(fatigue * 100).n(0)}%) + crowd noise are amplifying subconscious bias. Away team should expect tighter calls.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Referee error probability elevated to ${(errorProbability * 100).n(1)}% due to fatigue (${(fatigue * 100).n(0)}%). Expect more marginal decisions to go wrong.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Referee performance stable (drift=${driftValue.n(3)}, error_prob=${(errorProbability * 100).n(1)}%). No significant behavioral drift detected.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { fatigue: fatigue.n(4), crowdInfluence: crowdInfluence.n(4), correctionBias: correctionBias.n(4), errorProbability: errorProbability.n(4), minute }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Severe circadian disruption (CRD=${CRD.n(3)}, ${perfDrop.n(1)}% drop). ${travelDirection} travel across ${timeZonesCrossed} TZ with only ${daysSinceArrival}d recovery. ${positionGroup} performance significantly degraded. Expected to need ${recoveryDaysNeeded} more days for full recovery.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Moderate circadian impact (CRD=${CRD.n(3)}, ${perfDrop.n(1)}% drop). Partial recovery achieved. ${positionGroup}s may show delayed reaction times in final third.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Team appears circadian-adjusted (CRD=${CRD.n(3)}, ${perfDrop.n(1)}% drop). Sufficient recovery time for timezone travel.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { perfDrop: `${perfDrop.n(1)}%`, directionCoeff, recoveryFraction: recoveryFraction.n(2), recoveryDaysNeeded, effectiveTZImpact: effectiveTZImpact.n(4) }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Severe fixture congestion (FCD=${normalizedFatigue.n(3)}, ~${(perfDrop * 100).n(1)}% performance drop). ${matchCount} matches in short period. Strikers most affected (${(strikerDrop * 100).n(1)}% drop). Expect tactical rotation, reduced pressing, and late-game collapse risk.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Moderate congestion (FCD=${normalizedFatigue.n(3)}, ~${(perfDrop * 100).n(1)}% drop). ${matchCount} recent matches. Midfielders and strikers showing cumulative fatigue. Second-half performance dip likely.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Squad appears fresh (FCD=${normalizedFatigue.n(3)}, <${(perfDrop * 100).n(1)}% drop). Adequate recovery between matches.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      perfDrop: `${(perfDrop * 100).n(1)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      strikerDrop: `${(strikerDrop * 100).n(1)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      midfielderDrop: `${(midfielderDrop * 100).n(1)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      defenderDrop: `${(defenderDrop * 100).n(1)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      gkDrop: `${(gkDrop * 100).n(1)}%`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Player at high re-injury risk (readiness=${effectiveReadiness.n(1)}/100). Training load insufficient. Against a team with ${(opponentDefensiveIntensity * 100).n(0)}% press intensity, expect significant performance deficit and elevated injury probability. Do not start.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Player suitable for late cameo only (readiness=${effectiveReadiness.n(1)}/100). 20-30 min max against moderate opposition. High-press opponent will expose fitness gaps.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Borderline readiness (readiness=${effectiveReadiness.n(1)}/100, threshold=${TRUE_READINESS_THRESHOLD}). Can start against low-press opponents but expect 15-20% below peak. Monitor closely for fatigue signs after 60 minutes.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Player fully reintegrated (readiness=${effectiveReadiness.n(1)}/100). Training load and match minutes sufficient for full performance even against high-press opponents.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      rawReadiness: rawReadiness.n(1),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      contextAdjustment: contextAdjustment.n(3),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      opponentIntensity: `${(opponentDefensiveIntensity * 100).n(0)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Severe motivation asymmetry (MAI_delta=${maiDelta.n(3)}, adj=+${(formAdjustedPerformance * 100).n(1)}% for Team ${motivatedTeam}). Team ${motivatedTeam} has significantly more at stake. Historical data shows ${motivatedTeam === 'A' ? 'home' : 'away'} teams in this scenario overperform xG by 12-18%. Dead rubber risk for opponent.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Moderate motivation gap (MAI_delta=${maiDelta.n(3)}). Team ${motivatedTeam} has slightly more to play for. Expect a ${(formAdjustedPerformance * 100).n(1)}% performance edge, though form quality moderates the effect.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Motivation levels roughly equal (MAI_delta=${maiDelta.n(3)}). Both teams have similar stakes. No motivation-based adjustment needed — form and quality are better predictors.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { maiDelta: maiDelta.n(4), performanceAdjustment: performanceAdjustment.n(4), motivatedTeam, gameWeight, weight }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `DEFENSIVE SHAPE BREAKDOWN for ${teamName} (DSE=${normalizedEntropy.n(3)} bits, ${playersOutPosition}/${players.length} players out of position). Goal probability increased by ${((goalRiskMultiplier - 1) * 100).n(0)}%. This is a leading indicator — goal likely within 8 seconds if ball enters the broken zone.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `${teamName} defensive shape showing stress (DSE=${normalizedEntropy.n(3)}, ${playersOutPosition} players displaced). Formation is stretching but holding. Transition opportunities exist but not critical.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `${teamName} defensive shape is organized (DSE=${normalizedEntropy.n(3)}). Players are in assigned zones. No structural vulnerability detected.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { rawEntropy: entropy.n(3), playersOutPosition, totalPlayers: players.length, goalRiskMultiplier: goalRiskMultiplier.n(1) }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Team dominating second balls (SBDI=${SBDI.n(3)}, ${((winProbability) * 100).n(0)}% win probability). This is one of the strongest predictive signals — above 0.61 threshold correlates with 71%+ win rate. ${secondBallsWon}/${contested} second balls recovered, weighted by territorial position.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Team competitive on second balls (SBDI=${SBDI.n(3)}, ~${((winProbability) * 100).n(0)}% win prob). Slightly above average but below dominance threshold. Midfield battles are even.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Team losing the second-ball battle (SBDI=${SBDI.n(3)}, ~${((winProbability) * 100).n(0)}% win prob). Only ${secondBallsWon}/${contested} recovered. Opponents are winning possession after initial duels — expect sustained pressure and turnover-based chances against.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { secondBallsWon, totalContested: totalContestedBalls, baseSBDI: baseSBDI.n(3), territorialWeight, winProbability: `${(winProbability * 100).n(1)}%` }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Team's press is significantly delayed (avg ${avgLag.n(2)}s, max ${maxLag.n(2)}s). This is exploitable — opponents gain an average of ${avgExploitValue.n(3)} xG-equivalent per slow press. High inconsistency (σ=${stdDev.n(2)}s) suggests communication breakdown.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Press reaction is below optimal (avg ${avgLag.n(2)}s vs 1.2s threshold). Some triggers are recognized quickly (${minLag.n(2)}s) but consistency is poor. Moderate exploitation window exists.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Press recognition is elite (avg ${avgLag.n(2)}s, σ=${stdDev.n(2)}s). Team reacts within optimal window. Press triggers are well-drilled and consistent. Minimal exploitation value for opponents (${avgExploitValue.n(4)}).`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      avgLag: avgLag.n(2) + 's',
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      maxLag: maxLag.n(2) + 's',
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      minLag: minLag.n(2) + 's',
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      stdDev: stdDev.n(2) + 's',
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      avgExploitValue: avgExploitValue.n(4),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Major gap between tactical plan and execution (SOA=${normalizedSOA.n(2)}). ${problematicZones.length} zones significantly misaligned. ${problematicZones.map(z => `${z.zoneId} is ${z.type.toLowerCase()}`).join(', ')}. The team is not executing the game plan — either adjust tactics or make personnel changes.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Tactical plan drifting from execution (SOA=${normalizedSOA.n(2)}). Some zones misaligned: ${problematicZones.map(z => `${z.zoneId} (${z.type.toLowerCase()}, Δ=${z.asymmetry.n(1)})`).join(', ')}. In-game coaching adjustment may be needed.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Team executing tactical plan well (SOA=${normalizedSOA.n(2)}). Player positioning closely matches intended structure. Overload zones are forming as designed.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { totalAsymmetry: totalAsymmetry.n(2), problematicZones: problematicZones.length, zoneDetails }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `SHARP MONEY DETECTED (Line_Alpha=${lineAlpha.n(2)}). After removing public money (${publicMoneyEffect.n(2)}), injuries (${injuryAdjustment.n(2)}), and weather (${weatherAdjustment.n(2)}), a residual of ${absAlpha.n(2)} points remains unexplained. This is likely sharp/syndicate money. Historical follow probability: ${(followProbability * 100).n(0)}%. Direction: ${direction > 0 ? 'toward home/over' : 'toward away/under'}.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Minor unexplained line movement (Line_Alpha=${lineAlpha.n(2)}). Could be early sharp action or market maker adjustment. Not yet at threshold for high-conviction signal.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Line movement fully explained by public factors (Line_Alpha=${lineAlpha.n(2)}, ${explainedPct.n(0)}% explained). No sharp money signal detected. The market is efficient here.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      totalLineMove: totalLineMove.n(2),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      explainedPct: `${explainedPct.n(0)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      publicMoneyEffect: publicMoneyEffect.n(2),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      injuryAdjustment: injuryAdjustment.n(2),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      weatherAdjustment: weatherAdjustment.n(2),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      followProbability: `${(followProbability * 100).n(1)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `MARKET OVERREACTION DETECTED (RBEI=${RBEI.n(2)}). Market implies ${(marketImpliedProb * 100).n(1)}% but true talent is ${(trueTalentProb * 100).n(1)}%. The ${marketOvervalues ? 'last ${recentResults.length} games (avg ${(recentForm * 100).n(0)} PPG) have inflated the price' : 'recent poor form has deflated the price'}. Estimated edge: ${(fadeEdge * 100).n(1)}%. ${marketOvervalues ? 'FADE this team — they are priced above true talent.' : 'BACK this team — the market has overcorrected downward.'}`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Minor recency bias in the market (RBEI=${RBEI.n(2)}). Market ${marketOvervalues ? 'slightly overrates' : 'slightly underrates'} this team based on recent form. Not yet at exploitable threshold but worth monitoring.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Market is pricing this team efficiently (RBEI=${RBEI.n(2)}). Market implied (${(marketImpliedProb * 100).n(1)}%) closely matches true talent (${(trueTalentProb * 100).n(1)}%). No recency bias exploitable.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      marketImplied: `${(marketImpliedProb * 100).n(1)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      trueTalent: `${(trueTalentProb * 100).n(1)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      recentForm: recentForm.n(2),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      fadeEdge: `${(fadeEdge * 100).n(1)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      sigma: sigma.n(4)
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    phaseLabel = `Refreshed cycle (${t}mo, ${((rosterTurnover) * 100).n(0)}% turnover). Roster churn has given the coach new personnel to implement ideas. Cliff mitigated.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Coach is in peak performance window (CTC=${CTC.n(3)}, +${((tenureModifier) * 100).n(1)}% above baseline at month ${t}). New manager effect still active, system well-implemented. Maximize this window — it typically lasts until month 18-24.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `WARNING: Coach likely hitting tenure cliff (CTC=${CTC.n(3)}, ${((tenureModifier) * 100).n(1)}% vs baseline at month ${t}). Performance declining below talent level. Roster turnover only ${((rosterTurnover) * 100).n(0)}% (need >40% for refresh). Decision point approaching.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Coach at ${phase.toLowerCase()} stage (CTC=${CTC.n(3)}, ${t}mo). ${phaseLabel}`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    raw: { monthsSinceAppointment: t, newManagerBump: newManagerBump.n(4), cliffMitigation: cliffMitigation.n(4), phase, rosterTurnover: `${(rosterTurnover * 100).n(0)}%` }
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Strong positive media narrative (NM=${nmScore.n(3)}, expected +${(performanceUplift * 100).n(1)}% uplift). Player/team is receiving high-reach positive coverage. The self-fulfilling prophecy effect should boost actual performance. Combined with ${currentForm.n(1)} PPG form, this is a confidence multiplier.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Negative narrative spiral (NM=${nmScore.n(3)}, expected ${(performanceUplift * 100).n(1)}% impact). Sustained negative coverage is creating a self-fulfilling underperformance loop. Player confidence likely affected. This interacts with Identity Threat Index if criticism is personal.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Media narrative is neutral (NM=${nmScore.n(3)}, <1% performance effect). No significant feedback loop detected. Performance will be driven by form and quality rather than narrative momentum.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      avgSentiment: avgSentiment.n(3),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      totalReach: totalReach.n(2),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      performanceUplift: `${(performanceUplift * 100).n(2)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Player under extreme acoustic pressure (CAPZ: ${effectiveSPL.n(1)} dB for ${exposureSeconds}s). Expected ${(errorIncrease * 100).n(0)}% increase in decision errors. ${isHome ? 'Away' : 'Home'} end of ${stadiumType} stadium with ${(attendancePct * 100).n(0)}% capacity. Player at (${playerX.n(2)}, ${playerY.n(2)}) — high-pressure zone. Distribution, communication, and concentration will be measurably affected.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Elevated acoustic pressure (CAPZ: ${effectiveSPL.n(1)} dB). ${(errorIncrease * 100).n(0)}% decision error increase. Player performance may be slightly degraded in high-pressure moments.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Acoustic pressure within normal range (CAPZ: ${effectiveSPL.n(1)} dB). No significant crowd-induced performance impact expected at this position.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      baseSPL: baseSPL.n(1),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      effectiveSPL: effectiveSPL.n(1),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      errorIncrease: `${(errorIncrease * 100).n(1)}%`,
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      positionPressure: positionPressure.n(3),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Team is an elite tactical adapter (TAD velocity=${tadVelocity.n(4)}/game, ${((relativeSpeed / (1 / eliteThreshold)) * 100).n(0)}% of elite threshold). Copied ${((deltaSimilarity) * 100).n(0)}% of opponent's tactical pattern in just ${gamesSinceOpponent} games. This adaptation speed correlates with title-winning campaigns (top 2σ in league).`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Team is a slow tactical adapter (TAD velocity=${tadVelocity.n(4)}/game). After ${gamesSinceOpponent} games since facing the reference opponent, only ${((deltaSimilarity) * 100).n(0)}% tactical adoption. Below league average adaptation speed. Opponents can predict their tactical evolution.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Team is tactically diverging from reference (TAD velocity=${tadVelocity.n(4)}/game, Δ=${((deltaSimilarity) * 100).n(0)}%). Rather than copying, they are moving away from the opponent's pattern. Could be intentional counter-adaptation or ideological rigidity.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Normal tactical adaptation speed (TAD velocity=${tadVelocity.n(4)}/game). Team is gradually incorporating elements from the reference opponent at approximately league-average rate.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      deltaSimilarity: deltaSimilarity.n(4),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      tadVelocity: tadVelocity.n(4),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      relativeSpeed: relativeSpeed.n(4),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Substitute is at peak impact window (net=${netImpact.n(3)} at min ${minutesSinceSub}). The warm-up phase (${TAU_WARMUP}min τ) has completed and opponent counter-adjustment (${TAU_COUNTER}min τ) hasn't fully caught up. Peak was predicted at ~min ${peakMinutes}. ${remainingUsefulMinutes} minutes of positive net impact remaining.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Substitute still ramping up (net=${netImpact.n(3)} at min ${minutesSinceSub}). ${minutesSinceSub < peakMinutes ? `Has not yet reached peak impact (expected ~min ${peakMinutes}).` : `Past peak but still providing positive value.`} ${remainingUsefulMinutes} minutes of useful impact remaining.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Substitution impact has been neutralized (net=${netImpact.n(3)} at min ${minutesSinceSub}). Opponent has adjusted to the substitute. The counter-adjustment curve has caught up. ${subQuality > opponentAdjustment ? 'The sub quality edge exists but the opponent has tactically adapted.' : 'Opponent adjustment has fully neutralized the substitution.'}`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      subImpact: subImpact.n(4),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      counterImpact: counterImpact.n(4),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      warmupFactor: warmupFactor.n(3),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      counterFactor: counterFactor.n(3),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      interpretation = `Strong hangover effect from dramatic win (IPR=${effectiveIPR.n(3)}, expected ${Math.abs(performanceImpact * 100).n(1)}% performance drop). ${wasComeback ? 'Comeback ' : ''}${wasDerby ? 'derby ' : ''}created intense emotional residue. Players likely overestimating their level. Full recovery expected in ~${fullRecoveryDays} days. Watch for slow start and complacency in first 20 minutes.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      interpretation = `Threat response boost from devastating loss (IPR=${effectiveIPR.n(3)}, expected +${(performanceImpact * 100).n(1)}% performance). ${wasComeback ? 'Blown lead ' : ''}${wasDerby ? 'derby ' : ''}defeat creates tactical tightening. Team likely to be more disciplined and focused. Effect peaks in first 30 minutes then fades.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `Mild psychological residue (IPR=${effectiveIPR.n(3)}, ${Math.abs(performanceImpact * 100).n(1)}% effect). Emotional carryover from previous game is measurable but small. ${emotionalValence > 0 ? 'Slight overconfidence risk.' : 'Slight focus boost.'} Recovery ~${fullRecoveryDays} days.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:    interpretation = `No significant psychological residue (IPR=${effectiveIPR.n(3)}). Sufficient recovery time or low-drama previous game. Team should perform at baseline.`
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      baseIPR: baseIPR.n(4),
+/home/z/my-project/src/lib/advanced-analytics-engine.ts:      performanceImpact: `${(performanceImpact * 100).n(2)}%`,
+/home/z/my-project/src/lib/game-state-engine.ts:      avgXTPerPass: passes.length > 0 ? +(totalXT / passes.length).n(5) : 0,
+/home/z/my-project/src/lib/game-state-engine.ts:      totalXTGained: +totalXT.n(4),
+/home/z/my-project/src/lib/game-state-engine.ts:      possessionPct: totalEvents > 0 ? +((events.length / totalEvents) * 100).n(1) : 0,
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +(tReact + d / vMax).n(3)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +sigmoid(lambda * (tAway - tHome)).n(4)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +Math.exp(-d2 / (2 * sigma * sigma)).n(6)
+/home/z/my-project/src/lib/elite-math-engine.ts:    results.push({ velocity: vel, speed: +speed.n(2), acceleration: accel, accelMag: +accelMag.n(2) })
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +work.n(2)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +radToDeg(Math.acos(clamp(cosTheta, -1, 1))).n(2)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +Math.sqrt(Math.pow(PITCH_LENGTH - x, 2) + Math.pow(GOAL_CENTER_Y - y, 2)).n(2)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +sigmoid(logOdds).n(4)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +(dist(origin, impact) / timeDelta).n(2)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +sigmoid(logOdds).n(4)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return { minDistance: +minDist.n(2), closestDefenderIndex: minIdx }
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +sigmoid(logOdds).n(4)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +(pPass * xG).n(4)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +radToDeg(Math.atan2(destination[1] - origin[1], destination[0] - origin[0])).n(2)
+/home/z/my-project/src/lib/elite-math-engine.ts:  for (const m of merged) m.pct = +((m.count / total) * 100).n(1)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +(Math.abs(area) / 2).n(2)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return [+cx.n(2), +cy.n(2)]
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +Math.min(...defenderXCoords).n(2)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +Math.sqrt(variance).n(2)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +(opponentPassesInAttackingZone / defensiveActions).n(2)
+/home/z/my-project/src/lib/elite-math-engine.ts:  return +Math.sqrt(sumSq).n(4)
+/home/z/my-project/src/lib/elite-math-engine.ts:    passLength: +passLength.n(2),
+/home/z/my-project/src/lib/elite-math-engine.ts:  const compactness = +((hullArea / maxPitchArea) * 100).n(2)
+/home/z/my-project/src/lib/predictions.ts:        `Expected goals favour ${favoured} significantly (${Math.max(matchData.homeXg, matchData.awayXg).n(2)} vs ${Math.min(matchData.homeXg, matchData.awayXg).n(2)} xG).`,
+/home/z/my-project/src/app/api/analytics/route.ts:              homeXg: +shots.filter(s => s.team === homeTeam).reduce((sum, s) => sum + s.xg, 0).n(2),
+/home/z/my-project/src/app/api/analytics/route.ts:              awayXg: +shots.filter(s => s.team === awayTeam).reduce((sum, s) => sum + s.xg, 0).n(2),
+/home/z/my-project/src/app/api/analytics/route.ts:          data: { area, centroid, pitchArea: maxArea, compactness: +((area / maxArea) * 100).n(2) },
+/home/z/my-project/src/lib/export.ts:        <tr><td class="label">xG</td><td class="xg">${match.homeXg.n(2)}</td><td class="xg">${match.awayXg.n(2)}</td></tr>
+/home/z/my-project/src/lib/compressed-data-stream.ts:    console.log(`[${tag}] Ultra-light payload: ${rawBytes} bytes (${(rawBytes / 1024).n(1)} KB) @ ${timestamp}`)
+/home/z/my-project/src/lib/compressed-data-stream.ts:    console.log(`[${tag}] Light payload: ${rawBytes} bytes (${(rawBytes / 1024).n(1)} KB) @ ${timestamp}`)
+/home/z/my-project/src/lib/compressed-data-stream.ts:    console.warn(`[${tag}] Heavy payload: ${rawBytes} bytes (${(rawBytes / 1024).n(1)} KB) — consider compact mode`)
+/home/z/my-project/src/lib/compressed-data-stream.ts:    return (this._total / 1024).n(1)
+/home/z/my-project/src/app/api/predictions/compute/route.ts:        elo: { home: Math.round(elo.homeProb * 1000) / 10, draw: Math.round(elo.drawProb * 1000) / 10, away: Math.round(elo.awayProb * 1000) / 10, expHome: elo.expectedHomeGoals.n(2), expAway: elo.expectedAwayGoals.n(2) },
+/home/z/my-project/src/app/api/predictions/compute/route.ts:        expectedGoals: { home: stochastic.expectedMeans.home.n(2), away: stochastic.expectedMeans.away.n(2), total: stochastic.expectedMeans.total.n(2) },
+/home/z/my-project/src/lib/xt-engine.ts:    startZoneThreat: +startThreat.n(5),
+/home/z/my-project/src/lib/xt-engine.ts:    endZoneThreat: +endThreat.n(5),
+/home/z/my-project/src/lib/xt-engine.ts:    xtGained: +(endThreat - startThreat).n(5),
+/home/z/my-project/src/lib/xt-engine.ts:      totalXtGained: +stats.totalXtGained.n(4),
+/home/z/my-project/src/lib/xt-engine.ts:      avgXtPerAction: +(stats.totalXtGained / stats.totalActions).n(5),
+/home/z/my-project/src/lib/voronoi-engine.ts:      spaceControlledSqm: +area.n(2),
+/home/z/my-project/src/lib/voronoi-engine.ts:      spaceDominancePct: +pct.n(2),
+/home/z/my-project/src/lib/voronoi-engine.ts:      totalSpaceSqm: +homeTotalSqm.n(2),
+/home/z/my-project/src/lib/voronoi-engine.ts:      totalDominancePct: +((homeTotalSqm / totalPitchArea) * 100).n(2),
+/home/z/my-project/src/lib/voronoi-engine.ts:      totalSpaceSqm: +awayTotalSqm.n(2),
+/home/z/my-project/src/lib/voronoi-engine.ts:      totalDominancePct: +((awayTotalSqm / totalPitchArea) * 100).n(2),
+/home/z/my-project/src/app/api/understat/route.ts:            xG: +t.xG.n(1),
+/home/z/my-project/src/app/api/understat/route.ts:            xGA: +t.xGA.n(1),
+/home/z/my-project/src/app/api/understat/route.ts:            xGD: +(t.xG - t.xGA).n(1),
+/home/z/my-project/src/app/api/understat/route.ts:            npxG: +t.npxG.n(1),
+/home/z/my-project/src/app/api/understat/route.ts:            npxGA: +t.npxGA.n(1),
+/home/z/my-project/src/app/api/understat/route.ts:            xpts: +t.xpts.n(1),
+/home/z/my-project/src/app/api/understat/route.ts:            xptsDiff: +t.xpts_diff.n(1),
+/home/z/my-project/src/app/api/understat/route.ts:            ppda: t.ppda.def ? +(t.ppda.att / t.ppda.def).n(1) : null,
+/home/z/my-project/src/app/api/understat/route.ts:            ppdaAllowed: t.ppda_allowed.def ? +(t.ppda_allowed.att / t.ppda_allowed.def).n(1) : null,
+/home/z/my-project/src/app/api/understat/route.ts:            xG: +p.xG.n(2),
+/home/z/my-project/src/app/api/understat/route.ts:            xA: +p.xA.n(2),
+/home/z/my-project/src/app/api/understat/route.ts:            npxG: +p.npxG.n(2),
+/home/z/my-project/src/app/api/understat/route.ts:            xGChain: +p.xGChain.n(2),
+/home/z/my-project/src/app/api/understat/route.ts:            xGBuildup: +p.xGBuildup.n(2),
+/home/z/my-project/src/app/api/understat/route.ts:          xg: { home: +match.home_xG.n(2), away: +match.away_xG.n(2) },
+/home/z/my-project/src/components/elastico/admin-view.tsx:            <StatCard title="MRR Revenue" value={`$${(stats?.revenueEstimate || 0).n(0)}`} icon={DollarSign} color="gold" dataClass="DERIVED" />
+/home/z/my-project/src/components/elastico/admin-view.tsx:            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate || 0) * 2).n(1) : '—'}`} icon={Target} color="emerald" dataClass="DERIVED" />
+/home/z/my-project/src/components/elastico/admin-view.tsx:                        ${((stats?.proCount || 0) * 9.99 + (stats?.eliteCount || 0) * 24.99).n(2)}/mo
+/home/z/my-project/src/components/elastico/admin-view.tsx:            <StatCard title="MRR" value={`$${(stats?.revenueEstimate || 0).n(2)}`} icon={DollarSign} color="emerald" dataClass="DERIVED" />
+/home/z/my-project/src/components/elastico/admin-view.tsx:            <StatCard title="ARR" value={`$${((stats?.revenueEstimate || 0) * 12).n(0)}`} icon={TrendingUp} color="emerald" dataClass="DERIVED" />
+/home/z/my-project/src/components/elastico/compare-view.tsx:  return { home: +(eA * 100).n(1), away: +((1 - eA) * 100).n(1), draw: +(Math.min(eA, 1 - eA) * 30).n(1) }
+/home/z/my-project/src/components/elastico/compare-view.tsx:      { label: 'Avg Goals/Game', home: +(homeTeam.goalsFor / Math.max(1, homeTeam.wins + homeTeam.draws + homeTeam.losses)).n(2), away: +(awayTeam.goalsFor / Math.max(1, awayTeam.wins + awayTeam.draws + awayTeam.losses)).n(2), higher: 'higher' },
+/home/z/my-project/src/components/elastico/compare-view.tsx:      { phase: 'Attack', home: hXg > aXg, margin: Math.abs(hXg - aXg).n(2) },
+/home/z/my-project/src/components/elastico/compare-view.tsx:      { phase: 'Midfield Control', home: hPoss > aPoss, margin: Math.abs(hPoss - aPoss).n(0) },
+/home/z/my-project/src/components/elastico/compare-view.tsx:      { phase: 'Defensive Solidity', home: hXga < aXga, margin: Math.abs(hXga - aXga).n(2) },
+/home/z/my-project/src/components/elastico/compare-view.tsx:      { phase: 'Pressing', home: hPress > aPress, margin: Math.abs(hPress - aPress).n(0) },
+/home/z/my-project/src/components/elastico/compare-view.tsx:      { phase: 'Passing', home: hPass > aPass, margin: Math.abs(hPass - aPass).n(0) },
+/home/z/my-project/src/components/elastico/compare-view.tsx:                    {winProb.home > winProb.away ? homeTeam.name : awayTeam.name} favored by {Math.abs(winProb.home - winProb.away).n(1)}%
+/home/z/my-project/src/components/elastico/compare-view.tsx:                        {typeof stat.home === 'number' ? (Number.isInteger(stat.home) ? stat.home : stat.home.n(1)) : stat.home}
+/home/z/my-project/src/components/elastico/compare-view.tsx:                        {typeof stat.away === 'number' ? (Number.isInteger(stat.away) ? stat.away : stat.away.n(1)) : stat.away}
+/home/z/my-project/src/components/elastico/compare-view.tsx:                {homeTeam.name} ({(homeTeam.eloRating ?? 1500).n(0)} ELO) enters this matchup as {winProb.home > 50 ? 'the favorite' : 'the underdog'} with a {winProb.home}% win probability.
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                value={(homeTeam!.xgPerGame ?? 0).n(2)}
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                value={(awayTeam!.xgPerGame ?? 0).n(2)}
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                value={`${Math.abs((homeTeam!.possession ?? 50) - (awayTeam!.possession ?? 50)).n(0)}%`}
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                    <StatBlock label="xG/Game" value={(homeTeam!.xgPerGame ?? 0).n(2)} dataClass="DERIVED" compact />
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                    <StatBlock label="xGA/Game" value={(homeTeam!.xgaPerGame ?? 0).n(2)} dataClass="DERIVED" compact />
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                    <StatBlock label="Press Int." value={(homeTeam!.pressIntensity ?? 0).n(0)} dataClass="DERIVED" compact />
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                    <StatBlock label="xG/Game" value={(awayTeam!.xgPerGame ?? 0).n(2)} dataClass="DERIVED" compact />
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                    <StatBlock label="xGA/Game" value={(awayTeam!.xgaPerGame ?? 0).n(2)} dataClass="DERIVED" compact />
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                    <StatBlock label="Press Int." value={(awayTeam!.pressIntensity ?? 0).n(0)} dataClass="DERIVED" compact />
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                                {(player.rating ?? 0).n(1)}
+/home/z/my-project/src/components/elastico/tactical-view.tsx:                                {(player.rating ?? 0).n(1)}
+/home/z/my-project/src/components/elastico/tournament-view.tsx:  const avgGoals = totalTeams > 0 ? (totalGoals / Math.max(standings.reduce((s, t) => s + t.played, 0), 1) * 2).n(2) : '0.00'
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:  const fmt = (v: number) => decimals > 0 ? v.n(decimals) : String(Math.round(v))
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:    const text = `${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition} · ${match.stage}\nxG: ${hXg.n(1)} - ${aXg.n(1)}\n\n— ELASTICO Analytics`
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:      pts.push({ minute: `${g.minute}'`, Home: +hc.n(2), Away: +ac.n(2) })
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:    pts.push({ minute: "90'", Home: +homeXg.n(2), Away: +awayXg.n(2) })
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:                        <span className="text-[11px] text-cyan-400 font-medium">xG {(match.homeXg ?? 0).n(1)}</span>
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:                        <span className="text-[11px] text-cyan-400 font-medium">xG {(match.awayXg ?? 0).n(1)}</span>
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:                      {'xg' in s && s.xg != null && <div className="text-muted-foreground">xG: {s.xg.n(3)}</div>}
+/home/z/my-project/src/components/elastico/match-detail-view.tsx:                          <span className="text-sm font-black tabular-nums text-primary">{(p.totalXtGained ?? 0).n(3)}</span>
+/home/z/my-project/src/components/elastico/player-view.tsx:                        {player.rating > 0 ? (player.rating).n(1) : 'N/A'}
+/home/z/my-project/src/components/elastico/player-view.tsx:                          {(p.goals / Math.max(1, (p.minutesPlayed || (p.appearances || 0) * 90) / 90)).n(2)}
+/home/z/my-project/src/components/elastico/player-view.tsx:                        <TableCell className={cn('text-center font-bold', p.rating > 0 ? getRatingColor(p.rating) : 'text-muted-foreground')}>{p.rating > 0 ? (p.rating).n(1) : '—'}</TableCell>
+/home/z/my-project/src/components/elastico/player-view.tsx:              const avgRating = rated.length > 0 ? (rated.reduce((s, p) => s + p.rating, 0) / rated.length).n(1) : 'N/A'
+/home/z/my-project/src/components/elastico/player-view.tsx:                  { label: 'Rating', value: selectedPlayer.rating > 0 ? (selectedPlayer.rating).n(1) : 'N/A', color: selectedPlayer.rating > 0 ? getRatingColor(selectedPlayer.rating) : 'text-muted-foreground' },
+/home/z/my-project/src/components/elastico/subscription-view.tsx:                  <span className="text-4xl font-bold tracking-tight">{displayPrice === 0 ? 'Free' : `$${displayPrice.n(2)}`}</span>
+/home/z/my-project/src/components/elastico/subscription-view.tsx:                  <p className="text-[10px] text-muted-foreground line-through">${plan.monthlyPrice.n(2)}/mo monthly</p>
+/home/z/my-project/src/components/elastico/settings-view.tsx:            value={bandwidth ? `${bandwidth.totalKB.n(1)} KB` : '—'}
+/home/z/my-project/src/components/elastico/settings-view.tsx:                {bandwidth.totalKB.n(1)} KB

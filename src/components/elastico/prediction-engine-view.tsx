@@ -428,7 +428,7 @@ export default function PredictionEngineView() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-zinc-500">xG Impact</span>
-                          <span className="text-xs text-emerald-400">{inj.xgImpact.toFixed(2)}</span>
+                          <span className="text-xs text-emerald-400">{(inj.xgImpact ?? 0).toFixed(2)}</span>
                         </div>
                         <Slider value={[inj.xgImpact]} min={0} max={1} step={0.05} onValueChange={([v]) => updateInjury(i, { xgImpact: v })} className="py-1" />
                       </div>

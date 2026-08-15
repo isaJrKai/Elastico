@@ -163,11 +163,11 @@ export default function SubscriptionView() {
 
               <CardContent className="flex-1 space-y-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold tracking-tight">{displayPrice === 0 ? 'Free' : `$${displayPrice.toFixed(2)}`}</span>
+                  <span className="text-4xl font-bold tracking-tight">{displayPrice === 0 ? 'Free' : `$${(displayPrice ?? 0).toFixed(2)}`}</span>
                   {displayPrice > 0 && <span className="text-sm text-muted-foreground">{billingCycle === 'annual' ? '/mo (billed annually)' : '/month'}</span>}
                 </div>
                 {displayPrice > 0 && billingCycle === 'annual' && (
-                  <p className="text-[10px] text-muted-foreground line-through">${plan.monthlyPrice.toFixed(2)}/mo monthly</p>
+                  <p className="text-[10px] text-muted-foreground line-through">${(plan.monthlyPrice ?? 0).toFixed(2)}/mo monthly</p>
                 )}
                 <Separator className="bg-border/50" />
                 <ul className="space-y-3">

@@ -324,9 +324,9 @@ function BandwidthSection() {
               <span className="text-muted-foreground">Total Today</span>
               <span className={cn(
                 'font-mono font-medium',
-                bandwidth.totalKB < 50 ? 'text-emerald-400' : bandwidth.totalKB < 200 ? 'text-amber-400' : 'text-red-400'
+                bandwidth.totalKB < 50 ? 'text-emerald-400' : (bandwidth.totalKB ?? 0) < 200 ? 'text-amber-400' : 'text-red-400'
               )}>
-                {bandwidth.totalKB.toFixed(1)} KB
+                {(bandwidth.totalKB ?? 0).toFixed(1)} KB
               </span>
             </div>
           </div>
