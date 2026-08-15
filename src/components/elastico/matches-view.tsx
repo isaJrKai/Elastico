@@ -28,7 +28,7 @@ import {
   Eye, Bookmark, BookmarkCheck, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TeamCrest, StatusBadge } from '@/components/elastico/primitives'
+import { TeamCrest, StatusBadge, LeagueBadge } from '@/components/elastico/primitives'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,6 +40,7 @@ interface EspnTeam {
 interface EspnMatch {
   id: string
   competition: string
+  competitionCode?: string
   homeTeam: EspnTeam
   awayTeam: EspnTeam
   homeScore: number
@@ -109,9 +110,7 @@ function MatchCard({ match, onClick }: { match: EspnMatch; onClick?: () => void 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <StatusBadge variant="status" value={match.status} minute={match.minute} />
-              <span className="text-[10px] text-muted-foreground bg-muted/50 rounded-md px-1.5 h-5 flex items-center truncate max-w-[140px]">
-                {match.competition}
-              </span>
+              <LeagueBadge code={match.competitionCode} name={match.competition} size={16} />
             </div>
             <button
               onClick={() => setBookmarked(!bookmarked)}

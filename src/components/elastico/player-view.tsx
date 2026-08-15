@@ -57,6 +57,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
 import { StatusBadge } from '@/components/elastico/primitives/status-badge'
+import { FlagIcon } from '@/components/elastico/primitives/flag-icon'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -383,6 +384,7 @@ export function PlayerView() {
                       <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-semibold truncate">{player.name}</h3>
                         <div className="flex items-center gap-2 mt-1">
+                          <FlagIcon nationality={player.nationality} size={16} />
                           <Badge variant="outline" className={cn('text-[10px]', getPositionColor(player.position))}>
                             {player.position}
                           </Badge>
@@ -460,6 +462,7 @@ export function PlayerView() {
                         <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
+                            <FlagIcon nationality={p.nationality} size={16} />
                             <span className="text-sm font-medium">{p.name}</span>
                             <Badge variant="outline" className={cn('text-[9px]', getPositionColor(p.position))}>{p.position}</Badge>
                           </div>
@@ -697,7 +700,7 @@ export function PlayerView() {
             <CardContent className="space-y-3 max-h-96 overflow-y-auto">
               {nationalities.map(([nat, count]) => (
                 <div key={nat} className="flex items-center gap-3">
-                  <span className="text-sm w-24 shrink-0 truncate">{nat}</span>
+                  <FlagIcon nationality={nat} size={16} showLabel className="w-28 shrink-0" />
                   <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
@@ -875,7 +878,10 @@ export function PlayerView() {
                 <div>
                   <h3 className="text-xl font-bold">{selectedPlayer.name}</h3>
                   <p className="text-sm text-muted-foreground">{selectedPlayer.teamName} · {selectedPlayer.position}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{selectedPlayer.nationality} · Age {selectedPlayer.age}</p>
+                  <div className="flex items-center justify-center gap-2 mt-1">
+                    <FlagIcon nationality={selectedPlayer.nationality} size={16} />
+                    <span className="text-xs text-muted-foreground">{selectedPlayer.nationality} · Age {selectedPlayer.age}</span>
+                  </div>
                 </div>
               </div>
 

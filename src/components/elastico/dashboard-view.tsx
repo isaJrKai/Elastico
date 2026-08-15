@@ -30,7 +30,7 @@ import { Zap, Swords, Target, MessageSquare, Trophy, Sparkles } from 'lucide-rea
 import { cn } from '@/lib/utils'
 import { MATCH_STATUS } from '@/lib/design-system'
 import { axisProps, cartesianGridProps, tooltipContentStyle, chartColor } from '@/lib/chart-theme'
-import { TeamCrest, StatBlock, StatusBadge, SectionHeader } from '@/components/elastico/primitives'
+import { TeamCrest, StatBlock, StatusBadge, SectionHeader, LeagueBadge } from '@/components/elastico/primitives'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ESPN DATA HOOKS
@@ -42,7 +42,7 @@ interface EspnTeam {
 interface EspnMatch {
   id: string; homeTeam: EspnTeam; awayTeam: EspnTeam
   homeScore: number; awayScore: number; status: string; minute?: number
-  competition: string; date?: string; venue?: string
+  competition: string; competitionCode?: string; date?: string; venue?: string
 }
 interface StandingRow {
   rank: number; name: string; code: string; logo: string; color: string
@@ -321,7 +321,7 @@ export default function DashboardView() {
                   >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <TeamCrest code={m.homeTeam.abbreviation || ''} espnLogo={m.homeTeam.logo} color={m.homeTeam.color} size="sm" />
-                      <span className="text-[10px] text-muted-foreground w-16 truncate">{m.competition}</span>
+                      <LeagueBadge code={m.competitionCode} name={m.competition} size={16} />
                       <span className="text-xs font-medium truncate">{m.homeTeam.name}</span>
                     </div>
                     <div className="flex items-center gap-2 px-3 shrink-0">
