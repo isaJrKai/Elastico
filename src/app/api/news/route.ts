@@ -7,7 +7,6 @@ import { fetchFootballNews, normalizeNDArticle } from '@/lib/newsdata'
  * Priority chain for real news:
  * 1. ESPN league news (direct fetch, no API key needed)
  * 2. Newsdata.io (if API key configured)
- * 3. Fallback: DB news items (if any exist)
  */
 
 const ESPN_NEWS_URLS: Record<string, string> = {
@@ -121,36 +120,6 @@ export async function GET(req: NextRequest) {
       } catch (err) {
         console.error('[News] Newsdata.io fetch failed:', err)
       }
-    }
-
-    // ── Tertiary: DB news (seeded / user-created) ─────────────────────────
-    try {
-      const { db } = await import('@/lib/db')
-      const category = searchParams.get('category') || undefined
-
-      const where: Record<string, unknown> = {}
-      if (category) where.category = category
-      if (search) where.title = { contains: search, mode: 'insensitive' }
-
-      const [newsItems, total] = await Promise.all([
-        db.newsItem.findMany({
-          where,
-          orderBy: [{ isBreaking: 'desc' }, { publishedAt: 'desc' }],
-          skip: (page - 1) * limit,
-          take: limit,
-        }),
-        db.newsItem.count({ where }),
-      ])
-
-      if (newsItems.length > 0) {
-        return NextResponse.json({
-          news: newsItems,
-          source: 'database',
-          pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        })
-      }
-    } catch (err) {
-      console.error('[News] DB news fetch failed:', err)
     }
 
     // ── Nothing available ─────────────────────────────────────────────────

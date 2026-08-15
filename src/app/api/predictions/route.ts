@@ -8,7 +8,18 @@ export async function POST(req: NextRequest) {
     if (auth instanceof Response) return auth
 
     const { user } = auth
-    const { matchId, predictedHomeGoals, predictedAwayGoals, predictedOutcome, confidence, model } = await req.json()
+    const {
+      matchId,
+      predictedHomeGoals,
+      predictedAwayGoals,
+      predictedOutcome,
+      confidence,
+      model,
+      homeTeam,
+      awayTeam,
+      competition,
+      matchDate,
+    } = await req.json()
 
     if (!matchId || predictedHomeGoals == null || predictedAwayGoals == null || !predictedOutcome || !confidence) {
       return NextResponse.json(
@@ -25,16 +36,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'confidence must be between 0 and 100' }, { status: 400 })
     }
 
-    const match = await db.match.findUnique({ where: { id: matchId } })
-    if (!match) {
-      return NextResponse.json({ error: 'Match not found' }, { status: 404 })
-    }
-
-    // Check if match is already finished
-    if (match.status === 'finished') {
-      return NextResponse.json({ error: 'Cannot predict a finished match' }, { status: 400 })
-    }
-
     // Check free plan limit
     if (user.plan === 'free') {
       const usedCount = await db.prediction.count({ where: { userId: user.id } })
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Upsert prediction
+    // Upsert prediction (uses denormalized fields)
     const prediction = await db.prediction.upsert({
       where: { userId_matchId: { userId: user.id, matchId } },
       update: {
@@ -52,6 +53,10 @@ export async function POST(req: NextRequest) {
         predictedOutcome,
         confidence,
         model: model || 'user',
+        homeTeam: homeTeam || undefined,
+        awayTeam: awayTeam || undefined,
+        competition: competition || undefined,
+        matchDate: matchDate || undefined,
       },
       create: {
         userId: user.id,
@@ -61,6 +66,10 @@ export async function POST(req: NextRequest) {
         predictedOutcome,
         confidence,
         model: model || 'user',
+        homeTeam: homeTeam || undefined,
+        awayTeam: awayTeam || undefined,
+        competition: competition || undefined,
+        matchDate: matchDate || undefined,
       },
     })
 
@@ -69,7 +78,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId: user.id,
         type: 'prediction',
-        metadata: JSON.stringify({ matchId, predictedOutcome, confidence }),
+        metadata: JSON.stringify({ matchId, predictedOutcome, confidence, homeTeam, awayTeam, competition }),
       },
     })
 

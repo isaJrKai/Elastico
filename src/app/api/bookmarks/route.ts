@@ -10,14 +10,6 @@ export async function GET(req: NextRequest) {
 
     const bookmarks = await db.bookmark.findMany({
       where: { userId: user.id },
-      include: {
-        match: {
-          include: {
-            homeTeam: { select: { id: true, name: true, code: true, primaryColor: true } },
-            awayTeam: { select: { id: true, name: true, code: true, primaryColor: true } },
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -34,7 +26,7 @@ export async function POST(req: NextRequest) {
     if (auth instanceof Response) return auth
     const { user } = auth
 
-    const { matchId, note } = await req.json()
+    const { matchId, note, homeTeam, awayTeam, competition, matchDate } = await req.json()
     if (!matchId) {
       return NextResponse.json({ error: 'Match ID required' }, { status: 400 })
     }
@@ -48,8 +40,15 @@ export async function POST(req: NextRequest) {
     }
 
     const bookmark = await db.bookmark.create({
-      data: { userId: user.id, matchId, note: note || null },
-      include: { match: true },
+      data: {
+        userId: user.id,
+        matchId,
+        note: note || null,
+        homeTeam: homeTeam || undefined,
+        awayTeam: awayTeam || undefined,
+        competition: competition || undefined,
+        matchDate: matchDate || undefined,
+      },
     })
 
     return NextResponse.json({ bookmark }, { status: 201 })

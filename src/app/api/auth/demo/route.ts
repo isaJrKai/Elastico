@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateToken, isDbAvailable } from '@/lib/auth'
+import { generateToken } from '@/lib/auth'
+import { db } from '@/lib/db'
 import { rateLimit } from '@/lib/rate-limit'
 
 // Demo login — creates a demo user and returns a JWT.
@@ -11,7 +12,7 @@ const DEMO_ROLES: Record<string, string> = {
   admin: 'admin',
 }
 
-// Map role -> plan (role === plan for demo)
+// Map role -> display name
 const ROLE_DISPLAY: Record<string, string> = {
   free: 'Free',
   pro: 'Pro',
@@ -38,63 +39,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
     }
 
-    // If DB is available, try the existing DB flow
-    if (isDbAvailable()) {
-      try {
-        const { db } = await import('@/lib/db')
-        const safeRole = 'user'
-        const safePlan = role === 'admin' ? 'pro' : role
+    // Determine actual role and plan for DB
+    const actualRole = role === 'admin' ? 'admin' : 'user'
+    const actualPlan = role === 'admin' ? 'elite' : role
 
-        let user = await db.user.findUnique({ where: { email } })
+    let user = await db.user.findUnique({ where: { email } })
 
-        if (!user) {
-          const hashedPassword = await import('bcryptjs').then(b => b.hash(password, 10))
-          user = await db.user.create({
-            data: {
-              email,
-              name: `Demo ${ROLE_DISPLAY[role] || role} User`,
-              passwordHash: hashedPassword,
-              role: safeRole,
-              plan: safePlan,
-            },
-          })
-        }
-
-        const token = generateToken({ userId: user.id, email: user.email, role: safeRole, plan: safePlan })
-        const { passwordHash: _, ...safeUser } = user
-        return NextResponse.json({ user: safeUser, token })
-      } catch (dbErr) {
-        console.warn('[Demo Login] DB failed, using fallback:', dbErr)
-      }
+    if (!user) {
+      const { hash } = await import('bcryptjs')
+      const hashedPassword = await hash(password, 10)
+      user = await db.user.create({
+        data: {
+          email,
+          name: `Demo ${ROLE_DISPLAY[role] || role} User`,
+          passwordHash: hashedPassword,
+          role: actualRole,
+          plan: actualPlan,
+        },
+      })
     }
 
-    // Fallback: generate a fake user + token without DB
-    const userId = `demo-${role}-${email.replace(/[^a-z0-9]/gi, '').slice(0, 12)}`
-    const token = generateToken({ userId, email, role, plan: role })
-
-    const fakeUser = {
-      id: userId,
-      email,
-      name: `Demo ${ROLE_DISPLAY[role] || role} User`,
-      displayName: `${ROLE_DISPLAY[role] || role} User`,
-      avatarUrl: null,
-      role,
-      plan: role,
-      predictionAccuracy: role === 'admin' ? 78.5 : role === 'elite' ? 72.3 : role === 'pro' ? 65.1 : 50.0,
-      predictionStreak: role === 'admin' ? 8 : role === 'elite' ? 5 : 3,
-      bestStreak: role === 'admin' ? 15 : role === 'elite' ? 12 : 8,
-      totalPredictions: role === 'admin' ? 420 : role === 'elite' ? 256 : 120,
-      correctPredictions: role === 'admin' ? 330 : role === 'elite' ? 185 : 60,
-      achievements: '{}',
-      favoriteTeams: '[]',
-      twoFactorEnabled: false,
-      lastLoginAt: new Date().toISOString(),
-      loginCount: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-
-    return NextResponse.json({ user: fakeUser, token })
+    const token = generateToken({ userId: user.id, email: user.email, role: actualRole, plan: actualPlan })
+    const { passwordHash: _, ...safeUser } = user
+    return NextResponse.json({ user: safeUser, token })
   } catch (error) {
     console.error('[Demo Login]', error)
     return NextResponse.json({ error: 'Demo login failed' }, { status: 500 })

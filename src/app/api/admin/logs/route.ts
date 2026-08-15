@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
@@ -11,38 +10,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const { searchParams } = new URL(req.url)
-    const page = parseInt(searchParams.get('page') || '1', 10)
-    const limit = parseInt(searchParams.get('limit') || '50', 10)
-    const method = searchParams.get('method') || undefined
-    const path = searchParams.get('path') || undefined
-    const statusCode = searchParams.get('statusCode') ? parseInt(searchParams.get('statusCode')!, 10) : undefined
-    const hasError = searchParams.get('hasError') === 'true'
-
-    const where: Record<string, unknown> = {}
-    if (method) where.method = method
-    if (path) where.path = { contains: path, mode: 'insensitive' }
-    if (statusCode) where.statusCode = statusCode
-    if (hasError) where.error = { not: null }
-
-    const [logs, total] = await Promise.all([
-      db.apiLog.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      db.apiLog.count({ where }),
-    ])
-
+    // API logging has been moved to serverless provider logs (e.g. Vercel Logs, CloudWatch).
+    // The ApiLog table no longer exists.
     return NextResponse.json({
-      logs,
+      logs: [],
       pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        page: 1,
+        limit: 50,
+        total: 0,
+        totalPages: 0,
       },
+      message: 'API logging has been moved to serverless provider logs.',
     })
   } catch (error) {
     console.error('Admin logs error:', error)

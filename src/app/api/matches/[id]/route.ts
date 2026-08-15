@@ -1,59 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchAllLiveScores } from '@/lib/football-data'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
 
-    const match = await db.match.findUnique({
-      where: { id },
-      include: {
-        homeTeam: {
-          include: {
-            players: { orderBy: { position: 'asc' } },
-          },
-        },
-        awayTeam: {
-          include: {
-            players: { orderBy: { position: 'asc' } },
-          },
-        },
-        events: { orderBy: { minute: 'asc' } },
-        votes: {
-          include: {
-            user: { select: { id: true, name: true, displayName: true, avatarUrl: true, plan: true } },
-          },
-        },
-        predictions: {
-          include: {
-            user: { select: { id: true, name: true, displayName: true, avatarUrl: true, predictionAccuracy: true } },
-          },
-          take: 20,
-          orderBy: { createdAt: 'desc' },
-        },
-        _count: { select: { predictions: true, votes: true, bookmarks: true } },
-      },
-    })
+    // Fetch all live scores from ESPN and find by ID
+    const allMatches = await fetchAllLiveScores()
+    const match = allMatches.find((m) => m.id === id)
 
     if (!match) {
-      return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Match not found in ESPN live data' }, { status: 404 })
     }
 
-    // Compute vote distribution
-    const voteCounts = { home: 0, draw: 0, away: 0 }
-    for (const vote of match.votes) {
-      if (vote.choice in voteCounts) {
-        voteCounts[vote.choice as keyof typeof voteCounts]++
-      }
-    }
-
-    return NextResponse.json({
-      match: { ...match, voteDistribution: voteCounts },
-    })
+    return NextResponse.json({ match })
   } catch (error) {
     console.error('Match detail error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -76,16 +41,18 @@ export async function POST(
       return NextResponse.json({ error: 'Choice must be home, draw, or away' }, { status: 400 })
     }
 
-    const match = await db.match.findUnique({ where: { id } })
-    if (!match) {
-      return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+    // Fetch ESPN match to get denormalized team names for the Vote record
+    const allMatches = await fetchAllLiveScores()
+    const espnMatch = allMatches.find((m) => m.id === id)
+    if (!espnMatch) {
+      return NextResponse.json({ error: 'Match not found in ESPN data' }, { status: 404 })
     }
 
-    // Upsert vote
+    // Upsert vote using the ESPN match id
     const vote = await db.vote.upsert({
       where: { userId_matchId: { userId: user.id, matchId: id } },
       update: { choice },
-      create: { userId: user.id, matchId: id, choice },
+      create: { userId: user.id, matchId: id, choice, homeTeam: espnMatch.homeTeam.name, awayTeam: espnMatch.awayTeam.name },
     })
 
     // Log activity

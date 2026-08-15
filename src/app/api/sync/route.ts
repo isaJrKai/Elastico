@@ -1,123 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
-import { fetchAllLiveScores, mapStatus, ESPN_LEAGUES, type ESPNMatch } from '@/lib/football-data'
 
-/** GET /api/sync — fetch live data from ESPN and upsert into DB (admin only) */
+/** GET /api/sync — DEPRECATED
+ *
+ *  This endpoint previously synced ESPN data into local DB tables (Team, Match).
+ *  Those tables have been removed as part of the ESPN-live architecture migration.
+ *  All match, team, and player data now comes directly from ESPN at request time.
+ */
 export async function GET(request: NextRequest) {
   try {
-    // SECURITY: Require authentication to prevent unauthenticated DB writes
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth
-    if (auth.user?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
-    const { searchParams } = new URL(request.url)
-    const leagueParam = searchParams.get('league') // optional: sync single league
-
-    const matches = leagueParam
-      ? await (await import('@/lib/football-data')).fetchLeagueScores(leagueParam)
-      : await fetchAllLiveScores()
-
-    if (matches.length === 0) {
-      return NextResponse.json({ success: true, synced: 0, message: 'No matches found' })
-    }
-
-    let synced = 0
-    let created = 0
-    let updated = 0
-
-    for (const m of matches) {
-      // Upsert home team
-      const homeTeam = await db.team.upsert({
-        where: { code: m.homeTeam.abbreviation },
-        update: {
-          name: m.homeTeam.name,
-          logo: m.homeTeam.logo,
-          primaryColor: m.homeTeam.color || '#00e676',
-        },
-        create: {
-          name: m.homeTeam.name,
-          code: m.homeTeam.abbreviation,
-          logo: m.homeTeam.logo,
-          primaryColor: m.homeTeam.color || '#00e676',
-          secondaryColor: '#ffffff',
-        },
-      })
-
-      // Upsert away team
-      const awayTeam = await db.team.upsert({
-        where: { code: m.awayTeam.abbreviation },
-        update: {
-          name: m.awayTeam.name,
-          logo: m.awayTeam.logo,
-          primaryColor: m.awayTeam.color || '#00e676',
-        },
-        create: {
-          name: m.awayTeam.name,
-          code: m.awayTeam.abbreviation,
-          logo: m.awayTeam.logo,
-          primaryColor: m.awayTeam.color || '#00e676',
-          secondaryColor: '#ffffff',
-        },
-      })
-
-      // Map ESPN status to our status
-      const status = mapStatus(m.status)
-
-      // Upsert match using ESPN ID stored in venue field as "espn:{id}"
-      const espnMatchId = `espn:${m.id}`
-      const existing = await db.match.findFirst({
-        where: { venue: espnMatchId },
-      })
-
-      if (existing) {
-        // Update existing match
-        await db.match.update({
-          where: { id: existing.id },
-          data: {
-            homeScore: m.homeScore,
-            awayScore: m.awayScore,
-            status,
-            date: m.date ? new Date(m.date) : null,
-            venue: m.venue || espnMatchId,
-            competition: m.competition,
-          },
-        })
-        updated++
-      } else {
-        // Create new match
-        await db.match.create({
-          data: {
-            homeTeamId: homeTeam.id,
-            awayTeamId: awayTeam.id,
-            status,
-            homeScore: m.homeScore,
-            awayScore: m.awayScore,
-            date: m.date ? new Date(m.date) : null,
-            venue: espnMatchId,
-            competition: m.competition,
-            stage: m.competition,
-          },
-        })
-        created++
-      }
-      synced++
-    }
 
     return NextResponse.json({
-      success: true,
-      synced,
-      created,
-      updated,
-      leagues: ESPN_LEAGUES.map(l => l.name),
+      deprecated: true,
+      message: 'This sync endpoint is deprecated. Team, Match, Player, MatchEvent, NewsItem, and ApiLog tables have been removed from the database. All match, team, and player data is now fetched live from ESPN at request time. No database sync is needed.',
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error('[SYNC] Error:', error)
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Sync failed' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -1,55 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { fetchTeams, fetchStandings, ESPN_LEAGUES } from '@/lib/football-data'
+import { fetchTeams, fetchStandings } from '@/lib/football-data'
 
 export async function GET(req: NextRequest) {
   try {
-    // ── Try DB first ──────────────────────────────────────────────────────
-    try {
-      const teams = await db.team.findMany({
-        orderBy: { eloRating: 'desc' },
-        include: {
-          _count: { select: { players: true } },
-        },
-      })
-
-      if (teams.length > 0) {
-        const result = teams.map((team) => ({
-          id: team.id,
-          name: team.name,
-          code: team.code,
-          logo: team.logo,
-          primaryColor: team.primaryColor,
-          secondaryColor: team.secondaryColor,
-          eloRating: team.eloRating,
-          wins: team.wins,
-          draws: team.draws,
-          losses: team.losses,
-          goalsFor: team.goalsFor,
-          goalsAgainst: team.goalsAgainst,
-          group: team.group,
-          rank: team.rank,
-          coachName: team.coachName,
-          style: team.style,
-          xgPerGame: team.xgPerGame,
-          xgaPerGame: team.xgaPerGame,
-          possession: team.possession,
-          passAccuracy: team.passAccuracy,
-          pressIntensity: team.pressIntensity,
-          playerCount: team._count.players,
-        }))
-
-        return NextResponse.json({ teams: result, source: 'database' })
-      }
-    } catch (dbErr) {
-      console.warn('[Teams] DB unavailable, falling back to ESPN:', dbErr)
-    }
-
-    // ── Fallback: ESPN standings (gives us teams with stats) ────────────────
     const { searchParams } = new URL(req.url)
     const leagueCode = searchParams.get('league') || 'PL'
 
-    // Fetch standings which has team stats, plus team list for logos
+    // ── Fetch from ESPN: standings (team stats) + team list (logos) ───────
     const [standingsData, teamsData] = await Promise.all([
       fetchStandings(leagueCode),
       fetchTeams(leagueCode),

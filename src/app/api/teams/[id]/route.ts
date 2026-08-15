@@ -1,56 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { fetchTeams, fetchStandings, ESPN_LEAGUES } from '@/lib/football-data'
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
 
-    const team = await db.team.findUnique({
-      where: { id },
-      include: {
-        players: { orderBy: [{ position: 'asc' }, { number: 'asc' }] },
-      },
-    })
+    // Search for the team across all leagues
+    let foundTeam: InstanceType<typeof Object> | null = null
+    let leagueCode: string | null = null
 
-    if (!team) {
+    for (const league of ESPN_LEAGUES) {
+      const teams = await fetchTeams(league.code)
+      const match = (teams as Array<{ id: string; name: string; abbreviation: string; logo: string; color: string; record: string }>).find(
+        (t) => t.id === id || t.abbreviation === id.toUpperCase()
+      )
+      if (match) {
+        foundTeam = match
+        leagueCode = league.code
+        break
+      }
+    }
+
+    if (!foundTeam || !leagueCode) {
       return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     }
 
-    // Get recent match results (last 10)
-    const recentHome = await db.match.findMany({
-      where: { homeTeamId: id, status: 'finished' },
-      orderBy: { date: 'desc' },
-      take: 5,
-      include: {
-        homeTeam: { select: { id: true, name: true, code: true, logo: true } },
-        awayTeam: { select: { id: true, name: true, code: true, logo: true } },
-      },
-    })
-
-    const recentAway = await db.match.findMany({
-      where: { awayTeamId: id, status: 'finished' },
-      orderBy: { date: 'desc' },
-      take: 5,
-      include: {
-        homeTeam: { select: { id: true, name: true, code: true, logo: true } },
-        awayTeam: { select: { id: true, name: true, code: true, logo: true } },
-      },
-    })
-
-    // Merge and sort recent matches
-    const allRecent = [...recentHome, ...recentAway]
-      .sort((a, b) => {
-        const dateA = a.date?.getTime() || 0
-        const dateB = b.date?.getTime() || 0
-        return dateB - dateA
-      })
-      .slice(0, 10)
+    // Fetch standings to enrich with stats
+    const standings = await fetchStandings(leagueCode)
+    const standing = standings.find(
+      (s) => s.code === (foundTeam as any).abbreviation
+    )
 
     return NextResponse.json({
-      team: { ...team, recentMatches: allRecent },
+      team: {
+        ...foundTeam,
+        league: leagueCode,
+        standing: standing || null,
+      },
     })
   } catch (error) {
     console.error('Team detail error:', error)

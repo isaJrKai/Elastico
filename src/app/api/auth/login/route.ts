@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { comparePassword, generateToken, hashPassword } from '@/lib/auth'
+import { comparePassword, generateToken } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {

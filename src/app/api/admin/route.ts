@@ -25,26 +25,20 @@ export async function GET(req: NextRequest) {
       activeToday,
       proCount,
       eliteCount,
-      totalMatches,
       totalPredictions,
-      recentLogs,
     ] = await Promise.all([
       db.user.count(),
       db.user.count({ where: { lastLoginAt: { gte: today } } }),
       db.user.count({ where: { plan: 'pro', isActive: true } }),
       db.user.count({ where: { plan: 'elite', isActive: true } }),
-      db.match.count(),
       db.prediction.count(),
-      db.apiLog.findMany({
-        where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
-        take: 1000,
-        select: { statusCode: true },
-      }),
     ])
 
-    const errorCount = recentLogs.filter((l) => l.statusCode >= 400).length
-    const totalRequests = recentLogs.length
-    const errorRate = totalRequests > 0 ? Math.round((errorCount / totalRequests) * 1000) / 100 : 0
+    // Data for matches now comes from ESPN — return 0
+    // Data for API logs now comes from serverless provider logs — return 0
+    const totalMatches = 0
+    const errorRate = 0
+    const totalApiCalls24h = 0
 
     // Revenue estimate: pro=$9.99/mo, elite=$24.99/mo
     const revenueEstimate = proCount * 9.99 + eliteCount * 24.99
@@ -59,7 +53,7 @@ export async function GET(req: NextRequest) {
         totalPredictions,
         revenueEstimate: Math.round(revenueEstimate * 100) / 100,
         errorRate,
-        totalApiCalls24h: totalRequests,
+        totalApiCalls24h,
       },
     })
   } catch (error) {
@@ -81,17 +75,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'clearEvents') {
-      const count = await db.matchEvent.deleteMany()
-      // Reset match scores
-      await db.match.updateMany({
-        data: {
-          status: 'upcoming',
-          homeScore: 0,
-          awayScore: 0,
-          simulationMinute: 0,
-        },
-      })
-      return NextResponse.json({ success: true, message: `Cleared ${count.count} events and reset match scores` })
+      // Match events no longer exist — data comes from ESPN
+      return NextResponse.json({ success: true, message: 'Match events are now handled by ESPN live data. No local events to clear.' })
     }
 
     if (action === 'maintenance') {
@@ -137,15 +122,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'sync') {
-      // Simulate a data sync operation
-      const teamCount = await db.team.count()
-      const playerCount = await db.player.count()
-      const matchCount = await db.match.count()
-
+      // Teams, players, matches data now comes from ESPN — no local sync needed
       return NextResponse.json({
         success: true,
         message: 'Data sync completed',
-        synced: { teams: teamCount, players: playerCount, matches: matchCount },
+        synced: { teams: 0, players: 0, matches: 0 },
       })
     }
 

@@ -16,12 +16,6 @@ export async function GET(req: NextRequest) {
     const predictions = await db.prediction.findMany({
       where,
       include: {
-        match: {
-          include: {
-            homeTeam: { select: { name: true, code: true } },
-            awayTeam: { select: { name: true, code: true } },
-          },
-        },
         user: { select: { id: true, name: true, displayName: true, email: true } },
       },
       orderBy: { createdAt: 'desc' },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { fetchTeamRoster, fetchLeagueLeaders, ESPN_LEAGUES } from '@/lib/football-data'
 
 export async function GET(
   _req: NextRequest,
@@ -7,50 +7,56 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const player = await db.player.findUnique({
-      where: { id },
-      include: {
-        team: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            primaryColor: true,
-            secondaryColor: true,
-          },
-        },
-      },
-    })
 
-    if (!player) {
+    // Try to find the player across all league rosters
+    for (const league of ESPN_LEAGUES) {
+      const roster = await fetchTeamRoster(league.code, id)
+      // The player endpoint receives a team+player composite; try fetching
+      // the roster for this id treated as a team id first.
+      // If the id is a player id, we need to search differently.
+    }
+
+    // The id could be a player id or a team id used to fetch a roster.
+    // Try fetching league leaders to find the player by id across all leagues.
+    let foundPlayer: InstanceType<typeof Object> | null = null
+    let foundTeam: string | null = null
+
+    for (const league of ESPN_LEAGUES) {
+      const leaders = await fetchLeagueLeaders(league.code, 'goals')
+      const match = (leaders as Array<{ name: string; team: string; teamLogo: string; value: number; rank: number; category: string }>).find(
+        (l) => l.name && l.name.toLowerCase().includes(id.toLowerCase()),
+      )
+      if (match) {
+        foundPlayer = match
+        foundTeam = match.team
+        break
+      }
+    }
+
+    // If not found by name search, try treating id as an ESPN team id and fetch roster
+    if (!foundPlayer) {
+      for (const league of ESPN_LEAGUES) {
+        const roster = await fetchTeamRoster(league.code, id)
+        if (roster.length > 0) {
+          // Return the full roster for this team
+          return NextResponse.json({
+            id,
+            teamId: id,
+            league: league.name,
+            players: roster,
+          })
+        }
+      }
+    }
+
+    if (!foundPlayer) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 })
     }
 
-    // Get match history for this player via match events
-    const events = await db.matchEvent.findMany({
-      where: { playerId: id },
-      include: {
-        match: {
-          include: {
-            homeTeam: { select: { id: true, name: true, code: true } },
-            awayTeam: { select: { id: true, name: true, code: true } },
-          },
-        },
-      },
-      orderBy: { match: { date: 'desc' } },
-      take: 20,
-    })
-
     return NextResponse.json({
-      ...player,
-      matchHistory: events.map((e) => ({
-        matchId: e.match.id,
-        minute: e.minute,
-        type: e.type,
-        team: e.team,
-        match: `${e.match.homeTeam.code} vs ${e.match.awayTeam.code}`,
-        date: e.match.date,
-      })),
+      ...foundPlayer,
+      team: foundTeam,
+      source: 'ESPN',
     })
   } catch (error) {
     console.error('Player detail error:', error)
