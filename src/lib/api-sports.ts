@@ -193,6 +193,66 @@ export async function fetchInjuries(leagueId: number, season?: number): Promise<
   return data.response || []
 }
 
+/** Get squads/roster for a team in a season */
+export interface ASPlayer {
+  id: number
+  name: string
+  firstname: string
+  lastname: string
+  age: number
+  nationality: string
+  height: string | null
+  weight: string | null
+  photo: string
+  number: number | null
+  position: string
+}
+
+export async function fetchSquad(teamId: number, season?: number): Promise<ASPlayer[]> {
+  const year = season || new Date().getFullYear()
+  const data = await apiGet('/players/squads', { team: String(teamId), season: String(year) })
+  return data.response?.[0]?.players || []
+}
+
+/** Get player statistics for a league season (top scorers with full stats) */
+export interface ASPlayerStat {
+  player: { id: number; name: string; firstname: string; lastname: string; age: number; nationality: string; photo: string }
+  statistics: Array<{
+    team: { id: number; name: string; logo: string }
+    games: { appearences: number; lineups: number; minutes: number }
+    goals: { total: number; conceded: number; assists: number; saves: number }
+    passes: { total: number; key: number; accuracy: number }
+    shots: { total: number; on: number }
+    cards: { yellow: number; yellowred: number; red: number }
+    duels: { total: number; won: number }
+    dribbles: { attempts: number; success: number }
+  }>
+}
+
+export async function fetchPlayerStats(leagueId: number, season?: number): Promise<ASPlayerStat[]> {
+  const year = season || new Date().getFullYear()
+  const data = await apiGet('/players', { league: String(leagueId), season: String(year) })
+  return data.response || []
+}
+
+/** Get teams for a league season */
+export interface ASTeamInfo {
+  id: number
+  name: string
+  code: string
+  country: string
+  founded: number
+  national: boolean
+  logo: string
+  venue: { id: number; name: string; city: string; capacity: number; surface: string }
+}
+
+export async function fetchLeagueTeams(leagueId: number, season?: number): Promise<ASTeamInfo[]> {
+  const year = season || new Date().getFullYear()
+  const data = await apiGet('/teams', { league: String(leagueId), season: String(year) })
+  return data.response || []
+}
+
 // ── Mapping Helpers ────────────────────────────────────────────────────────────
 
 export function mapASStatus(short: string): string {

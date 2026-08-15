@@ -8,9 +8,17 @@ import {
 import {
   fetchLiveFixtures,
   fetchFixtures,
+  fetchStandings as fetchASStandings,
+  fetchTopScorers,
+  fetchLeagueTeams,
+  fetchSquad,
   mapASStatus,
   AS_LEAGUES,
   type ASFixture,
+  type ASStandingTeam,
+  type ASTeamInfo,
+  type ASTopScorer,
+  type ASPlayer,
 } from '@/lib/api-sports'
 
 export const maxDuration = 25 // Vercel hobby limit safety margin
@@ -24,7 +32,7 @@ function elapsed() {
 
 function checkTimeout() {
   if (elapsed() > TIMEOUT_MS) {
-    throw new Error(' approaching Vercel timeout, stopping early')
+    throw new Error('approaching Vercel timeout, stopping early')
   }
 }
 
@@ -36,7 +44,9 @@ function validateCron(req: NextRequest): boolean {
   return secret === expected
 }
 
-// ── API-Sports Sync (higher quality, but key may be expired) ────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// API-SPORTS SYNC — Primary data source (high quality, 100 req/day free)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 async function syncFixturesFromApiSports(): Promise<{
   created: number
@@ -46,10 +56,8 @@ async function syncFixturesFromApiSports(): Promise<{
   const result = { created: 0, updated: 0, processed: 0 }
 
   try {
-    // Try live fixtures first (quick check)
+    // 1. Live fixtures (1 API call — covers all leagues)
     const liveFixtures = await fetchLiveFixtures()
-    if (!liveFixtures || liveFixtures.length === 0) return result
-
     console.log(`[SYNC/API-Sports] Got ${liveFixtures.length} live fixtures`)
 
     for (const f of liveFixtures) {
@@ -57,17 +65,24 @@ async function syncFixturesFromApiSports(): Promise<{
       await upsertApiSportsFixture(f, result)
     }
 
-    // Also get today's fixtures
-    const todayFixtures = await fetchFixtures(39) // PL
-    if (todayFixtures) {
-      for (const f of todayFixtures.slice(0, 20)) {
-        checkTimeout()
-        await upsertApiSportsFixture(f, result)
+    // 2. Today's fixtures from top 5 leagues (5 API calls)
+    const top5 = AS_LEAGUES.slice(0, 5) // PL, LIGA, SA, BL, L1
+    for (const league of top5) {
+      checkTimeout()
+      try {
+        const fixtures = await fetchFixtures(league.id)
+        for (const f of fixtures) {
+          checkTimeout()
+          await upsertApiSportsFixture(f, result)
+        }
+      } catch (err: any) {
+        if (err.message?.includes('timeout')) throw err
+        console.warn(`[SYNC/API-Sports] Failed fixtures for ${league.code}:`, err.message)
       }
     }
   } catch (err: any) {
     if (err.message?.includes('timeout')) throw err
-    console.warn('[SYNC/API-Sports] Failed, falling back to ESPN:', err.message || err)
+    console.warn('[SYNC/API-Sports] Fixtures failed:', err.message || err)
   }
 
   return result
@@ -90,6 +105,7 @@ async function upsertApiSportsFixture(
     update: {
       name: f.teams.home.name,
       logo: f.teams.home.logo,
+      league: f.league?.name || '',
       leagueCode,
       source: 'api-sports',
       lastSyncedAt: new Date(),
@@ -99,7 +115,9 @@ async function upsertApiSportsFixture(
       name: f.teams.home.name,
       code: f.teams.home.name.substring(0, 3).toUpperCase(),
       logo: f.teams.home.logo,
+      league: f.league?.name || '',
       leagueCode,
+      country: f.league?.country || '',
       source: 'api-sports',
       sourceId: String(f.teams.home.id),
     },
@@ -111,6 +129,7 @@ async function upsertApiSportsFixture(
     update: {
       name: f.teams.away.name,
       logo: f.teams.away.logo,
+      league: f.league?.name || '',
       leagueCode,
       source: 'api-sports',
       lastSyncedAt: new Date(),
@@ -120,7 +139,9 @@ async function upsertApiSportsFixture(
       name: f.teams.away.name,
       code: f.teams.away.name.substring(0, 3).toUpperCase(),
       logo: f.teams.away.logo,
+      league: f.league?.name || '',
       leagueCode,
+      country: f.league?.country || '',
       source: 'api-sports',
       sourceId: String(f.teams.away.id),
     },
@@ -138,6 +159,7 @@ async function upsertApiSportsFixture(
     date: new Date(f.date),
     status: mapASStatus(f.status?.short || 'NS'),
     minute: f.status?.elapsed ?? null,
+    venue: null as string | null,
     homeScore: f.goals?.home ?? 0,
     awayScore: f.goals?.away ?? 0,
     halfTimeHome: f.score?.halftime?.home ?? null,
@@ -159,7 +181,242 @@ async function upsertApiSportsFixture(
   }
 }
 
-// ── ESPN Sync (primary for now, no key needed) ─────────────────────────────
+// ── API-Sports Standings Sync ──────────────────────────────────────────────
+
+async function syncStandingsFromApiSports(): Promise<{
+  created: number
+  updated: number
+}> {
+  const result = { created: 0, updated: 0 }
+  const season = String(new Date().getFullYear())
+  const topLeagues = AS_LEAGUES.slice(0, 10) // sync top 10 leagues
+
+  for (const league of topLeagues) {
+    checkTimeout()
+    try {
+      const standingsGroups = await fetchASStandings(league.id)
+      for (const group of standingsGroups) {
+        for (const entry of group) {
+          checkTimeout()
+          try {
+            await db.standingEntry.upsert({
+              where: {
+                competitionCode_season_teamName: {
+                  competitionCode: league.code,
+                  season,
+                  teamName: entry.team.name,
+                },
+              },
+              update: {
+                teamLogo: entry.team.logo,
+                competition: league.name,
+                rank: entry.rank,
+                played: entry.all.played,
+                wins: entry.all.win,
+                draws: entry.all.draw,
+                losses: entry.all.lose,
+                goalsFor: entry.all.goals.for,
+                goalsAgainst: entry.all.goals.against,
+                goalDiff: entry.goalsDiff,
+                points: entry.points,
+                form: entry.form || null,
+                homeRecord: `${entry.home.win}-${entry.home.draw}-${entry.home.lose}`,
+                source: 'api-sports',
+                lastSyncedAt: new Date(),
+              },
+              create: {
+                teamName: entry.team.name,
+                teamLogo: entry.team.logo,
+                competition: league.name,
+                competitionCode: league.code,
+                season,
+                rank: entry.rank,
+                played: entry.all.played,
+                wins: entry.all.win,
+                draws: entry.all.draw,
+                losses: entry.all.lose,
+                goalsFor: entry.all.goals.for,
+                goalsAgainst: entry.all.goals.against,
+                goalDiff: entry.goalsDiff,
+                points: entry.points,
+                form: entry.form || null,
+                homeRecord: `${entry.home.win}-${entry.home.draw}-${entry.home.lose}`,
+                source: 'api-sports',
+              },
+            })
+            result.created++
+          } catch {
+            result.updated++
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.message?.includes('timeout')) throw err
+      console.warn(`[SYNC/API-Sports] Standings failed for ${league.code}:`, err.message)
+    }
+  }
+
+  return result
+}
+
+// ── API-Sports Teams Sync (full team info + venue) ────────────────────────
+
+async function syncTeamsFromApiSports(): Promise<{
+  created: number
+  updated: number
+}> {
+  const result = { created: 0, updated: 0 }
+  const topLeagues = AS_LEAGUES.slice(0, 5)
+
+  for (const league of topLeagues) {
+    checkTimeout()
+    try {
+      const teams = await fetchLeagueTeams(league.id)
+      for (const t of teams) {
+        checkTimeout()
+        try {
+          await db.team.upsert({
+            where: { source_sourceId: { source: 'api-sports', sourceId: String(t.id) } },
+            update: {
+              name: t.name,
+              code: t.code || t.name.substring(0, 3).toUpperCase(),
+              logo: t.logo,
+              country: t.country,
+              founded: t.founded,
+              venueName: t.venue?.name,
+              venueCapacity: t.venue?.capacity,
+              league: league.name,
+              leagueCode: league.code,
+              source: 'api-sports',
+              lastSyncedAt: new Date(),
+            },
+            create: {
+              externalId: String(t.id),
+              name: t.name,
+              code: t.code || t.name.substring(0, 3).toUpperCase(),
+              logo: t.logo,
+              country: t.country,
+              founded: t.founded,
+              venueName: t.venue?.name,
+              venueCapacity: t.venue?.capacity,
+              league: league.name,
+              leagueCode: league.code,
+              source: 'api-sports',
+              sourceId: String(t.id),
+            },
+          })
+          result.created++
+        } catch {
+          result.updated++
+        }
+      }
+    } catch (err: any) {
+      if (err.message?.includes('timeout')) throw err
+      console.warn(`[SYNC/API-Sports] Teams failed for ${league.code}:`, err.message)
+    }
+  }
+
+  return result
+}
+
+// ── API-Sports Player Stats Sync (top scorers + squad info) ───────────────
+
+async function syncPlayersFromApiSports(): Promise<{
+  created: number
+  updated: number
+}> {
+  const result = { created: 0, updated: 0 }
+  const topLeagues = AS_LEAGUES.slice(0, 5)
+
+  for (const league of topLeagues) {
+    checkTimeout()
+    try {
+      const scorers = await fetchTopScorers(league.id)
+      for (const s of scorers) {
+        checkTimeout()
+        const p = s.player
+        const stat = s.statistics?.[0]
+        if (!stat) continue
+
+        // Find or create the team
+        const teamSourceId = String(stat.team.id)
+        let team = await db.team.findUnique({
+          where: { source_sourceId: { source: 'api-sports', sourceId: teamSourceId } },
+        })
+        if (!team) {
+          team = await db.team.create({
+            data: {
+              externalId: teamSourceId,
+              name: stat.team.name,
+              code: stat.team.name.substring(0, 3).toUpperCase(),
+              logo: stat.team.logo,
+              league: league.name,
+              leagueCode: league.code,
+              source: 'api-sports',
+              sourceId: teamSourceId,
+            },
+          })
+        }
+
+        try {
+          await db.player.upsert({
+            where: { source_sourceId: { source: 'api-sports', sourceId: String(p.id) } },
+            update: {
+              name: p.name,
+              firstName: p.firstname,
+              lastName: p.lastname,
+              age: p.age,
+              nationality: p.nationality,
+              photo: p.photo,
+              teamId: team.id,
+              appearances: stat.games?.appearences || 0,
+              minutesPlayed: stat.games?.minutes || 0,
+              goals: stat.goals?.total || 0,
+              assists: stat.goals?.assists || 0,
+              yellowCards: stat.cards?.yellow || 0,
+              redCards: stat.cards?.red || 0,
+              rating: null, // API-Sports top scorers doesn't include rating
+              season: String(league.id), // store league id for reference
+              source: 'api-sports',
+              lastSyncedAt: new Date(),
+            },
+            create: {
+              externalId: String(p.id),
+              name: p.name,
+              firstName: p.firstname,
+              lastName: p.lastname,
+              age: p.age,
+              nationality: p.nationality,
+              photo: p.photo,
+              teamId: team.id,
+              appearances: stat.games?.appearences || 0,
+              minutesPlayed: stat.games?.minutes || 0,
+              goals: stat.goals?.total || 0,
+              assists: stat.goals?.assists || 0,
+              yellowCards: stat.cards?.yellow || 0,
+              redCards: stat.cards?.red || 0,
+              season: String(league.id),
+              source: 'api-sports',
+              sourceId: String(p.id),
+            },
+          })
+          result.created++
+        } catch {
+          result.updated++
+        }
+      }
+    } catch (err: any) {
+      if (err.message?.includes('timeout')) throw err
+      console.warn(`[SYNC/API-Sports] Players failed for ${league.code}:`, err.message)
+    }
+  }
+
+  return result
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ESPN SYNC — Fallback (no API key needed, but lower quality)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 async function fetchScoreboardForLeague(league: { espnId: string; name: string; code: string }) {
   const SITE_V2 = 'https://site.api.espn.com/apis/v2/sports/soccer'
@@ -225,7 +482,6 @@ async function syncFixturesFromESPN(): Promise<{
       checkTimeout()
       result.processed++
 
-      // Upsert home team
       const homeTeam = await db.team.upsert({
         where: { source_sourceId: { source: 'espn', sourceId: m.homeTeamId } },
         update: {
@@ -249,7 +505,6 @@ async function syncFixturesFromESPN(): Promise<{
         },
       })
 
-      // Upsert away team
       const awayTeam = await db.team.upsert({
         where: { source_sourceId: { source: 'espn', sourceId: m.awayTeamId } },
         update: {
@@ -273,7 +528,6 @@ async function syncFixturesFromESPN(): Promise<{
         },
       })
 
-      // Upsert match
       const matchData = {
         externalId: m.id,
         homeTeamId: homeTeam.id,
@@ -307,11 +561,10 @@ async function syncFixturesFromESPN(): Promise<{
   return result
 }
 
-// ── Standings Sync ──────────────────────────────────────────────────────────
+// ── ESPN Standings Sync ────────────────────────────────────────────────────
 
 async function syncStandingsFromESPN(): Promise<{
   created: number
-  source: string
 }> {
   const topLeagues = ['PL', 'LIGA', 'SA', 'BL', 'L1']
   let totalCreated = 0
@@ -391,7 +644,7 @@ async function syncStandingsFromESPN(): Promise<{
     }
   }
 
-  return { created: totalCreated, source: 'espn' }
+  return { created: totalCreated }
 }
 
 // ── SyncLog Helper ──────────────────────────────────────────────────────────
@@ -423,52 +676,112 @@ async function logSync(
   }
 }
 
-// ── Main Handler ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN HANDLER
+// ═══════════════════════════════════════════════════════════════════════════════
 
 export async function GET(req: NextRequest) {
   // 1. Validate cron secret
   if (!validateCron(req)) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    )
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const summary: any = {
     success: true,
     syncs: {
       fixtures: { source: 'none', created: 0, updated: 0 },
-      standings: { source: 'none', created: 0 },
-      players: { source: 'none', created: 0 },
+      standings: { source: 'none', created: 0, updated: 0 },
+      teams: { source: 'none', created: 0, updated: 0 },
+      players: { source: 'none', created: 0, updated: 0 },
     },
     durationMs: 0,
   }
 
   try {
-    // 2. Try API-Sports first (higher quality data)
-    let useApiSports = false
+    // ═══ 2. API-Sports: Fixtures + Standings + Teams + Players ═══
+    let apiSportsAvailable = false
+
+    // 2a. Fixtures (live + today's top 5 leagues)
     try {
-      const asResult = await syncFixturesFromApiSports()
-      if (asResult.processed > 0) {
-        useApiSports = true
+      const fixResult = await syncFixturesFromApiSports()
+      if (fixResult.processed > 0) {
+        apiSportsAvailable = true
         summary.syncs.fixtures = {
           source: 'api-sports',
-          created: asResult.created,
-          updated: asResult.updated,
+          created: fixResult.created,
+          updated: fixResult.updated,
         }
-        await logSync('api-sports', 'fixtures', 'success', asResult.processed, asResult.created, asResult.updated)
+        await logSync('api-sports', 'fixtures', 'success', fixResult.processed, fixResult.created, fixResult.updated)
       }
     } catch (err: any) {
       if (err.message?.includes('timeout')) {
-        console.warn('[SYNC] API-Sports timeout, using ESPN')
+        console.warn('[SYNC] API-Sports fixtures timeout')
         await logSync('api-sports', 'fixtures', 'partial', 0, 0, 0, err.message)
       } else {
-        console.warn('[SYNC] API-Sports unavailable, using ESPN')
+        console.warn('[SYNC] API-Sports fixtures failed:', err.message)
       }
     }
 
-    // 3. Fall back to ESPN if API-Sports didn't return data
-    if (!useApiSports) {
+    // 2b. Standings (top 10 leagues — only if API-Sports is working)
+    if (apiSportsAvailable) {
+      try {
+        const stResult = await syncStandingsFromApiSports()
+        summary.syncs.standings = {
+          source: 'api-sports',
+          created: stResult.created,
+          updated: stResult.updated,
+        }
+        await logSync('api-sports', 'standings', 'success', stResult.created, stResult.created, stResult.updated)
+      } catch (err: any) {
+        if (err.message?.includes('timeout')) {
+          console.warn('[SYNC] API-Sports standings timeout')
+          await logSync('api-sports', 'standings', 'partial', 0, 0, 0, err.message)
+        } else {
+          console.warn('[SYNC] API-Sports standings failed:', err.message)
+        }
+      }
+    }
+
+    // 2c. Teams (top 5 leagues — venue info, country, etc.)
+    if (apiSportsAvailable) {
+      try {
+        const tmResult = await syncTeamsFromApiSports()
+        summary.syncs.teams = {
+          source: 'api-sports',
+          created: tmResult.created,
+          updated: tmResult.updated,
+        }
+        await logSync('api-sports', 'teams', 'success', tmResult.created + tmResult.updated, tmResult.created, tmResult.updated)
+      } catch (err: any) {
+        if (err.message?.includes('timeout')) {
+          console.warn('[SYNC] API-Sports teams timeout')
+        } else {
+          console.warn('[SYNC] API-Sports teams failed:', err.message)
+        }
+      }
+    }
+
+    // 2d. Player stats (top scorers, top 5 leagues)
+    if (apiSportsAvailable) {
+      try {
+        const plResult = await syncPlayersFromApiSports()
+        summary.syncs.players = {
+          source: 'api-sports',
+          created: plResult.created,
+          updated: plResult.updated,
+        }
+        await logSync('api-sports', 'players', 'success', plResult.created + plResult.updated, plResult.created, plResult.updated)
+      } catch (err: any) {
+        if (err.message?.includes('timeout')) {
+          console.warn('[SYNC] API-Sports players timeout')
+        } else {
+          console.warn('[SYNC] API-Sports players failed:', err.message)
+        }
+      }
+    }
+
+    // ═══ 3. ESPN Fallback — only if API-Sports didn't return fixtures ═══
+    if (!apiSportsAvailable) {
       try {
         const espnResult = await syncFixturesFromESPN()
         summary.syncs.fixtures = {
@@ -478,33 +791,30 @@ export async function GET(req: NextRequest) {
         }
         await logSync('espn', 'fixtures', 'success', espnResult.processed, espnResult.created, espnResult.updated)
       } catch (err: any) {
-        console.error('[SYNC] ESPN fixtures sync failed:', err)
+        console.error('[SYNC] ESPN fixtures failed:', err)
         await logSync('espn', 'fixtures', 'error', 0, 0, 0, String(err))
         summary.syncs.fixtures.error = String(err)
       }
-    }
 
-    // 4. Sync standings (always ESPN)
-    try {
-      const standingsResult = await syncStandingsFromESPN()
-      summary.syncs.standings = {
-        source: standingsResult.source,
-        created: standingsResult.created,
-      }
-      await logSync('espn', 'standings', 'success', standingsResult.created, standingsResult.created, 0)
-    } catch (err: any) {
-      if (err.message?.includes('timeout')) {
-        console.warn('[SYNC] Standings sync hit timeout')
-        await logSync('espn', 'standings', 'partial', 0, 0, 0, err.message)
-      } else {
-        console.error('[SYNC] Standings sync failed:', err)
-        await logSync('espn', 'standings', 'error', 0, 0, 0, String(err))
-        summary.syncs.standings.error = String(err)
+      // ESPN Standings fallback
+      try {
+        const standingsResult = await syncStandingsFromESPN()
+        summary.syncs.standings = {
+          source: 'espn',
+          created: standingsResult.created,
+          updated: 0,
+        }
+        await logSync('espn', 'standings', 'success', standingsResult.created, standingsResult.created, 0)
+      } catch (err: any) {
+        if (err.message?.includes('timeout')) {
+          console.warn('[SYNC] ESPN standings timeout')
+          await logSync('espn', 'standings', 'partial', 0, 0, 0, err.message)
+        } else {
+          console.error('[SYNC] ESPN standings failed:', err)
+          await logSync('espn', 'standings', 'error', 0, 0, 0, String(err))
+        }
       }
     }
-
-    // 5. Players sync placeholder (ready for when API-Sports key is active)
-    summary.syncs.players = { source: 'none', created: 0 }
 
     summary.durationMs = elapsed()
     console.log(`[SYNC] Complete in ${summary.durationMs}ms`, JSON.stringify(summary.syncs))
