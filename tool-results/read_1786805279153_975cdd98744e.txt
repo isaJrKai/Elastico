@@ -1,0 +1,864 @@
+    60→
+    61→// ── Types ──────────────────────────────────────────────────────────────────────
+    62→
+    63→interface EnhancedPlayer extends Player {
+    64→  teamName?: string
+    65→  teamCode?: string
+    66→  teamColor?: string
+    67→  nationality?: string
+    68→  appearances?: number
+    69→  minutesPlayed?: number
+    70→}
+    71→// ── Helpers ────────────────────────────────────────────────────────────────────
+    72→
+    73→function generateRadarStats(p: EnhancedPlayer) {
+    74→  return {
+    75→    Pace: p.position === 'FWD' || p.position === 'MID' ? 75 : 55,
+    76→    Shooting: p.position === 'FWD' ? 75 : 50,
+    77→    Passing: p.position === 'MID' ? 75 : 55,
+    78→    Defending: p.position === 'DEF' ? 75 : 45,
+    79→    Physical: 65,
+    80→    Dribbling: p.position === 'FWD' || p.position === 'MID' ? 72 : 50,
+    81→  }
+    82→}
+    83→
+    84→// ── Component ──────────────────────────────────────────────────────────────────
+    85→
+    86→export function PlayerView() {
+    87→  const teams = useElasticoStore(s => s.teams)
+    88→  const token = useElasticoStore(s => s.token)
+    89→  const [players, setPlayers] = useState<EnhancedPlayer[]>([])
+    90→  const [search, setSearch] = useState('')
+    91→  const [positionFilter, setPositionFilter] = useState<string>('all')
+    92→  const [teamFilter, setTeamFilter] = useState<string>('all')
+    93→  const [sortBy, setSortBy] = useState<string>('rating')
+    94→  const [selectedPlayer, setSelectedPlayer] = useState<EnhancedPlayer | null>(null)
+    95→  const [comparePlayer, setComparePlayer] = useState<EnhancedPlayer | null>(null)
+    96→  const [page, setPage] = useState(0)
+    97→  const perPage = 12
+    98→
+    99→  // Fetch players — try DB first, fallback to ESPN
+   100→  useEffect(() => {
+   101→    async function fetchPlayers() {
+   102→      try {
+   103→        const headers: Record<string, string> = {}
+   104→        if (token) headers['Authorization'] = `Bearer ${token}`
+   105→        const params = new URLSearchParams()
+   106→        if (sortBy) params.set('sortBy', sortBy)
+   107→        if (positionFilter !== 'all') params.set('position', positionFilter)
+   108→        if (search) params.set('search', search)
+   109→        params.set('limit', '100')
+   110→        const res = await fetch(`/api/players?${params}`, { headers })
+   111→        if (res.ok) {
+   112→          const data = await res.json()
+   113→          if (data.players && data.players.length > 0) {
+   114→            setPlayers(data.players.map((p: Record<string, unknown>) => ({
+   115→              ...p,
+   116→              teamName: (p.team as Record<string, unknown>)?.name as string || p.teamName,
+   117→              teamCode: (p.team as Record<string, unknown>)?.code as string || p.teamCode,
+   118→              teamColor: (p.team as Record<string, unknown>)?.primaryColor as string || '#00e676',
+   119→            } as EnhancedPlayer)))
+   120→            return
+   121→          }
+   122→        }
+   123→      } catch {
+   124→        // DB empty — fallback to ESPN
+   125→      }
+   126→
+   127→      // ESPN fallback: fetch teams for selected league, then fetch rosters
+   128→      try {
+   129→        const leagueCode = teamFilter !== 'all' ? undefined : 'PL'
+   130→        const teamsRes = await fetch(`/api/live?action=teams&league=${teamFilter !== 'all' ? teamFilter : 'PL'}`)
+   131→        const teamsData = await teamsRes.json()
+   132→        const espnTeams = teamsData.data || teamsData.teams || []
+   133→
+   134→        if (espnTeams.length === 0) return
+   135→
+   136→        // Fetch rosters for up to 6 teams (to avoid too many requests)
+   137→        const allPlayers: EnhancedPlayer[] = []
+   138→        const teamsToFetch = espnTeams.slice(0, 6)
+   139→
+   140→        await Promise.allSettled(teamsToFetch.map(async (t: any) => {
+   141→          try {
+   142→            const rosterRes = await fetch(`/api/live?action=roster&league=PL&team=${t.id}`)
+   143→            if (!rosterRes.ok) return
+   144→            const rosterData = await rosterRes.json()
+   145→            const athletes = rosterData.data || rosterData.athletes || []
+   146→            for (const a of athletes) {
+   147→              allPlayers.push({
+   148→                id: String(a.id || ''),
+   149→                name: a.name || a.displayName || 'Unknown',
+   150→                position: a.position || 'MID',
+   151→                age: a.age || 25,
+   152→                nationality: a.nationality || '',
+   153→                rating: 0, // ESPN roster API does not provide match ratings
+   154→                goals: a.goals || 0,
+   155→                assists: a.assists || 0,
+   156→                teamName: t.name,
+   157→                teamCode: t.abbreviation || t.code,
+   158→                teamColor: t.color || '#00e676',
+   159→                teamId: String(t.id || ''),
+   160→                appearances: a.appearances || 0,
+   161→                minutesPlayed: 0,
+   162→                shirtNumber: a.shirtNumber || a.jersey || 0,
+   163→              } as unknown as EnhancedPlayer)
+   164→            }
+   165→          } catch { /* skip this team */ }
+   166→        }))
+   167→
+   168→        if (allPlayers.length > 0) setPlayers(allPlayers)
+   169→      } catch {
+   170→        // ESPN fallback also failed
+   171→      }
+   172→    }
+   173→    fetchPlayers()
+   174→  }, [token, sortBy, positionFilter, search, teamFilter])
+   175→
+   176→  // Derived data
+   177→  const filteredPlayers = useMemo(() => {
+   178→    let result = [...players]
+   179→    if (search) result = result.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+   180→    if (positionFilter !== 'all') result = result.filter(p => p.position === positionFilter)
+   181→    if (teamFilter !== 'all') result = result.filter(p => p.teamName === teamFilter)
+   182→    result.sort((a, b) => {
+   183→      if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0)
+   184→      if (sortBy === 'goals') return b.goals - a.goals
+   185→      if (sortBy === 'assists') return b.assists - a.assists
+   186→      if (sortBy === 'name') return a.name.localeCompare(b.name)
+   187→      if (sortBy === 'age') return (a.age || 0) - (b.age || 0)
+   188→      if (sortBy === 'marketValue') return (b.marketValue || 0) - (a.marketValue || 0)
+   189→      return 0
+   190→    })
+   191→    return result
+   192→  }, [players, search, positionFilter, teamFilter, sortBy])
+   193→
+   194→  const pagedPlayers = filteredPlayers.slice(page * perPage, (page + 1) * perPage)
+   195→  const totalPages = Math.ceil(filteredPlayers.length / perPage)
+   196→
+   197→  const topScorers = useMemo(() => [...players].sort((a, b) => b.goals - a.goals).slice(0, 10), [players])
+   198→  const topByValue = useMemo(() => [...players].filter(p => p.marketValue).sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0)).slice(0, 10), [players])
+   199→
+   200→  const positionalGroups = useMemo(() => {
+   201→    const groups: Record<string, EnhancedPlayer[]> = {}
+   202→    for (const p of players) {
+   203→      if (!groups[p.position]) groups[p.position] = []
+   204→      groups[p.position].push(p)
+   205→    }
+   206→    return groups
+   207→  }, [players])
+   208→
+   209→  const ageData = useMemo(() => {
+   210→    const buckets: Record<string, number> = { '18-21': 0, '22-25': 0, '26-29': 0, '30-33': 0, '34+': 0 }
+   211→    for (const p of players) {
+   212→      const age = p.age || 25
+   213→      if (age <= 21) buckets['18-21']++
+   214→      else if (age <= 25) buckets['22-25']++
+   215→      else if (age <= 29) buckets['26-29']++
+   216→      else if (age <= 33) buckets['30-33']++
+   217→      else buckets['34+']++
+   218→    }
+   219→    return Object.entries(buckets).map(([range, count]) => ({ range, count }))
+   220→  }, [players])
+   221→
+   222→  const nationalities = useMemo(() => {
+   223→    const map: Record<string, number> = {}
+   224→    for (const p of players) {
+   225→      const nat = p.nationality || 'Unknown'
+   226→      map[nat] = (map[nat] || 0) + 1
+   227→    }
+   228→    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10)
+   229→  }, [players])
+   230→
+   231→  const uniqueTeams = useMemo(() => [...new Set(players.map(p => p.teamName).filter(Boolean))], [players])
+   232→
+   233→  // Similar players
+   234→  const similarPlayers = useMemo(() => {
+   235→    if (!selectedPlayer) return []
+   236→    const stats = generateRadarStats(selectedPlayer)
+   237→    return players
+   238→      .filter(p => p.id !== selectedPlayer.id && p.position === selectedPlayer.position)
+   239→      .map(p => {
+   240→        const ps = generateRadarStats(p)
+   241→        const diff = Math.abs(stats.Pace - ps.Pace) + Math.abs(stats.Shooting - ps.Shooting) +
+   242→          Math.abs(stats.Passing - ps.Passing) + Math.abs(stats.Defending - ps.Defending) +
+   243→          Math.abs(stats.Physical - ps.Physical) + Math.abs(stats.Dribbling - ps.Dribbling)
+   244→        return { player: p, similarity: 100 - Math.round(diff / 6) }
+   245→      })
+   246→      .sort((a, b) => b.similarity - a.similarity)
+   247→      .slice(0, 5)
+   248→  }, [selectedPlayer, players])
+   249→
+   250→  // CSV Export
+   251→  const exportCSV = useCallback(() => {
+   252→    const headers = ['Name', 'Position', 'Team', 'Age', 'Goals', 'Assists', 'Rating', 'Market Value (€M)', 'Yellow Cards', 'Red Cards', 'Nationality']
+   253→    const rows = filteredPlayers.map(p => [
+   254→      p.name, p.position, p.teamName || '', p.age || '', p.goals, p.assists, p.rating, p.marketValue || '', p.yellowCards, p.redCards, p.nationality || ''
+   255→    ])
+   256→    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n')
+   257→    const blob = new Blob([csv], { type: 'text/csv' })
+   258→    const url = URL.createObjectURL(blob)
+   259→    const a = document.createElement('a')
+   260→    a.href = url
+   261→    a.download = 'elastico-players.csv'
+   262→    a.click()
+   263→    URL.revokeObjectURL(url)
+   264→    toast.success('Players exported to CSV')
+   265→  }, [filteredPlayers])
+   266→
+   267→  const getPositionColor = (pos: string) => {
+   268→    switch (pos) {
+   269→      case 'GK': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
+   270→      case 'DEF': return 'text-blue-400 bg-blue-400/10 border-blue-400/30'
+   271→      case 'MID': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
+   272→      case 'FWD': return 'text-red-400 bg-red-400/10 border-red-400/30'
+   273→      default: return ''
+   274→    }
+   275→  }
+   276→
+   277→  const getRatingColor = (r: number) => {
+   278→    if (r >= 8.0) return 'text-emerald-400'
+   279→    if (r >= 7.0) return 'text-emerald-300'
+   280→    if (r >= 6.0) return 'text-yellow-400'
+   281→    return 'text-red-400'
+   282→  }
+   283→
+   284→  return (
+   285→    <motion.div
+   286→      initial={{ opacity: 0, y: 20 }}
+   287→      animate={{ opacity: 1, y: 0 }}
+   288→      className="space-y-6"
+   289→    >
+   290→      {/* Header */}
+   291→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   292→        <div>
+   293→        <p className="text-muted-foreground text-sm">Search, analyze, and compare football players</p>
+   294→        </div>
+   295→        <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
+   296→          <Download className="size-4" /> Export CSV
+   297→        </Button>
+   298→      </div>
+   299→
+   300→      {/* Search & Filters */}
+   301→      <div className="flex flex-col sm:flex-row gap-3">
+   302→        <div className="relative flex-1">
+   303→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   304→          <Input
+   305→            placeholder="Search players..."
+   306→            value={search}
+   307→            onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+   308→            className="pl-9"
+   309→          />
+   310→        </div>
+   311→        <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0) }}>
+   312→          <SelectTrigger className="w-full sm:w-36">
+   313→            <SelectValue placeholder="Position" />
+   314→          </SelectTrigger>
+   315→          <SelectContent>
+   316→            <SelectItem value="all">All Positions</SelectItem>
+   317→            <SelectItem value="GK">GK</SelectItem>
+   318→            <SelectItem value="DEF">DEF</SelectItem>
+   319→            <SelectItem value="MID">MID</SelectItem>
+   320→            <SelectItem value="FWD">FWD</SelectItem>
+   321→          </SelectContent>
+   322→        </Select>
+   323→        <Select value={teamFilter} onValueChange={(v) => { setTeamFilter(v); setPage(0) }}>
+   324→          <SelectTrigger className="w-full sm:w-40">
+   325→            <SelectValue placeholder="Team" />
+   326→          </SelectTrigger>
+   327→          <SelectContent>
+   328→            <SelectItem value="all">All Teams</SelectItem>
+   329→            {uniqueTeams.map(t => (
+   330→              <SelectItem key={t} value={t!}>{t}</SelectItem>
+   331→            ))}
+   332→          </SelectContent>
+   333→        </Select>
+   334→        <Select value={sortBy} onValueChange={setSortBy}>
+   335→          <SelectTrigger className="w-full sm:w-36">
+   336→            <SelectValue placeholder="Sort by" />
+   337→          </SelectTrigger>
+   338→          <SelectContent>
+   339→            <SelectItem value="rating">Rating</SelectItem>
+   340→            <SelectItem value="goals">Goals</SelectItem>
+   341→            <SelectItem value="assists">Assists</SelectItem>
+   342→            <SelectItem value="marketValue">Market Value</SelectItem>
+   343→            <SelectItem value="age">Age</SelectItem>
+   344→            <SelectItem value="name">Name</SelectItem>
+   345→          </SelectContent>
+   346→        </Select>
+   347→      </div>
+   348→
+   349→      <Tabs defaultValue="grid" className="space-y-4">
+   350→        <TabsList className="flex flex-wrap gap-1 h-auto bg-card/50 p-1 rounded-lg">
+   351→          <TabsTrigger value="grid" className="text-xs">Player Grid</TabsTrigger>
+   352→          <TabsTrigger value="leaderboard" className="text-xs">Top Scorers</TabsTrigger>
+   353→          <TabsTrigger value="radar" className="text-xs">Radar Charts</TabsTrigger>
+   354→          <TabsTrigger value="compare" className="text-xs">Compare</TabsTrigger>
+   355→          <TabsTrigger value="value" className="text-xs">Market Value</TabsTrigger>
+   356→          <TabsTrigger value="positions" className="text-xs">By Position</TabsTrigger>
+   357→          <TabsTrigger value="age" className="text-xs">Age Dist.</TabsTrigger>
+   358→          <TabsTrigger value="nationality" className="text-xs">Nationality</TabsTrigger>
+   359→          <TabsTrigger value="cards" className="text-xs">Cards</TabsTrigger>
+   360→          <TabsTrigger value="subs" className="text-xs">Substitutions</TabsTrigger>
+   361→          <TabsTrigger value="similar" className="text-xs">Similar</TabsTrigger>
+   362→          <TabsTrigger value="form" className="text-xs">Form</TabsTrigger>
+   363→        </TabsList>
+   364→
+   365→        {/* Player Cards Grid */}
+   366→        <TabsContent value="grid">
+   367→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+   368→            {pagedPlayers.map((player) => (
+   369→              <motion.div
+   370→                key={player.id}
+   371→                whileHover={{ scale: 1.02, y: -4 }}
+   372→                whileTap={{ scale: 0.98 }}
+   373→                className="cursor-pointer"
+   374→                onClick={() => setSelectedPlayer(player)}
+   375→              >
+   376→                <Card className="glass-card h-full overflow-hidden">
+   377→                  <div className="h-2" style={{ backgroundColor: player.teamColor || '#00e676' }} />
+   378→                  <CardContent className="p-4">
+   379→                    <div className="flex items-start gap-3">
+   380→                      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold shrink-0 border-2 border-border">
+   381→                        {player.number}
+   382→                      </div>
+   383→                      <div className="min-w-0 flex-1">
+   384→                        <h3 className="text-sm font-semibold truncate">{player.name}</h3>
+   385→                        <div className="flex items-center gap-2 mt-1">
+   386→                          <Badge variant="outline" className={cn('text-[10px]', getPositionColor(player.position))}>
+   387→                            {player.position}
+   388→                          </Badge>
+   389→                          <span className="text-[10px] text-muted-foreground truncate">{player.teamName}</span>
+   390→                        </div>
+   391→                      </div>
+   392→                      <div className={cn('text-xl font-bold', player.rating > 0 ? getRatingColor(player.rating) : 'text-muted-foreground')}>
+   393→                        {player.rating > 0 ? player.rating.toFixed(1) : 'N/A'}
+   394→                      </div>
+   395→                    </div>
+   396→                    <div className="grid grid-cols-3 gap-2 mt-4">
+   397→                      <div className="text-center">
+   398→                        <div className="text-lg font-bold text-primary">{player.goals}</div>
+   399→                        <div className="text-[10px] text-muted-foreground">Goals</div>
+   400→                      </div>
+   401→                      <div className="text-center">
+   402→                        <div className="text-lg font-bold text-primary">{player.assists}</div>
+   403→                        <div className="text-[10px] text-muted-foreground">Assists</div>
+   404→                      </div>
+   405→                      <div className="text-center">
+   406→                        <div className="text-lg font-bold text-primary">{player.yellowCards + player.redCards}</div>
+   407→                        <div className="text-[10px] text-muted-foreground">Cards</div>
+   408→                      </div>
+   409→                    </div>
+   410→                    {player.marketValue && (
+   411→                      <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-1">
+   412→                        <TrendingUp className="size-3 text-muted-foreground" />
+   413→                        <span className="text-xs text-muted-foreground">€{player.marketValue}M</span>
+   414→                      </div>
+   415→                    )}
+   416→                  </CardContent>
+   417→                </Card>
+   418→              </motion.div>
+   419→            ))}
+   420→          </div>
+   421→          {/* Pagination */}
+   422→          {totalPages > 1 && (
+   423→            <div className="flex items-center justify-center gap-2 mt-4">
+   424→              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}>
+   425→                <ChevronLeft className="size-4" />
+   426→              </Button>
+   427→              <span className="text-sm text-muted-foreground">{page + 1} / {totalPages}</span>
+   428→              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}>
+   429→                <ChevronRight className="size-4" />
+   430→              </Button>
+   431→            </div>
+   432→          )}
+   433→        </TabsContent>
+   434→
+   435→        {/* Top Scorers Leaderboard */}
+   436→        <TabsContent value="leaderboard">
+   437→          <Card className="glass-card">
+   438→            <CardHeader className="pb-2">
+   439→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   440→                <Star className="size-4 text-yellow-400" /> Top Scorers Leaderboard
+   441→              </CardTitle>
+   442→            </CardHeader>
+   443→            <CardContent>
+   444→              <div className="max-h-96 overflow-y-auto">
+   445→                <Table>
+   446→                  <TableHeader>
+   447→                    <TableRow>
+   448→                      <TableHead className="w-10">#</TableHead>
+   449→                      <TableHead>Player</TableHead>
+   450→                      <TableHead className="text-center">Goals</TableHead>
+   451→                      <TableHead className="text-center">Assists</TableHead>
+   452→                      <TableHead className="text-center">Mins</TableHead>
+   453→                      <TableHead className="text-center">G/90</TableHead>
+   454→                      <TableHead className="text-center">Rating</TableHead>
+   455→                    </TableRow>
+   456→                  </TableHeader>
+   457→                  <TableBody>
+   458→                    {topScorers.map((p, i) => (
+   459→                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedPlayer(p)}>
+   460→                        <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
+   461→                        <TableCell>
+   462→                          <div className="flex items-center gap-2">
+   463→                            <span className="text-sm font-medium">{p.name}</span>
+   464→                            <Badge variant="outline" className={cn('text-[9px]', getPositionColor(p.position))}>{p.position}</Badge>
+   465→                          </div>
+   466→                          <span className="text-[10px] text-muted-foreground">{p.teamName}</span>
+   467→                        </TableCell>
+   468→                        <TableCell className="text-center font-bold text-primary">{p.goals}</TableCell>
+   469→                        <TableCell className="text-center">{p.assists}</TableCell>
+   470→                        <TableCell className="text-center text-muted-foreground">{p.minutesPlayed || (p.appearances || 0) * 90}</TableCell>
+   471→                        <TableCell className="text-center font-medium">
+   472→                          {((p.goals / ((p.minutesPlayed || (p.appearances || 0) * 90) / 90))).toFixed(2)}
+   473→                        </TableCell>
+   474→                        <TableCell className={cn('text-center font-bold', p.rating > 0 ? getRatingColor(p.rating) : 'text-muted-foreground')}>{p.rating > 0 ? p.rating.toFixed(1) : '—'}</TableCell>
+   475→                      </TableRow>
+   476→                    ))}
+   477→                  </TableBody>
+   478→                </Table>
+   479→              </div>
+   480→            </CardContent>
+   481→          </Card>
+   482→        </TabsContent>
+   483→
+   484→        {/* Player Radar Chart */}
+   485→        <TabsContent value="radar">
+   486→          <Card className="glass-card">
+   487→            <CardHeader className="pb-2">
+   488→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   489→                <Award className="size-4 text-primary" /> Player Radar Charts
+   490→              </CardTitle>
+   491→            </CardHeader>
+   492→            <CardContent>
+   493→              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+   494→                {topScorers.slice(0, 6).map((player) => {
+   495→                  const stats = generateRadarStats(player)
+   496→                  const radarData = Object.entries(stats).map(([k, v]) => ({ stat: k, value: v }))
+   497→                  return (
+   498→                    <Card key={player.id} className="glass-card border-border/30">
+   499→                      <CardContent className="p-3">
+   500→                        <h4 className="text-sm font-semibold text-center mb-1">{player.name}</h4>
+   501→                        <p className="text-[10px] text-center text-muted-foreground mb-2">{player.position} · {player.teamName}</p>
+   502→                        <div className="h-48">
+   503→                          <ResponsiveContainer width="100%" height="100%">
+   504→                            <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="65%">
+   505→                              <PolarGrid stroke="rgba(255,255,255,0.06)" />
+   506→                              <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 9, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
+   507→                              <PolarRadiusAxis tick={false} domain={[0, 100]} axisLine={false} />
+   508→                              <Radar dataKey="value" stroke={chartColor(0)} fill={chartColor(0)} fillOpacity={0.15} strokeWidth={2} />
+   509→                            </RadarChart>
+   510→                          </ResponsiveContainer>
+   511→                        </div>
+   512→                      </CardContent>
+   513→                    </Card>
+   514→                  )
+   515→                })}
+   516→              </div>
+   517→            </CardContent>
+   518→          </Card>
+   519→        </TabsContent>
+   520→
+   521→        {/* Player Comparison */}
+   522→        <TabsContent value="compare">
+   523→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   524→            <Card className="glass-card">
+   525→              <CardHeader className="pb-2">
+   526→                <CardTitle className="text-sm font-medium">Select Player 1</CardTitle>
+   527→              </CardHeader>
+   528→              <CardContent className="max-h-64 overflow-y-auto">
+   529→                {players.slice(0, 10).map(p => (
+   530→                  <button
+   531→                    key={p.id}
+   532→                    onClick={() => setSelectedPlayer(p)}
+   533→                    className={cn(
+   534→                      'w-full flex items-center gap-3 p-2 rounded-lg text-left text-sm transition-colors',
+   535→                      selectedPlayer?.id === p.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent'
+   536→                    )}
+   537→                  >
+   538→                    <span className="font-medium">{p.name}</span>
+   539→                    <Badge variant="outline" className={cn('text-[9px] ml-auto', getPositionColor(p.position))}>{p.position}</Badge>
+   540→                  </button>
+   541→                ))}
+   542→              </CardContent>
+   543→            </Card>
+   544→            <Card className="glass-card">
+   545→              <CardHeader className="pb-2">
+   546→                <CardTitle className="text-sm font-medium">Select Player 2</CardTitle>
+   547→              </CardHeader>
+   548→              <CardContent className="max-h-64 overflow-y-auto">
+   549→                {players.slice(0, 10).map(p => (
+   550→                  <button
+   551→                    key={p.id}
+   552→                    onClick={() => setComparePlayer(p)}
+   553→                    className={cn(
+   554→                      'w-full flex items-center gap-3 p-2 rounded-lg text-left text-sm transition-colors',
+   555→                      comparePlayer?.id === p.id ? 'bg-orange-500/10 text-orange-400' : 'hover:bg-accent'
+   556→                    )}
+   557→                  >
+   558→                    <span className="font-medium">{p.name}</span>
+   559→                    <Badge variant="outline" className={cn('text-[9px] ml-auto', getPositionColor(p.position))}>{p.position}</Badge>
+   560→                  </button>
+   561→                ))}
+   562→              </CardContent>
+   563→            </Card>
+   564→          </div>
+   565→          {selectedPlayer && comparePlayer && (
+   566→            <Card className="glass-card mt-4">
+   567→              <CardHeader className="pb-2">
+   568→                <CardTitle className="text-sm font-medium text-center">
+   569→                  {selectedPlayer.name} vs {comparePlayer.name}
+   570→                </CardTitle>
+   571→              </CardHeader>
+   572→              <CardContent>
+   573→                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+   574→                  <div className="h-56">
+   575→                    <p className="text-xs text-center text-primary mb-1">{selectedPlayer.name}</p>
+   576→                    <ResponsiveContainer width="100%" height="100%">
+   577→                      <RadarChart data={Object.entries(generateRadarStats(selectedPlayer)).map(([k, v]) => ({ stat: k, value: v }))}>
+   578→                        <PolarGrid stroke="rgba(255,255,255,0.06)" />
+   579→                        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 9, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
+   580→                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+   581→                        <Radar dataKey="value" stroke={chartColor(0)} fill={chartColor(0)} fillOpacity={0.15} strokeWidth={2} />
+   582→                      </RadarChart>
+   583→                    </ResponsiveContainer>
+   584→                  </div>
+   585→                  <div className="h-56">
+   586→                    <p className="text-xs text-center text-orange-400 mb-1">{comparePlayer.name}</p>
+   587→                    <ResponsiveContainer width="100%" height="100%">
+   588→                      <RadarChart data={Object.entries(generateRadarStats(comparePlayer)).map(([k, v]) => ({ stat: k, value: v }))}>
+   589→                        <PolarGrid stroke="rgba(255,255,255,0.06)" />
+   590→                        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 9, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
+   591→                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+   592→                        <Radar dataKey="value" stroke={chartColor(1)} fill={chartColor(1)} fillOpacity={0.15} strokeWidth={2} />
+   593→                      </RadarChart>
+   594→                    </ResponsiveContainer>
+   595→                  </div>
+   596→                </div>
+   597→              </CardContent>
+   598→            </Card>
+   599→          )}
+   600→        </TabsContent>
+   601→
+   602→        {/* Market Value Tracker */}
+   603→        <TabsContent value="value">
+   604→          <Card className="glass-card">
+   605→            <CardHeader className="pb-2">
+   606→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   607→                <TrendingUp className="size-4 text-primary" /> Market Value Tracker (€M)
+   608→              </CardTitle>
+   609→            </CardHeader>
+   610→            <CardContent>
+   611→              <div className="h-72">
+   612→                <ResponsiveContainer width="100%" height="100%">
+   613→                  <BarChart data={topByValue} layout="vertical" barSize={18}>
+   614→                    <CartesianGrid {...cartesianGridProps} />
+   615→                    <XAxis type="number" {...axisProps} tick={{ ...axisProps.tick, fontSize: 10 }} unit="M" />
+   616→                    <YAxis dataKey="name" type="category" {...axisProps} tick={{ ...axisProps.tick, fontSize: 10 }} width={110} />
+   617→                    <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} formatter={(v: number) => `€${v}M`} />
+   618→                    <Bar dataKey="marketValue" fill={chartColor(0)} radius={[0, 4, 4, 0]} />
+   619→                  </BarChart>
+   620→                </ResponsiveContainer>
+   621→              </div>
+   622→            </CardContent>
+   623→          </Card>
+   624→        </TabsContent>
+   625→
+   626→        {/* Positional Breakdown */}
+   627→        <TabsContent value="positions">
+   628→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   629→            {Object.entries(positionalGroups).map(([pos, group]) => {
+   630→              const rated = group.filter(p => p.rating > 0)
+   631→              const avgRating = rated.length > 0 ? (rated.reduce((s, p) => s + p.rating, 0) / rated.length).toFixed(1) : 'N/A'
+   632→              const totalGoals = group.reduce((s, p) => s + p.goals, 0)
+   633→              const totalAssists = group.reduce((s, p) => s + p.assists, 0)
+   634→              return (
+   635→                <Card key={pos} className="glass-card">
+   636→                  <CardHeader className="pb-2">
+   637→                    <Badge variant="outline" className={cn('w-fit', getPositionColor(pos))}>{pos}</Badge>
+   638→                    <span className="text-xs text-muted-foreground">{group.length} players</span>
+   639→                  </CardHeader>
+   640→                  <CardContent className="space-y-2">
+   641→                    <div className="flex justify-between items-center text-sm">
+   642→                      <span className="text-muted-foreground">Avg Rating</span>
+   643→                      <div className="flex items-center gap-1">
+   644→                        <span className={cn('font-bold', getRatingColor(parseFloat(avgRating)))}>{avgRating}</span>
+   645→                        <StatusBadge variant="dataclass" value="REAL" />
+   646→                      </div>
+   647→                    </div>
+   648→                    <div className="flex justify-between items-center text-sm">
+   649→                      <span className="text-muted-foreground">Total Goals</span>
+   650→                      <div className="flex items-center gap-1">
+   651→                        <span className="font-bold">{totalGoals}</span>
+   652→                        <StatusBadge variant="dataclass" value="REAL" />
+   653→                      </div>
+   654→                    </div>
+   655→                    <div className="flex justify-between items-center text-sm">
+   656→                      <span className="text-muted-foreground">Total Assists</span>
+   657→                      <div className="flex items-center gap-1">
+   658→                        <span className="font-bold">{totalAssists}</span>
+   659→                        <StatusBadge variant="dataclass" value="REAL" />
+   660→                      </div>
+   661→                    </div>
+   662→                  </CardContent>
+   663→                </Card>
+   664→              )
+   665→            })}
+   666→          </div>
+   667→        </TabsContent>
+   668→
+   669→        {/* Age Distribution */}
+   670→        <TabsContent value="age">
+   671→          <Card className="glass-card">
+   672→            <CardHeader className="pb-2">
+   673→              <CardTitle className="text-sm font-medium">Age Distribution</CardTitle>
+   674→            </CardHeader>
+   675→            <CardContent>
+   676→              <div className="h-64">
+   677→                <ResponsiveContainer width="100%" height="100%">
+   678→                  <BarChart data={ageData} barSize={40}>
+   679→                    <CartesianGrid {...cartesianGridProps} />
+   680→                    <XAxis dataKey="range" {...axisProps} />
+   681→                    <YAxis {...axisProps} />
+   682→                    <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+   683→                    <Bar dataKey="count" fill={chartColor(0)} radius={[4, 4, 0, 0]} name="Players" />
+   684→                  </BarChart>
+   685→                </ResponsiveContainer>
+   686→              </div>
+   687→            </CardContent>
+   688→          </Card>
+   689→        </TabsContent>
+   690→
+   691→        {/* Nationality Mix */}
+   692→        <TabsContent value="nationality">
+   693→          <Card className="glass-card">
+   694→            <CardHeader className="pb-2">
+   695→              <CardTitle className="text-sm font-medium">Nationality Distribution</CardTitle>
+   696→            </CardHeader>
+   697→            <CardContent className="space-y-3 max-h-96 overflow-y-auto">
+   698→              {nationalities.map(([nat, count]) => (
+   699→                <div key={nat} className="flex items-center gap-3">
+   700→                  <span className="text-sm w-24 shrink-0 truncate">{nat}</span>
+   701→                  <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   702→                    <motion.div
+   703→                      initial={{ width: 0 }}
+   704→                      animate={{ width: `${(count / players.length) * 100}%` }}
+   705→                      className="h-full bg-primary/70 rounded-full"
+   706→                      transition={{ duration: 0.5 }}
+   707→                    />
+   708→                  </div>
+   709→                  <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
+   710→                </div>
+   711→              ))}
+   712→            </CardContent>
+   713→          </Card>
+   714→        </TabsContent>
+   715→
+   716→        {/* Card Accumulation */}
+   717→        <TabsContent value="cards">
+   718→          <Card className="glass-card">
+   719→            <CardHeader className="pb-2">
+   720→              <CardTitle className="text-sm font-medium">Card Accumulation</CardTitle>
+   721→            </CardHeader>
+   722→            <CardContent>
+   723→              <div className="max-h-96 overflow-y-auto">
+   724→                <Table>
+   725→                  <TableHeader>
+   726→                    <TableRow>
+   727→                      <TableHead>Player</TableHead>
+   728→                      <TableHead className="text-center">Yellow</TableHead>
+   729→                      <TableHead className="text-center">Red</TableHead>
+   730→                      <TableHead className="text-center">Total</TableHead>
+   731→                    </TableRow>
+   732→                  </TableHeader>
+   733→                  <TableBody>
+   734→                    {[...players].sort((a, b) => (b.yellowCards + b.redCards) - (a.yellowCards + a.redCards)).slice(0, 15).map(p => (
+   735→                      <TableRow key={p.id}>
+   736→                        <TableCell className="text-sm">{p.name}</TableCell>
+   737→                        <TableCell className="text-center"><Badge variant="outline" className="text-yellow-400 border-yellow-400/30">{p.yellowCards}</Badge></TableCell>
+   738→                        <TableCell className="text-center"><Badge variant="outline" className="text-red-400 border-red-400/30">{p.redCards}</Badge></TableCell>
+   739→                        <TableCell className="text-center font-bold">{p.yellowCards + p.redCards}</TableCell>
+   740→                      </TableRow>
+   741→                    ))}
+   742→                  </TableBody>
+   743→                </Table>
+   744→              </div>
+   745→            </CardContent>
+   746→          </Card>
+   747→        </TabsContent>
+   748→
+   749→        {/* Substitution Frequency */}
+   750→        <TabsContent value="subs">
+   751→          <Card className="glass-card">
+   752→            <CardHeader className="pb-2">
+   753→              <CardTitle className="text-sm font-medium">Substitution Frequency</CardTitle>
+   754→            </CardHeader>
+   755→            <CardContent>
+   756→              <div className="space-y-3">
+   757→                {players.slice(0, 10).map(p => {
+   758→                  const startPct = 75
+   759→                  const subPct = 100 - startPct
+   760→                  return (
+   761→                    <div key={p.id} className="space-y-1">
+   762→                      <div className="flex justify-between text-xs">
+   763→                        <span className="truncate">{p.name}</span>
+   764→                        <span className="text-muted-foreground">{startPct}% starter</span>
+   765→                      </div>
+   766→                      <div className="flex h-2 rounded-full overflow-hidden bg-muted/50">
+   767→                        <div className="bg-primary/70" style={{ width: `${startPct}%` }} />
+   768→                        <div className="bg-orange-500/60" style={{ width: `${subPct}%` }} />
+   769→                      </div>
+   770→                    </div>
+   771→                  )
+   772→                })}
+   773→              </div>
+   774→            </CardContent>
+   775→          </Card>
+   776→        </TabsContent>
+   777→
+   778→        {/* Player Similarity Finder */}
+   779→        <TabsContent value="similar">
+   780→          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   781→            <Card className="glass-card lg:col-span-1">
+   782→              <CardHeader className="pb-2">
+   783→                <CardTitle className="text-sm font-medium">Select Player</CardTitle>
+   784→              </CardHeader>
+   785→              <CardContent className="max-h-64 overflow-y-auto">
+   786→                {players.map(p => (
+   787→                  <button
+   788→                    key={p.id}
+   789→                    onClick={() => setSelectedPlayer(p)}
+   790→                    className={cn(
+   791→                      'w-full flex items-center gap-2 p-2 rounded text-left text-sm transition-colors',
+   792→                      selectedPlayer?.id === p.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent'
+   793→                    )}
+   794→                  >
+   795→                    <span className="truncate">{p.name}</span>
+   796→                    <Badge variant="outline" className={cn('text-[9px] ml-auto shrink-0', getPositionColor(p.position))}>{p.position}</Badge>
+   797→                  </button>
+   798→                ))}
+   799→              </CardContent>
+   800→            </Card>
+   801→            <Card className="glass-card lg:col-span-2">
+   802→              <CardHeader className="pb-2">
+   803→                <CardTitle className="text-sm font-medium">Similar Players</CardTitle>
+   804→              </CardHeader>
+   805→              <CardContent>
+   806→                {selectedPlayer ? (
+   807→                  <div className="space-y-3">
+   808→                    {similarPlayers.length > 0 ? similarPlayers.map(({ player, similarity }) => (
+   809→                      <div key={player.id} className="flex items-center gap-4 p-3 rounded-lg bg-card/50 border border-border/30">
+   810→                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold text-sm">{player.number}</div>
+   811→                        <div className="flex-1">
+   812→                          <div className="text-sm font-medium">{player.name}</div>
+   813→                          <div className="text-[10px] text-muted-foreground">{player.position} · {player.teamName}</div>
+   814→                        </div>
+   815→                        <div className="text-right">
+   816→                          <div className="flex items-center gap-1 justify-end">
+   817→                            <span className="text-lg font-bold text-primary">{similarity}%</span>
+   818→                            <StatusBadge variant="dataclass" value="DERIVED" />
+   819→                          </div>
+   820→                          <div className="text-[10px] text-muted-foreground">similar</div>
+   821→                        </div>
+   822→                      </div>
+   823→                    )) : (
+   824→                      <p className="text-sm text-muted-foreground text-center py-8">No similar players found</p>
+   825→                    )}
+   826→                  </div>
+   827→                ) : (
+   828→                  <p className="text-sm text-muted-foreground text-center py-8">Select a player to find similar profiles</p>
+   829→                )}
+   830→              </CardContent>
+   831→            </Card>
+   832→          </div>
+   833→        </TabsContent>
+   834→
+   835→        {/* Player Form Chart */}
+   836→        <TabsContent value="form">
+   837→          <Card className="glass-card">
+   838→            <CardHeader className="pb-2">
+   839→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   840→                <TrendingUp className="size-4 text-primary" /> Player Form (Recent Matches)
+   841→              </CardTitle>
+   842→            </CardHeader>
+   843→            <CardContent>
+   844→              <div className="flex flex-col items-center justify-center py-12 text-center">
+   845→                <TrendingUp className="size-8 text-muted-foreground/50 mb-3" />
+   846→                <p className="text-sm font-medium text-foreground">Form Rating Data</p>
+   847→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Per-match rating history is not available from the current data source.</p>
+   848→              </div>
+   849→            </CardContent>
+   850→          </Card>
+   851→        </TabsContent>
+   852→      </Tabs>
+   853→
+   854→      {/* Player Detail Panel (Slide-over) */}
+   855→      <AnimatePresence>
+   856→        {selectedPlayer && (
+   857→          <motion.div
+   858→            initial={{ opacity: 0, x: 300 }}
+   859→            animate={{ opacity: 1, x: 0 }}
+   860→            exit={{ opacity: 0, x: 300 }}
+   861→            className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-background border-l border-border z-50 overflow-y-auto shadow-2xl"
+   862→          >
+   863→            <div className="p-6 space-y-6">
+   864→              <div className="flex items-center justify-between">
+   865→                <h2 className="text-lg font-bold">Player Detail</h2>
+   866→                <Button variant="ghost" size="icon" onClick={() => setSelectedPlayer(null)} aria-label="Close player detail">
+   867→                  <X className="size-4" />
+   868→                </Button>
+   869→              </div>
+   870→
+   871→              <div className="text-center space-y-3">
+   872→                <div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center text-3xl font-bold border-4 border-primary/30" style={{ borderColor: selectedPlayer.teamColor }}>
+   873→                  {selectedPlayer.number}
+   874→                </div>
+   875→                <div>
+   876→                  <h3 className="text-xl font-bold">{selectedPlayer.name}</h3>
+   877→                  <p className="text-sm text-muted-foreground">{selectedPlayer.teamName} · {selectedPlayer.position}</p>
+   878→                  <p className="text-xs text-muted-foreground mt-1">{selectedPlayer.nationality} · Age {selectedPlayer.age}</p>
+   879→                </div>
+   880→              </div>
+   881→
+   882→              <div className="grid grid-cols-2 gap-3">
+   883→                {[
+   884→                  { label: 'Rating', value: selectedPlayer.rating > 0 ? selectedPlayer.rating.toFixed(1) : 'N/A', color: selectedPlayer.rating > 0 ? getRatingColor(selectedPlayer.rating) : 'text-muted-foreground' },
+   885→                  { label: 'Goals', value: selectedPlayer.goals, color: 'text-primary' },
+   886→                  { label: 'Assists', value: selectedPlayer.assists, color: 'text-primary' },
+   887→                  { label: 'Appearances', value: selectedPlayer.appearances || '-', color: 'text-foreground' },
+   888→                  { label: 'Minutes', value: selectedPlayer.minutesPlayed || '-', color: 'text-foreground' },
+   889→                  { label: 'Market Value', value: selectedPlayer.marketValue ? `€${selectedPlayer.marketValue}M` : '-', color: 'text-primary' },
+   890→                ].map(item => (
+   891→                  <Card key={item.label} className="glass-card">
+   892→                    <CardContent className="p-3 text-center">
+   893→                      <div className="text-[10px] text-muted-foreground">{item.label}</div>
+   894→                      <div className={cn('text-xl font-bold', item.color)}>{item.value}</div>
+   895→                    </CardContent>
+   896→                  </Card>
+   897→                ))}
+   898→              </div>
+   899→
+   900→              <div className="h-48">
+   901→                <p className="text-xs text-muted-foreground mb-2 text-center">Attribute Radar</p>
+   902→                <ResponsiveContainer width="100%" height="100%">
+   903→                  <RadarChart data={Object.entries(generateRadarStats(selectedPlayer)).map(([k, v]) => ({ stat: k, value: v }))}>
+   904→                    <PolarGrid stroke="rgba(255,255,255,0.06)" />
+   905→                    <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 10, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
+   906→                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+   907→                    <Radar dataKey="value" stroke={chartColor(0)} fill={chartColor(0)} fillOpacity={0.15} strokeWidth={2} />
+   908→                  </RadarChart>
+   909→                </ResponsiveContainer>
+   910→              </div>
+   911→
+   912→              <Button variant="outline" className="w-full gap-2" onClick={() => { setSelectedPlayer(null); setComparePlayer(selectedPlayer) }}>
+   913→                <ArrowUpDown className="size-4" /> Use for Comparison
+   914→              </Button>
+   915→            </div>
+   916→          </motion.div>
+   917→        )}
+   918→      </AnimatePresence>
+   919→    </motion.div>
+   920→  )
+   921→}
+   922→
+   923→export default PlayerView
