@@ -805,3 +805,312 @@ export function runFullMatchAnalysis(
     riskRating,
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CAPABILITY TRANSFER — From football-prediction-mega reference project
+// Added: Dixon-Coles, Ensemble, Brier/log-loss, Calibration, Signal generation
+// Classification: IMPROVE (Dixon-Coles) + ADD (ensemble, eval, signals)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── Dixon-Coles Correlation Enhancement ─────────────────────────────────────────
+
+export interface DixonColesParams {
+  rho: number  // Correlation parameter (typically -0.1 to -0.2)
+}
+
+/**
+ * Applies Dixon-Coles low-scoreline correction to Poisson probabilities.
+ * Adjusts P(0,0), P(1,0), P(0,1), P(1,1) to account for football's
+ * goal-scoring correlation: when one team scores, the game state shifts,
+ * making the other team's response correlated rather than independent.
+ *
+ * This enhances ELASTICO's existing independent Poisson sampling by
+ * introducing the mathematically-proven Dixon-Coles (1997) correction.
+ */
+export function dixonColesCorrection(
+  homeGoals: number,
+  awayGoals: number,
+  lambdaHome: number,
+  lambdaAway: number,
+  rho: number = -0.13
+): number {
+  if (rho === 0) return 1.0
+
+  const isLowScoreline =
+    (homeGoals === 0 && awayGoals === 0) ||
+    (homeGoals === 0 && awayGoals === 1) ||
+    (homeGoals === 1 && awayGoals === 0) ||
+    (homeGoals === 1 && awayGoals === 1)
+
+  if (!isLowScoreline) return 1.0
+
+  const pHome = poissonPMF(homeGoals, lambdaHome)
+  const pAway = poissonPMF(awayGoals, lambdaAway)
+  const independent = pHome * pAway
+
+  let correction: number
+  if (homeGoals === 0 && awayGoals === 0) {
+    correction = 1 - lambdaHome * lambdaAway * rho
+  } else if (homeGoals === 0 && awayGoals === 1) {
+    correction = 1 + lambdaHome * rho
+  } else if (homeGoals === 1 && awayGoals === 0) {
+    correction = 1 + lambdaAway * rho
+  } else {
+    correction = 1 - rho
+  }
+
+  const corrected = independent * Math.max(correction, 0)
+  return independent > 0 ? Math.min(corrected / independent, 1.5) : 1.0
+}
+
+function poissonPMF(k: number, lambda: number): number {
+  if (k < 0 || lambda <= 0) return k === 0 ? 1 : 0
+  return Math.exp(-lambda) * Math.pow(lambda, k) / factorial(k)
+}
+
+function factorial(n: number): number {
+  if (n <= 1) return 1
+  let result = 1
+  for (let i = 2; i <= n; i++) result *= i
+  return result
+}
+
+// ── Ensemble Prediction Layer ───────────────────────────────────────────────────
+
+export interface EnsembleInput {
+  eloHomeProb: number
+  eloDrawProb: number
+  eloAwayProb: number
+  stochasticHomeProb: number
+  stochasticDrawProb: number
+  stochasticAwayProb: number
+  marketHomeProb?: number
+  marketDrawProb?: number
+  marketAwayProb?: number
+}
+
+export interface EnsembleResult {
+  homeWin: number
+  draw: number
+  awayWin: number
+  weights: { elo: number; stochastic: number; dixonColes: number; market: number }
+  modelAgreement: 'high' | 'moderate' | 'disagree'
+}
+
+/**
+ * Weighted ensemble combining ELO, Stochastic (Merton J-D), and optional Market implied probabilities.
+ * Weights: ELO 30%, Stochastic 45%, Market 25% (when available)
+ * Without market: ELO 35%, Stochastic 65%
+ */
+export function computeEnsemble(input: EnsembleInput): EnsembleResult {
+  const hasMarket = input.marketHomeProb !== undefined && input.marketHomeProb > 0
+
+  let wElo: number, wStochastic: number, wMarket: number
+  if (hasMarket) {
+    wElo = 0.30; wStochastic = 0.45; wMarket = 0.25
+  } else {
+    wElo = 0.35; wStochastic = 0.65; wMarket = 0
+  }
+
+  const home = wElo * input.eloHomeProb + wStochastic * input.stochasticHomeProb + wMarket * (input.marketHomeProb || 0)
+  const draw = wElo * input.eloDrawProb + wStochastic * input.stochasticDrawProb + wMarket * (input.marketDrawProb || 0)
+  const away = wElo * input.eloAwayProb + wStochastic * input.stochasticAwayProb + wMarket * (input.marketAwayProb || 0)
+
+  const total = home + draw + away
+  const h = home / total
+  const d = draw / total
+  const a = away / total
+
+  const eloFav = Math.max(input.eloHomeProb, input.eloDrawProb, input.eloAwayProb)
+  const stochFav = Math.max(input.stochasticHomeProb, input.stochasticDrawProb, input.stochasticAwayProb)
+  const ensembleFav = Math.max(h, d, a)
+
+  const modelsAgree = (
+    (eloFav === ensembleFav || Math.abs(eloFav - ensembleFav) < 0.05) &&
+    (stochFav === ensembleFav || Math.abs(stochFav - ensembleFav) < 0.05)
+  )
+
+  return {
+    homeWin: Math.round(h * 10000) / 10000,
+    draw: Math.round(d * 10000) / 10000,
+    awayWin: Math.round(a * 10000) / 10000,
+    weights: { elo: wElo, stochastic: wStochastic, dixonColes: 0, market: wMarket },
+    modelAgreement: modelsAgree ? 'high' : (Math.abs(eloFav - stochFav) < 0.15 ? 'moderate' : 'disagree'),
+  }
+}
+
+// ── Evaluation Metrics (Brier Score, Log Loss) ─────────────────────────────────
+
+export interface EvalMetrics {
+  brierScore: number
+  logLoss: number
+  accuracy: number
+  sampleSize: number
+}
+
+/**
+ * Computes Brier score and log loss for probability predictions.
+ * Brier: mean squared error [0,1]. Log loss: -log likelihood.
+ */
+export function computeEvalMetrics(
+  predictions: { predicted: number; actual: number }[]
+): EvalMetrics {
+  if (predictions.length === 0) {
+    return { brierScore: 0, logLoss: 0, accuracy: 0, sampleSize: 0 }
+  }
+
+  let brierSum = 0
+  let logLossSum = 0
+  let correct = 0
+
+  for (const p of predictions) {
+    brierSum += (p.predicted - p.actual) ** 2
+    const clampedP = Math.max(0.01, Math.min(0.99, p.predicted))
+    if (p.actual === 1) {
+      logLossSum += -Math.log(clampedP)
+    } else {
+      logLossSum += -Math.log(1 - clampedP)
+    }
+    if ((p.predicted > 0.5 && p.actual === 1) || (p.predicted <= 0.5 && p.actual === 0)) {
+      correct++
+    }
+  }
+
+  const n = predictions.length
+  return {
+    brierScore: Math.round((brierSum / n) * 100000) / 100000,
+    logLoss: Math.round((logLossSum / n) * 100000) / 100000,
+    accuracy: Math.round((correct / n) * 10000) / 10000,
+    sampleSize: n,
+  }
+}
+
+// ── Calibration / Reliability Bins ──────────────────────────────────────────────
+
+export interface CalibrationBin {
+  predictedRange: string
+  total: number
+  actualRate: number
+  avgPredicted: number
+  sampleError: number
+}
+
+/**
+ * Computes calibration/reliability diagram bins.
+ * Well-calibrated: actualRate ≈ avgPredicted in every bin.
+ */
+export function computeCalibrationBins(
+  predictions: { predicted: number; actual: number }[],
+  nBins: number = 10
+): CalibrationBin[] {
+  if (predictions.length < nBins) return []
+
+  const bins: CalibrationBin[] = []
+  const binSize = 1.0 / nBins
+
+  for (let i = 0; i < nBins; i++) {
+    const lower = i * binSize
+    const upper = (i + 1) * binSize
+    const binPreds = predictions.filter(p => lower <= p.predicted && p.predicted < upper)
+
+    if (binPreds.length === 0) continue
+
+    const total = binPreds.length
+    const actual = binPreds.reduce((s, p) => s + p.actual, 0)
+    const avgPred = binPreds.reduce((s, p) => s + p.predicted, 0) / total
+    const actualRate = actual / total
+    const sampleError = Math.sqrt(actualRate * (1 - actualRate) / total)
+
+    bins.push({
+      predictedRange: `${lower.toFixed(2)}-${upper.toFixed(2)}`,
+      total,
+      actualRate: Math.round(actualRate * 10000) / 10000,
+      avgPredicted: Math.round(avgPred * 10000) / 10000,
+      sampleError: Math.round(sampleError * 10000) / 10000,
+    })
+  }
+
+  return bins
+}
+
+// ── Structured Signal & Risk Generation ─────────────────────────────────────────
+
+export interface PredictionSignals {
+  signals: string[]
+  risks: string[]
+}
+
+/**
+ * Generates human-readable prediction signals and risk factors.
+ * Maps to UI explainability: "What? Why? How strong? What could change it?"
+ */
+export function generatePredictionSignals(opts: {
+  eloDiff: number
+  homeXg: number
+  awayXg: number
+  hasOdds: boolean
+  hasXgData: boolean
+  modelAgreement: 'high' | 'moderate' | 'disagree'
+  volatilityIndex: number
+  homeForm?: string
+  awayForm?: string
+  injuryCount?: number
+}): PredictionSignals {
+  const signals: string[] = []
+  const risks: string[] = []
+
+  const { eloDiff, homeXg, awayXg, hasOdds, hasXgData, modelAgreement, volatilityIndex } = opts
+
+  if (Math.abs(eloDiff) > 200) {
+    const fav = eloDiff > 0 ? 'Home' : 'Away'
+    signals.push(`Strong ELO advantage for ${fav.toLowerCase()} team (+${Math.abs(Math.round(eloDiff))} pts)`)
+  } else if (Math.abs(eloDiff) > 80) {
+    const fav = eloDiff > 0 ? 'Home' : 'Away'
+    signals.push(`Moderate ELO advantage for ${fav.toLowerCase()} team (+${Math.abs(Math.round(eloDiff))} pts)`)
+  }
+
+  if (hasXgData) {
+    const xgRatio = homeXg / (awayXg || 0.01)
+    if (xgRatio > 1.4) {
+      signals.push(`Home xG significantly higher (${homeXg.toFixed(2)} vs ${awayXg.toFixed(2)})`)
+    } else if (xgRatio < 0.7) {
+      signals.push(`Away xG significantly higher (${awayXg.toFixed(2)} vs ${homeXg.toFixed(2)})`)
+    }
+  }
+
+  if (modelAgreement === 'high') {
+    signals.push('All prediction models agree on the most likely outcome')
+  } else if (modelAgreement === 'disagree') {
+    risks.push('Prediction models disagree on the most likely outcome')
+  }
+
+  if (volatilityIndex > 60) {
+    risks.push(`High match volatility index (${Math.round(volatilityIndex)}) — wider range of outcomes possible`)
+  }
+
+  if (!hasOdds) {
+    risks.push('No market odds available — market model excluded from ensemble')
+  }
+  if (!hasXgData) {
+    risks.push('No xG data available — predictions rely on ELO and form only')
+  }
+
+  if (opts.homeForm && opts.homeForm.length >= 3) {
+    const recentWins = (opts.homeForm.match(/W/g) || []).length
+    if (recentWins >= 4) signals.push(`Home team in excellent form (${opts.homeForm.slice(0, 5)})`)
+    const recentLosses = (opts.homeForm.match(/L/g) || []).length
+    if (recentLosses >= 3) risks.push(`Home team in poor form (${opts.homeForm.slice(0, 5)})`)
+  }
+  if (opts.awayForm && opts.awayForm.length >= 3) {
+    const recentWins = (opts.awayForm.match(/W/g) || []).length
+    if (recentWins >= 4) signals.push(`Away team in excellent form (${opts.awayForm.slice(0, 5)})`)
+    const recentLosses = (opts.awayForm.match(/L/g) || []).length
+    if (recentLosses >= 3) risks.push(`Away team in poor form (${opts.awayForm.slice(0, 5)})`)
+  }
+
+  if (opts.injuryCount && opts.injuryCount > 0) {
+    risks.push(`${opts.injuryCount} player(s) unavailable — injury adjustments applied`)
+  }
+
+  return { signals, risks }
+}
