@@ -123,7 +123,7 @@ async function handleVerify(expectedHashes: ExpectedHash[]) {
 
   for (const entry of expectedHashes) {
     try {
-      const absPath = path.join(projectRoot, entry.path)
+      const absPath = path.join(/*turbopackIgnore: true*/ projectRoot, entry.path)
       const actualHash = await calculateFileHash(absPath)
 
       if (actualHash !== entry.hash) {

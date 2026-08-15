@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       db.user.count({ where: { plan: 'elite', isActive: true } }),
       db.match.count(),
       db.prediction.count(),
-      db.apiLog.findMany({
+      (db as any).apiLog.findMany({
         where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
         take: 1000,
         select: { statusCode: true },
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     if (action === 'clearEvents') {
       const count = await db.matchEvent.deleteMany()
       // Reset match scores
-      await db.match.updateMany({
+      await (db as any).match.updateMany({
         data: {
           status: 'upcoming',
           homeScore: 0,

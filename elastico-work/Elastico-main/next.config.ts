@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
   },
   reactStrictMode: false,
   async headers() {

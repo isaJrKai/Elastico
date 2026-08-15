@@ -123,7 +123,7 @@ export function CompareView() {
       { label: 'Losses', home: homeTeam.losses, away: awayTeam.losses, higher: 'lower' },
       { label: 'Win Rate %', home: homeTeam.wins + homeTeam.draws + homeTeam.losses > 0 ? (homeTeam.wins / (homeTeam.wins + homeTeam.draws + homeTeam.losses)) * 100 : 50, away: awayTeam.wins + awayTeam.draws + awayTeam.losses > 0 ? (awayTeam.wins / (awayTeam.wins + awayTeam.draws + awayTeam.losses)) * 100 : 50, higher: 'higher' },
       { label: 'GD', home: homeTeam.goalsFor - homeTeam.goalsAgainst, away: awayTeam.goalsFor - awayTeam.goalsAgainst, higher: 'higher' },
-      { label: 'Avg Goals/Game', home: +(homeTeam.goalsFor / Math.max(1, homeTeam.wins + homeTeam.draws + homeTeam.losses)).toFixed(2), away: +(awayTeam.goalsFor / Math.max(1, awayTeam.wins + awayTeam.draws + awayTeam.losses)).toFixed(2), higher: 'higher' },
+      { label: 'Avg Goals/Game', home: +((homeTeam.goalsFor ?? 0) / Math.max(1, (homeTeam.wins ?? 0) + (homeTeam.draws ?? 0) + (homeTeam.losses ?? 0))).toFixed(2), away: +((awayTeam.goalsFor ?? 0) / Math.max(1, (awayTeam.wins ?? 0) + (awayTeam.draws ?? 0) + (awayTeam.losses ?? 0))).toFixed(2), higher: 'higher' },
       { label: 'Shots per Game', home: 12.4, away: 10.8, higher: 'higher' },
       { label: 'Corners per Game', home: 6.2, away: 5.5, higher: 'higher' },
       { label: 'Fouls per Game', home: 11.3, away: 13.1, higher: 'lower' },
@@ -140,11 +140,11 @@ export function CompareView() {
   const tacticalEdge = useMemo(() => {
     if (!homeTeam || !awayTeam) return []
     return [
-      { phase: 'Attack', home: homeTeam.xgPerGame > awayTeam.xgPerGame, margin: Math.abs(homeTeam.xgPerGame - awayTeam.xgPerGame).toFixed(2) },
-      { phase: 'Midfield Control', home: homeTeam.possession > awayTeam.possession, margin: Math.abs(homeTeam.possession - awayTeam.possession).toFixed(0) },
-      { phase: 'Defensive Solidity', home: homeTeam.xgaPerGame < awayTeam.xgaPerGame, margin: Math.abs(homeTeam.xgaPerGame - awayTeam.xgaPerGame).toFixed(2) },
-      { phase: 'Pressing', home: homeTeam.pressIntensity > awayTeam.pressIntensity, margin: Math.abs(homeTeam.pressIntensity - awayTeam.pressIntensity).toFixed(0) },
-      { phase: 'Passing', home: homeTeam.passAccuracy > awayTeam.passAccuracy, margin: Math.abs(homeTeam.passAccuracy - awayTeam.passAccuracy).toFixed(0) },
+      { phase: 'Attack', home: (homeTeam.xgPerGame ?? 0) > (awayTeam.xgPerGame ?? 0), margin: Math.abs((homeTeam.xgPerGame ?? 0) - (awayTeam.xgPerGame ?? 0)).toFixed(2) },
+      { phase: 'Midfield Control', home: (homeTeam.possession ?? 0) > (awayTeam.possession ?? 0), margin: Math.abs((homeTeam.possession ?? 0) - (awayTeam.possession ?? 0)).toFixed(0) },
+      { phase: 'Defensive Solidity', home: (homeTeam.xgaPerGame ?? 0) < (awayTeam.xgaPerGame ?? 0), margin: Math.abs((homeTeam.xgaPerGame ?? 0) - (awayTeam.xgaPerGame ?? 0)).toFixed(2) },
+      { phase: 'Pressing', home: (homeTeam.pressIntensity ?? 0) > (awayTeam.pressIntensity ?? 0), margin: Math.abs((homeTeam.pressIntensity ?? 0) - (awayTeam.pressIntensity ?? 0)).toFixed(0) },
+      { phase: 'Passing', home: (homeTeam.passAccuracy ?? 0) > (awayTeam.passAccuracy ?? 0), margin: Math.abs((homeTeam.passAccuracy ?? 0) - (awayTeam.passAccuracy ?? 0)).toFixed(0) },
     ]
   }, [homeTeam, awayTeam])
 
@@ -509,7 +509,7 @@ export function CompareView() {
             </CardHeader>
             <CardContent>
               <p className="text-sm leading-relaxed text-foreground/90">
-                {homeTeam.name} ({homeTeam.eloRating.toFixed(0)} ELO) enters this matchup as {winProb.home > 50 ? 'the favorite' : 'the underdog'} with a {winProb.home}% win probability.
+                {homeTeam.name} ({(homeTeam.eloRating ?? 1500).toFixed(0)} ELO) enters this matchup as {winProb.home > 50 ? 'the favorite' : 'the underdog'} with a {winProb.home}% win probability.
                 Their attacking output ({homeTeam.xgPerGame} xG/game) compares {homeTeam.xgPerGame > awayTeam.xgPerGame ? 'favorably' : 'unfavorably'} to {awayTeam.name}&apos;s ({awayTeam.xgPerGame} xG/game).
                 The tactical edge lies in {homeTeam.possession > awayTeam.possession ? homeTeam.name : awayTeam.name}&apos;s superior possession game ({Math.max(homeTeam.possession, awayTeam.possession)}% vs {Math.min(homeTeam.possession, awayTeam.possession)}%).
                 Recent form {h2hRecord.home > h2hRecord.away ? `favors ${homeTeam.name} with ${h2hRecord.home} wins in the last 5 meetings` : `shows ${awayTeam.name} has the historical edge`}.

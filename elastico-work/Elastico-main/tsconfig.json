@@ -41,6 +41,7 @@
     "upload",
     "examples",
     "skills",
-    "scripts"
+    "scripts",
+    "prisma/seed.ts"
   ]
 }

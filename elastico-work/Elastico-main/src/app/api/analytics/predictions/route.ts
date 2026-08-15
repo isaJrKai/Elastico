@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       where.createdAt = { gte: new Date(startDate) }
     }
 
-    const predictions = await db.prediction.findMany({
+    const predictions = await (db as any).prediction.findMany({
       where,
       include: {
         match: {

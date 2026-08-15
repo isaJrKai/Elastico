@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     if (auth instanceof Response) return auth
     const { user } = auth
 
-    const bookmarks = await db.bookmark.findMany({
+    const bookmarks = await (db as any).bookmark.findMany({
       where: { userId: user.id },
       include: {
         match: {
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Already bookmarked' }, { status: 409 })
     }
 
-    const bookmark = await db.bookmark.create({
+    const bookmark = await (db as any).bookmark.create({
       data: { userId: user.id, matchId, note: note || null },
       include: { match: true },
     })

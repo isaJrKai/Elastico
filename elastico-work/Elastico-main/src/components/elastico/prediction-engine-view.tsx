@@ -229,37 +229,43 @@ export default function PredictionEngineView() {
     setInjuries(p => p.map((v, idx) => idx === i ? { ...v, ...patch } : v))
 
   // ── Derived visuals ───────────────────────────────────────────────────────────
-  const probBars = analysis ? [
-    { name: 'Home', value: +(analysis.simulation.matchProbabilities.homeVictory * 100).toFixed(1), fill: '#00e676' },
-    { name: 'Draw', value: +(analysis.simulation.matchProbabilities.draw * 100).toFixed(1), fill: '#ffd700' },
-    { name: 'Away', value: +(analysis.simulation.matchProbabilities.awayVictory * 100).toFixed(1), fill: '#ff4757' },
+  const sim = analysis?.simulation
+  const mp = sim?.matchProbabilities
+  const tm = sim?.totalsMarket
+  const ah = sim?.asianHandicap
+  const em = sim?.expectedMeans
+
+  const probBars = analysis && mp ? [
+    { name: 'Home', value: +((mp.homeVictory ?? 0) * 100).toFixed(1), fill: '#00e676' },
+    { name: 'Draw', value: +((mp.draw ?? 0) * 100).toFixed(1), fill: '#ffd700' },
+    { name: 'Away', value: +((mp.awayVictory ?? 0) * 100).toFixed(1), fill: '#ff4757' },
   ] : []
 
-  const topScorelines = analysis
-    ? Object.entries(analysis.simulation.exoticScorelines)
+  const topScorelines = analysis && sim?.exoticScorelines
+    ? Object.entries(sim.exoticScorelines)
         .sort((a, b) => b[1] - a[1]).slice(0, 5)
-        .map(([score, prob]) => ({ score, prob: +(prob * 100).toFixed(2) }))
+        .map(([score, prob]) => ({ score, prob: +((prob ?? 0) * 100).toFixed(2) }))
     : []
 
-  const totalsData = analysis ? [
-    { name: 'O1.5', value: +(analysis.simulation.totalsMarket.over15 * 100).toFixed(1), fill: '#00e676' },
-    { name: 'U1.5', value: +(100 - analysis.simulation.totalsMarket.over15 * 100).toFixed(1), fill: '#ff4757' },
-    { name: 'O2.5', value: +(analysis.simulation.totalsMarket.over25 * 100).toFixed(1), fill: '#00e676' },
-    { name: 'U2.5', value: +(analysis.simulation.totalsMarket.under25 * 100).toFixed(1), fill: '#ff4757' },
-    { name: 'O3.5', value: +(analysis.simulation.totalsMarket.over35 * 100).toFixed(1), fill: '#00e676' },
-    { name: 'U3.5', value: +(100 - analysis.simulation.totalsMarket.over35 * 100).toFixed(1), fill: '#ff4757' },
+  const totalsData = analysis && tm ? [
+    { name: 'O1.5', value: +((tm.over15 ?? 0) * 100).toFixed(1), fill: '#00e676' },
+    { name: 'U1.5', value: +(100 - (tm.over15 ?? 0) * 100).toFixed(1), fill: '#ff4757' },
+    { name: 'O2.5', value: +((tm.over25 ?? 0) * 100).toFixed(1), fill: '#00e676' },
+    { name: 'U2.5', value: +((tm.under25 ?? 0) * 100).toFixed(1), fill: '#ff4757' },
+    { name: 'O3.5', value: +((tm.over35 ?? 0) * 100).toFixed(1), fill: '#00e676' },
+    { name: 'U3.5', value: +(100 - (tm.over35 ?? 0) * 100).toFixed(1), fill: '#ff4757' },
   ] : []
 
-  const ahData = analysis ? [
-    { line: '0', home: +(analysis.simulation.asianHandicap.line0.home * 100).toFixed(1), away: +(analysis.simulation.asianHandicap.line0.away * 100).toFixed(1) },
-    { line: '-0.5', home: +(analysis.simulation.asianHandicap.lineHalf.home * 100).toFixed(1), away: +(analysis.simulation.asianHandicap.lineHalf.away * 100).toFixed(1) },
-    { line: '-1', home: +(analysis.simulation.asianHandicap.line1.home * 100).toFixed(1), away: +(analysis.simulation.asianHandicap.line1.away * 100).toFixed(1) },
-    { line: '-1.5', home: +(analysis.simulation.asianHandicap.line15.home * 100).toFixed(1), away: +(analysis.simulation.asianHandicap.line15.away * 100).toFixed(1) },
+  const ahData = analysis && ah ? [
+    { line: '0', home: +((ah.line0?.home ?? 0) * 100).toFixed(1), away: +((ah.line0?.away ?? 0) * 100).toFixed(1) },
+    { line: '-0.5', home: +((ah.lineHalf?.home ?? 0) * 100).toFixed(1), away: +((ah.lineHalf?.away ?? 0) * 100).toFixed(1) },
+    { line: '-1', home: +((ah.line1?.home ?? 0) * 100).toFixed(1), away: +((ah.line1?.away ?? 0) * 100).toFixed(1) },
+    { line: '-1.5', home: +((ah.line15?.home ?? 0) * 100).toFixed(1), away: +((ah.line15?.away ?? 0) * 100).toFixed(1) },
   ] : []
 
   const kellyPie = kellyResult ? kellyResult.outcomes
     .filter(o => o.action === 'BET')
-    .map(o => ({ name: o.label, value: +o.wagerAmount.toFixed(2), fill: '#00e676' }))
+    .map(o => ({ name: o.label, value: +(o.wagerAmount ?? 0).toFixed(2), fill: '#00e676' }))
     : []
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -427,7 +433,7 @@ export default function PredictionEngineView() {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-zinc-500">xG Impact</span>
-                          <span className="text-xs text-emerald-400">{inj.xgImpact.toFixed(2)}</span>
+                          <span className="text-xs text-emerald-400">{(inj.xgImpact ?? 0).toFixed(2)}</span>
                         </div>
                         <Slider value={[inj.xgImpact]} min={0} max={1} step={0.05} onValueChange={([v]) => updateInjury(i, { xgImpact: v })} className="py-1" />
                       </div>
@@ -463,7 +469,7 @@ export default function PredictionEngineView() {
                       <Shield className="w-3 h-3 mr-1" /> {analysis.riskRating.toUpperCase()} RISK
                     </Badge>
                     <Badge className="text-xs font-medium border bg-zinc-800/60 text-zinc-300 border-zinc-700/50">
-                      <Activity className="w-3 h-3 mr-1" /> Volatility: {analysis.simulation.volatilityIndex.toFixed(0)}/100
+                      <Activity className="w-3 h-3 mr-1" /> Volatility: {(sim?.volatilityIndex ?? 0).toFixed(0)}/100
                     </Badge>
                   </div>
 
@@ -503,7 +509,7 @@ export default function PredictionEngineView() {
                           <div key={t.label} className="space-y-1">
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-zinc-400">{t.label}</span>
-                              <span className="text-zinc-300">O {(t.over * 100).toFixed(1)}% / U {((1 - t.over) * 100).toFixed(1)}%</span>
+                              <span className="text-zinc-300">O {((t.over ?? 0) * 100).toFixed(1)}% / U {((1 - (t.over ?? 0)) * 100).toFixed(1)}%</span>
                             </div>
                             <div className="flex h-2 rounded-full overflow-hidden bg-zinc-800">
                               <motion.div initial={{ width: 0 }} animate={{ width: `${t.over * 100}%` }} transition={{ duration: 0.8 }} className="bg-emerald-500 rounded-l-full" />
@@ -544,15 +550,15 @@ export default function PredictionEngineView() {
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-3">
                         <div className="text-center">
-                          <p className="text-3xl font-bold text-white">{analysis.simulation.expectedMeans.home.toFixed(2)}</p>
+                          <p className="text-3xl font-bold text-white">{(em?.home ?? 0).toFixed(2)}</p>
                           <p className="text-xs text-zinc-500">Home xG</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-3xl font-bold text-white">{analysis.simulation.expectedMeans.away.toFixed(2)}</p>
+                          <p className="text-3xl font-bold text-white">{(em?.away ?? 0).toFixed(2)}</p>
                           <p className="text-xs text-zinc-500">Away xG</p>
                         </div>
                         <Badge variant="outline" className="text-xs text-zinc-400 border-zinc-700/50">
-                          Total: {analysis.simulation.expectedMeans.total.toFixed(2)}
+                          Total: {(em?.total ?? 0).toFixed(2)}
                         </Badge>
                       </CardContent>
                     </Card>
@@ -562,14 +568,14 @@ export default function PredictionEngineView() {
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-4">
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-emerald-400">{(analysis.simulation.bothTeamsToScore * 100).toFixed(1)}%</p>
+                          <p className="text-2xl font-bold text-emerald-400">{((sim?.bothTeamsToScore ?? 0) * 100).toFixed(1)}%</p>
                           <p className="text-xs text-zinc-500">Both Teams To Score</p>
                         </div>
                         <Separator className="bg-zinc-800/50" />
                         <div className="text-center w-full">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs text-zinc-500">Volatility Index</span>
-                            <span className="text-xs font-mono text-zinc-300">{analysis.simulation.volatilityIndex.toFixed(0)}</span>
+                            <span className="text-xs font-mono text-zinc-300">{(sim?.volatilityIndex ?? 0).toFixed(0)}</span>
                           </div>
                           <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden">
                             <motion.div
@@ -649,22 +655,22 @@ export default function PredictionEngineView() {
                     <CardContent className="space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-zinc-500">Total Exposure</span>
-                        <span className="text-white font-medium">${kellyResult.totalExposure.toFixed(2)}</span>
+                        <span className="text-white font-medium">${(kellyResult.totalExposure ?? 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-zinc-500">Expected Value</span>
                         <span className={cn('font-medium', kellyResult.totalExpectedValue >= 0 ? 'text-emerald-400' : 'text-red-400')}>
-                          ${kellyResult.totalExpectedValue.toFixed(2)}
+                          ${(kellyResult.totalExpectedValue ?? 0).toFixed(2)}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-zinc-500">Sharpe Ratio</span>
-                        <span className="text-white font-medium">{kellyResult.sharpeRatio.toFixed(3)}</span>
+                        <span className="text-white font-medium">{(kellyResult.sharpeRatio ?? 0).toFixed(3)}</span>
                       </div>
                       <Separator className="bg-zinc-800/50" />
                       <div className="flex justify-between text-sm">
                         <span className="text-zinc-500">Bankroll Utilization</span>
-                        <span className="text-emerald-400 font-medium">{((kellyResult.totalExposure / kellyResult.totalBankroll) * 100).toFixed(1)}%</span>
+                        <span className="text-emerald-400 font-medium">{((kellyResult.totalExposure ?? 0) / Math.max(1, kellyResult.totalBankroll ?? 1) * 100).toFixed(1)}%</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -729,13 +735,13 @@ export default function PredictionEngineView() {
                         {kellyResult.outcomes.map((o, i) => (
                           <TableRow key={i} className="border-zinc-800/30 hover:bg-zinc-800/20">
                             <TableCell className="text-xs font-medium text-white">{o.label}</TableCell>
-                            <TableCell className="text-xs text-right text-zinc-300">{(o.modelProb * 100).toFixed(1)}%</TableCell>
-                            <TableCell className="text-xs text-right text-zinc-300">{o.marketOdds.toFixed(2)}</TableCell>
-                            <TableCell className={cn('text-xs text-right font-medium', o.edge > 0 ? 'text-emerald-400' : 'text-red-400')}>
-                              {o.edge > 0 ? '+' : ''}{(o.edge * 100).toFixed(1)}%
+                            <TableCell className="text-xs text-right text-zinc-300">{((o.modelProb ?? 0) * 100).toFixed(1)}%</TableCell>
+                            <TableCell className="text-xs text-right text-zinc-300">{(o.marketOdds ?? 0).toFixed(2)}</TableCell>
+                            <TableCell className={cn('text-xs text-right font-medium', (o.edge ?? 0) > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                              {(o.edge ?? 0) > 0 ? '+' : ''}{((o.edge ?? 0) * 100).toFixed(1)}%
                             </TableCell>
-                            <TableCell className="text-xs text-right text-zinc-300">{(o.kellyFraction * 100).toFixed(1)}%</TableCell>
-                            <TableCell className="text-xs text-right text-white font-medium">${o.wagerAmount.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs text-right text-zinc-300">{((o.kellyFraction ?? 0) * 100).toFixed(1)}%</TableCell>
+                            <TableCell className="text-xs text-right text-white font-medium">${(o.wagerAmount ?? 0).toFixed(2)}</TableCell>
                             <TableCell className="text-center">
                               <Badge className={cn('text-[10px] font-bold', ACTION_STYLE[o.action])}>{o.action}</Badge>
                             </TableCell>
@@ -827,7 +833,7 @@ export default function PredictionEngineView() {
                                 {direction === 'down' && <ArrowDownRight className="w-5 h-5 text-red-400" />}
                                 {direction === 'flat' && <Minus className="w-5 h-5 text-zinc-500" />}
                                 <span className={cn('text-lg font-bold', direction === 'up' ? 'text-emerald-400' : direction === 'down' ? 'text-red-400' : 'text-zinc-400')}>
-                                  {vel > 0 ? '+' : ''}{vel.toFixed(4)}
+                                  {vel > 0 ? '+' : ''}{(vel ?? 0).toFixed(4)}
                                 </span>
                               </div>
                             </div>
@@ -882,7 +888,7 @@ export default function PredictionEngineView() {
                         <CardTitle className="text-xs font-medium text-zinc-400">Signal Confidence</CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[160px] space-y-3">
-                        <p className="text-4xl font-bold text-white">{(signalResult.confidence * 100).toFixed(0)}%</p>
+                        <p className="text-4xl font-bold text-white">{((signalResult?.confidence ?? 0) * 100).toFixed(0)}%</p>
                         <div className="w-full h-3 rounded-full bg-zinc-800 overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}

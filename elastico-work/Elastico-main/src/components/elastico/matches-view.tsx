@@ -166,12 +166,12 @@ function MatchCard({ match }: { match: Match }) {
           {/* xG Comparison Mini Bars */}
           {(isLive || match.status === 'finished') && totalXg > 0 && (
             <div className="flex items-center gap-2 px-1">
-              <span className="text-[10px] text-cyan-400 font-medium tabular-nums w-8 text-right">{match.homeXg.toFixed(1)}</span>
+              <span className="text-[10px] text-cyan-400 font-medium tabular-nums w-8 text-right">{(match.homeXg ?? 0).toFixed(1)}</span>
               <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex">
                 <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-l-full transition-all duration-700" style={{ width: `${homeXgPct}%` }} />
                 <div className="h-full bg-gradient-to-r from-orange-400 to-orange-500 rounded-r-full transition-all duration-700" style={{ width: `${100 - homeXgPct}%` }} />
               </div>
-              <span className="text-[10px] text-orange-400 font-medium tabular-nums w-8">{match.awayXg.toFixed(1)}</span>
+              <span className="text-[10px] text-orange-400 font-medium tabular-nums w-8">{(match.awayXg ?? 0).toFixed(1)}</span>
             </div>
           )}
 

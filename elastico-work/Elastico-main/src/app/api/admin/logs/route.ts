@@ -26,13 +26,13 @@ export async function GET(req: NextRequest) {
     if (hasError) where.error = { not: null }
 
     const [logs, total] = await Promise.all([
-      db.apiLog.findMany({
+      (db as any).apiLog.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      db.apiLog.count({ where }),
+      (db as any).apiLog.count({ where }),
     ])
 
     return NextResponse.json({

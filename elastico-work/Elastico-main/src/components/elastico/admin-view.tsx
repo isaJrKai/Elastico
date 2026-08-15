@@ -2228,7 +2228,7 @@ export default function AdminView() {
                 </div>
                 <div className="p-3 rounded-lg bg-muted/20 text-center">
                   <p className={`text-2xl font-bold ${realtimeData[realtimeData.length - 1]?.errorRate > 2 ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {realtimeData[realtimeData.length - 1]?.errorRate.toFixed(1)}%
+                    {(realtimeData[realtimeData.length - 1]?.errorRate ?? 0).toFixed(1)}%
                   </p>
                   <p className="text-xs text-muted-foreground">Error Rate</p>
                 </div>

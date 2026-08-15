@@ -423,7 +423,7 @@ export default function TacticalView() {
                       <motion.div key={i} initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: i * 0.05, type: 'spring' }} className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer" style={{ left: `${shot.x}%`, top: `${shot.y}%` }}>
                         <div className="rounded-full border-2 border-background/60 shadow-lg transition-transform hover:scale-125" style={{ width: `${Math.max(14, shot.xg * 50)}px`, height: `${Math.max(14, shot.xg * 50)}px`, backgroundColor: oc, opacity: shot.team === 'home' ? 0.9 : 0.7 }} />
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-card border border-border rounded px-2 py-1 text-[10px] whitespace-nowrap z-10 shadow-lg">
-                          {shot.player || 'Unknown'} — {shot.outcome} ({shot.xg.toFixed(2)} xG, {shot.minute}&apos;)
+                          {shot.player || 'Unknown'} — {shot.outcome} ({(shot.xg ?? 0).toFixed(2)} xG, {shot.minute}&apos;)
                         </div>
                       </motion.div>
                     )
