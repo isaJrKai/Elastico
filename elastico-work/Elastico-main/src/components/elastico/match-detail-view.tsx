@@ -18,6 +18,7 @@ import {
   Loader2, AlertCircle, Swords, Flame, MessageSquare, Copy, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fifaFlag } from '@/lib/flags'
 import { toast } from '@/hooks/use-toast'
 
 // ── Extended Types ──────────────────────────────────────────────────────────
@@ -329,7 +330,7 @@ export function MatchDetailView() {
               {/* Home */}
               <div className="flex-1 text-center">
                 <div className="flex justify-center mb-3">
-                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: homeTeam?.primaryColor ?? '#555' }}>{homeTeam?.code ?? '?'}</div>
+                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: homeTeam?.primaryColor ?? '#555' }}>{fifaFlag(homeTeam?.code)}</div>
                 </div>
                 <h2 className="text-lg font-bold">{homeTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
@@ -364,7 +365,7 @@ export function MatchDetailView() {
               {/* Away */}
               <div className="flex-1 text-center">
                 <div className="flex justify-center mb-3">
-                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: awayTeam?.primaryColor ?? '#555' }}>{awayTeam?.code ?? '?'}</div>
+                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: awayTeam?.primaryColor ?? '#555' }}>{fifaFlag(awayTeam?.code)}</div>
                 </div>
                 <h2 className="text-lg font-bold">{awayTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
@@ -444,7 +445,7 @@ export function MatchDetailView() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold tabular-nums text-primary">{ev.minute}&apos;</span>
                         <span className={cn('text-xs font-medium', ev.team === 'home' ? (homeTeam?.code ? '' : 'text-foreground') : (awayTeam?.code ? '' : 'text-foreground'))}>
-                          {ev.team === 'home' ? homeTeam?.code : awayTeam?.code}
+                          {ev.team === 'home' ? fifaFlag(homeTeam?.code) : fifaFlag(awayTeam?.code)}
                         </span>
                         <span className="text-xs text-muted-foreground">{ev.playerName}</span>
                       </div>
@@ -502,7 +503,7 @@ export function MatchDetailView() {
                       <div className={cn('absolute rounded-full border-2 transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-150 cursor-pointer', s.goal ? 'size-4 border-white bg-amber-400 shadow-lg shadow-amber-400/40' : 'size-3', !s.goal && s.team === 'home' && 'border-primary/50 bg-primary/30', !s.goal && s.team === 'away' && 'border-cyan-500/50 bg-cyan-500/30')} style={{ left: `${s.x}%`, top: `${s.y}%` }} />
                     </TooltipTrigger>
                     <TooltipContent className="text-[10px] space-y-0.5">
-                      <div className="font-semibold">{s.player ? `${s.player} ${s.minute ? `${s.minute}'` : ''}` : `${s.team === 'home' ? homeTeam?.code : awayTeam?.code} ${s.goal ? '⚽ GOAL' : 'Shot'}`}</div>
+                      <div className="font-semibold">{s.player ? `${s.player} ${s.minute ? `${s.minute}'` : ''}` : `${s.team === 'home' ? fifaFlag(homeTeam?.code) : fifaFlag(awayTeam?.code)} ${s.goal ? '⚽ GOAL' : 'Shot'}`}</div>
                       {'xg' in s && s.xg !== undefined && <div className="text-muted-foreground">xG: {(s.xg ?? 0).toFixed(3)}</div>}
                       {s.outcome && <div className="text-muted-foreground">{s.outcome}</div>}
                     </TooltipContent>
@@ -510,9 +511,9 @@ export function MatchDetailView() {
                 ))}
               </div>
               <div className="flex items-center justify-center gap-6 mt-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-primary/50" />{homeTeam?.code} Shot</span>
+                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-primary/50" />{fifaFlag(homeTeam?.code)} Shot</span>
                 <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-amber-400" />Goal</span>
-                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-cyan-500/50" />{awayTeam?.code} Shot</span>
+                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-cyan-500/50" />{fifaFlag(awayTeam?.code)} Shot</span>
               </div>
             </CardContent></Card>
           </TabsContent>

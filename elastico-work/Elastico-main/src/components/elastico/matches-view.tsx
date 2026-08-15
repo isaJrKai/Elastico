@@ -20,6 +20,7 @@ import {
   Droplets,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fifaFlag } from '@/lib/flags'
 import { toast } from '@/hooks/use-toast'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -134,7 +135,7 @@ function MatchCard({ match }: { match: Match }) {
             {/* Home Team */}
             <div className="flex-1 flex items-center gap-2 min-w-0">
               <Tooltip>
-                <TooltipTrigger><div className="shrink-0 size-8 rounded-full border-2 border-border/50 flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: match.homeTeam?.primaryColor || '#555' }}>{match.homeTeam?.code ?? '?'}</div></TooltipTrigger>
+                <TooltipTrigger><div className="shrink-0 size-8 rounded-full border-2 border-border/50 flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: match.homeTeam?.primaryColor || '#555' }}>{fifaFlag(match.homeTeam?.code)}</div></TooltipTrigger>
                 <TooltipContent>{match.homeTeam?.name}</TooltipContent>
               </Tooltip>
               <span className="text-sm font-semibold truncate">{match.homeTeam?.name || 'Home'}</span>
@@ -157,7 +158,7 @@ function MatchCard({ match }: { match: Match }) {
             <div className="flex-1 flex items-center gap-2 min-w-0 justify-end">
               <span className="text-sm font-semibold truncate text-right">{match.awayTeam?.name || 'Away'}</span>
               <Tooltip>
-                <TooltipTrigger><div className="shrink-0 size-8 rounded-full border-2 border-border/50 flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: match.awayTeam?.primaryColor || '#555' }}>{match.awayTeam?.code ?? '?'}</div></TooltipTrigger>
+                <TooltipTrigger><div className="shrink-0 size-8 rounded-full border-2 border-border/50 flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: match.awayTeam?.primaryColor || '#555' }}>{fifaFlag(match.awayTeam?.code)}</div></TooltipTrigger>
                 <TooltipContent>{match.awayTeam?.name}</TooltipContent>
               </Tooltip>
             </div>

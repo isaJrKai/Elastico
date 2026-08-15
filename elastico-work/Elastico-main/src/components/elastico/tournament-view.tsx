@@ -13,6 +13,7 @@ import {
   Trophy, Star, Crown, Users, Swords, Goal, TrendingUp, ChevronRight, Zap, Award, BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fifaFlag } from '@/lib/flags'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -176,7 +177,7 @@ export default function TournamentView() {
                   <TableCell>
                     <div className="flex items-center gap-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); setSelectedTeam(selectedTeam?.id === row.team.id ? null : row.team) }}>
                       <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: row.team.primaryColor }} />
-                      <span className="text-xs font-medium">{row.team.code}</span>
+                      <span className="text-xs font-medium">{fifaFlag(row.team.code)} {row.team.code}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center text-xs text-muted-foreground">{row.played}</TableCell>
@@ -286,18 +287,18 @@ export default function TournamentView() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="p-3 rounded-lg bg-muted/20 text-center">
               <p className="text-[10px] text-muted-foreground mb-1">Most Goals</p>
-              <p className="text-sm font-bold">{highlights.topScorer.code}</p>
+              <p className="text-sm font-bold">{fifaFlag(highlights.topScorer.code)} {highlights.topScorer.code}</p>
               <p className="text-lg font-black text-primary">{highlights.topScorer.gf}</p>
             </div>
             <div className="p-3 rounded-lg bg-muted/20 text-center">
               <p className="text-[10px] text-muted-foreground mb-1">Best Defense</p>
-              <p className="text-sm font-bold">{highlights.bestDefense.code}</p>
+              <p className="text-sm font-bold">{fifaFlag(highlights.bestDefense.code)} {highlights.bestDefense.code}</p>
               <p className="text-lg font-black text-cyan-400">{highlights.bestDefense.ga} GA</p>
             </div>
             <div className="p-3 rounded-lg bg-muted/20">
               <p className="text-[10px] text-muted-foreground mb-1 text-center">Top ELO</p>
               <div className="flex justify-center gap-2">
-                {highlights.topELO.map(t => <Tooltip key={t.id}><TooltipTrigger><Badge variant="outline" className="text-xs border-border/50">{t.code} <span className="text-primary font-bold">{t.eloRating}</span></Badge></TooltipTrigger><TooltipContent>{t.name}</TooltipContent></Tooltip>)}
+                {highlights.topELO.map(t => <Tooltip key={t.id}><TooltipTrigger><Badge variant="outline" className="text-xs border-border/50">{fifaFlag(t.code)} {t.code} <span className="text-primary font-bold">{t.eloRating}</span></Badge></TooltipTrigger><TooltipContent>{t.name}</TooltipContent></Tooltip>)}
               </div>
             </div>
           </div>

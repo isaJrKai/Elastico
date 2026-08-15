@@ -21,6 +21,7 @@ import {
   Target, ArrowUpDown, Flame, CheckCircle2, XCircle, Brain, Calendar, Crown, Download, Trophy, Zap, TrendingUp, Send,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fifaFlag } from '@/lib/flags'
 import { generateCSV } from '@/lib/export'
 import { toast } from '@/hooks/use-toast'
 
@@ -275,7 +276,7 @@ export default function PredictionsView() {
                     <TableBody>
                       {filteredPast.map((p) => (
                         <TableRow key={p.id} className="border-border/10">
-                          <TableCell className="text-xs py-2">{p.match?.homeTeam?.code} vs {p.match?.awayTeam?.code}</TableCell>
+                          <TableCell className="text-xs py-2">{fifaFlag(p.match?.homeTeam?.code)} vs {fifaFlag(p.match?.awayTeam?.code)}</TableCell>
                           <TableCell className="text-xs py-2 capitalize">{p.predictedOutcome.replace('_', ' ')}</TableCell>
                           <TableCell className="text-xs py-2"><Badge variant="outline" className="text-[9px] border-border/50">{p.model}</Badge></TableCell>
                           <TableCell className="text-xs py-2 tabular-nums">{p.confidence}%</TableCell>

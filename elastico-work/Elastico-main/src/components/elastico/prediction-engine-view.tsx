@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import type { MatchInput, FullMatchAnalysis, EngineConfig, InjuryAdjustment } from '@/lib/prediction-engine'
 import { cn } from '@/lib/utils'
+import { fifaFlag } from '@/lib/flags'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
@@ -405,7 +406,7 @@ export default function PredictionEngineView() {
                       <div className="flex items-center justify-between">
                         <Select value={inj.teamId} onValueChange={v => updateInjury(i, { teamId: v })}>
                           <SelectTrigger className="w-[120px] h-7 text-xs bg-zinc-800/60"><SelectValue placeholder="Team" /></SelectTrigger>
-                          <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id} className="text-xs">{t.code}</SelectItem>)}</SelectContent>
+                          <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id} className="text-xs">{fifaFlag(t.code)} {t.code}</SelectItem>)}</SelectContent>
                         </Select>
                         <Button variant="ghost" size="sm" onClick={() => removeInjury(i)} className="h-7 w-7 p-0 text-red-400 hover:text-red-300">
                           <Trash2 className="w-3 h-3" />

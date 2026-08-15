@@ -1,0 +1,508 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+     4→import { useElasticoStore, type Match } from '@/store/use-elastico-store'
+     5→import { Card, CardContent } from '@/components/ui/card'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Skeleton } from '@/components/ui/skeleton'
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→import {
+    12→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    13→} from '@/components/ui/select'
+    14→import { Separator } from '@/components/ui/separator'
+    15→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+    16→import {
+    17→  Search, MapPin, Clock, Trophy, Users, RefreshCw, Zap, Filter,
+    18→  Eye, ArrowUpDown, TrendingUp, Bookmark, BookmarkCheck, Cloud,
+    19→  Thermometer, Wind, Target, BarChart3, ChevronDown, ChevronUp,
+    20→  Droplets,
+    21→} from 'lucide-react'
+    22→import { cn } from '@/lib/utils'
+    23→import { fifaFlag } from '@/lib/flags'
+    24→import { toast } from '@/hooks/use-toast'
+    25→
+    26→// ── Types ────────────────────────────────────────────────────────────────────
+    27→
+    28→type MatchTab = 'live' | 'upcoming' | 'finished' | 'all'
+    29→type SortKey = 'date' | 'elo' | 'xg'
+    30→
+    31→interface MatchesApiResponse { matches: Match[]; error?: string }
+    32→
+    33→// ── Constants ──────────────────────────────────────────────────────────────────
+    34→
+    35→const STATUS_TABS: { value: MatchTab; label: string }[] = [
+    36→  { value: 'live', label: 'Live' },
+    37→  { value: 'upcoming', label: 'Upcoming' },
+    38→  { value: 'finished', label: 'Finished' },
+    39→  { value: 'all', label: 'All' },
+    40→]
+    41→
+    42→const STAGES = ['Group Stage', 'Round of 16', 'Quarter-Final', 'Semi-Final', 'Final', 'Third Place']
+    43→const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+    44→
+    45→// ── Helpers ──────────────────────────────────────────────────────────────────
+    46→
+    47→function getStatusConfig(status: string) {
+    48→  switch (status) {
+    49→    case 'live': return { label: 'LIVE', cls: 'bg-red-500/15 text-red-400 border-red-500/30', pulse: true }
+    50→    case 'halftime': return { label: 'HT', cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30', pulse: false }
+    51→    case 'finished': return { label: 'FT', cls: 'bg-muted text-muted-foreground border-border', pulse: false }
+    52→    case 'postponed': return { label: 'PPD', cls: 'bg-orange-500/15 text-orange-400 border-orange-500/30', pulse: false }
+    53→    default: return { label: 'Upcoming', cls: 'bg-primary/15 text-primary border-primary/30', pulse: false }
+    54→  }
+    55→}
+    56→
+    57→function formatMatchDate(dateStr: string | null): string {
+    58→  if (!dateStr) return 'TBD'
+    59→  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    60→}
+    61→
+    62→// ── Enhanced Match Card ─────────────────────────────────────────────────────
+    63→
+    64→function MatchCard({ match }: { match: Match }) {
+    65→  const selectMatch = useElasticoStore(s => s.selectMatch)
+    66→  const token = useElasticoStore(s => s.token)
+    67→  const statusConfig = getStatusConfig(match.status)
+    68→  const isLive = match.status === 'live' || match.status === 'halftime'
+    69→  const [expanded, setExpanded] = useState(false)
+    70→  const [bookmarked, setBookmarked] = useState(false)
+    71→
+    72→  const handleOpen = useCallback((e: React.MouseEvent) => {
+    73→    if ((e.target as HTMLElement).closest('[data-predict-btn]')) return
+    74→    selectMatch(match.id)
+    75→  }, [selectMatch, match.id])
+    76→
+    77→  const handlePredict = useCallback((e: React.MouseEvent, choice: string) => {
+    78→    e.stopPropagation()
+    79→    fetch('/api/predictions', {
+    80→      method: 'POST',
+    81→      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    82→      body: JSON.stringify({ matchId: match.id, predictedOutcome: choice, confidence: 70 }),
+    83→    }).then(() => toast({ title: 'Prediction submitted!', description: `${choice} predicted for ${match.homeTeam?.name} vs ${match.awayTeam?.name}` }))
+    84→      .catch(() => toast({ title: 'Error', description: 'Failed to submit prediction', variant: 'destructive' }))
+    85→  }, [match, token])
+    86→
+    87→  const totalXg = match.homeXg + match.awayXg
+    88→  const homeXgPct = totalXg > 0 ? (match.homeXg / totalXg) * 100 : 50
+    89→  const eloDiff = (match.homeEloBefore ?? 0) - (match.awayEloBefore ?? 0)
+    90→
+    91→  return (
+    92→    <TooltipProvider>
+    93→      <Card
+    94→        className={cn(
+    95→          'glass-card-premium cursor-pointer transition-all duration-200 animate-fade-in-up group',
+    96→          isLive && 'border-red-500/20 hover:border-red-500/40',
+    97→          !isLive && 'hover:border-primary/30',
+    98→          bookmarked && 'ring-glow-emerald',
+    99→        )}
+   100→        onClick={handleOpen}
+   101→        role="button"
+   102→        tabIndex={0}
+   103→        onKeyDown={(e) => { if (e.key === 'Enter') handleOpen(e as unknown as React.MouseEvent) }}
+   104→        aria-label={`${match.homeTeam?.name} vs ${match.awayTeam?.name}`}
+   105→      >
+   106→        <CardContent className="p-4 space-y-3">
+   107→          {/* Header: Status + Bookmark + Stage */}
+   108→          <div className="flex items-center justify-between">
+   109→            <div className="flex items-center gap-2">
+   110→              <Badge variant="outline" className={cn('h-5 rounded-md px-1.5 text-[10px] font-bold tracking-wider', statusConfig.cls)}>
+   111→                {statusConfig.pulse && (
+   112→                  <span className="relative flex size-1.5 mr-1.5">
+   113→                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+   114→                    <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
+   115→                  </span>
+   116→                )}
+   117→                {statusConfig.label}
+   118→              </Badge>
+   119→              <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] bg-muted/50 text-muted-foreground">
+   120→                {match.stage}
+   121→              </Badge>
+   122→            </div>
+   123→            <button
+   124→              data-predict-btn
+   125→              onClick={(e) => { e.stopPropagation(); setBookmarked(!bookmarked) }}
+   126→              className="p-1 rounded-md hover:bg-muted/50 transition-colors"
+   127→              aria-label={bookmarked ? 'Remove bookmark' : 'Add bookmark'}
+   128→            >
+   129→              {bookmarked ? <BookmarkCheck className="size-4 text-primary" /> : <Bookmark className="size-4 text-muted-foreground" />}
+   130→            </button>
+   131→          </div>
+   132→
+   133→          {/* Teams + Score */}
+   134→          <div className="flex items-center justify-between gap-2">
+   135→            {/* Home Team */}
+   136→            <div className="flex-1 flex items-center gap-2 min-w-0">
+   137→              <Tooltip>
+   138→                <TooltipTrigger><div className="shrink-0 size-8 rounded-full border-2 border-border/50 flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: match.homeTeam?.primaryColor || '#555' }}>{fifaFlag(match.homeTeam?.code)}</div></TooltipTrigger>
+   139→                <TooltipContent>{match.homeTeam?.name}</TooltipContent>
+   140→              </Tooltip>
+   141→              <span className="text-sm font-semibold truncate">{match.homeTeam?.name || 'Home'}</span>
+   142→            </div>
+   143→
+   144→            {/* Score */}
+   145→            <div className="shrink-0 flex items-center gap-1.5 min-w-[64px] justify-center">
+   146→              {match.status === 'upcoming' ? (
+   147→                <span className="text-xs font-bold text-muted-foreground bg-muted/50 rounded-md px-2.5 py-1">vs</span>
+   148→              ) : (
+   149→                <div className="flex items-center gap-1">
+   150→                  <span className={cn('text-xl font-black tabular-nums', match.homeScore > match.awayScore && match.status === 'finished' && 'text-primary')}>{match.homeScore}</span>
+   151→                  <span className="text-xs text-muted-foreground">-</span>
+   152→                  <span className={cn('text-xl font-black tabular-nums', match.awayScore > match.homeScore && match.status === 'finished' && 'text-primary')}>{match.awayScore}</span>
+   153→                </div>
+   154→              )}
+   155→            </div>
+   156→
+   157→            {/* Away Team */}
+   158→            <div className="flex-1 flex items-center gap-2 min-w-0 justify-end">
+   159→              <span className="text-sm font-semibold truncate text-right">{match.awayTeam?.name || 'Away'}</span>
+   160→              <Tooltip>
+   161→                <TooltipTrigger><div className="shrink-0 size-8 rounded-full border-2 border-border/50 flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: match.awayTeam?.primaryColor || '#555' }}>{match.awayTeam?.code ?? '?'}</div></TooltipTrigger>
+   162→                <TooltipContent>{match.awayTeam?.name}</TooltipContent>
+   163→              </Tooltip>
+   164→            </div>
+   165→          </div>
+   166→
+   167→          {/* xG Comparison Mini Bars */}
+   168→          {(isLive || match.status === 'finished') && totalXg > 0 && (
+   169→            <div className="flex items-center gap-2 px-1">
+   170→              <span className="text-[10px] text-cyan-400 font-medium tabular-nums w-8 text-right">{(match.homeXg ?? 0).toFixed(1)}</span>
+   171→              <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex">
+   172→                <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-l-full transition-all duration-700" style={{ width: `${homeXgPct}%` }} />
+   173→                <div className="h-full bg-gradient-to-r from-orange-400 to-orange-500 rounded-r-full transition-all duration-700" style={{ width: `${100 - homeXgPct}%` }} />
+   174→              </div>
+   175→              <span className="text-[10px] text-orange-400 font-medium tabular-nums w-8">{(match.awayXg ?? 0).toFixed(1)}</span>
+   176→            </div>
+   177→          )}
+   178→
+   179→          {/* Probability bars for upcoming */}
+   180→          {match.status === 'upcoming' && match.homeWinProb != null && (
+   181→            <div className="flex items-center gap-1 px-1">
+   182→              {[
+   183→                { pct: match.homeWinProb, color: 'bg-emerald-500', label: 'H' },
+   184→                { pct: match.drawProb ?? 0, color: 'bg-amber-500', label: 'D' },
+   185→                { pct: match.awayWinProb ?? 0, color: 'bg-red-500', label: 'A' },
+   186→              ].map((p) => (
+   187→                <div key={p.label} className="flex-1 h-1.5 rounded-full bg-muted/50 overflow-hidden">
+   188→                  <div className={cn('h-full rounded-full', p.color)} style={{ width: `${p.pct}%` }} />
+   189→                </div>
+   190→              ))}
+   191→            </div>
+   192→          )}
+   193→
+   194→          <Separator className="opacity-20" />
+   195→
+   196→          {/* Footer info */}
+   197→          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+   198→            <div className="flex items-center gap-2">
+   199→              <span className="flex items-center gap-1"><Clock className="size-3" />{formatMatchDate(match.date)}</span>
+   200→              {match.venue && <span className="flex items-center gap-1 truncate max-w-[100px]"><MapPin className="size-3 shrink-0" />{match.venue}</span>}
+   201→            </div>
+   202→            {match.weather && (
+   203→              <Tooltip>
+   204→                <TooltipTrigger><span className="flex items-center gap-1 text-sky-400"><Cloud className="size-3" />{match.weather}</span></TooltipTrigger>
+   205→                <TooltipContent>
+   206→                  {match.temperature != null && <span>{match.temperature}°C</span>}
+   207→                  {match.temperature != null && ' · '}
+   208→                  {match.weather}
+   209→                </TooltipContent>
+   210→              </Tooltip>
+   211→            )}
+   212→          </div>
+   213→
+   214→          {/* Attendance for finished */}
+   215→          {match.status === 'finished' && (
+   216→            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+   217→              <Users className="size-3" />
+   218→              <span>35,421 attendance</span>
+   219→              <span className="text-muted-foreground/50">·</span>
+   220→              <TrendingUp className="size-3 text-primary" />
+   221→              <span>ELO diff: {eloDiff > 0 ? '+' : ''}{eloDiff}</span>
+   222→            </div>
+   223→          )}
+   224→
+   225→          {/* Quick Predict Buttons for upcoming */}
+   226→          {match.status === 'upcoming' && (
+   227→            <div className="flex gap-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
+   228→              {[
+   229→                { key: 'home', label: 'Home', cls: 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10' },
+   230→                { key: 'draw', label: 'Draw', cls: 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10' },
+   231→                { key: 'away', label: 'Away', cls: 'border-red-500/30 text-red-400 hover:bg-red-500/10' },
+   232→              ].map((btn) => (
+   233→                <Button
+   234→                  key={btn.key}
+   235→                  data-predict-btn
+   236→                  size="sm"
+   237→                  variant="outline"
+   238→                  className={cn('flex-1 h-7 text-[10px] font-semibold', btn.cls)}
+   239→                  onClick={(e) => handlePredict(e, btn.key)}
+   240→                >
+   241→                  {btn.label}
+   242→                </Button>
+   243→              ))}
+   244→            </div>
+   245→          )}
+   246→
+   247→          {/* Expandable Stats Preview */}
+   248→          {(isLive || match.status === 'finished') && (
+   249→            <div>
+   250→              <button
+   251→                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors w-full"
+   252→                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded) }}
+   253→              >
+   254→                {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+   255→                Match Stats
+   256→              </button>
+   257→              {expanded && (
+   258→                <div className="mt-2 space-y-1.5 animate-scale-in">
+   259→                  {[
+   260→                    { label: 'Possession', home: match.possessionHome, away: 100 - match.possessionHome },
+   261→                    { label: 'Shots', home: match.shotsHome, away: match.shotsAway },
+   262→                    { label: 'On Target', home: match.shotsOnTargetHome, away: match.shotsOnTargetAway },
+   263→                    { label: 'Corners', home: match.cornersHome, away: match.cornersAway },
+   264→                    { label: 'Fouls', home: match.foulsHome, away: match.foulsAway },
+   265→                  ].map((stat) => {
+   266→                    const total = stat.home + stat.away || 1
+   267→                    const pct = (stat.home / total) * 100
+   268→                    return (
+   269→                      <div key={stat.label} className="flex items-center gap-2 text-[10px]">
+   270→                        <span className="w-8 text-right font-medium tabular-nums">{stat.home}</span>
+   271→                        <div className="flex-1">
+   272→                          <div className="flex items-center gap-1">
+   273→                            <span className="text-muted-foreground/60 truncate max-w-[60px]">{stat.label}</span>
+   274→                          </div>
+   275→                          <div className="h-1 rounded-full bg-muted overflow-hidden flex mt-0.5">
+   276→                            <div className="h-full bg-primary/60 rounded-l-full" style={{ width: `${pct}%` }} />
+   277→                            <div className="h-full bg-cyan-500/60 rounded-r-full" style={{ width: `${100 - pct}%` }} />
+   278→                          </div>
+   279→                        </div>
+   280→                        <span className="w-8 font-medium tabular-nums">{stat.away}</span>
+   281→                      </div>
+   282→                    )
+   283→                  })}
+   284→                </div>
+   285→              )}
+   286→            </div>
+   287→          )}
+   288→
+   289→          {/* Group + Competition */}
+   290→          <div className="flex items-center gap-1.5 flex-wrap">
+   291→            <Badge variant="secondary" className="h-4 rounded px-1.5 text-[9px] bg-muted/50 text-muted-foreground"><Trophy className="size-2.5 mr-1" />{match.competition}</Badge>
+   292→            {match.group && <Badge variant="secondary" className="h-4 rounded px-1.5 text-[9px] bg-primary/10 text-primary">Group {match.group}</Badge>}
+   293→            {match._count && (match._count.predictions > 0 || match._count.votes > 0) && (
+   294→              <span className="text-[9px] text-muted-foreground/50 ml-auto">{match._count.predictions} preds · {match._count.votes} votes</span>
+   295→            )}
+   296→          </div>
+   297→        </CardContent>
+   298→      </Card>
+   299→    </TooltipProvider>
+   300→  )
+   301→}
+   302→
+   303→function MatchCardSkeleton() {
+   304→  return (
+   305→    <Card className="glass-card animate-fade-in-up"><CardContent className="p-4 space-y-3">
+   306→      <div className="flex items-center justify-between"><Skeleton className="h-5 w-14 rounded-md" /><Skeleton className="h-5 w-10 rounded-md" /></div>
+   307→      <div className="flex items-center justify-between gap-2">
+   308→        <div className="flex-1 flex items-center gap-2"><Skeleton className="size-8 rounded-full" /><Skeleton className="h-4 w-24 rounded" /></div>
+   309→        <Skeleton className="h-8 w-16 rounded-md" />
+   310→        <div className="flex-1 flex items-center gap-2 justify-end"><Skeleton className="h-4 w-24 rounded" /><Skeleton className="size-8 rounded-full" /></div>
+   311→      </div>
+   312→      <Skeleton className="h-px w-full" />
+   313→      <div className="flex items-center gap-3"><Skeleton className="h-3 w-20 rounded" /><Skeleton className="h-3 w-24 rounded" /></div>
+   314→    </CardContent></Card>
+   315→  )
+   316→}
+   317→
+   318→// ═══════════════════════════════════════════════════════════════════════════════
+   319→// MAIN MATCHES VIEW
+   320→// ═══════════════════════════════════════════════════════════════════════════════
+   321→
+   322→export function MatchesView() {
+   323→  const token = useElasticoStore(s => s.token)
+   324→  const [activeTab, setActiveTab] = useState<MatchTab>('all')
+   325→  const [searchQuery, setSearchQuery] = useState('')
+   326→  const [stageFilter, setStageFilter] = useState('all')
+   327→  const [groupFilter, setGroupFilter] = useState('all')
+   328→  const [sortBy, setSortBy] = useState<SortKey>('date')
+   329→  const [matchesData, setMatchesData] = useState<Match[]>([])
+   330→  const [loading, setLoading] = useState(true)
+   331→  const [lastRefresh, setLastRefresh] = useState(new Date())
+   332→
+   333→  const fetchMatches = useCallback(async () => {
+   334→    setLoading(true)
+   335→    try {
+   336→      const headers: Record<string, string> = {}
+   337→      if (token) headers['Authorization'] = `Bearer ${token}`
+   338→
+   339→      // Map activeTab to football-data.org status
+   340→      let statusParam = 'FINISHED'
+   341→      if (activeTab === 'upcoming') statusParam = 'SCHEDULED,TIMED'
+   342→      else if (activeTab === 'live') statusParam = 'IN_PLAY,PAUSED'
+   343→      else if (activeTab === 'all') statusParam = 'FINISHED'
+   344→
+   345→      const res = await fetch(`/api/football-data?action=matches&competition=PL&status=${statusParam}`, { headers })
+   346→      const data: any = await res.json()
+   347→      const matches = (data.data || []).map((m: any) => ({
+   348→        ...m,
+   349→        id: m.id || `fd-${Math.random().toString(36).slice(2)}`,
+   350→        competition: m.competition,
+   351→        homeTeam: m.homeTeam,
+   352→        awayTeam: m.awayTeam,
+   353→        homeScore: m.homeScore,
+   354→        awayScore: m.awayScore,
+   355→        status: m.status,
+   356→        date: m.date,
+   357→        matchday: m.matchday,
+   358→      }))
+   359→      setMatchesData(matches)
+   360→    } catch (err) {
+   361→      console.error('Failed to fetch matches:', err)
+   362→    } finally {
+   363→      setLoading(false)
+   364→      setLastRefresh(new Date())
+   365→    }
+   366→  }, [activeTab, searchQuery, stageFilter, groupFilter, token])
+   367→
+   368→  useEffect(() => { fetchMatches() }, [fetchMatches])
+   369→
+   370→  // Auto-refresh live
+   371→  useEffect(() => {
+   372→    const iv = setInterval(() => { if (activeTab === 'live') fetchMatches() }, 15000)
+   373→    return () => clearInterval(iv)
+   374→  }, [activeTab, fetchMatches])
+   375→
+   376→  // Sort
+   377→  const sortedMatches = useMemo(() => {
+   378→    const arr = [...matchesData]
+   379→    switch (sortBy) {
+   380→      case 'elo': return arr.sort((a, b) => Math.abs((b.homeEloBefore ?? 0) - (b.awayEloBefore ?? 0)) - Math.abs((a.homeEloBefore ?? 0) - (a.awayEloBefore ?? 0)))
+   381→      case 'xg': return arr.sort((a, b) => (b.homeXg + b.awayXg) - (a.homeXg + a.awayXg))
+   382→      default: return arr
+   383→    }
+   384→  }, [matchesData, sortBy])
+   385→
+   386→  const allMatches = matchesData
+   387→  const liveCount = allMatches.filter((m) => m.status === 'live' || m.status === 'halftime').length
+   388→  const availableStages = useMemo(() => STAGES.filter((s) => allMatches.some((m) => m.stage === s)), [allMatches])
+   389→  const availableGroups = useMemo(() => GROUPS.filter((g) => allMatches.some((m) => m.group === g)), [allMatches])
+   390→
+   391→  return (
+   392→    <div className="flex flex-col gap-4 animate-fade-in-up">
+   393→      {/* Header */}
+   394→      <div className="flex items-center gap-3">
+   395→        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15"><Zap className="size-5 text-primary" /></div>
+   396→        <div>
+   397→          <h1 className="text-2xl font-bold tracking-tight">Matches</h1>
+   398→          <p className="text-sm text-muted-foreground">Browse, filter, and predict match outcomes</p>
+   399→        </div>
+   400→      </div>
+   401→
+   402→      {/* Filter Bar */}
+   403→      <div className="glass-card-premium rounded-xl p-4 space-y-3">
+   404→        <div className="flex flex-col sm:flex-row gap-3">
+   405→          <div className="relative flex-1">
+   406→            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   407→            <Input placeholder="Search by team name..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 h-9 bg-muted/50 border-border text-sm" />
+   408→          </div>
+   409→          <Select value={stageFilter} onValueChange={setStageFilter}>
+   410→            <SelectTrigger className="h-9 w-full sm:w-[160px] bg-muted/50 border-border text-sm">
+   411→              <Filter className="size-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="Stage" />
+   412→            </SelectTrigger>
+   413→            <SelectContent className="glass-card border-border">
+   414→              <SelectItem value="all">All Stages</SelectItem>
+   415→              {availableStages.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+   416→            </SelectContent>
+   417→          </Select>
+   418→          <Select value={groupFilter} onValueChange={setGroupFilter}>
+   419→            <SelectTrigger className="h-9 w-full sm:w-[120px] bg-muted/50 border-border text-sm"><SelectValue placeholder="Group" /></SelectTrigger>
+   420→            <SelectContent className="glass-card border-border">
+   421→              <SelectItem value="all">All Groups</SelectItem>
+   422→              {availableGroups.map((g) => <SelectItem key={g} value={g}>Group {g}</SelectItem>)}
+   423→            </SelectContent>
+   424→          </Select>
+   425→          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+   426→            <SelectTrigger className="h-9 w-full sm:w-[130px] bg-muted/50 border-border text-sm">
+   427→              <ArrowUpDown className="size-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="Sort" />
+   428→            </SelectTrigger>
+   429→            <SelectContent className="glass-card border-border">
+   430→              <SelectItem value="date">By Date</SelectItem>
+   431→              <SelectItem value="elo">By ELO Diff</SelectItem>
+   432→              <SelectItem value="xg">By xG Total</SelectItem>
+   433→            </SelectContent>
+   434→          </Select>
+   435→          <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 border-border bg-muted/50 hover:bg-accent" onClick={() => fetchMatches()} disabled={loading} aria-label="Refresh">
+   436→            <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
+   437→          </Button>
+   438→        </div>
+   439→        {/* Group quick-buttons */}
+   440→        <div className="flex items-center gap-1.5 flex-wrap">
+   441→          <span className="text-[10px] text-muted-foreground mr-1">Groups:</span>
+   442→          {GROUPS.map((g) => (
+   443→            <button key={g} onClick={() => setGroupFilter(groupFilter === g ? 'all' : g)}
+   444→              className={cn('flex size-7 items-center justify-center rounded-md text-[10px] font-bold transition-all',
+   445→                groupFilter === g ? 'bg-primary/20 text-primary ring-glow-emerald' : 'bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground')}>
+   446→              {g}
+   447→            </button>
+   448→          ))}
+   449→        </div>
+   450→      </div>
+   451→
+   452→      {/* Tabs */}
+   453→      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MatchTab)} className="w-full">
+   454→        <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
+   455→          {STATUS_TABS.map((tab) => {
+   456→            const count = tab.value === 'live' ? liveCount : allMatches.length
+   457→            return (
+   458→              <TabsTrigger key={tab.value} value={tab.value} className="flex-1 h-8 text-xs font-semibold rounded-md transition-all gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-sm">
+   459→                {tab.value === 'live' && liveCount > 0 && (
+   460→                  <span className="relative flex size-1.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex size-1.5 rounded-full bg-red-500" /></span>
+   461→                )}
+   462→                {tab.label}
+   463→                {count > 0 && <span className="ml-0.5 text-[10px] opacity-60">({count})</span>}
+   464→              </TabsTrigger>
+   465→            )
+   466→          })}
+   467→        </TabsList>
+   468→
+   469→        {STATUS_TABS.map((tab) => (
+   470→          <TabsContent key={tab.value} value={tab.value} className="mt-4">
+   471→            {loading && sortedMatches.length === 0 && (
+   472→              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   473→                {Array.from({ length: 6 }).map((_, i) => <MatchCardSkeleton key={i} />)}
+   474→              </div>
+   475→            )}
+   476→
+   477→            {!loading && sortedMatches.length === 0 && (
+   478→              <div className="flex flex-col items-center justify-center py-16 text-center">
+   479→                <div className="size-16 rounded-full bg-muted/50 flex items-center justify-center mb-4"><Eye className="size-7 text-muted-foreground" /></div>
+   480→                <h3 className="text-sm font-semibold mb-1">No {tab.value === 'all' ? '' : tab.value} matches found</h3>
+   481→                <p className="text-xs text-muted-foreground max-w-[260px]">
+   482→                  {searchQuery || stageFilter !== 'all' || groupFilter !== 'all' ? 'Try adjusting your filters.' : 'No matches available. Check back later!'}
+   483→                </p>
+   484→                {(searchQuery || stageFilter !== 'all' || groupFilter !== 'all') && (
+   485→                  <Button variant="outline" size="sm" className="mt-4 h-8 text-xs border-border" onClick={() => { setSearchQuery(''); setStageFilter('all'); setGroupFilter('all') }}>Clear Filters</Button>
+   486→                )}
+   487→              </div>
+   488→            )}
+   489→
+   490→            {sortedMatches.length > 0 && (
+   491→              <>
+   492→                <div className="flex items-center justify-between mb-2 px-1">
+   493→                  <span className="text-[11px] text-muted-foreground">{sortedMatches.length} match{sortedMatches.length !== 1 ? 'es' : ''}{loading && ' (refreshing...)'}</span>
+   494→                  <span className="text-[10px] text-muted-foreground/50">Updated {lastRefresh.toLocaleTimeString()}</span>
+   495→                </div>
+   496→                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   497→                  {sortedMatches.map((match, idx) => (
+   498→                    <div key={match.id} style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}><MatchCard match={match} /></div>
+   499→                  ))}
+   500→                </div>
+   501→              </>
+   502→            )}
+   503→          </TabsContent>
+   504→        ))}
+   505→      </Tabs>
+   506→    </div>
+   507→  )
+   508→}

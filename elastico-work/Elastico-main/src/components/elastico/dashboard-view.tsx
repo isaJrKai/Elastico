@@ -16,6 +16,7 @@ import {
   ChevronRight, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fifaFlag } from '@/lib/flags'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -170,7 +171,7 @@ export default function DashboardView() {
                 <div key={`${m.id}-${i}`} className="flex items-center gap-3 shrink-0">
                   <div className="flex items-center gap-2">
                     <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.homeColor }} />
-                    <span className="text-xs font-semibold">{m.homeCode}</span>
+                    <span className="text-xs font-semibold">{fifaFlag(m.homeCode)} {m.homeCode}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-bold tabular-nums">{m.homeScore}</span>
@@ -178,7 +179,7 @@ export default function DashboardView() {
                     <span className="text-sm font-bold tabular-nums">{m.awayScore}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold">{m.awayCode}</span>
+                    <span className="text-xs font-semibold">{fifaFlag(m.awayCode)} {m.awayCode}</span>
                     <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.awayColor }} />
                   </div>
                   {m.status === 'live' && (
@@ -441,7 +442,7 @@ export default function DashboardView() {
                           <td className="py-2">
                             <div className="flex items-center gap-2">
                               <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />
-                              <span className="font-medium">{t.code}</span>
+                              <span className="font-medium">{fifaFlag(t.code)} {t.code}</span>
                             </div>
                           </td>
                           <td className="py-2 text-center text-emerald-400">{t.wins}</td>
@@ -579,7 +580,7 @@ export default function DashboardView() {
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] w-4 text-muted-foreground font-bold">{i + 1}</span>
                       <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />
-                      <span className="text-xs font-medium">{t.code}</span>
+                      <span className="text-xs font-medium">{fifaFlag(t.code)} {t.code}</span>
                     </div>
                     <span className="text-xs font-bold tabular-nums">{Math.round(t.eloRating)}</span>
                   </div>

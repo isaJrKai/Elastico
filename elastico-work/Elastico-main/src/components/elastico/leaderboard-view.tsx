@@ -17,6 +17,7 @@ import {
   Zap, Search, Download, Goal, Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { fifaFlag } from '@/lib/flags'
 import { generateCSV } from '@/lib/export'
 import { toast } from '@/hooks/use-toast'
 
@@ -292,7 +293,7 @@ export default function LeaderboardView() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: p.team?.primaryColor }} />
-                        <span className="text-xs">{p.team?.code}</span>
+                        <span className="text-xs">{fifaFlag(p.team?.code)} {p.team?.code}</span>
                       </div>
                     </td>
                   </tr>
