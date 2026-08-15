@@ -114,3 +114,25 @@
 - `npx next build` succeeds with no TypeScript errors
 - All 38 static pages generated
 - All API routes compiled successfully
+---
+Task ID: 1
+Agent: main
+Task: Phase 1 - Data Warehouse: Enhanced sync worker, API-Sports modules, Vercel Cron
+
+Work Log:
+- Read existing codebase state: schema already had Team/Player/Match/MatchEvent/StandingEntry/SyncLog tables with source tracking
+- Sync worker already existed at /api/cron/sync but only synced fixtures + ESPN standings
+- Added fetchSquad, fetchPlayerStats, fetchLeagueTeams to src/lib/api-sports.ts
+- Rewrote /api/cron/sync/route.ts with 4 sync types: fixtures, standings, teams, players from API-Sports
+- ESPN remains automatic fallback when API-Sports is unavailable
+- Added Vercel Cron to vercel.json: /api/cron/sync every 5 minutes
+- Confirmed schema already pushed to Neon (prisma db push: 'already in sync')
+- Confirmed CRON_SECRET already set on Vercel
+- Build passes with zero TS errors
+- Git pushed to main, Vercel auto-deployed successfully
+
+Stage Summary:
+- Sync worker now syncs 4 data types: fixtures (live + today top 5), standings (top 10), teams (top 5 with venue), players (top scorers)
+- Vercel Cron runs every 5 minutes
+- All read API routes already DB-first with ESPN fallback
+- Deployed: https://elastico-bazriay44-elastico.vercel.app
