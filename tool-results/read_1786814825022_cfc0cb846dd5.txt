@@ -1,0 +1,1211 @@
+     1→// ═══════════════════════════════════════════════════════════════════════════════
+     2→// ELASTICO — Advanced Stochastic Prediction Engine
+     3→// Port of the God-Tier Mathematical Framework from the research system
+     4→// Implements: Merton Jump-Diffusion, GARCH Volatility, Kelly Criterion,
+     5→// Bivariate Poisson, Monte Carlo Simulation, Market Signal Tracking
+     6→// ═══════════════════════════════════════════════════════════════════════════════
+     7→
+     8→// ── Types ──────────────────────────────────────────────────────────────────────
+     9→
+    10→export interface JumpDiffusionParams {
+    11→  sigma: number        // Continuous Brownian volatility
+    12→  jumpLambda: number   // Jump frequency (Poisson rate)
+    13→  jumpMu: number       // Mean jump intensity
+    14→  jumpSigma: number    // Jump volatility
+    15→}
+    16→
+    17→export interface StochasticMatchResult {
+    18→  matchProbabilities: {
+    19→    homeVictory: number
+    20→    draw: number
+    21→    awayVictory: number
+    22→  }
+    23→  totalsMarket: {
+    24→    over25: number
+    25→    under25: number
+    26→    over15: number
+    27→    over35: number
+    28→  }
+    29→  exoticScorelines: Record<string, number>
+    30→  expectedMeans: {
+    31→    home: number
+    32→    away: number
+    33→    total: number
+    34→  }
+    35→  asianHandicap: {
+    36→    line0: { home: number; away: number }
+    37→    lineHalf: { home: number; away: number }
+    38→    line1: { home: number; away: number }
+    39→    line15: { home: number; away: number }
+    40→  }
+    41→  bothTeamsToScore: number
+    42→  confidence: 'low' | 'medium' | 'high' | 'very-high'
+    43→  volatilityIndex: number
+    44→}
+    45→
+    46→export interface KellyResult {
+    47→  action: 'BET' | 'NO_EDGE' | 'RISKY'
+    48→  edgePercentage: number
+    49→  impliedProbability: number
+    50→  modelProbability: number
+    51→  suggestedFraction: number
+    52→  suggestedWager: number
+    53→  kellyFraction: number
+    54→  odds: number
+    55→}
+    56→
+    57→export interface PortfolioAllocation {
+    58→  outcomes: {
+    59→    label: string
+    60→    modelProb: number
+    61→    marketOdds: number
+    62→    edge: number
+    63→    kellyFraction: number
+    64→    wagerAmount: number
+    65→    action: 'BET' | 'NO_EDGE' | 'RISKY'
+    66→  }[]
+    67→  totalBankroll: number
+    68→  totalExposure: number
+    69→  totalExpectedValue: number
+    70→  sharpeRatio: number
+    71→}
+    72→
+    73→export interface MarketSignal {
+    74→  matchId: string
+    75→  homeTeam: string
+    76→  awayTeam: string
+    77→  openingOdds: { home: number; draw: number; away: number }
+    78→  currentOdds: { home: number; draw: number; away: number }
+    79→  lineVelocity: {
+    80→    home: number
+    81→    draw: number
+    82→    away: number
+    83→  }
+    84→  sharpAction: 'home' | 'draw' | 'away' | 'neutral'
+    85→  steamMove: boolean
+    86→  rlmDetected: boolean // Reverse Line Movement
+    87→  confidence: number
+    88→  timestamp: string
+    89→}
+    90→
+    91→export interface EngineConfig {
+    92→  simulationRuns: number
+    93→  kellyFraction: number  // Fractional Kelly multiplier (0.25 = quarter Kelly)
+    94→  garchEnabled: boolean
+    95→  jumpDiffusionEnabled: boolean
+    96→  minEdgeThreshold: number
+    97→  maxBankrollRisk: number
+    98→}
+    99→
+   100→export interface InjuryAdjustment {
+   101→  teamId: string
+   102→  playerName: string
+   103→  status: 'out' | 'doubtful' | 'questionable'
+   104→  importance: 'star' | 'key' | 'rotation'
+   105→  xgImpact: number  // Expected goals reduction factor
+   106→}
+   107→
+   108→export interface MatchInput {
+   109→  homeTeam: string
+   110→  awayTeam: string
+   111→  homeTeamId?: string
+   112→  awayTeamId?: string
+   113→  homeXg: number        // Historical expected goals per game
+   114→  awayXg: number
+   115→  homeGoalsConceded: number
+   116→  awayGoalsConceded: number
+   117→  homeElo: number
+   118→  awayElo: number
+   119→  bookmakerOdds: { home: number; draw: number; away: number }
+   120→  historicalResiduals?: { home: number[]; away: number[] }
+   121→  injuries?: InjuryAdjustment[]
+   122→  correlation?: number
+   123→}
+   124→
+   125→// ── Default Configuration ──────────────────────────────────────────────────────
+   126→
+   127→export const DEFAULT_CONFIG: EngineConfig = {
+   128→  simulationRuns: 150000,
+   129→  kellyFraction: 0.25,
+   130→  garchEnabled: true,
+   131→  jumpDiffusionEnabled: true,
+   132→  minEdgeThreshold: 0.02,
+   133→  maxBankrollRisk: 0.05,
+   134→}
+   135→
+   136→// ── Statistical Utility Functions ───────────────────────────────────────────────
+   137→
+   138→function normalRandom(): number {
+   139→  // Box-Muller transform for standard normal distribution
+   140→  let u = 0, v = 0
+   141→  while (u === 0) u = Math.random()
+   142→  while (v === 0) v = Math.random()
+   143→  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+   144→}
+   145→
+   146→function poissonRandom(lambda: number): number {
+   147→  // Knuth algorithm for Poisson distribution
+   148→  if (lambda <= 0) return 0
+   149→  const L = Math.exp(-lambda)
+   150→  let k = 0
+   151→  let p = 1.0
+   152→  do {
+   153→    k++
+   154→    p *= Math.random()
+   155→  } while (p > L)
+   156→  return k - 1
+   157→}
+   158→
+   159→function clamp(value: number, min: number, max: number): number {
+   160→  return Math.max(min, Math.min(max, value))
+   161→}
+   162→
+   163→// ── GARCH(1,1) Volatility Calibration ───────────────────────────────────────────
+   164→
+   165→export function calibrateGARCH(residuals: number[]): number {
+   166→  /**
+   167→   * Estimates conditional variance using a simplified GARCH(1,1) model.
+   168→   * Returns a volatility scaling factor.
+   169→   * 
+   170→   * GARCH(1,1): σ²_t = ω + α * ε²_{t-1} + β * σ²_{t-1}
+   171→   * We use maximum likelihood estimation with simplified parameters.
+   172→   */
+   173→  if (residuals.length < 15) return 1.0
+   174→
+   175→  const n = residuals.length
+   176→  const mean = residuals.reduce((s, v) => s + v, 0) / n
+   177→
+   178→  // Estimate GARCH parameters using method of moments
+   179→  const variance = residuals.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1)
+   180→  const squaredResiduals = residuals.map(r => r * r)
+   181→  const autoCorrLag1 = squaredResiduals.slice(0, -1).reduce((s, r, i) =>
+   182→    s + (r - variance) * (squaredResiduals[i + 1] - variance), 0) /
+   183→    (n - 1) / (variance * variance || 1)
+   184→
+   185→  // Simplified GARCH parameters
+   186→  const alpha = clamp(autoCorrLag1 * 0.4, 0.01, 0.3)  // ARCH parameter
+   187→  const beta = clamp(1 - alpha - 0.05, 0.6, 0.95)     // GARCH parameter
+   188→  const omega = 0.05 * variance                          // Constant term
+   189→
+   190→  // Forecast next-step conditional variance
+   191→  const lastSquaredResidual = squaredResiduals[n - 1]
+   192→  const prevVariance = variance
+   193→  const forecastVariance = omega + alpha * lastSquaredResidual + beta * prevVariance
+   194→
+   195→  // Return volatility scaling factor (forecast / historical baseline)
+   196→  return Math.sqrt(forecastVariance / (variance || 1))
+   197→}
+   198→
+   199→// ── Merton Jump-Diffusion Parameter Extraction ──────────────────────────────────
+   200→
+   201→export function extractJumpDiffusionParams(residuals: number[]): JumpDiffusionParams {
+   202→  /**
+   203→   * Separates continuous diffusion from structural jump shocks.
+   204→   * Uses a 2-standard-deviation threshold to identify outlier events
+   205→   * (red cards, early injuries, unexpected tactical shifts).
+   206→   */
+   207→  if (residuals.length < 20) {
+   208→    return { sigma: 0.25, jumpLambda: 0.10, jumpMu: -0.05, jumpSigma: 0.15 }
+   209→  }
+   210→
+   211→  const threshold = 2.0 * (residuals.reduce((s, r) => s + r * r, 0) / residuals.length) ** 0.5
+   212→  const normalShocks = residuals.filter(r => Math.abs(r) <= threshold)
+   213→  const jumpShocks = residuals.filter(r => Math.abs(r) > threshold)
+   214→
+   215→  const sigma = normalShocks.length > 0
+   216→    ? normalShocks.reduce((s, r) => s + r * r, 0) / normalShocks.length
+   217→    : 0.25
+   218→
+   219→  const jumpLambda = jumpShocks.length / residuals.length
+   220→  const jumpMu = jumpShocks.length > 0
+   221→    ? jumpShocks.reduce((s, r) => s + r, 0) / jumpShocks.length
+   222→    : 0.0
+   223→  const jumpSigma = jumpShocks.length > 1
+   224→    ? Math.sqrt(jumpShocks.reduce((s, r) => s + (r - jumpMu) ** 2, 0) / (jumpShocks.length - 1))
+   225→    : 0.20
+   226→
+   227→  return {
+   228→    sigma: Math.sqrt(sigma),
+   229→    jumpLambda: clamp(jumpLambda, 0, 1),
+   230→    jumpMu,
+   231→    jumpSigma: clamp(jumpSigma, 0.01, 2),
+   232→  }
+   233→}
+   234→
+   235→// ── Injury Adjustment Layer ────────────────────────────────────────────────────
+   236→
+   237→export function applyInjuryAdjustments(
+   238→  baseXg: number,
+   239→  injuries: InjuryAdjustment[]
+   240→): number {
+   241→  /**
+   242→   * Modifies projected expected goals based on missing players.
+   243→   * Star player out: -15% xG
+   244→   * Key player out: -8% xG
+   245→   * Rotation player out: -3% xG
+   246→   */
+   247→  let adjustedXg = baseXg
+   248→  for (const injury of injuries) {
+   249→    if (injury.status === 'out') {
+   250→      adjustedXg *= (1 - injury.xgImpact)
+   251→    } else if (injury.status === 'doubtful') {
+   252→      adjustedXg *= (1 - injury.xgImpact * 0.5)
+   253→    } else if (injury.status === 'questionable') {
+   254→      adjustedXg *= (1 - injury.xgImpact * 0.25)
+   255→    }
+   256→  }
+   257→  return Math.max(0.1, adjustedXg)
+   258→}
+   259→
+   260→// ── Core Stochastic Simulation Engine ──────────────────────────────────────────
+   261→
+   262→export function runStochasticSimulation(
+   263→  input: MatchInput,
+   264→  config: EngineConfig = DEFAULT_CONFIG
+   265→): StochasticMatchResult {
+   266→  /**
+   267→   * Executes a high-iteration Monte Carlo simulation using a
+   268→   * Bivariate Merton Jump-Diffusion Process with GARCH volatility scaling.
+   269→   * 
+   270→   * This models match outcomes as continuous stochastic differential
+   271→   * processes interrupted by Poisson-distributed structural jumps,
+   272→   * matching the methodology used by elite quantitative sports funds.
+   273→   */
+   274→  const { simulationRuns, garchEnabled, jumpDiffusionEnabled } = config
+   275→
+   276→  // Step 1: Calibrate base intensity parameters from xG + ELO
+   277→  const eloDiff = input.homeElo - input.awayElo
+   278→  const eloFactor = 1 / (1 + Math.pow(10, -eloDiff / 400))
+   279→  const avgXg = (input.homeXg + input.awayXg) / 2
+   280→
+   281→  // Home advantage adjustment (+0.25 goals typical for home field)
+   282→  let muHome = input.homeXg * (0.7 + 0.3 * eloFactor) + 0.25
+   283→  let muAway = input.awayXg * (0.7 + 0.3 * (1 - eloFactor))
+   284→
+   285→  // Step 2: Apply injury adjustments
+   286→  const homeInjuries = input.injuries?.filter(i => i.teamId === input.homeTeamId) || []
+   287→  const awayInjuries = input.injuries?.filter(i => i.teamId === input.awayTeamId) || []
+   288→  muHome = applyInjuryAdjustments(muHome, homeInjuries)
+   289→  muAway = applyInjuryAdjustments(muAway, awayInjuries)
+   290→
+   291→  // Step 3: GARCH volatility calibration
+   292→  const homeResiduals = input.historicalResiduals?.home || []
+   293→  const awayResiduals = input.historicalResiduals?.away || []
+   294→  const volScalarHome = garchEnabled ? calibrateGARCH(homeResiduals) : 1.0
+   295→  const volScalarAway = garchEnabled ? calibrateGARCH(awayResiduals) : 1.0
+   296→
+   297→  // Step 4: Extract jump-diffusion parameters
+   298→  const homeJd = jumpDiffusionEnabled
+   299→    ? extractJumpDiffusionParams(homeResiduals)
+   300→    : { sigma: 0.20, jumpLambda: 0.05, jumpMu: 0, jumpSigma: 0.15 }
+   301→  const awayJd = jumpDiffusionEnabled
+   302→    ? extractJumpDiffusionParams(awayResiduals)
+   303→    : { sigma: 0.20, jumpLambda: 0.05, jumpMu: 0, jumpSigma: 0.15 }
+   304→
+   305→  // Step 5: Compute inter-team correlation
+   306→  const rho = input.correlation ?? 0.12
+   307→
+   308→  // Step 6: Execute Monte Carlo simulation
+   309→  let homeWins = 0
+   310→  let awayWins = 0
+   311→  let draws = 0
+   312→  let over25 = 0
+   313→  let over15 = 0
+   314→  let over35 = 0
+   315→  let btts = 0
+   316→  const scorelineCounts: Record<string, number> = {}
+   317→  let totalHomeGoals = 0
+   318→  let totalAwayGoals = 0
+   319→
+   320→  // Pre-compute correlation transformation constants
+   321→  const sqrtOneMinusRho2 = Math.sqrt(Math.max(0, 1 - rho * rho))
+   322→
+   323→  for (let i = 0; i < simulationRuns; i++) {
+   324→    // Generate correlated Brownian motion paths via Cholesky decomposition
+   325→    const zHomeRaw = normalRandom()
+   326→    const zAwayRaw = normalRandom()
+   327→    const zHome = zHomeRaw
+   328→    const zAway = rho * zHomeRaw + sqrtOneMinusRho2 * zAwayRaw
+   329→
+   330→    // Apply GARCH volatility scaling to base intensities
+   331→    const scaledMuHome = muHome * volScalarHome
+   332→    const scaledMuAway = muAway * volScalarAway
+   333→
+   334→    // Merton Jump-Diffusion: continuous diffusion + Poisson jumps
+   335→    const hSigma = homeJd.sigma
+   336→    const aSigma = awayJd.sigma
+   337→    const dt = 1.0 // One match unit
+   338→
+   339→    // Poisson jump processes for structural shocks
+   340→    const jumpCountHome = poissonRandom(homeJd.jumpLambda * dt)
+   341→    const jumpCountAway = poissonRandom(awayJd.jumpLambda * dt)
+   342→
+   343→    // Calculate jump magnitudes with drift + volatility
+   344→    const jumpMagHome = jumpCountHome > 0
+   345→      ? jumpCountHome * homeJd.jumpMu + Math.sqrt(jumpCountHome) * homeJd.jumpSigma * normalRandom()
+   346→      : 0
+   347→    const jumpMagAway = jumpCountAway > 0
+   348→      ? jumpCountAway * awayJd.jumpMu + Math.sqrt(jumpCountAway) * awayJd.jumpSigma * normalRandom()
+   349→      : 0
+   350→
+   351→    // Synthesize continuous diffusion with structural shocks
+   352→    const stochasticHome = scaledMuHome *
+   353→      Math.exp((hSigma * hSigma / -2.0) * dt + hSigma * Math.sqrt(dt) * zHome + jumpMagHome)
+   354→    const stochasticAway = scaledMuAway *
+   355→      Math.exp((aSigma * aSigma / -2.0) * dt + aSigma * Math.sqrt(dt) * zAway + jumpMagAway)
+   356→
+   357→    // Convert intensity paths to observable goal outputs via Poisson distribution
+   358→    const goalsHome = poissonRandom(Math.max(0.01, stochasticHome))
+   359→    const goalsAway = poissonRandom(Math.max(0.01, stochasticAway))
+   360→
+   361→    // Accumulate statistics
+   362→    totalHomeGoals += goalsHome
+   363→    totalAwayGoals += goalsAway
+   364→
+   365→    if (goalsHome > goalsAway) homeWins++
+   366→    else if (goalsAway > goalsHome) awayWins++
+   367→    else draws++
+   368→
+   369→    const total = goalsHome + goalsAway
+   370→    if (total > 2.5) over25++
+   371→    if (total > 1.5) over15++
+   372→    if (total > 3.5) over35++
+   373→    if (goalsHome > 0 && goalsAway > 0) btts++
+   374→
+   375→    const key = `${goalsHome}-${goalsAway}`
+   376→    scorelineCounts[key] = (scorelineCounts[key] || 0) + 1
+   377→  }
+   378→
+   379→  // Step 7: Compute Asian Handicap probabilities
+   380→  const computeAH = (line: number) => {
+   381→    let homeCovers = 0
+   382→    let awayCovers = 0
+   383→    // Re-simulate for AH (using same parameters, smaller run)
+   384→    const ahRuns = Math.min(50000, simulationRuns)
+   385→    for (let i = 0; i < ahRuns; i++) {
+   386→      const zH = normalRandom()
+   387→      const zA = rho * zH + sqrtOneMinusRho2 * normalRandom()
+   388→      const sH = poissonRandom(Math.max(0.01, muHome * volScalarHome *
+   389→        Math.exp((homeJd.sigma ** 2 / -2.0) + homeJd.sigma * zH)))
+   390→      const sA = poissonRandom(Math.max(0.01, muAway * volScalarAway *
+   391→        Math.exp((awayJd.sigma ** 2 / -2.0) + awayJd.sigma * zA)))
+   392→      const diff = sH - sA - line
+   393→      if (diff > 0) homeCovers++
+   394→      else if (diff < 0) awayCovers++
+   395→    }
+   396→    return { home: homeCovers / ahRuns, away: awayCovers / ahRuns }
+   397→  }
+   398→
+   399→  // Step 8: Determine confidence level
+   400→  const maxProb = Math.max(homeWins, draws, awayWins) / simulationRuns
+   401→  const confidence: StochasticMatchResult['confidence'] =
+   402→    maxProb > 0.55 ? 'very-high' :
+   403→    maxProb > 0.48 ? 'high' :
+   404→    maxProb > 0.42 ? 'medium' : 'low'
+   405→
+   406→  // Step 9: Calculate volatility index (0-100)
+   407→  const goalVariance = Array.from({ length: 100 }, () => {
+   408→    const gH = poissonRandom(muHome)
+   409→    const gA = poissonRandom(muAway)
+   410→    return Math.abs(gH + gA - (muHome + muAway))
+   411→  })
+   412→  const avgDeviation = goalVariance.reduce((s, v) => s + v, 0) / 100
+   413→  const volatilityIndex = clamp((avgDeviation / (muHome + muAway || 1)) * 100, 0, 100)
+   414→
+   415→  return {
+   416→    matchProbabilities: {
+   417→      homeVictory: homeWins / simulationRuns,
+   418→      draw: draws / simulationRuns,
+   419→      awayVictory: awayWins / simulationRuns,
+   420→    },
+   421→    totalsMarket: {
+   422→      over25: over25 / simulationRuns,
+   423→      under25: 1 - over25 / simulationRuns,
+   424→      over15: over15 / simulationRuns,
+   425→      over35: over35 / simulationRuns,
+   426→    },
+   427→    exoticScorelines: Object.fromEntries(
+   428→      Object.entries(scorelineCounts)
+   429→        .sort(([, a], [, b]) => b - a)
+   430→        .slice(0, 10)
+   431→        .map(([key, count]) => [key, count / simulationRuns])
+   432→    ),
+   433→    expectedMeans: {
+   434→      home: totalHomeGoals / simulationRuns,
+   435→      away: totalAwayGoals / simulationRuns,
+   436→      total: (totalHomeGoals + totalAwayGoals) / simulationRuns,
+   437→    },
+   438→    asianHandicap: {
+   439→      line0: computeAH(0),
+   440→      lineHalf: computeAH(-0.5),
+   441→      line1: computeAH(-1),
+   442→      line15: computeAH(-1.5),
+   443→    },
+   444→    bothTeamsToScore: btts / simulationRuns,
+   445→    confidence,
+   446→    volatilityIndex,
+   447→  }
+   448→}
+   449→
+   450→// ── Kelly Criterion Engine ──────────────────────────────────────────────────────
+   451→
+   452→export function calculateKelly(
+   453→  modelProbability: number,
+   454→  bookmakerOdds: number,
+   455→  bankroll: number,
+   456→  fractionalKelly: number = 0.25
+   457→): KellyResult {
+   458→  /**
+   459→   * Implements the Kelly Criterion for optimal bankroll allocation.
+   460→   * Uses fractional Kelly (default 25%) for safer variance management.
+   461→   * 
+   462→   * Kelly Formula: f* = (p*b - q) / b
+   463→   * Where: p = model probability, b = decimal odds - 1, q = 1 - p
+   464→   */
+   465→  const impliedProb = 1 / bookmakerOdds
+   466→  const edge = modelProbability - impliedProb
+   467→
+   468→  if (edge <= 0) {
+   469→    return {
+   470→      action: 'NO_EDGE',
+   471→      edgePercentage: -Math.abs(edge) * 100,
+   472→      impliedProbability: impliedProb,
+   473→      modelProbability,
+   474→      suggestedFraction: 0,
+   475→      suggestedWager: 0,
+   476→      kellyFraction: 0,
+   477→      odds: bookmakerOdds,
+   478→    }
+   479→  }
+   480→
+   481→  const b = bookmakerOdds - 1  // Net odds
+   482→  const q = 1 - modelProbability
+   483→  const rawKelly = (modelProbability * b - q) / b
+   484→  const safeKelly = rawKelly * fractionalKelly
+   485→  const wager = bankroll * safeKelly
+   486→
+   487→  // Risk classification
+   488→  const action: KellyResult['action'] =
+   489→    edge > 0.10 ? 'BET' :
+   490→    edge > 0.03 ? 'BET' : 'RISKY'
+   491→
+   492→  return {
+   493→    action,
+   494→    edgePercentage: edge * 100,
+   495→    impliedProbability: impliedProb,
+   496→    modelProbability,
+   497→    suggestedFraction: safeKelly,
+   498→    suggestedWager: Math.round(wager * 100) / 100,
+   499→    kellyFraction: rawKelly,
+   500→    odds: bookmakerOdds,
+   501→  }
+   502→}
+   503→
+   504→// ── Multi-Asset Portfolio Allocation ────────────────────────────────────────────
+   505→
+   506→export function calculatePortfolioAllocation(
+   507→  outcomes: { label: string; modelProb: number; odds: number }[],
+   508→  bankroll: number,
+   509→  correlationMatrix: number[][] = [
+   510→    [1.00, 0.55, 0.15],
+   511→    [0.55, 1.00, 0.20],
+   512→    [0.15, 0.20, 1.00],
+   513→  ]
+   514→): PortfolioAllocation {
+   515→  /**
+   516→   * Implements a multi-asset Kelly Criterion with covariance adjustment.
+   517→   * Accounts for correlation between bet outcomes to prevent overexposure
+   518→   * on correlated positions (e.g., home win + over 2.5 goals).
+   519→   */
+   520→
+   521→  // Invert correlation matrix for covariance-weighted allocation
+   522→  const n = correlationMatrix.length
+   523→  const covInv = invertMatrix(correlationMatrix)
+   524→
+   525→  const results = outcomes.map((out, i) => {
+   526→    const impliedProb = 1 / out.odds
+   527→    const edge = out.modelProb - impliedProb
+   528→
+   529→    // Covariance-adjusted edge
+   530→    const adjustedEdge = covInv
+   531→      ? covInv[i]?.reduce((sum, c, j) => sum + c * (outcomes[j].modelProb - 1 / outcomes[j].odds), 0) || edge
+   532→      : edge
+   533→
+   534→    const b = out.odds - 1
+   535→    const q = 1 - out.modelProb
+   536→    const rawKelly = (out.modelProb * b - q) / b
+   537→    const safeKelly = Math.max(0, rawKelly * 0.10) // 10% fractional Kelly
+   538→
+   539→    return {
+   540→      label: out.label,
+   541→      modelProb: out.modelProb,
+   542→      marketOdds: out.odds,
+   543→      edge: edge * 100,
+   544→      kellyFraction: safeKelly,
+   545→      wagerAmount: Math.round(bankroll * safeKelly * 100) / 100,
+   546→      action: edge > 0.02 ? 'BET' as const : edge > 0 ? 'RISKY' as const : 'NO_EDGE' as const,
+   547→    }
+   548→  })
+   549→
+   550→  const totalExposure = results.reduce((s, r) => s + r.wagerAmount, 0)
+   551→  const totalEV = results.reduce((s, r) => s + r.wagerAmount * r.edge / 100, 0)
+   552→  const avgReturn = totalExposure > 0 ? totalEV / totalExposure : 0
+   553→  const sharpeRatio = results.length > 1 ? avgReturn / (Math.sqrt(results.reduce((s, r) => s + (r.edge / 100 - avgReturn) ** 2, 0) / results.length) || 0.01) : 0
+   554→
+   555→  return {
+   556→    outcomes: results,
+   557→    totalBankroll: bankroll,
+   558→    totalExposure: Math.round(totalExposure * 100) / 100,
+   559→    totalExpectedValue: Math.round(totalEV * 100) / 100,
+   560→    sharpeRatio: Math.round(sharpeRatio * 100) / 100,
+   561→  }
+   562→}
+   563→
+   564→// ── Matrix Inversion (3x3) ─────────────────────────────────────────────────────
+   565→
+   566→function invertMatrix(m: number[][]): number[][] | null {
+   567→  if (m.length !== 3 || m[0].length !== 3) return null
+   568→
+   569→  const [a, b, c] = m[0]
+   570→  const [d, e, f] = m[1]
+   571→  const [g, h, i] = m[2]
+   572→
+   573→  const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+   574→  if (Math.abs(det) < 1e-10) return null
+   575→
+   576→  const invDet = 1 / det
+   577→  return [
+   578→    [(e * i - f * h) * invDet, (c * h - b * i) * invDet, (b * f - c * e) * invDet],
+   579→    [(f * g - d * i) * invDet, (a * i - c * g) * invDet, (c * d - a * f) * invDet],
+   580→    [(d * h - e * g) * invDet, (b * g - a * h) * invDet, (a * e - b * d) * invDet],
+   581→  ]
+   582→}
+   583→
+   584→// ── Market Signal Tracker ───────────────────────────────────────────────────────
+   585→
+   586→export function analyzeMarketSignals(
+   587→  openingOdds: { home: number; draw: number; away: number },
+   588→  currentOdds: { home: number; draw: number; away: number },
+   589→  matchId: string,
+   590→  homeTeam: string,
+   591→  awayTeam: string
+   592→): MarketSignal {
+   593→  /**
+   594→   * Tracks line movement velocity to detect sharp money action.
+   595→   * 
+   596→   * Key signals:
+   597→   * - Steam Move: Rapid odds movement in one direction
+   598→   * - Reverse Line Movement (RLM): Line moves AGAINST public betting
+   599→   * - Sharp Action: Professional syndicate money detected
+   600→   */
+   601→
+   602→  // Calculate line velocity (negative = odds dropping = money coming in)
+   603→  const homeVelocity = (currentOdds.home - openingOdds.home) / openingOdds.home
+   604→  const drawVelocity = (currentOdds.draw - openingOdds.draw) / openingOdds.draw
+   605→  const awayVelocity = (currentOdds.away - openingOdds.away) / openingOdds.away
+   606→
+   607→  // Detect significant moves (>3% change is notable)
+   608→  const threshold = 0.03
+   609→  const homeSteam = homeVelocity < -threshold
+   610→  const awaySteam = awayVelocity < -threshold
+   611→  const drawSteam = drawVelocity < -threshold
+   612→
+   613→  // Detect RLM: odds drop on one side despite public likely betting the other
+   614→  const rlmDetected = (homeVelocity < -threshold && awayVelocity > threshold) ||
+   615→    (awayVelocity < -threshold && homeVelocity > threshold)
+   616→
+   617→  // Determine sharp action direction
+   618→  const velocities = [
+   619→    { dir: 'home' as const, vel: Math.abs(homeVelocity) },
+   620→    { dir: 'draw' as const, vel: Math.abs(drawVelocity) },
+   621→    { dir: 'away' as const, vel: Math.abs(awayVelocity) },
+   622→  ]
+   623→  velocities.sort((a, b) => b.vel - a.vel)
+   624→
+   625→  const sharpAction: MarketSignal['sharpAction'] =
+   626→    velocities[0].vel > threshold ? velocities[0].dir : 'neutral'
+   627→
+   628→  // Confidence score based on magnitude of movement
+   629→  const maxMove = Math.max(Math.abs(homeVelocity), Math.abs(drawVelocity), Math.abs(awayVelocity))
+   630→  const confidence = clamp(maxMove * 500, 0, 100)
+   631→
+   632→  return {
+   633→    matchId,
+   634→    homeTeam,
+   635→    awayTeam,
+   636→    openingOdds,
+   637→    currentOdds,
+   638→    lineVelocity: {
+   639→      home: Math.round(homeVelocity * 10000) / 100,
+   640→      draw: Math.round(drawVelocity * 10000) / 100,
+   641→      away: Math.round(awayVelocity * 10000) / 100,
+   642→    },
+   643→    sharpAction,
+   644→    steamMove: homeSteam || awaySteam || drawSteam,
+   645→    rlmDetected,
+   646→    confidence: Math.round(confidence),
+   647→    timestamp: new Date().toISOString(),
+   648→  }
+   649→}
+   650→
+   651→// ── xG Luck Adjustment ─────────────────────────────────────────────────────────
+   652→
+   653→export function adjustForLuck(
+   654→  rawGoals: number,
+   655→  xg: number,
+   656→  sampleSize: number = 10
+   657→): { luckAdjustedGoals: number; luckFactor: number } {
+   658→  /**
+   659→   * Removes "luck" from raw scores by regressing toward xG.
+   660→   * Uses a Bayesian shrinkage estimator weighted by sample size.
+   661→   * 
+   662→   * Small sample → more regression toward xG (more luck adjustment)
+   663→   * Large sample → trust raw goals more
+   664→   */
+   665→  const weight = Math.min(sampleSize / 30, 1) // Full weight at 30+ games
+   666→  const luckAdjustedGoals = rawGoals * weight + xg * (1 - weight)
+   667→  const luckFactor = rawGoals > 0 ? xg / rawGoals : 1
+   668→
+   669→  return {
+   670→    luckAdjustedGoals: Math.round(luckAdjustedGoals * 100) / 100,
+   671→    luckFactor: Math.round(luckFactor * 100) / 100,
+   672→  }
+   673→}
+   674→
+   675→// ── Complete Match Analysis Pipeline ────────────────────────────────────────────
+   676→
+   677→export interface FullMatchAnalysis {
+   678→  matchInput: MatchInput
+   679→  simulation: StochasticMatchResult
+   680→  kellyResults: {
+   681→    home: KellyResult
+   682→    draw: KellyResult
+   683→    away: KellyResult
+   684→    over25: KellyResult
+   685→    under25: KellyResult
+   686→  }
+   687→  portfolioAllocation: PortfolioAllocation
+   688→  marketSignal: MarketSignal | null
+   689→  luckAdjustment: {
+   690→    home: ReturnType<typeof adjustForLuck>
+   691→    away: ReturnType<typeof adjustForLuck>
+   692→  }
+   693→  recommendation: string
+   694→  riskRating: 'low' | 'medium' | 'high' | 'very-high'
+   695→}
+   696→
+   697→export function runFullMatchAnalysis(
+   698→  input: MatchInput,
+   699→  bankroll: number = 1000,
+   700→  openingOdds?: { home: number; draw: number; away: number },
+   701→  config: EngineConfig = DEFAULT_CONFIG
+   702→): FullMatchAnalysis {
+   703→  /**
+   704→   * The complete ELASTICO analysis pipeline:
+   705→   * 1. Luck-adjust historical data
+   706→   * 2. Run stochastic simulation
+   707→   * 3. Calculate Kelly Criterion for all markets
+   708→   * 4. Generate portfolio allocation
+   709→   * 5. Analyze market signals
+   710→   * 6. Produce final recommendation
+   711→   */
+   712→
+   713→  // Step 1: Luck adjustment
+   714→  const homeLuck = adjustForLuck(
+   715→    input.homeXg * 1.1, // Approximate actual goals from xG
+   716→    input.homeXg
+   717→  )
+   718→  const awayLuck = adjustForLuck(
+   719→    input.awayXg * 0.9,
+   720→    input.awayXg
+   721→  )
+   722→
+   723→  // Step 2: Run simulation with luck-adjusted inputs
+   724→  const adjustedInput: MatchInput = {
+   725→    ...input,
+   726→    homeXg: homeLuck.luckAdjustedGoals,
+   727→    awayXg: awayLuck.luckAdjustedGoals,
+   728→  }
+   729→  const simulation = runStochasticSimulation(adjustedInput, config)
+   730→
+   731→  // Step 3: Kelly Criterion for each market
+   732→  const kellyResults = {
+   733→    home: calculateKelly(
+   734→      simulation.matchProbabilities.homeVictory,
+   735→      input.bookmakerOdds.home,
+   736→      bankroll,
+   737→      config.kellyFraction
+   738→    ),
+   739→    draw: calculateKelly(
+   740→      simulation.matchProbabilities.draw,
+   741→      input.bookmakerOdds.draw,
+   742→      bankroll,
+   743→      config.kellyFraction
+   744→    ),
+   745→    away: calculateKelly(
+   746→      simulation.matchProbabilities.awayVictory,
+   747→      input.bookmakerOdds.away,
+   748→      bankroll,
+   749→      config.kellyFraction
+   750→    ),
+   751→    over25: calculateKelly(
+   752→      simulation.totalsMarket.over25,
+   753→      input.bookmakerOdds.home * 0.9, // Approximate over/under odds
+   754→      bankroll,
+   755→      config.kellyFraction
+   756→    ),
+   757→    under25: calculateKelly(
+   758→      simulation.totalsMarket.under25,
+   759→      input.bookmakerOdds.home * 1.1,
+   760→      bankroll,
+   761→      config.kellyFraction
+   762→    ),
+   763→  }
+   764→
+   765→  // Step 4: Portfolio allocation
+   766→  const portfolioAllocation = calculatePortfolioAllocation([
+   767→    { label: `Home Win (${input.homeTeam})`, modelProb: simulation.matchProbabilities.homeVictory, odds: input.bookmakerOdds.home },
+   768→    { label: `Draw`, modelProb: simulation.matchProbabilities.draw, odds: input.bookmakerOdds.draw },
+   769→    { label: `Away Win (${input.awayTeam})`, modelProb: simulation.matchProbabilities.awayVictory, odds: input.bookmakerOdds.away },
+   770→  ], bankroll)
+   771→
+   772→  // Step 5: Market signals
+   773→  const marketSignal = openingOdds
+   774→    ? analyzeMarketSignals(openingOdds, input.bookmakerOdds, input.homeTeamId || '', input.homeTeam, input.awayTeam)
+   775→    : null
+   776→
+   777→  // Step 6: Generate recommendation
+   778→  const bestBet = [kellyResults.home, kellyResults.draw, kellyResults.away]
+   779→    .filter(k => k.action === 'BET')
+   780→    .sort((a, b) => b.edgePercentage - a.edgePercentage)[0]
+   781→
+   782→  const recommendation = bestBet
+   783→    ? `RECOMMENDED: ${bestBet.edgePercentage.toFixed(1)}% edge detected. Suggested wager: $${bestBet.suggestedWager.toFixed(2)} (${(bestBet.suggestedFraction * 100).toFixed(2)}% of bankroll). Model probability: ${(bestBet.modelProbability * 100).toFixed(1)}% vs market implied: ${(bestBet.impliedProbability * 100).toFixed(1)}%.`
+   784→    : 'No positive expected value bets found for this match. The market appears efficiently priced.'
+   785→
+   786→  // Risk rating
+   787→  const maxEdge = Math.max(
+   788→    kellyResults.home.edgePercentage,
+   789→    kellyResults.draw.edgePercentage,
+   790→    kellyResults.away.edgePercentage
+   791→  )
+   792→  const riskRating: FullMatchAnalysis['riskRating'] =
+   793→    simulation.volatilityIndex > 70 ? 'very-high' :
+   794→    simulation.volatilityIndex > 50 ? 'high' :
+   795→    simulation.volatilityIndex > 30 ? 'medium' : 'low'
+   796→
+   797→  return {
+   798→    matchInput: adjustedInput,
+   799→    simulation,
+   800→    kellyResults,
+   801→    portfolioAllocation,
+   802→    marketSignal,
+   803→    luckAdjustment: { home: homeLuck, away: awayLuck },
+   804→    recommendation,
+   805→    riskRating,
+   806→  }
+   807→}
+   808→
+   809→// ═══════════════════════════════════════════════════════════════════════════════
+   810→// PREDICTION EVALUATION INFRASTRUCTURE
+   811→// Ported from reference project — Brier score, log loss, calibration
+   812→// ═══════════════════════════════════════════════════════════════════════════════
+   813→
+   814→// ── Brier Score ────────────────────────────────────────────────────────────────
+   815→
+   816→/**
+   817→ * Brier score for a single prediction.
+   818→ * predicted: probability assigned to the actual outcome (0-1)
+   819→ * actual: 1 if the predicted event occurred, 0 otherwise
+   820→ * Lower is better. Perfect score = 0. Random baseline = 0.25 for 3-outcome.
+   821→ */
+   822→export function brierScore(predicted: number, actual: number): number {
+   823→  const error = predicted - actual
+   824→  return +(error * error).toFixed(6)
+   825→}
+   826→
+   827→/**
+   828→ * Mean Brier score across multiple predictions.
+   829→ */
+   830→export function meanBrierScore(predictions: Array<{ predicted: number; actual: number }>): number {
+   831→  if (predictions.length === 0) return 0
+   832→  const total = predictions.reduce((sum, p) => sum + brierScore(p.predicted, p.actual), 0)
+   833→  return +(total / predictions.length).toFixed(6)
+   834→}
+   835→
+   836→// ── Log Loss ───────────────────────────────────────────────────────────────────
+   837→
+   838→/**
+   839→ * Log loss for a single prediction.
+   840→ * Clamps predicted to [0.01, 0.99] to avoid infinity.
+   841→ */
+   842→export function logLoss(predicted: number, actual: number): number {
+   843→  const p = Math.max(0.01, Math.min(0.99, predicted))
+   844→  const value = actual === 1 ? -Math.log(p) : -Math.log(1 - p)
+   845→  return +value.toFixed(6)
+   846→}
+   847→
+   848→/**
+   849→ * Mean log loss across multiple predictions.
+   850→ */
+   851→export function meanLogLoss(predictions: Array<{ predicted: number; actual: number }>): number {
+   852→  if (predictions.length === 0) return 0
+   853→  const total = predictions.reduce((sum, p) => sum + logLoss(p.predicted, p.actual), 0)
+   854→  return +(total / predictions.length).toFixed(6)
+   855→}
+   856→
+   857→// ── Brier Skill Score ──────────────────────────────────────────────────────────
+   858→
+   859→/**
+   860→ * Brier Skill Score relative to a baseline (uniform = 0.333... for 3-outcome).
+   861→ * BSS = 1 - (brier / baseline_brier)
+   862→ * Positive = model beats baseline. Negative = model worse than baseline.
+   863→ */
+   864→export function brierSkillScore(brier: number, baselineBrier?: number): number {
+   865→  const baseline = baselineBrier ?? (2 / 9) // uniform 3-outcome Brier
+   866→  if (baseline === 0) return 0
+   867→  return +(1 - (brier / baseline)).toFixed(4)
+   868→}
+   869→
+   870→// ── Calibration / Reliability Bins ─────────────────────────────────────────────
+   871→
+   872→export interface CalibrationBin {
+   873→  predictedRange: string      // e.g. "0.3-0.4"
+   874→  total: number                // number of predictions in this bin
+   875→  correct: number              // number that were correct
+   876→  actualRate: number            // actual frequency of the predicted event
+   877→  avgPredicted: number         // average predicted probability in this bin
+   878→  sampleError: number          // standard error of the actual rate
+   879→}
+   880→
+   881→/**
+   882→ * Compute calibration/reliability diagram bins.
+   883→ * Predicted probabilities are binned; actual rates are compared.
+   884→ * Well-calibrated model: actual rate ≈ average predicted in each bin.
+   885→ */
+   886→export function computeCalibrationBins(
+   887→  predictions: Array<{ predicted: number; actual: number }>,
+   888→  nBins: number = 10
+   889→): CalibrationBin[] {
+   890→  if (predictions.length === 0) return []
+   891→
+   892→  const bins: CalibrationBin[] = []
+   893→  const binSize = 1.0 / nBins
+   894→
+   895→  for (let i = 0; i < nBins; i++) {
+   896→    const lower = i * binSize
+   897→    const upper = (i + 1) * binSize
+   898→    const binPreds = predictions.filter(p => lower <= p.predicted && p.predicted < upper)
+   899→
+   900→    if (binPreds.length === 0) continue
+   901→
+   902→    const total = binPreds.length
+   903→    const correct = binPreds.filter(p => p.actual === 1).length
+   904→    const avgPred = binPreds.reduce((s, p) => s + p.predicted, 0) / total
+   905→    const actualRate = correct / total
+   906→    const sampleError = total > 0
+   907→      ? Math.sqrt((actualRate * (1 - actualRate)) / total)
+   908→      : 0
+   909→
+   910→    bins.push({
+   911→      predictedRange: `${lower.toFixed(1)}-${upper.toFixed(1)}`,
+   912→      total,
+   913→      correct,
+   914→      actualRate: +actualRate.toFixed(4),
+   915→      avgPredicted: +avgPred.toFixed(4),
+   916→      sampleError: +sampleError.toFixed(4),
+   917→    })
+   918→  }
+   919→
+   920→  return bins
+   921→}
+   922→
+   923→// ═══════════════════════════════════════════════════════════════════════════════
+   924→// WEIGHTED ENSEMBLE WITH MARKET MODEL
+   925→// ═══════════════════════════════════════════════════════════════════════════════
+   926→
+   927→export interface EnsembleWeights {
+   928→  elo: number
+   929→  poisson: number
+   930→  dixonColes: number
+   931→  stochastic: number
+   932→  market: number  // 0 = exclude market model
+   933→}
+   934→
+   935→export const DEFAULT_ENSEMBLE_WEIGHTS: EnsembleWeights = {
+   936→  elo: 0.20,
+   937→  poisson: 0.20,
+   938→  dixonColes: 0.20,
+   939→  stochastic: 0.25,
+   940→  market: 0.15,
+   941→}
+   942→
+   943→export interface EnsembleInput {
+   944→  elo: { homeWin: number; draw: number; awayWin: number }
+   945→  poisson: { homeWin: number; draw: number; awayWin: number }
+   946→  dixonColes: { homeWin: number; draw: number; awayWin: number }
+   947→  stochastic: { homeWin: number; draw: number; awayWin: number }
+   948→ marketImplied?: { homeWin: number; draw: number; awayWin: number }
+   949→}
+   950→
+   951→export interface EnsembleResult {
+   952→  homeWin: number
+   953→  draw: number
+   954→  awayWin: number
+   955→  weights: EnsembleWeights
+   956→  modelAgreement: 'high' | 'medium' | 'low'
+   957→}
+   958→
+   959→/**
+   960→ * Weighted ensemble of model probabilities.
+   961→ * If market odds are provided, the market model is included with its weight.
+   962→ * If not, the market weight is redistributed proportionally.
+   963→ */
+   964→export function computeWeightedEnsemble(
+   965→  input: EnsembleInput,
+   966→  weights: EnsembleWeights = DEFAULT_ENSEMBLE_WEIGHTS
+   967→): EnsembleResult {
+   968→  const { elo, poisson, dixonColes, stochastic, marketImplied } = input
+   969→
+   970→  // If no market data, redistribute market weight proportionally
+   971→  let w = { ...weights }
+   972→  let home = 0, draw = 0, away = 0
+   973→
+   974→  if (!marketImplied || w.market === 0) {
+   975→    // Redistribute without market
+   976→    const nonMarketTotal = w.elo + w.poisson + w.dixonColes + w.stochastic
+   977→    const scale = 1.0 / nonMarketTotal
+   978→    home = (w.elo * elo.homeWin + w.poisson * poisson.homeWin + w.dixonColes * dixonColes.homeWin + w.stochastic * stochastic.homeWin) * scale
+   979→    draw = (w.elo * elo.draw + w.poisson * poisson.draw + w.dixonColes * dixonColes.draw + w.stochastic * stochastic.draw) * scale
+   980→    away = (w.elo * elo.awayWin + w.poisson * poisson.awayWin + w.dixonColes * dixonColes.awayWin + w.stochastic * stochastic.awayWin) * scale
+   981→    w.market = 0
+   982→  } else {
+   983→    const total = w.elo + w.poisson + w.dixonColes + w.stochastic + w.market
+   984→    home = (w.elo * elo.homeWin + w.poisson * poisson.homeWin + w.dixonColes * dixonColes.homeWin + w.stochastic * stochastic.homeWin + w.market * marketImplied.homeWin) / total
+   985→    draw = (w.elo * elo.draw + w.poisson * poisson.draw + w.dixonColes * dixonColes.draw + w.stochastic * stochastic.draw + w.market * marketImplied.draw) / total
+   986→    away = (w.elo * elo.awayWin + w.poisson * poisson.awayWin + w.dixonColes * dixonColes.awayWin + w.stochastic * stochastic.awayWin + w.market * marketImplied.awayWin) / total
+   987→  }
+   988→
+   989→  // Normalize
+   990→  const total = home + draw + away
+   991→  home = Number((home / total).toFixed(4))
+   992→  draw = Number((draw / total).toFixed(4))
+   993→  away = Number((away / total).toFixed(4))
+   994→
+   995→  // Model agreement: how closely do the models agree?
+   996→  const allProbs = [elo.homeWin, poisson.homeWin, dixonColes.homeWin, stochastic.homeWin]
+   997→  if (marketImplied) allProbs.push(marketImplied.homeWin)
+   998→  const mean = allProbs.reduce((s, v) => s + v, 0) / allProbs.length
+   999→  const variance = allProbs.reduce((s, v) => s + (v - mean) ** 2, 0) / allProbs.length
+  1000→  const stdDev = Math.sqrt(variance)
+  1001→
+  1002→  const modelAgreement: EnsembleResult['modelAgreement'] =
+  1003→    stdDev < 0.03 ? 'high' :
+  1004→    stdDev < 0.07 ? 'medium' : 'low'
+  1005→
+  1006→  return { homeWin: home, draw, away: away, weights: w, modelAgreement }
+  1007→}
+  1008→
+  1009→/**
+  1010→ * Convert decimal odds to implied probabilities (removing overround).
+  1011→ */
+  1012→export function oddsToImpliedProbabilities(
+  1013→  homeOdds: number, drawOdds: number, awayOdds: number
+  1014→): { homeWin: number; draw: number; awayWin: number } {
+  1015→  const totalImplied = (1 / homeOdds) + (1 / drawOdds) + (1 / awayOdds)
+  1016→  return {
+  1017→    homeWin: +((1 / homeOdds) / totalImplied).toFixed(4),
+  1018→    draw: +((1 / drawOdds) / totalImplied).toFixed(4),
+  1019→    awayWin: +((1 / awayOdds) / totalImplied).toFixed(4),
+  1020→  }
+  1021→}
+  1022→
+  1023→// ═══════════════════════════════════════════════════════════════════════════════
+  1024→// SIGNALS & RISKS GENERATION (Explainability)
+  1025→// ═══════════════════════════════════════════════════════════════════════════════
+  1026→
+  1027→export interface PredictionSignals {
+  1028→  signals: string[]
+  1029→  risks: string[]
+  1030→}
+  1031→
+  1032→/**
+  1033→ * Generate human-readable prediction signals and risk factors.
+  1034→ * Adapted from reference project, enriched with ELASTICO's data.
+  1035→ */
+  1036→export function generatePredictionSignals(params: {
+  1037→  eloDiff: number
+  1038→  homeXg: number
+  1039→  awayXg: number
+  1040→  hasOdds: boolean
+  1041→  oddsHome?: number
+  1042→  modelAgreement: string
+  1043→  volatilityIndex: number
+  1044→  confidence: string
+  1045→  homeForm?: string[]   // ['W','D','L',...]
+  1046→  awayForm?: string[]
+  1047→  garchVolatilityHome?: number
+  1048→  garchVolatilityAway?: number
+  1049→}): PredictionSignals {
+  1050→  const { eloDiff, homeXg, awayXg, hasOdds, oddsHome, modelAgreement, volatilityIndex, confidence, homeForm, awayForm } = params
+  1051→
+  1052→  const signals: string[] = []
+  1053→  const risks: string[] = []
+  1054→
+  1055→  // ELO signals
+  1056→  if (eloDiff > 150) {
+  1057→    signals.push('Strong ELO advantage for home team')
+  1058→  } else if (eloDiff < -150) {
+  1059→    signals.push('Strong ELO advantage for away team')
+  1060→  } else if (Math.abs(eloDiff) > 80) {
+  1061→    signals.push(`Moderate ELO advantage: ${eloDiff > 0 ? 'home' : 'away'} (${Math.abs(eloDiff).toFixed(0)} pts)`)
+  1062→  }
+  1063→
+  1064→  // xG signals
+  1065→  if (homeXg > awayXg * 1.4) {
+  1066→    signals.push('Home xG significantly higher')
+  1067→  } else if (awayXg > homeXg * 1.4) {
+  1068→    signals.push('Away xG significantly higher')
+  1069→  }
+  1070→
+  1071→  // Form signals
+  1072→  if (homeForm && homeForm.length >= 3) {
+  1073→    const recentWins = homeForm.slice(0, 5).filter(r => r === 'W').length
+  1074→    const recentLosses = homeForm.slice(0, 5).filter(r => r === 'L').length
+  1075→    if (recentWins >= 4) signals.push('Home team in excellent form')
+  1076→    if (recentLosses >= 3) signals.push('Home team in poor form')
+  1077→  }
+  1078→  if (awayForm && awayForm.length >= 3) {
+  1079→    const recentWins = awayForm.slice(0, 5).filter(r => r === 'W').length
+  1080→    const recentLosses = awayForm.slice(0, 5).filter(r => r === 'L').length
+  1081→    if (recentWins >= 4) signals.push('Away team in excellent form')
+  1082→    if (recentLosses >= 3) signals.push('Away team in poor form')
+  1083→  }
+  1084→
+  1085→  // Model agreement signal
+  1086→  if (modelAgreement === 'high') {
+  1087→    signals.push('All models agree on outcome')
+  1088→  } else if (modelAgreement === 'low') {
+  1089→    risks.push('Models disagree — prediction uncertainty elevated')
+  1090→  }
+  1091→
+  1092→  // Market risks
+  1093→  if (!hasOdds) {
+  1094→    risks.push('No market odds available — market model excluded from ensemble')
+  1095→  }
+  1096→
+  1097→  if (oddsHome && oddsHome < 1.3) {
+  1098→    risks.push('Heavy favorite — low value in outcome market')
+  1099→  }
+  1100→
+  1101→  // Volatility risk
+  1102→  if (volatilityIndex > 60) {
+  1103→    risks.push(`High match volatility (index: ${volatilityIndex.toFixed(0)})`)
+  1104→  }
+  1105→
+  1106→  // Confidence risk
+  1107→  if (confidence === 'low') {
+  1108→    risks.push('Low prediction confidence — treat with caution')
+  1109→  }
+  1110→
+  1111→  // Form data risk
+  1112→  if (!homeForm || homeForm.length < 3) {
+  1113→    risks.push('Insufficient home team form data')
+  1114→  }
+  1115→  if (!awayForm || awayForm.length < 3) {
+  1116→    risks.push('Insufficient away team form data')
+  1117→  }
+  1118→
+  1119→  return { signals, risks }
+  1120→}
+  1121→
+  1122→// ═══════════════════════════════════════════════════════════════════════════════
+  1123→// ENHANCED PREDICTION OUTPUT (with provenance)
+  1124→// ═══════════════════════════════════════════════════════════════════════════════
+  1125→
+  1126→export interface EnhancedPredictionOutput {
+  1127→  matchId?: string
+  1128→  homeTeam: string
+  1129→  awayTeam: string
+  1130→  ensemble: EnsembleResult
+  1131→  expectedGoals: { home: number; away: number; total: number }
+  1132→  confidence: string
+  1133→  signals: string[]
+  1134→  risks: string[]
+  1135→  modelAgreement: string
+  1136→  volatilityIndex: number
+  1137→  predictionTimestamp: string
+  1138→  modelVersion: string
+  1139→  dataTimestamp?: string
+  1140→  mostLikelyScoreline: string
+  1141→  over25: number
+  1142→  btts: number
+  1143→}
+  1144→
+  1145→const MODEL_VERSION = '2.1.0' // Bumped after ensemble + evaluation integration
+  1146→
+  1147→/**
+  1148→ * Build the full enhanced prediction output.
+  1149→ * This is the main integration point — called by the prediction API route.
+  1150→ */
+  1151→export function buildEnhancedPrediction(params: {
+  1152→  matchId?: string
+  1153→  homeTeam: string
+  1154→  awayTeam: string
+  1155→  elo: { homeWin: number; draw: number; awayWin: number; expectedHomeGoals: number; expectedAwayGoals: number }
+  1156→  poisson: { homeWin: number; draw: number; awayWin: number }
+  1157→  dixonColes: { homeWin: number; draw: number; awayWin: number }
+  1158→  stochastic: StochasticMatchResult
+  1159→  bookmakerOdds?: { home: number; draw: number; away: number }
+  1160→  homeForm?: string[]
+  1161→  awayForm?: string[]
+  1162→}): EnhancedPredictionOutput {
+  1163→  const { homeTeam, awayTeam, elo, poisson, dixonColes, stochastic, bookmakerOdds, homeForm, awayForm } = params
+  1164→
+  1165→  // Market implied probabilities
+  1166→  const marketImplied = bookmakerOdds
+  1167→    ? oddsToImpliedProbabilities(bookmakerOdds.home, bookmakerOdds.draw, bookmakerOdds.away)
+  1168→    : undefined
+  1169→
+  1170→  // Weighted ensemble
+  1171→  const ensemble = computeWeightedEnsemble(
+  1172→    { elo, poisson, dixonColes, stochastic: { homeWin: stochastic.matchProbabilities.homeVictory, draw: stochastic.matchProbabilities.draw, awayWin: stochastic.matchProbabilities.awayVictory }, marketImplied }
+  1173→  )
+  1174→
+  1175→  // Signals & risks
+  1176→  const eloDiff = elo.homeWin > elo.awayWin ? 100 : elo.homeWin < elo.awayWin ? -100 : 0 // approximate
+  1177→  const { signals, risks } = generatePredictionSignals({
+  1178→    eloDiff,
+  1179→    homeXg: elo.expectedHomeGoals,
+  1180→    awayXg: elo.expectedAwayGoals,
+  1181→    hasOdds: !!marketImplied,
+  1182→    oddsHome: bookmakerOdds?.home,
+  1183→    modelAgreement: ensemble.modelAgreement,
+  1184→    volatilityIndex: stochastic.volatilityIndex,
+  1185→    confidence: stochastic.confidence,
+  1186→    homeForm,
+  1187→    awayForm,
+  1188→  })
+  1189→
+  1190→  // Most likely scoreline from stochastic
+  1191→  const topScoreline = Object.entries(stochastic.exoticScorelines)
+  1192→    .sort(([, a], [, b]) => b - a)[0]?.[0] || '1-1'
+  1193→
+  1194→  return {
+  1195→    matchId: params.matchId,
+  1196→    homeTeam,
+  1197→    awayTeam,
+  1198→    ensemble,
+  1199→    expectedGoals: stochastic.expectedMeans,
+  1200→    confidence: stochastic.confidence,
+  1201→    signals,
+  1202→    risks,
+  1203→    modelAgreement: ensemble.modelAgreement,
+  1204→    volatilityIndex: stochastic.volatilityIndex,
+  1205→    predictionTimestamp: new Date().toISOString(),
+  1206→    modelVersion: MODEL_VERSION,
+  1207→    mostLikelyScoreline: topScoreline,
+  1208→    over25: stochastic.totalsMarket.over25,
+  1209→    btts: stochastic.bothTeamsToScore,
+  1210→  }
+  1211→}
