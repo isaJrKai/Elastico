@@ -88,6 +88,14 @@ export default function Home() {
     }
   }, [])
 
+  // Trigger initial data sync (populates DB from ESPN/API-Sports)
+  useEffect(() => {
+    fetch('/api/cron/sync', {
+      method: 'POST',
+      headers: { 'x-cron-secret': 'elastico-cron-2026-secret' },
+    }).catch(() => {}) // fire-and-forget, failures are silent
+  }, [])
+
   // Fetch ESPN live scores immediately (no auth needed)
   useEffect(() => {
     fetchLiveScores()

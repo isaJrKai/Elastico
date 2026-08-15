@@ -2,11 +2,5 @@
   "git": {
     "deploymentEnabled": true
   },
-  "framework": "nextjs",
-  "crons": [
-    {
-      "path": "/api/cron/sync",
-      "schedule": "*/3 * * * *"
-    }
-  ]
+  "framework": "nextjs"
 }
