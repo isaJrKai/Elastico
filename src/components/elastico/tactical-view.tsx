@@ -408,22 +408,22 @@ export function TacticalView() {
             <div className="grid grid-cols-3 gap-3 mt-4">
               <StatBlock
                 label="Home xG/Game"
-                value={homeTeam!.xgPerGame.toFixed(2)}
+                value={(homeTeam!.xgPerGame ?? 0).toFixed(2)}
                 dataClass="DERIVED"
                 compact
                 className="p-3 rounded-lg bg-card border border-border/60"
               />
               <StatBlock
                 label="Away xG/Game"
-                value={awayTeam!.xgPerGame.toFixed(2)}
+                value={(awayTeam!.xgPerGame ?? 0).toFixed(2)}
                 dataClass="DERIVED"
                 compact
                 className="p-3 rounded-lg bg-card border border-border/60"
               />
               <StatBlock
                 label="Possession Gap"
-                value={`${Math.abs(homeTeam!.possession - awayTeam!.possession).toFixed(0)}%`}
-                sublabel={homeTeam!.possession > awayTeam!.possession ? homeTeam!.code : awayTeam!.possession > homeTeam!.possession ? awayTeam!.code : 'Even'}
+                value={`${Math.abs((homeTeam!.possession ?? 50) - (awayTeam!.possession ?? 50)).toFixed(0)}%`}
+                sublabel={(homeTeam!.possession ?? 50) > (awayTeam!.possession ?? 50) ? homeTeam!.code : (awayTeam!.possession ?? 50) > (homeTeam!.possession ?? 50) ? awayTeam!.code : 'Even'}
                 dataClass="DERIVED"
                 compact
                 className="p-3 rounded-lg bg-card border border-border/60"
@@ -536,11 +536,11 @@ export function TacticalView() {
                     <span className={TYPE.h3}>{homeTeam!.name}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <StatBlock label="xG/Game" value={homeTeam!.xgPerGame.toFixed(2)} dataClass="DERIVED" compact />
-                    <StatBlock label="xGA/Game" value={homeTeam!.xgaPerGame.toFixed(2)} dataClass="DERIVED" compact />
+                    <StatBlock label="xG/Game" value={(homeTeam!.xgPerGame ?? 0).toFixed(2)} dataClass="DERIVED" compact />
+                    <StatBlock label="xGA/Game" value={(homeTeam!.xgaPerGame ?? 0).toFixed(2)} dataClass="DERIVED" compact />
                     <StatBlock label="Possession" value={`${homeTeam!.possession}%`} dataClass="REAL" compact />
                     <StatBlock label="Pass Acc" value={`${homeTeam!.passAccuracy}%`} dataClass="REAL" compact />
-                    <StatBlock label="Press Int." value={homeTeam!.pressIntensity.toFixed(0)} dataClass="DERIVED" compact />
+                    <StatBlock label="Press Int." value={(homeTeam!.pressIntensity ?? 0).toFixed(0)} dataClass="DERIVED" compact />
                     <StatBlock label="Form" value={homeTeam!.form || '—'} dataClass="REAL" compact />
                   </div>
                 </CardContent>
@@ -553,11 +553,11 @@ export function TacticalView() {
                     <span className={TYPE.h3}>{awayTeam!.name}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <StatBlock label="xG/Game" value={awayTeam!.xgPerGame.toFixed(2)} dataClass="DERIVED" compact />
-                    <StatBlock label="xGA/Game" value={awayTeam!.xgaPerGame.toFixed(2)} dataClass="DERIVED" compact />
+                    <StatBlock label="xG/Game" value={(awayTeam!.xgPerGame ?? 0).toFixed(2)} dataClass="DERIVED" compact />
+                    <StatBlock label="xGA/Game" value={(awayTeam!.xgaPerGame ?? 0).toFixed(2)} dataClass="DERIVED" compact />
                     <StatBlock label="Possession" value={`${awayTeam!.possession}%`} dataClass="REAL" compact />
                     <StatBlock label="Pass Acc" value={`${awayTeam!.passAccuracy}%`} dataClass="REAL" compact />
-                    <StatBlock label="Press Int." value={awayTeam!.pressIntensity.toFixed(0)} dataClass="DERIVED" compact />
+                    <StatBlock label="Press Int." value={(awayTeam!.pressIntensity ?? 0).toFixed(0)} dataClass="DERIVED" compact />
                     <StatBlock label="Form" value={awayTeam!.form || '—'} dataClass="REAL" compact />
                   </div>
                 </CardContent>
@@ -609,7 +609,7 @@ export function TacticalView() {
                                 'text-sm font-bold tabular-nums',
                                 player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400',
                               )}>
-                                {player.rating.toFixed(1)}
+                                {(player.rating ?? 0).toFixed(1)}
                               </span>
                               <StatusBadge variant="dataclass" value="REAL" />
                             </div>
@@ -662,7 +662,7 @@ export function TacticalView() {
                                 'text-sm font-bold tabular-nums',
                                 player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400',
                               )}>
-                                {player.rating.toFixed(1)}
+                                {(player.rating ?? 0).toFixed(1)}
                               </span>
                               <StatusBadge variant="dataclass" value="REAL" />
                             </div>

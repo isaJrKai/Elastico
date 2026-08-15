@@ -90,14 +90,14 @@ export function CompareView() {
   const statComparisons = useMemo(() => {
     if (!homeTeam || !awayTeam) return []
     return [
-      { label: 'ELO Rating', home: homeTeam.eloRating, away: awayTeam.eloRating, higher: 'higher' },
-      { label: 'xG per Game', home: homeTeam.xgPerGame, away: awayTeam.xgPerGame, higher: 'higher' },
-      { label: 'xGA per Game', home: homeTeam.xgaPerGame, away: awayTeam.xgaPerGame, higher: 'lower' },
-      { label: 'Possession %', home: homeTeam.possession, away: awayTeam.possession, higher: 'higher' },
-      { label: 'Pass Accuracy %', home: homeTeam.passAccuracy, away: awayTeam.passAccuracy, higher: 'higher' },
-      { label: 'Press Intensity', home: homeTeam.pressIntensity, away: awayTeam.pressIntensity, higher: 'higher' },
-      { label: 'Goals For', home: homeTeam.goalsFor, away: awayTeam.goalsFor, higher: 'higher' },
-      { label: 'Goals Against', home: homeTeam.goalsAgainst, away: awayTeam.goalsAgainst, higher: 'lower' },
+      { label: 'ELO Rating', home: homeTeam.eloRating ?? 1500, away: awayTeam.eloRating ?? 1500, higher: 'higher' },
+      { label: 'xG per Game', home: homeTeam.xgPerGame ?? 0, away: awayTeam.xgPerGame ?? 0, higher: 'higher' },
+      { label: 'xGA per Game', home: homeTeam.xgaPerGame ?? 0, away: awayTeam.xgaPerGame ?? 0, higher: 'lower' },
+      { label: 'Possession %', home: homeTeam.possession ?? 50, away: awayTeam.possession ?? 50, higher: 'higher' },
+      { label: 'Pass Accuracy %', home: homeTeam.passAccuracy ?? 0, away: awayTeam.passAccuracy ?? 0, higher: 'higher' },
+      { label: 'Press Intensity', home: homeTeam.pressIntensity ?? 0, away: awayTeam.pressIntensity ?? 0, higher: 'higher' },
+      { label: 'Goals For', home: homeTeam.goalsFor ?? 0, away: awayTeam.goalsFor ?? 0, higher: 'higher' },
+      { label: 'Goals Against', home: homeTeam.goalsAgainst ?? 0, away: awayTeam.goalsAgainst ?? 0, higher: 'lower' },
       { label: 'Wins', home: homeTeam.wins, away: awayTeam.wins, higher: 'higher' },
       { label: 'Draws', home: homeTeam.draws, away: awayTeam.draws, higher: 'neutral' },
       { label: 'Losses', home: homeTeam.losses, away: awayTeam.losses, higher: 'lower' },
@@ -112,20 +112,25 @@ export function CompareView() {
     if (!homeTeam || !awayTeam) return []
     return [
       { label: 'Attacking vs Defensive', home: homeTeam.style || 'balanced', away: awayTeam.style || 'balanced', icon: Swords },
-      { label: 'High Press vs Low Block', home: homeTeam.pressIntensity > 60 ? 'High Press' : 'Standard', away: awayTeam.pressIntensity > 60 ? 'High Press' : 'Standard', icon: Shield },
-      { label: 'Possession vs Direct', home: homeTeam.possession > 55 ? 'Possession' : 'Direct', away: awayTeam.possession > 55 ? 'Possession' : 'Direct', icon: BarChart3 },
+      { label: 'High Press vs Low Block', home: (homeTeam.pressIntensity ?? 0) > 60 ? 'High Press' : 'Standard', away: (awayTeam.pressIntensity ?? 0) > 60 ? 'High Press' : 'Standard', icon: Shield },
+      { label: 'Possession vs Direct', home: (homeTeam.possession ?? 50) > 55 ? 'Possession' : 'Direct', away: (awayTeam.possession ?? 50) > 55 ? 'Possession' : 'Direct', icon: BarChart3 },
     ]
   }, [homeTeam, awayTeam])
 
   // Tactical edge
   const tacticalEdge = useMemo(() => {
     if (!homeTeam || !awayTeam) return []
+    const hXg = homeTeam.xgPerGame ?? 0, aXg = awayTeam.xgPerGame ?? 0
+    const hPoss = homeTeam.possession ?? 50, aPoss = awayTeam.possession ?? 50
+    const hXga = homeTeam.xgaPerGame ?? 0, aXga = awayTeam.xgaPerGame ?? 0
+    const hPress = homeTeam.pressIntensity ?? 0, aPress = awayTeam.pressIntensity ?? 0
+    const hPass = homeTeam.passAccuracy ?? 0, aPass = awayTeam.passAccuracy ?? 0
     return [
-      { phase: 'Attack', home: homeTeam.xgPerGame > awayTeam.xgPerGame, margin: Math.abs(homeTeam.xgPerGame - awayTeam.xgPerGame).toFixed(2) },
-      { phase: 'Midfield Control', home: homeTeam.possession > awayTeam.possession, margin: Math.abs(homeTeam.possession - awayTeam.possession).toFixed(0) },
-      { phase: 'Defensive Solidity', home: homeTeam.xgaPerGame < awayTeam.xgaPerGame, margin: Math.abs(homeTeam.xgaPerGame - awayTeam.xgaPerGame).toFixed(2) },
-      { phase: 'Pressing', home: homeTeam.pressIntensity > awayTeam.pressIntensity, margin: Math.abs(homeTeam.pressIntensity - awayTeam.pressIntensity).toFixed(0) },
-      { phase: 'Passing', home: homeTeam.passAccuracy > awayTeam.passAccuracy, margin: Math.abs(homeTeam.passAccuracy - awayTeam.passAccuracy).toFixed(0) },
+      { phase: 'Attack', home: hXg > aXg, margin: Math.abs(hXg - aXg).toFixed(2) },
+      { phase: 'Midfield Control', home: hPoss > aPoss, margin: Math.abs(hPoss - aPoss).toFixed(0) },
+      { phase: 'Defensive Solidity', home: hXga < aXga, margin: Math.abs(hXga - aXga).toFixed(2) },
+      { phase: 'Pressing', home: hPress > aPress, margin: Math.abs(hPress - aPress).toFixed(0) },
+      { phase: 'Passing', home: hPass > aPass, margin: Math.abs(hPass - aPass).toFixed(0) },
     ]
   }, [homeTeam, awayTeam])
 
@@ -479,10 +484,10 @@ export function CompareView() {
             </CardHeader>
             <CardContent>
               <p className="text-sm leading-relaxed text-foreground/90">
-                {homeTeam.name} ({homeTeam.eloRating.toFixed(0)} ELO) enters this matchup as {winProb.home > 50 ? 'the favorite' : 'the underdog'} with a {winProb.home}% win probability.
-                Their attacking output ({homeTeam.xgPerGame} xG/game) compares {homeTeam.xgPerGame > awayTeam.xgPerGame ? 'favorably' : 'unfavorably'} to {awayTeam.name}&apos;s ({awayTeam.xgPerGame} xG/game).
-                The tactical edge lies in {homeTeam.possession > awayTeam.possession ? homeTeam.name : awayTeam.name}&apos;s superior possession game ({Math.max(homeTeam.possession, awayTeam.possession)}% vs {Math.min(homeTeam.possession, awayTeam.possession)}%).
-                Key battleground: the midfield transition zone, where {homeTeam.pressIntensity > awayTeam.pressIntensity ? homeTeam.name : awayTeam.name}&apos;s pressing could prove decisive.
+                {homeTeam.name} ({(homeTeam.eloRating ?? 1500).toFixed(0)} ELO) enters this matchup as {winProb.home > 50 ? 'the favorite' : 'the underdog'} with a {winProb.home}% win probability.
+                Their attacking output ({homeTeam.xgPerGame ?? 0} xG/game) compares {(homeTeam.xgPerGame ?? 0) > (awayTeam.xgPerGame ?? 0) ? 'favorably' : 'unfavorably'} to {awayTeam.name}&apos;s ({awayTeam.xgPerGame ?? 0} xG/game).
+                The tactical edge lies in {(homeTeam.possession ?? 50) > (awayTeam.possession ?? 50) ? homeTeam.name : awayTeam.name}&apos;s superior possession game ({Math.max(homeTeam.possession ?? 50, awayTeam.possession ?? 50)}% vs {Math.min(homeTeam.possession ?? 50, awayTeam.possession ?? 50)}%).
+                Key battleground: the midfield transition zone, where {(homeTeam.pressIntensity ?? 0) > (awayTeam.pressIntensity ?? 0) ? homeTeam.name : awayTeam.name}&apos;s pressing could prove decisive.
               </p>
             </CardContent>
           </Card>

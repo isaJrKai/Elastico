@@ -392,7 +392,7 @@ export function PlayerView() {
                         </div>
                       </div>
                       <div className={cn('text-xl font-bold', player.rating > 0 ? getRatingColor(player.rating) : 'text-muted-foreground')}>
-                        {player.rating > 0 ? player.rating.toFixed(1) : 'N/A'}
+                        {player.rating > 0 ? (player.rating).toFixed(1) : 'N/A'}
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 mt-4">
@@ -472,9 +472,9 @@ export function PlayerView() {
                         <TableCell className="text-center">{p.assists}</TableCell>
                         <TableCell className="text-center text-muted-foreground">{p.minutesPlayed || (p.appearances || 0) * 90}</TableCell>
                         <TableCell className="text-center font-medium">
-                          {((p.goals / ((p.minutesPlayed || (p.appearances || 0) * 90) / 90))).toFixed(2)}
+                          {(p.goals / Math.max(1, (p.minutesPlayed || (p.appearances || 0) * 90) / 90)).toFixed(2)}
                         </TableCell>
-                        <TableCell className={cn('text-center font-bold', p.rating > 0 ? getRatingColor(p.rating) : 'text-muted-foreground')}>{p.rating > 0 ? p.rating.toFixed(1) : '—'}</TableCell>
+                        <TableCell className={cn('text-center font-bold', p.rating > 0 ? getRatingColor(p.rating) : 'text-muted-foreground')}>{p.rating > 0 ? (p.rating).toFixed(1) : '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -887,7 +887,7 @@ export function PlayerView() {
 
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Rating', value: selectedPlayer.rating > 0 ? selectedPlayer.rating.toFixed(1) : 'N/A', color: selectedPlayer.rating > 0 ? getRatingColor(selectedPlayer.rating) : 'text-muted-foreground' },
+                  { label: 'Rating', value: selectedPlayer.rating > 0 ? (selectedPlayer.rating).toFixed(1) : 'N/A', color: selectedPlayer.rating > 0 ? getRatingColor(selectedPlayer.rating) : 'text-muted-foreground' },
                   { label: 'Goals', value: selectedPlayer.goals, color: 'text-primary' },
                   { label: 'Assists', value: selectedPlayer.assists, color: 'text-primary' },
                   { label: 'Appearances', value: selectedPlayer.appearances || '-', color: 'text-foreground' },

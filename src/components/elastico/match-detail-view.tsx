@@ -204,7 +204,9 @@ export default function MatchDetailView() {
 
   const handleCopySummary = useCallback(() => {
     if (!match) return
-    const text = `${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition} · ${match.stage}\nxG: ${match.homeXg.toFixed(1)} - ${match.awayXg.toFixed(1)}\n\n— ELASTICO Analytics`
+    const hXg = match.homeXg ?? 0
+    const aXg = match.awayXg ?? 0
+    const text = `${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition} · ${match.stage}\nxG: ${hXg.toFixed(1)} - ${aXg.toFixed(1)}\n\n— ELASTICO Analytics`
     navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
   }, [match])
 
@@ -238,15 +240,18 @@ export default function MatchDetailView() {
 
   const xgTimeline = useMemo(() => {
     if (!match) return []
+    const homeXg = match.homeXg ?? 0
+    const awayXg = match.awayXg ?? 0
+    if (homeXg === 0 && awayXg === 0) return []
     const goals = (match.events || []).filter(e => e.type === 'goal').sort((a, b) => a.minute - b.minute)
     let hc = 0, ac = 0
     const pts = [{ minute: "0'", Home: 0, Away: 0 }]
     for (const g of goals) {
-      if (g.team === 'home') hc += match.homeXg / Math.max(goals.filter(e => e.team === 'home').length, 1)
-      else ac += match.awayXg / Math.max(goals.filter(e => e.team === 'away').length, 1)
+      if (g.team === 'home') hc += homeXg / Math.max(goals.filter(e => e.team === 'home').length, 1)
+      else ac += awayXg / Math.max(goals.filter(e => e.team === 'away').length, 1)
       pts.push({ minute: `${g.minute}'`, Home: +hc.toFixed(2), Away: +ac.toFixed(2) })
     }
-    pts.push({ minute: "90'", Home: +match.homeXg.toFixed(2), Away: +match.awayXg.toFixed(2) })
+    pts.push({ minute: "90'", Home: +homeXg.toFixed(2), Away: +awayXg.toFixed(2) })
     return pts
   }, [match])
 
@@ -403,12 +408,12 @@ export default function MatchDetailView() {
                     </div>
                     <div className="flex items-center justify-center gap-3 mt-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-cyan-400 font-medium">xG {match.homeXg.toFixed(1)}</span>
+                        <span className="text-[11px] text-cyan-400 font-medium">xG {(match.homeXg ?? 0).toFixed(1)}</span>
                         <StatusBadge variant="dataclass" value="DERIVED" />
                       </div>
                       <span className="text-muted-foreground">·</span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-cyan-400 font-medium">xG {match.awayXg.toFixed(1)}</span>
+                        <span className="text-[11px] text-cyan-400 font-medium">xG {(match.awayXg ?? 0).toFixed(1)}</span>
                         <StatusBadge variant="dataclass" value="DERIVED" />
                       </div>
                     </div>
@@ -575,7 +580,7 @@ export default function MatchDetailView() {
                     </TooltipTrigger>
                     <TooltipContent className="text-[10px] space-y-0.5">
                       <div className="font-semibold">{s.player ? `${s.player} ${s.minute ? `${s.minute}'` : ''}` : `${s.team === 'home' ? homeTeam?.code : awayTeam?.code} ${s.goal ? 'GOAL' : 'Shot'}`}</div>
-                      {'xg' in s && s.xg !== undefined && <div className="text-muted-foreground">xG: {s.xg.toFixed(3)}</div>}
+                      {'xg' in s && s.xg != null && <div className="text-muted-foreground">xG: {s.xg.toFixed(3)}</div>}
                       {s.outcome && <div className="text-muted-foreground">{s.outcome}</div>}
                     </TooltipContent>
                   </Tooltip>
@@ -615,7 +620,7 @@ export default function MatchDetailView() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="flex items-center gap-1 justify-end">
-                          <span className="text-sm font-black tabular-nums text-primary">{p.totalXtGained.toFixed(3)}</span>
+                          <span className="text-sm font-black tabular-nums text-primary">{(p.totalXtGained ?? 0).toFixed(3)}</span>
                           <StatusBadge variant="dataclass" value="DERIVED" />
                         </div>
                         <div className="text-[9px] text-muted-foreground">xT total</div>
