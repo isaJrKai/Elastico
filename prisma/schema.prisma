@@ -56,6 +56,7 @@ model User {
   activities    Activity[]
   sessions      Session[]
   notifications  Notification[]
+  preferences   UserPreference?
 }
 
 model Session {
@@ -189,4 +190,200 @@ model FeatureFlag {
   targetRoles String @default("[]") // JSON
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ==================== USER PREFERENCES (Phase 2 foundation) ====================
+
+model UserPreference {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favoriteTeams   String   @default("[]")
+  favoriteLeagues String   @default("[\"PL\",\"UCL\"]")
+  defaultLeague   String   @default("PL")
+  widgetLayout    String?
+  alertRules      String   @default("[]")
+  theme           String   @default("dark")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==================== SHARED DATA WAREHOUSE ====================
+// (Populated by /api/cron/sync worker from ESPN / API-Sports)
+
+model Team {
+  id            String   @id @default(cuid())
+  externalId    String?
+  name          String
+  code          String?
+  logo          String?
+  primaryColor  String   @default("#00e676")
+  secondaryColor String  @default("#ffffff")
+  country       String?
+  league        String?
+  leagueCode    String?
+  founded       Int?
+  venueName     String?
+  venueCapacity Int?
+  eloRating     Float    @default(1500)
+  wins          Int      @default(0)
+  draws         Int      @default(0)
+  losses        Int      @default(0)
+  goalsFor      Int      @default(0)
+  goalsAgainst  Int      @default(0)
+  source        String   @default("unknown")
+  sourceId      String?
+  lastSyncedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  homeMatches Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+  players     Player[]
+
+  @@unique([source, sourceId])
+  @@index([name])
+  @@index([leagueCode])
+}
+
+model Player {
+  id            String   @id @default(cuid())
+  externalId    String?
+  name          String
+  firstName     String?
+  lastName      String?
+  position      String?
+  age           Int?
+  nationality   String?
+  photo         String?
+  teamId        String
+  number        Int?
+  season        String?
+  appearances   Int      @default(0)
+  minutesPlayed Int      @default(0)
+  goals         Int      @default(0)
+  assists       Int      @default(0)
+  yellowCards   Int      @default(0)
+  redCards      Int      @default(0)
+  rating        Float?
+  source        String   @default("unknown")
+  sourceId      String?
+  lastSyncedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([source, sourceId])
+  @@index([teamId])
+  @@index([goals])
+}
+
+model Match {
+  id              String   @id @default(cuid())
+  externalId      String?
+  homeTeamId      String
+  awayTeamId      String
+  homeTeam        Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam        Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  competition     String   @default("")
+  competitionCode String?
+  season          String?
+  round           String?
+  date            DateTime?
+  status          String   @default("upcoming")
+  minute          Int?
+  venue           String?
+  homeScore       Int      @default(0)
+  awayScore       Int      @default(0)
+  halfTimeHome   Int?
+  halfTimeAway   Int?
+  homeXg          Float?
+  awayXg          Float?
+  possessionHome Float?
+  possessionAway Float?
+  shotsHome      Int?
+  shotsAway      Int?
+  shotsOnTargetHome Int?
+  shotsOnTargetAway Int?
+  cornersHome    Int?
+  cornersAway    Int?
+  source          String   @default("unknown")
+  sourceId        String?
+  lastSyncedAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  events      MatchEvent[]
+
+  @@unique([source, sourceId])
+  @@index([status])
+  @@index([date])
+  @@index([competitionCode])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+}
+
+model MatchEvent {
+  id          String   @id @default(cuid())
+  matchId     String
+  externalId  String?
+  minute      Int
+  type        String
+  detail       String?
+  team         String?
+  playerId    String?
+  playerName  String
+  playerPhoto  String?
+  assistName  String?
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+  @@index([type])
+}
+
+model StandingEntry {
+  id            String   @id @default(cuid())
+  teamId        String?
+  teamName      String
+  teamCode      String?
+  teamLogo      String?
+  competition   String
+  competitionCode String?
+  season        String?
+  rank          Int
+  played        Int      @default(0)
+  wins          Int      @default(0)
+  draws         Int      @default(0)
+  losses        Int      @default(0)
+  goalsFor      Int      @default(0)
+  goalsAgainst  Int      @default(0)
+  goalDiff      Int      @default(0)
+  points        Int      @default(0)
+  form          String?
+  homeRecord    String?
+  source        String   @default("unknown")
+  lastSyncedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([competitionCode, season, teamName])
+  @@index([competitionCode])
+  @@index([rank])
+}
+
+model SyncLog {
+  id            String   @id @default(cuid())
+  source        String
+  action        String
+  status        String
+  recordsProcessed Int @default(0)
+  recordsCreated   Int @default(0)
+  recordsUpdated   Int @default(0)
+  errorMessage  String?
+  durationMs    Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([source])
+  @@index([createdAt])
 }

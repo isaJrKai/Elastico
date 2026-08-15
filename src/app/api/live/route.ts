@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
 import {
   fetchAllLiveScores, fetchLeagueScores, fetchDateScores,
   fetchStandings, fetchLeagueNews, fetchLeagueLeaders,
@@ -7,28 +8,11 @@ import {
   mapStatus, ESPN_LEAGUES,
 } from '@/lib/football-data'
 
-/**
- * GET /api/live — ESPN-powered football data
- *
- * Query params:
- *   (no params)             — All live scores across 20 leagues
- *   league=PL               — Scores for one league
- *   status=live|upcoming|finished
- *   date=20260618           — Scores for specific date
- *   action=standings&league=PL   — League table
- *   action=news&league=PL        — ESPN league news
- *   action=leaders&league=PL     — Top scorers
- *   action=injuries&league=PL    — Injury report
- *   action=odds&league=PL&event=12345  — Match odds
- *   action=probability&league=PL&event=12345  — Win probability
- *   action=plays&league=PL&event=12345       — Play-by-play
- *   action=leagues               — List all configured leagues
- *   action=teams&league=PL        — List all teams in a league
- *   action=roster&league=PL&team=123  — Team roster
- */
-
 export const dynamic = 'force-dynamic'
 
+/**
+ * GET /api/live — Football data (DB-first, ESPN fallback)
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -45,8 +29,18 @@ export async function GET(request: NextRequest) {
 
       case 'standings': {
         if (!league) return NextResponse.json({ error: 'league required' }, { status: 400 })
+        // Try DB first
+        const season = String(new Date().getFullYear())
+        const dbStandings = await db.standingEntry.findMany({
+          where: { competitionCode: league, season },
+          orderBy: { rank: 'asc' },
+        })
+        if (dbStandings.length > 0) {
+          return NextResponse.json({ success: true, league, source: 'database', count: dbStandings.length, data: dbStandings })
+        }
+        // Fallback to ESPN
         const standings = await fetchStandings(league)
-        return NextResponse.json({ success: true, league, count: standings.length, data: standings })
+        return NextResponse.json({ success: true, league, source: 'espn', count: standings.length, data: standings })
       }
 
       case 'news': {
@@ -87,8 +81,17 @@ export async function GET(request: NextRequest) {
 
       case 'teams': {
         if (!league) return NextResponse.json({ error: 'league required' }, { status: 400 })
+        // Try DB first
+        const dbTeams = await db.team.findMany({
+          where: { leagueCode: league },
+          include: { _count: { select: { players: true } } },
+          orderBy: { name: 'asc' },
+        })
+        if (dbTeams.length > 0) {
+          return NextResponse.json({ success: true, league, source: 'database', count: dbTeams.length, data: dbTeams })
+        }
         const teams = await fetchTeams(league)
-        return NextResponse.json({ success: true, league, count: teams.length, data: teams })
+        return NextResponse.json({ success: true, league, source: 'espn', count: teams.length, data: teams })
       }
 
       case 'roster': {
@@ -100,6 +103,99 @@ export async function GET(request: NextRequest) {
 
       case 'scores':
       default: {
+        // ── DB-first for scores ──────────────────────────────────────
+        const now = new Date()
+        const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+        const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+        // Live + halftime matches
+        const liveWhere: any = { status: { in: ['live', 'halftime'] } }
+        if (league) liveWhere.competitionCode = league
+
+        const liveMatches = await db.match.findMany({
+          where: liveWhere,
+          include: { homeTeam: true, awayTeam: true, events: { orderBy: { minute: 'asc' } } },
+          orderBy: { date: 'desc' },
+        })
+
+        // Upcoming (next 24h)
+        const upcomingWhere: any = {
+          status: 'upcoming',
+          date: { gte: last24h, lte: next24h },
+        }
+        if (league) upcomingWhere.competitionCode = league
+
+        const upcomingMatches = await db.match.findMany({
+          where: upcomingWhere,
+          include: { homeTeam: true, awayTeam: true },
+          orderBy: { date: 'asc' },
+        })
+
+        // Recently finished (last 24h)
+        const finishedWhere: any = {
+          status: 'finished',
+          date: { gte: last24h },
+        }
+        if (league) finishedWhere.competitionCode = league
+
+        const finishedMatches = await db.match.findMany({
+          where: finishedWhere,
+          include: { homeTeam: true, awayTeam: true },
+          orderBy: { date: 'desc' },
+        })
+
+        const allDb = [...liveMatches, ...upcomingMatches, ...finishedMatches]
+
+        if (allDb.length > 0) {
+          const filtered = status
+            ? allDb.filter(m => m.status === status)
+            : allDb
+
+          return NextResponse.json({
+            success: true,
+            source: 'database',
+            count: filtered.length,
+            liveCount: liveMatches.length,
+            upcomingCount: upcomingMatches.length,
+            finishedCount: finishedMatches.length,
+            leagues: ESPN_LEAGUES.map(l => ({ code: l.code, name: l.name, espnId: l.espnId })),
+            matches: filtered.map(m => ({
+              id: m.id,
+              competition: m.competition,
+              competitionCode: m.competitionCode,
+              homeTeam: {
+                id: m.homeTeam.id,
+                name: m.homeTeam.name,
+                abbreviation: m.homeTeam.code,
+                logo: m.homeTeam.logo,
+                color: m.homeTeam.primaryColor,
+              },
+              awayTeam: {
+                id: m.awayTeam.id,
+                name: m.awayTeam.name,
+                abbreviation: m.awayTeam.code,
+                logo: m.awayTeam.logo,
+                color: m.awayTeam.primaryColor,
+              },
+              homeScore: m.homeScore,
+              awayScore: m.awayScore,
+              status: m.status,
+              date: m.date?.toISOString() || null,
+              venue: m.venue,
+              minute: m.minute,
+              events: 'events' in m ? (m as any).events.map((e: any) => ({
+                minute: e.minute,
+                type: e.type,
+                detail: e.detail,
+                team: e.team,
+                playerName: e.playerName,
+              })) : [],
+            })),
+          })
+        }
+
+        // ── Fallback: ESPN ────────────────────────────────────────────
+        console.log('[Live] DB empty, falling back to ESPN')
         let matches
         if (date) {
           matches = await fetchDateScores(date, league)
@@ -115,6 +211,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
+          source: 'espn',
           count: filtered.length,
           leagues: ESPN_LEAGUES.map(l => ({ code: l.code, name: l.name, espnId: l.espnId })),
           matches: filtered.map(m => ({
