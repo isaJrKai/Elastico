@@ -18,7 +18,6 @@ import {
   Loader2, AlertCircle, Swords, Flame, MessageSquare, Copy, Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fifaFlag } from '@/lib/flags'
 import { toast } from '@/hooks/use-toast'
 
 // ── Extended Types ──────────────────────────────────────────────────────────
@@ -330,7 +329,7 @@ export function MatchDetailView() {
               {/* Home */}
               <div className="flex-1 text-center">
                 <div className="flex justify-center mb-3">
-                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: homeTeam?.primaryColor ?? '#555' }}>{fifaFlag(homeTeam?.code)}</div>
+                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: homeTeam?.primaryColor ?? '#555' }}>{homeTeam?.name}</div>
                 </div>
                 <h2 className="text-lg font-bold">{homeTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
@@ -365,7 +364,7 @@ export function MatchDetailView() {
               {/* Away */}
               <div className="flex-1 text-center">
                 <div className="flex justify-center mb-3">
-                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: awayTeam?.primaryColor ?? '#555' }}>{fifaFlag(awayTeam?.code)}</div>
+                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: awayTeam?.primaryColor ?? '#555' }}>{awayTeam?.name}</div>
                 </div>
                 <h2 className="text-lg font-bold">{awayTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
@@ -445,7 +444,7 @@ export function MatchDetailView() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold tabular-nums text-primary">{ev.minute}&apos;</span>
                         <span className={cn('text-xs font-medium', ev.team === 'home' ? (homeTeam?.code ? '' : 'text-foreground') : (awayTeam?.code ? '' : 'text-foreground'))}>
-                          {ev.team === 'home' ? fifaFlag(homeTeam?.code) : fifaFlag(awayTeam?.code)}
+                          {ev.team === 'home' ? homeTeam?.name : awayTeam?.name}
                         </span>
                         <span className="text-xs text-muted-foreground">{ev.playerName}</span>
                       </div>
@@ -472,10 +471,10 @@ export function MatchDetailView() {
               {xgTimeline.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={xgTimeline}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis dataKey="minute" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                    <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="minute" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                    <RTooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }} />
                     <Line type="monotone" dataKey="Home" stroke="#00e676" strokeWidth={2} dot={{ r: 3 }} />
                     <Line type="monotone" dataKey="Away" stroke="#00b4d8" strokeWidth={2} dot={{ r: 3 }} />
                   </LineChart>
@@ -503,7 +502,7 @@ export function MatchDetailView() {
                       <div className={cn('absolute rounded-full border-2 transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-150 cursor-pointer', s.goal ? 'size-4 border-white bg-amber-400 shadow-lg shadow-amber-400/40' : 'size-3', !s.goal && s.team === 'home' && 'border-primary/50 bg-primary/30', !s.goal && s.team === 'away' && 'border-cyan-500/50 bg-cyan-500/30')} style={{ left: `${s.x}%`, top: `${s.y}%` }} />
                     </TooltipTrigger>
                     <TooltipContent className="text-[10px] space-y-0.5">
-                      <div className="font-semibold">{s.player ? `${s.player} ${s.minute ? `${s.minute}'` : ''}` : `${s.team === 'home' ? fifaFlag(homeTeam?.code) : fifaFlag(awayTeam?.code)} ${s.goal ? '⚽ GOAL' : 'Shot'}`}</div>
+                      <div className="font-semibold">{s.player ? `${s.player} ${s.minute ? `${s.minute}'` : ''}` : `${s.team === 'home' ? homeTeam?.name : awayTeam?.name} ${s.goal ? '⚽ GOAL' : 'Shot'}`}</div>
                       {'xg' in s && s.xg !== undefined && <div className="text-muted-foreground">xG: {(s.xg ?? 0).toFixed(3)}</div>}
                       {s.outcome && <div className="text-muted-foreground">{s.outcome}</div>}
                     </TooltipContent>
@@ -511,9 +510,9 @@ export function MatchDetailView() {
                 ))}
               </div>
               <div className="flex items-center justify-center gap-6 mt-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-primary/50" />{fifaFlag(homeTeam?.code)} Shot</span>
+                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-primary/50" />{homeTeam?.name} Shot</span>
                 <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-amber-400" />Goal</span>
-                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-cyan-500/50" />{fifaFlag(awayTeam?.code)} Shot</span>
+                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-cyan-500/50" />{awayTeam?.name} Shot</span>
               </div>
             </CardContent></Card>
           </TabsContent>
@@ -571,7 +570,7 @@ export function MatchDetailView() {
                         <Pie data={votePieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none">
                           {votePieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                         </Pie>
-                        <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+                        <RTooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="flex justify-center gap-4 mt-2 text-[11px]">

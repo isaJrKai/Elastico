@@ -17,7 +17,6 @@ import {
   Zap, Search, Download, Goal, Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fifaFlag } from '@/lib/flags'
 import { generateCSV } from '@/lib/export'
 import { toast } from '@/hooks/use-toast'
 
@@ -293,7 +292,7 @@ export default function LeaderboardView() {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: p.team?.primaryColor }} />
-                        <span className="text-xs">{fifaFlag(p.team?.code)} {p.team?.code}</span>
+                        <span className="text-xs">{p.team?.name}</span>
                       </div>
                     </td>
                   </tr>
@@ -312,10 +311,10 @@ export default function LeaderboardView() {
                 {accuracyDistribution.length > 0 ? (
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={accuracyDistribution}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                      <XAxis dataKey="range" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                      <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                      <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="range" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                      <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                      <RTooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }} />
                       <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                         {accuracyDistribution.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                       </Bar>

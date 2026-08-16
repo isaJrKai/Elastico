@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { compressedResponse, stripNulls } from '@/lib/compressed-data-stream'
+import { stripNulls } from '@/lib/compressed-data-stream'
 
 export async function GET(req: NextRequest) {
   try {
@@ -67,14 +67,12 @@ export async function GET(req: NextRequest) {
       events: eventsMap[match.id] || [],
     }))
 
-    return compressedResponse(
-      { matches: result },
-      {
-        compact,
-        tag: 'MATCHES',
-        cacheMaxAge: since ? 0 : 10, // Diff responses are never cached
-      }
-    )
+    // Cache for 30s on CDN to reduce cold starts — stale-while-revalidate
+    const response = NextResponse.json({ matches: result })
+    if (!since) {
+      response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
+    }
+    return response
   } catch (error) {
     console.error('Matches list error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

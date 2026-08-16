@@ -19,7 +19,8 @@ const ESPN_NEWS_URLS: Record<string, string> = {
   UCL: 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/news',
 }
 
-export const dynamic = 'force-dynamic'
+// News is fetched from external APIs — cache on CDN for 5 min
+export const revalidate = 300
 
 async function fetchESPNNewsDirect(leagueCode: string): Promise<any[]> {
   const espnUrl = ESPN_NEWS_URLS[leagueCode] || ESPN_NEWS_URLS.PL

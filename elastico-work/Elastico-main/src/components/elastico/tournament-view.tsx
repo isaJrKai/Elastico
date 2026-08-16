@@ -13,7 +13,6 @@ import {
   Trophy, Star, Crown, Users, Swords, Goal, TrendingUp, ChevronRight, Zap, Award, BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fifaFlag } from '@/lib/flags'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -177,7 +176,7 @@ export default function TournamentView() {
                   <TableCell>
                     <div className="flex items-center gap-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); setSelectedTeam(selectedTeam?.id === row.team.id ? null : row.team) }}>
                       <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: row.team.primaryColor }} />
-                      <span className="text-xs font-medium">{fifaFlag(row.team.code)} {row.team.code}</span>
+                      <span className="text-xs font-medium">{row.team.name}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center text-xs text-muted-foreground">{row.played}</TableCell>
@@ -287,18 +286,18 @@ export default function TournamentView() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="p-3 rounded-lg bg-muted/20 text-center">
               <p className="text-[10px] text-muted-foreground mb-1">Most Goals</p>
-              <p className="text-sm font-bold">{fifaFlag(highlights.topScorer.code)} {highlights.topScorer.code}</p>
+              <p className="text-sm font-bold">{highlights.topScorer.name}</p>
               <p className="text-lg font-black text-primary">{highlights.topScorer.gf}</p>
             </div>
             <div className="p-3 rounded-lg bg-muted/20 text-center">
               <p className="text-[10px] text-muted-foreground mb-1">Best Defense</p>
-              <p className="text-sm font-bold">{fifaFlag(highlights.bestDefense.code)} {highlights.bestDefense.code}</p>
+              <p className="text-sm font-bold">{highlights.bestDefense.name}</p>
               <p className="text-lg font-black text-cyan-400">{highlights.bestDefense.ga} GA</p>
             </div>
             <div className="p-3 rounded-lg bg-muted/20">
               <p className="text-[10px] text-muted-foreground mb-1 text-center">Top ELO</p>
               <div className="flex justify-center gap-2">
-                {highlights.topELO.map(t => <Tooltip key={t.id}><TooltipTrigger><Badge variant="outline" className="text-xs border-border/50">{fifaFlag(t.code)} {t.code} <span className="text-primary font-bold">{t.eloRating}</span></Badge></TooltipTrigger><TooltipContent>{t.name}</TooltipContent></Tooltip>)}
+                {highlights.topELO.map(t => <Tooltip key={t.id}><TooltipTrigger><Badge variant="outline" className="text-xs border-border/50">{t.name} <span className="text-primary font-bold">{t.eloRating}</span></Badge></TooltipTrigger><TooltipContent>{t.name}</TooltipContent></Tooltip>)}
               </div>
             </div>
           </div>
@@ -376,7 +375,7 @@ export default function TournamentView() {
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center mb-1">{col.label}</p>
                       {col.matches.length > 0 ? col.matches.map(m => renderKOMatch(toKO(m))) : <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground/50">TBD</div>}
                     </div>
-                    {ci < 2 && <div className="flex items-center w-10 shrink-0"><svg className="w-full h-full" viewBox="0 0 40 420" fill="none" preserveAspectRatio="none"><line x1="0" y1="105" x2="40" y2="105" stroke="oklch(0.25 0.03 260)" strokeWidth="1" strokeDasharray="4 3" /><line x1="40" y1="105" x2="40" y2="315" stroke="oklch(0.25 0.03 260)" strokeWidth="1" strokeDasharray="4 3" /><line x1="0" y1="315" x2="40" y2="315" stroke="oklch(0.25 0.03 260)" strokeWidth="1" strokeDasharray="4 3" /></svg></div>}
+                    {ci < 2 && <div className="flex items-center w-10 shrink-0"><svg className="w-full h-full" viewBox="0 0 40 420" fill="none" preserveAspectRatio="none"><line x1="0" y1="105" x2="40" y2="105" stroke="var(--border)" strokeWidth="1" strokeDasharray="4 3" /><line x1="40" y1="105" x2="40" y2="315" stroke="var(--border)" strokeWidth="1" strokeDasharray="4 3" /><line x1="0" y1="315" x2="40" y2="315" stroke="var(--border)" strokeWidth="1" strokeDasharray="4 3" /></svg></div>}
                   </React.Fragment>
                 ))}
                 {/* Finals column */}

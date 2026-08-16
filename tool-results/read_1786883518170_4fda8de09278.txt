@@ -1,0 +1,1021 @@
+     1→'use client'
+     2→
+     3→import { useState, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { useElasticoStore } from '@/store/use-elastico-store'
+     6→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    12→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    13→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    14→import { Switch } from '@/components/ui/switch'
+    15→import { Slider } from '@/components/ui/slider'
+    16→import { Progress } from '@/components/ui/progress'
+    17→import { Separator } from '@/components/ui/separator'
+    18→import { toast } from 'sonner'
+    19→import { BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts'
+    20→import {
+    21→  Brain, Activity, TrendingUp, TrendingDown, DollarSign, Target, Zap, Settings,
+    22→  ArrowUpRight, ArrowDownRight, AlertTriangle, CheckCircle, XCircle, Flame,
+    23→  Shield, Gauge, BarChart3, Cpu, Calculator, Radio, Eye, GitBranch,
+    24→  Plus, Trash2, RefreshCw, Play, Save, RotateCcw, Sparkles, AlertOctagon, Minus
+    25→} from 'lucide-react'
+    26→import type { MatchInput, FullMatchAnalysis, EngineConfig, InjuryAdjustment } from '@/lib/prediction-engine'
+    27→import { cn } from '@/lib/utils'
+    28→import { fifaFlag } from '@/lib/flags'
+    29→
+    30→// ── Helpers ───────────────────────────────────────────────────────────────────────
+    31→
+    32→function authHeaders() {
+    33→  const t = typeof window !== 'undefined' ? localStorage.getItem('elastico_token') : null
+    34→  return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) }
+    35→}
+    36→
+    37→const CONF_COLORS: Record<string, string> = {
+    38→  'very-high': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    39→  high: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    40→  medium: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    41→  low: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    42→}
+    43→
+    44→const RISK_COLORS: Record<string, string> = {
+    45→  'very-high': 'bg-red-500/20 text-red-400 border-red-500/30',
+    46→  high: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    47→  medium: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    48→  low: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    49→}
+    50→
+    51→const ACTION_STYLE: Record<string, string> = {
+    52→  BET: 'bg-emerald-500/20 text-emerald-400',
+    53→  NO_EDGE: 'bg-red-500/20 text-red-400',
+    54→  RISKY: 'bg-amber-500/20 text-amber-400',
+    55→}
+    56→
+    57→const DEFAULT_INJURY: InjuryAdjustment = {
+    58→  teamId: '', playerName: '', status: 'questionable', importance: 'rotation', xgImpact: 0,
+    59→}
+    60→
+    61→// ═══════════════════════════════════════════════════════════════════════════════════
+    62→// COMPONENT
+    63→// ═══════════════════════════════════════════════════════════════════════════════════
+    64→
+    65→export default function PredictionEngineView() {
+    66→  const teams = useElasticoStore(s => s.teams)
+    67→  const token = useElasticoStore(s => s.token)
+    68→
+    69→  // ── Simulation state ──────────────────────────────────────────────────────────
+    70→  const [simulating, setSimulating] = useState(false)
+    71→  const [analysis, setAnalysis] = useState<FullMatchAnalysis | null>(null)
+    72→
+    73→  const [homeTeamId, setHomeTeamId] = useState('')
+    74→  const [awayTeamId, setAwayTeamId] = useState('')
+    75→  const [homeXg, setHomeXg] = useState('1.45')
+    76→  const [awayXg, setAwayXg] = useState('1.10')
+    77→  const [homeElo, setHomeElo] = useState('1850')
+    78→  const [awayElo, setAwayElo] = useState('1780')
+    79→  const [oddsHome, setOddsHome] = useState('2.10')
+    80→  const [oddsDraw, setOddsDraw] = useState('3.40')
+    81→  const [oddsAway, setOddsAway] = useState('3.60')
+    82→  const [bankroll, setBankroll] = useState('1000')
+    83→  const [simRuns, setSimRuns] = useState('150000')
+    84→  const [injuries, setInjuries] = useState<InjuryAdjustment[]>([])
+    85→
+    86→  // ── Kelly state ───────────────────────────────────────────────────────────────
+    87→  const [kellyBankroll, setKellyBankroll] = useState('1000')
+    88→  const [kellyLoading, setKellyLoading] = useState(false)
+    89→  const [kellyResult, setKellyResult] = useState<FullMatchAnalysis['portfolioAllocation'] | null>(null)
+    90→
+    91→  // ── Market signals state ──────────────────────────────────────────────────────
+    92→  const [sigOpenHome, setSigOpenHome] = useState('2.10')
+    93→  const [sigOpenDraw, setSigOpenDraw] = useState('3.40')
+    94→  const [sigOpenAway, setSigOpenAway] = useState('3.60')
+    95→  const [sigCurHome, setSigCurHome] = useState('1.95')
+    96→  const [sigCurDraw, setSigCurDraw] = useState('3.50')
+    97→  const [sigCurAway, setSigCurAway] = useState('4.00')
+    98→  const [sigHomeTeam, setSigHomeTeam] = useState('')
+    99→  const [sigAwayTeam, setSigAwayTeam] = useState('')
+   100→  const [sigLoading, setSigLoading] = useState(false)
+   101→  const [signalResult, setSignalResult] = useState<import('@/lib/prediction-engine').MarketSignal | null>(null)
+   102→
+   103→  // ── Config state ──────────────────────────────────────────────────────────────
+   104→  const [config, setConfig] = useState<EngineConfig>({
+   105→    simulationRuns: 150000, kellyFraction: 0.25, garchEnabled: true,
+   106→    jumpDiffusionEnabled: true, minEdgeThreshold: 0.02, maxBankrollRisk: 0.05,
+   107→  })
+   108→  const [configLoading, setConfigLoading] = useState(false)
+   109→
+   110→  const homeTeam = teams.find(t => t.id === homeTeamId)
+   111→  const awayTeam = teams.find(t => t.id === awayTeamId)
+   112→
+   113→  // ── Run simulation ────────────────────────────────────────────────────────────
+   114→  const runSimulation = useCallback(async () => {
+   115→    if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
+   116→    setSimulating(true)
+   117→    try {
+   118→      const input: MatchInput = {
+   119→        homeTeam: homeTeam?.name ?? '', awayTeam: awayTeam?.name ?? '',
+   120→        homeTeamId, awayTeamId, homeXg: +homeXg, awayXg: +awayXg,
+   121→        homeGoalsConceded: +awayXg * 0.9, awayGoalsConceded: +homeXg * 0.9,
+   122→        homeElo: +homeElo, awayElo: +awayElo,
+   123→        bookmakerOdds: { home: +oddsHome, draw: +oddsDraw, away: +oddsAway },
+   124→        injuries: injuries.length ? injuries : undefined,
+   125→      }
+   126→      const res = await fetch('/api/prediction-engine/simulate', {
+   127→        method: 'POST', headers: authHeaders(), body: JSON.stringify({ matchInput: input, config: { simulationRuns: +simRuns }, bankroll: +bankroll }),
+   128→      })
+   129→      if (!res.ok) {
+   130→        const err = await res.json().catch(() => ({ error: 'Simulation failed' }))
+   131→        throw new Error(err.error || 'Simulation failed')
+   132→      }
+   133→      const json = await res.json()
+   134→      const data: FullMatchAnalysis = json.data || json
+   135→      setAnalysis(data)
+   136→      toast.success('Simulation complete', { icon: <Sparkles className="text-emerald-400" /> })
+   137→    } catch (e: any) {
+   138→      toast.error(e.message || 'Simulation error')
+   139→    } finally {
+   140→      setSimulating(false)
+   141→    }
+   142→  }, [homeTeamId, awayTeamId, homeTeam, awayTeam, homeXg, awayXg, homeElo, awayElo, oddsHome, oddsDraw, oddsAway, bankroll, simRuns, injuries])
+   143→
+   144→  // ── Run Kelly ─────────────────────────────────────────────────────────────────
+   145→  const runKelly = useCallback(async () => {
+   146→    if (!analysis) { toast.error('Run a simulation first'); return }
+   147→    setKellyLoading(true)
+   148→    try {
+   149→      // Map portfolio outcomes to the format calculatePortfolioAllocation expects
+   150→      const outcomes = (analysis.portfolioAllocation?.outcomes || []).map(o => ({
+   151→        label: o.label,
+   152→        modelProb: o.modelProb,
+   153→        odds: o.marketOdds,
+   154→      }))
+   155→      const res = await fetch('/api/prediction-engine/kelly', {
+   156→        method: 'POST', headers: authHeaders(),
+   157→        body: JSON.stringify({
+   158→          mode: 'portfolio',
+   159→          outcomes,
+   160→          bankroll: +kellyBankroll,
+   161→        }),
+   162→      })
+   163→      if (!res.ok) throw new Error('Kelly calculation failed')
+   164→      const json = await res.json()
+   165→      setKellyResult(json.data || json)
+   166→      toast.success('Kelly analysis complete')
+   167→    } catch (e: any) {
+   168→      toast.error(e.message || 'Kelly error')
+   169→    } finally {
+   170→      setKellyLoading(false)
+   171→    }
+   172→  }, [analysis, kellyBankroll])
+   173→
+   174→  // ── Run market signals ────────────────────────────────────────────────────────
+   175→  const runSignals = useCallback(async () => {
+   176→    if (!sigHomeTeam || !sigAwayTeam) { toast.error('Select both teams'); return }
+   177→    setSigLoading(true)
+   178→    try {
+   179→      const res = await fetch('/api/prediction-engine/market-signals', {
+   180→        method: 'POST', headers: authHeaders(),
+   181→        body: JSON.stringify({
+   182→          homeTeam: sigHomeTeam, awayTeam: sigAwayTeam,
+   183→          openingOdds: { home: +sigOpenHome, draw: +sigOpenDraw, away: +sigOpenAway },
+   184→          currentOdds: { home: +sigCurHome, draw: +sigCurDraw, away: +sigCurAway },
+   185→        }),
+   186→      })
+   187→      if (!res.ok) throw new Error('Signal analysis failed')
+   188→      const json = await res.json()
+   189→      setSignalResult(json.data || json)
+   190→      toast.success('Market signals analyzed')
+   191→    } catch (e: any) {
+   192→      toast.error(e.message || 'Signal error')
+   193→    } finally {
+   194→      setSigLoading(false)
+   195→    }
+   196→  }, [sigHomeTeam, sigAwayTeam, sigOpenHome, sigOpenDraw, sigOpenAway, sigCurHome, sigCurDraw, sigCurAway])
+   197→
+   198→  // ── Config save / reset ───────────────────────────────────────────────────────
+   199→  const saveConfig = useCallback(async () => {
+   200→    setConfigLoading(true)
+   201→    try {
+   202→      const res = await fetch('/api/prediction-engine/config', {
+   203→        method: 'PATCH', headers: authHeaders(), body: JSON.stringify(config),
+   204→      })
+   205→      if (!res.ok) throw new Error('Save failed')
+   206→      toast.success('Configuration saved')
+   207→    } catch (e: any) {
+   208→      toast.error(e.message || 'Config error')
+   209→    } finally {
+   210→      setConfigLoading(false)
+   211→    }
+   212→  }, [config])
+   213→
+   214→  const resetConfig = useCallback(async () => {
+   215→    try {
+   216→      const res = await fetch('/api/prediction-engine/config', { headers: authHeaders() })
+   217→      if (res.ok) {
+   218→        const json = await res.json()
+   219→        const data: EngineConfig = json.config || json.defaults || json
+   220→        setConfig(data)
+   221→        toast.success('Configuration reset')
+   222→      }
+   223→    } catch { toast.error('Failed to reset config') }
+   224→  }, [])
+   225→
+   226→  // ── Injury management ─────────────────────────────────────────────────────────
+   227→  const addInjury = () => setInjuries(p => [...p, { ...DEFAULT_INJURY }])
+   228→  const removeInjury = (i: number) => setInjuries(p => p.filter((_, idx) => idx !== i))
+   229→  const updateInjury = (i: number, patch: Partial<InjuryAdjustment>) =>
+   230→    setInjuries(p => p.map((v, idx) => idx === i ? { ...v, ...patch } : v))
+   231→
+   232→  // ── Derived visuals ───────────────────────────────────────────────────────────
+   233→  const sim = analysis?.simulation
+   234→  const mp = sim?.matchProbabilities
+   235→  const tm = sim?.totalsMarket
+   236→  const ah = sim?.asianHandicap
+   237→  const em = sim?.expectedMeans
+   238→
+   239→  const probBars = analysis && mp ? [
+   240→    { name: 'Home', value: +((mp.homeVictory ?? 0) * 100).toFixed(1), fill: '#00e676' },
+   241→    { name: 'Draw', value: +((mp.draw ?? 0) * 100).toFixed(1), fill: '#ffd700' },
+   242→    { name: 'Away', value: +((mp.awayVictory ?? 0) * 100).toFixed(1), fill: '#ff4757' },
+   243→  ] : []
+   244→
+   245→  const topScorelines = analysis && sim?.exoticScorelines
+   246→    ? Object.entries(sim.exoticScorelines)
+   247→        .sort((a, b) => b[1] - a[1]).slice(0, 5)
+   248→        .map(([score, prob]) => ({ score, prob: +((prob ?? 0) * 100).toFixed(2) }))
+   249→    : []
+   250→
+   251→  const totalsData = analysis && tm ? [
+   252→    { name: 'O1.5', value: +((tm.over15 ?? 0) * 100).toFixed(1), fill: '#00e676' },
+   253→    { name: 'U1.5', value: +(100 - (tm.over15 ?? 0) * 100).toFixed(1), fill: '#ff4757' },
+   254→    { name: 'O2.5', value: +((tm.over25 ?? 0) * 100).toFixed(1), fill: '#00e676' },
+   255→    { name: 'U2.5', value: +((tm.under25 ?? 0) * 100).toFixed(1), fill: '#ff4757' },
+   256→    { name: 'O3.5', value: +((tm.over35 ?? 0) * 100).toFixed(1), fill: '#00e676' },
+   257→    { name: 'U3.5', value: +(100 - (tm.over35 ?? 0) * 100).toFixed(1), fill: '#ff4757' },
+   258→  ] : []
+   259→
+   260→  const ahData = analysis && ah ? [
+   261→    { line: '0', home: +((ah.line0?.home ?? 0) * 100).toFixed(1), away: +((ah.line0?.away ?? 0) * 100).toFixed(1) },
+   262→    { line: '-0.5', home: +((ah.lineHalf?.home ?? 0) * 100).toFixed(1), away: +((ah.lineHalf?.away ?? 0) * 100).toFixed(1) },
+   263→    { line: '-1', home: +((ah.line1?.home ?? 0) * 100).toFixed(1), away: +((ah.line1?.away ?? 0) * 100).toFixed(1) },
+   264→    { line: '-1.5', home: +((ah.line15?.home ?? 0) * 100).toFixed(1), away: +((ah.line15?.away ?? 0) * 100).toFixed(1) },
+   265→  ] : []
+   266→
+   267→  const kellyPie = kellyResult ? kellyResult.outcomes
+   268→    .filter(o => o.action === 'BET')
+   269→    .map(o => ({ name: o.label, value: +(o.wagerAmount ?? 0).toFixed(2), fill: '#00e676' }))
+   270→    : []
+   271→
+   272→  // ══════════════════════════════════════════════════════════════════════════════
+   273→  // RENDER
+   274→  // ══════════════════════════════════════════════════════════════════════════════
+   275→  return (
+   276→    <div className="space-y-6 animate-fade-in-up">
+   277→      {/* Header */}
+   278→      <div className="flex items-center gap-3">
+   279→        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+   280→          <Brain className="w-6 h-6 text-emerald-400" />
+   281→        </div>
+   282→        <div>
+   283→          <h1 className="text-2xl font-bold text-white tracking-tight">Prediction Engine</h1>
+   284→          <p className="text-sm text-zinc-500">Stochastic simulation • Kelly criterion • Market signals</p>
+   285→        </div>
+   286→      </div>
+   287→
+   288→      <Tabs defaultValue="simulator" className="w-full">
+   289→        <TabsList className="glass-card border-0 bg-transparent p-1 gap-1">
+   290→          <TabsTrigger value="simulator" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+   291→            <Cpu className="w-4 h-4 mr-2" />Stochastic Simulator
+   292→          </TabsTrigger>
+   293→          <TabsTrigger value="kelly" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+   294→            <Calculator className="w-4 h-4 mr-2" />Kelly Bankroll
+   295→          </TabsTrigger>
+   296→          <TabsTrigger value="signals" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+   297→            <Radio className="w-4 h-4 mr-2" />Market Signals
+   298→          </TabsTrigger>
+   299→          <TabsTrigger value="config" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+   300→            <Settings className="w-4 h-4 mr-2" />Engine Config
+   301→          </TabsTrigger>
+   302→        </TabsList>
+   303→
+   304→        {/* ═════════════════════ TAB 1: STOCHASTIC SIMULATOR ═════════════════════ */}
+   305→        <TabsContent value="simulator" className="space-y-6 mt-6">
+   306→          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   307→            {/* Input Panel */}
+   308→            <motion.div layout className="lg:col-span-1 space-y-4">
+   309→              <Card className="glass-card border-zinc-800/50">
+   310→                <CardHeader className="pb-3">
+   311→                  <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   312→                    <Target className="w-4 h-4 text-emerald-400" /> Match Setup
+   313→                  </CardTitle>
+   314→                </CardHeader>
+   315→                <CardContent className="space-y-3">
+   316→                  <div className="grid grid-cols-2 gap-3">
+   317→                    <div>
+   318→                      <Label className="text-xs text-zinc-500 mb-1">Home Team</Label>
+   319→                      <Select value={homeTeamId} onValueChange={v => {
+   320→                        setHomeTeamId(v)
+   321→                        const t = teams.find(x => x.id === v)
+   322→                        if (t) { setHomeElo(String(t.eloRating)); setHomeXg('1.45') }
+   323→                      }}>
+   324→                        <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Home" /></SelectTrigger>
+   325→                        <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+   326→                      </Select>
+   327→                    </div>
+   328→                    <div>
+   329→                      <Label className="text-xs text-zinc-500 mb-1">Away Team</Label>
+   330→                      <Select value={awayTeamId} onValueChange={v => {
+   331→                        setAwayTeamId(v)
+   332→                        const t = teams.find(x => x.id === v)
+   333→                        if (t) { setAwayElo(String(t.eloRating)); setAwayXg('1.10') }
+   334→                      }}>
+   335→                        <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Away" /></SelectTrigger>
+   336→                        <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+   337→                      </Select>
+   338→                    </div>
+   339→                  </div>
+   340→                  <Separator className="bg-zinc-800/50" />
+   341→                  <div className="grid grid-cols-2 gap-3">
+   342→                    <div>
+   343→                      <Label className="text-xs text-zinc-500">Home xG</Label>
+   344→                      <Input type="number" step="0.01" value={homeXg} onChange={e => setHomeXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   345→                    </div>
+   346→                    <div>
+   347→                      <Label className="text-xs text-zinc-500">Away xG</Label>
+   348→                      <Input type="number" step="0.01" value={awayXg} onChange={e => setAwayXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   349→                    </div>
+   350→                  </div>
+   351→                  <div className="grid grid-cols-2 gap-3">
+   352→                    <div>
+   353→                      <Label className="text-xs text-zinc-500">Home ELO</Label>
+   354→                      <Input type="number" value={homeElo} onChange={e => setHomeElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   355→                    </div>
+   356→                    <div>
+   357→                      <Label className="text-xs text-zinc-500">Away ELO</Label>
+   358→                      <Input type="number" value={awayElo} onChange={e => setAwayElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   359→                    </div>
+   360→                  </div>
+   361→                  <Separator className="bg-zinc-800/50" />
+   362→                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds</p>
+   363→                  <div className="grid grid-cols-3 gap-3">
+   364→                    <div>
+   365→                      <Label className="text-xs text-emerald-400">Home</Label>
+   366→                      <Input type="number" step="0.01" value={oddsHome} onChange={e => setOddsHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   367→                    </div>
+   368→                    <div>
+   369→                      <Label className="text-xs text-yellow-400">Draw</Label>
+   370→                      <Input type="number" step="0.01" value={oddsDraw} onChange={e => setOddsDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   371→                    </div>
+   372→                    <div>
+   373→                      <Label className="text-xs text-red-400">Away</Label>
+   374→                      <Input type="number" step="0.01" value={oddsAway} onChange={e => setOddsAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   375→                    </div>
+   376→                  </div>
+   377→                  <div className="grid grid-cols-2 gap-3">
+   378→                    <div>
+   379→                      <Label className="text-xs text-zinc-500">Bankroll ($)</Label>
+   380→                      <Input type="number" value={bankroll} onChange={e => setBankroll(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   381→                    </div>
+   382→                    <div>
+   383→                      <Label className="text-xs text-zinc-500">Sim Runs</Label>
+   384→                      <Input type="number" value={simRuns} onChange={e => setSimRuns(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   385→                    </div>
+   386→                  </div>
+   387→                </CardContent>
+   388→              </Card>
+   389→
+   390→              {/* Injury Overlay */}
+   391→              <Card className="glass-card border-zinc-800/50">
+   392→                <CardHeader className="pb-3">
+   393→                  <div className="flex items-center justify-between">
+   394→                    <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   395→                      <AlertTriangle className="w-4 h-4 text-amber-400" /> Injury Overlay
+   396→                    </CardTitle>
+   397→                    <Button variant="ghost" size="sm" onClick={addInjury} className="h-7 text-xs text-emerald-400 hover:text-emerald-300">
+   398→                      <Plus className="w-3 h-3 mr-1" /> Add
+   399→                    </Button>
+   400→                  </div>
+   401→                </CardHeader>
+   402→                <CardContent className="space-y-3">
+   403→                  {injuries.length === 0 && <p className="text-xs text-zinc-600 text-center py-2">No injury adjustments</p>}
+   404→                  {injuries.map((inj, i) => (
+   405→                    <motion.div key={i} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50 space-y-2">
+   406→                      <div className="flex items-center justify-between">
+   407→                        <Select value={inj.teamId} onValueChange={v => updateInjury(i, { teamId: v })}>
+   408→                          <SelectTrigger className="w-[120px] h-7 text-xs bg-zinc-800/60"><SelectValue placeholder="Team" /></SelectTrigger>
+   409→                          <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id} className="text-xs">{fifaFlag(t.code)} {t.code}</SelectItem>)}</SelectContent>
+   410→                        </Select>
+   411→                        <Button variant="ghost" size="sm" onClick={() => removeInjury(i)} className="h-7 w-7 p-0 text-red-400 hover:text-red-300">
+   412→                          <Trash2 className="w-3 h-3" />
+   413→                        </Button>
+   414→                      </div>
+   415→                      <Input placeholder="Player name" value={inj.playerName} onChange={e => updateInjury(i, { playerName: e.target.value })} className="h-7 text-xs bg-zinc-800/60 border-zinc-700/50" />
+   416→                      <div className="grid grid-cols-2 gap-2">
+   417→                        <Select value={inj.status} onValueChange={v => updateInjury(i, { status: v as InjuryAdjustment['status'] })}>
+   418→                          <SelectTrigger className="h-7 text-xs bg-zinc-800/60"><SelectValue /></SelectTrigger>
+   419→                          <SelectContent>
+   420→                            <SelectItem value="out" className="text-xs">Out</SelectItem>
+   421→                            <SelectItem value="doubtful" className="text-xs">Doubtful</SelectItem>
+   422→                            <SelectItem value="questionable" className="text-xs">Questionable</SelectItem>
+   423→                          </SelectContent>
+   424→                        </Select>
+   425→                        <Select value={inj.importance} onValueChange={v => updateInjury(i, { importance: v as InjuryAdjustment['importance'] })}>
+   426→                          <SelectTrigger className="h-7 text-xs bg-zinc-800/60"><SelectValue /></SelectTrigger>
+   427→                          <SelectContent>
+   428→                            <SelectItem value="star" className="text-xs">Star</SelectItem>
+   429→                            <SelectItem value="key" className="text-xs">Key</SelectItem>
+   430→                            <SelectItem value="rotation" className="text-xs">Rotation</SelectItem>
+   431→                          </SelectContent>
+   432→                        </Select>
+   433→                      </div>
+   434→                      <div>
+   435→                        <div className="flex items-center justify-between mb-1">
+   436→                          <span className="text-xs text-zinc-500">xG Impact</span>
+   437→                          <span className="text-xs text-emerald-400">{(inj.xgImpact ?? 0).toFixed(2)}</span>
+   438→                        </div>
+   439→                        <Slider value={[inj.xgImpact]} min={0} max={1} step={0.05} onValueChange={([v]) => updateInjury(i, { xgImpact: v })} className="py-1" />
+   440→                      </div>
+   441→                    </motion.div>
+   442→                  ))}
+   443→                </CardContent>
+   444→              </Card>
+   445→
+   446→              <Button onClick={runSimulation} disabled={simulating} className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm tracking-wide rounded-xl transition-all">
+   447→                {simulating ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Running {simRuns} simulations...</> : <><Play className="w-4 h-4 mr-2" /> RUN SIMULATION</>}
+   448→              </Button>
+   449→            </motion.div>
+   450→
+   451→            {/* Results Panel */}
+   452→            <motion.div layout className="lg:col-span-2 space-y-4">
+   453→              {!analysis ? (
+   454→                <Card className="glass-card border-zinc-800/50 h-full min-h-[500px] flex items-center justify-center">
+   455→                  <div className="text-center space-y-3">
+   456→                    <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+   457→                      <Brain className="w-8 h-8 text-emerald-400/50" />
+   458→                    </div>
+   459→                    <p className="text-zinc-600 text-sm">Configure match parameters and run simulation</p>
+   460→                  </div>
+   461→                </Card>
+   462→              ) : (
+   463→                <>
+   464→                  {/* Meta badges */}
+   465→                  <div className="flex items-center gap-3 flex-wrap">
+   466→                    <Badge className={cn('text-xs font-medium border', CONF_COLORS[analysis.simulation.confidence])}>
+   467→                      <Zap className="w-3 h-3 mr-1" /> {analysis.simulation.confidence.toUpperCase()} CONFIDENCE
+   468→                    </Badge>
+   469→                    <Badge className={cn('text-xs font-medium border', RISK_COLORS[analysis.riskRating])}>
+   470→                      <Shield className="w-3 h-3 mr-1" /> {analysis.riskRating.toUpperCase()} RISK
+   471→                    </Badge>
+   472→                    <Badge className="text-xs font-medium border bg-zinc-800/60 text-zinc-300 border-zinc-700/50">
+   473→                      <Activity className="w-3 h-3 mr-1" /> Volatility: {(sim?.volatilityIndex ?? 0).toFixed(0)}/100
+   474→                    </Badge>
+   475→                  </div>
+   476→
+   477→                  {/* Probabilities + Totals row */}
+   478→                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   479→                    <Card className="glass-card border-zinc-800/50">
+   480→                      <CardHeader className="pb-2">
+   481→                        <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
+   482→                          <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> Match Probabilities
+   483→                        </CardTitle>
+   484→                      </CardHeader>
+   485→                      <CardContent>
+   486→                        <ResponsiveContainer width="100%" height={160}>
+   487→                          <BarChart data={probBars} barSize={32} layout="vertical">
+   488→                            <XAxis type="number" domain={[0, 100]} tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} />
+   489→                            <YAxis dataKey="name" type="category" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} width={45} />
+   490→                            <RTooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 8, fontSize: 12 }} />
+   491→                            <Bar dataKey="value" radius={[0, 6, 6, 0]} animationDuration={800}>
+   492→                              {probBars.map((e, idx) => <Cell key={idx} fill={e.fill} />)}
+   493→                            </Bar>
+   494→                          </BarChart>
+   495→                        </ResponsiveContainer>
+   496→                      </CardContent>
+   497→                    </Card>
+   498→                    <Card className="glass-card border-zinc-800/50">
+   499→                      <CardHeader className="pb-2">
+   500→                        <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
+   501→                          <GitBranch className="w-3.5 h-3.5 text-emerald-400" /> Totals Market
+   502→                        </CardTitle>
+   503→                      </CardHeader>
+   504→                      <CardContent className="space-y-3">
+   505→                        {[
+   506→                          { label: 'Over/Under 1.5', over: analysis.simulation.totalsMarket.over15 },
+   507→                          { label: 'Over/Under 2.5', over: analysis.simulation.totalsMarket.over25 },
+   508→                          { label: 'Over/Under 3.5', over: analysis.simulation.totalsMarket.over35 },
+   509→                        ].map(t => (
+   510→                          <div key={t.label} className="space-y-1">
+   511→                            <div className="flex items-center justify-between text-xs">
+   512→                              <span className="text-zinc-400">{t.label}</span>
+   513→                              <span className="text-zinc-300">O {((t.over ?? 0) * 100).toFixed(1)}% / U {((1 - (t.over ?? 0)) * 100).toFixed(1)}%</span>
+   514→                            </div>
+   515→                            <div className="flex h-2 rounded-full overflow-hidden bg-zinc-800">
+   516→                              <motion.div initial={{ width: 0 }} animate={{ width: `${t.over * 100}%` }} transition={{ duration: 0.8 }} className="bg-emerald-500 rounded-l-full" />
+   517→                              <motion.div initial={{ width: 0 }} animate={{ width: `${(1 - t.over) * 100}%` }} transition={{ duration: 0.8 }} className="bg-red-500/70 rounded-r-full" />
+   518→                            </div>
+   519→                          </div>
+   520→                        ))}
+   521→                      </CardContent>
+   522→                    </Card>
+   523→                  </div>
+   524→
+   525→                  {/* Scorelines + xG + BTTS */}
+   526→                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   527→                    <Card className="glass-card border-zinc-800/50">
+   528→                      <CardHeader className="pb-2">
+   529→                        <CardTitle className="text-xs font-medium text-zinc-400">Top 5 Scorelines</CardTitle>
+   530→                      </CardHeader>
+   531→                      <CardContent>
+   532→                        <Table>
+   533→                          <TableHeader><TableRow className="border-zinc-800/50 hover:bg-transparent">
+   534→                            <TableHead className="text-xs text-zinc-500">Score</TableHead>
+   535→                            <TableHead className="text-xs text-zinc-500 text-right">Prob</TableHead>
+   536→                          </TableRow></TableHeader>
+   537→                          <TableBody>
+   538→                            {topScorelines.map((s, i) => (
+   539→                              <TableRow key={s.score} className="border-zinc-800/30 hover:bg-zinc-800/20">
+   540→                                <TableCell className="text-xs font-mono text-zinc-300">{s.score}</TableCell>
+   541→                                <TableCell className="text-xs text-right text-emerald-400 font-medium">{s.prob}%</TableCell>
+   542→                              </TableRow>
+   543→                            ))}
+   544→                          </TableBody>
+   545→                        </Table>
+   546→                      </CardContent>
+   547→                    </Card>
+   548→                    <Card className="glass-card border-zinc-800/50">
+   549→                      <CardHeader className="pb-2">
+   550→                        <CardTitle className="text-xs font-medium text-zinc-400">Expected Goals</CardTitle>
+   551→                      </CardHeader>
+   552→                      <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-3">
+   553→                        <div className="text-center">
+   554→                          <p className="text-3xl font-bold text-white">{(em?.home ?? 0).toFixed(2)}</p>
+   555→                          <p className="text-xs text-zinc-500">Home xG</p>
+   556→                        </div>
+   557→                        <div className="text-center">
+   558→                          <p className="text-3xl font-bold text-white">{(em?.away ?? 0).toFixed(2)}</p>
+   559→                          <p className="text-xs text-zinc-500">Away xG</p>
+   560→                        </div>
+   561→                        <Badge variant="outline" className="text-xs text-zinc-400 border-zinc-700/50">
+   562→                          Total: {(em?.total ?? 0).toFixed(2)}
+   563→                        </Badge>
+   564→                      </CardContent>
+   565→                    </Card>
+   566→                    <Card className="glass-card border-zinc-800/50">
+   567→                      <CardHeader className="pb-2">
+   568→                        <CardTitle className="text-xs font-medium text-zinc-400">BTTS & Volatility</CardTitle>
+   569→                      </CardHeader>
+   570→                      <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-4">
+   571→                        <div className="text-center">
+   572→                          <p className="text-2xl font-bold text-emerald-400">{((sim?.bothTeamsToScore ?? 0) * 100).toFixed(1)}%</p>
+   573→                          <p className="text-xs text-zinc-500">Both Teams To Score</p>
+   574→                        </div>
+   575→                        <Separator className="bg-zinc-800/50" />
+   576→                        <div className="text-center w-full">
+   577→                          <div className="flex items-center justify-between mb-1">
+   578→                            <span className="text-xs text-zinc-500">Volatility Index</span>
+   579→                            <span className="text-xs font-mono text-zinc-300">{(sim?.volatilityIndex ?? 0).toFixed(0)}</span>
+   580→                          </div>
+   581→                          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden">
+   582→                            <motion.div
+   583→                              initial={{ width: 0 }}
+   584→                              animate={{ width: `${analysis.simulation.volatilityIndex}%` }}
+   585→                              transition={{ duration: 1 }}
+   586→                              className={cn('h-full rounded-full', analysis.simulation.volatilityIndex > 70 ? 'bg-red-500' : analysis.simulation.volatilityIndex > 40 ? 'bg-amber-500' : 'bg-emerald-500')}
+   587→                            />
+   588→                          </div>
+   589→                        </div>
+   590→                      </CardContent>
+   591→                    </Card>
+   592→                  </div>
+   593→
+   594→                  {/* Asian Handicap */}
+   595→                  <Card className="glass-card border-zinc-800/50">
+   596→                    <CardHeader className="pb-2">
+   597→                      <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
+   598→                        <Gauge className="w-3.5 h-3.5 text-emerald-400" /> Asian Handicap Probabilities
+   599→                      </CardTitle>
+   600→                    </CardHeader>
+   601→                    <CardContent>
+   602→                      <div className="grid grid-cols-4 gap-4">
+   603→                        {ahData.map(ah => (
+   604→                          <div key={ah.line} className="text-center p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 space-y-2">
+   605→                            <p className="text-xs text-zinc-500 font-mono">Line {ah.line}</p>
+   606→                            <div className="space-y-1">
+   607→                              <div className="flex justify-between text-xs">
+   608→                                <span className="text-emerald-400">H {ah.home}%</span>
+   609→                                <span className="text-red-400">A {ah.away}%</span>
+   610→                              </div>
+   611→                              <div className="flex h-1.5 rounded-full overflow-hidden bg-zinc-800">
+   612→                                <motion.div initial={{ width: 0 }} animate={{ width: `${ah.home}%` }} transition={{ duration: 0.8 }} className="bg-emerald-500" />
+   613→                                <motion.div initial={{ width: 0 }} animate={{ width: `${ah.away}%` }} transition={{ duration: 0.8 }} className="bg-red-500/70" />
+   614→                              </div>
+   615→                            </div>
+   616→                          </div>
+   617→                        ))}
+   618→                      </div>
+   619→                    </CardContent>
+   620→                  </Card>
+   621→                </>
+   622→              )}
+   623→            </motion.div>
+   624→          </div>
+   625→        </TabsContent>
+   626→
+   627→        {/* ═════════════════════ TAB 2: KELLY BANKROLL MANAGER ═════════════════════ */}
+   628→        <TabsContent value="kelly" className="space-y-6 mt-6">
+   629→          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   630→            <div className="space-y-4">
+   631→              <Card className="glass-card border-zinc-800/50">
+   632→                <CardHeader className="pb-3">
+   633→                  <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   634→                    <DollarSign className="w-4 h-4 text-emerald-400" /> Bankroll Setup
+   635→                  </CardTitle>
+   636→                </CardHeader>
+   637→                <CardContent className="space-y-3">
+   638→                  <div>
+   639→                    <Label className="text-xs text-zinc-500">Total Bankroll ($)</Label>
+   640→                    <Input type="number" value={kellyBankroll} onChange={e => setKellyBankroll(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+   641→                  </div>
+   642→                  <p className="text-xs text-zinc-600">Uses the last simulation results. Run a simulation first for Kelly analysis.</p>
+   643→                  <Button onClick={runKelly} disabled={kellyLoading || !analysis} className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
+   644→                    {kellyLoading ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Calculating...</> : <><Calculator className="w-4 h-4 mr-2" /> CALCULATE KELLY</>}
+   645→                  </Button>
+   646→                </CardContent>
+   647→              </Card>
+   648→
+   649→              {/* Portfolio summary */}
+   650→              {kellyResult && (
+   651→                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+   652→                  <Card className="glass-card border-zinc-800/50">
+   653→                    <CardHeader className="pb-2">
+   654→                      <CardTitle className="text-xs font-medium text-zinc-400">Portfolio Summary</CardTitle>
+   655→                    </CardHeader>
+   656→                    <CardContent className="space-y-3">
+   657→                      <div className="flex justify-between text-sm">
+   658→                        <span className="text-zinc-500">Total Exposure</span>
+   659→                        <span className="text-white font-medium">${(kellyResult.totalExposure ?? 0).toFixed(2)}</span>
+   660→                      </div>
+   661→                      <div className="flex justify-between text-sm">
+   662→                        <span className="text-zinc-500">Expected Value</span>
+   663→                        <span className={cn('font-medium', kellyResult.totalExpectedValue >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+   664→                          ${(kellyResult.totalExpectedValue ?? 0).toFixed(2)}
+   665→                        </span>
+   666→                      </div>
+   667→                      <div className="flex justify-between text-sm">
+   668→                        <span className="text-zinc-500">Sharpe Ratio</span>
+   669→                        <span className="text-white font-medium">{(kellyResult.sharpeRatio ?? 0).toFixed(3)}</span>
+   670→                      </div>
+   671→                      <Separator className="bg-zinc-800/50" />
+   672→                      <div className="flex justify-between text-sm">
+   673→                        <span className="text-zinc-500">Bankroll Utilization</span>
+   674→                        <span className="text-emerald-400 font-medium">{((kellyResult.totalExposure ?? 0) / Math.max(1, kellyResult.totalBankroll ?? 1) * 100).toFixed(1)}%</span>
+   675→                      </div>
+   676→                    </CardContent>
+   677→                  </Card>
+   678→
+   679→                  {/* Pie chart */}
+   680→                  {kellyPie.length > 0 && (
+   681→                    <Card className="glass-card border-zinc-800/50">
+   682→                      <CardHeader className="pb-2">
+   683→                        <CardTitle className="text-xs font-medium text-zinc-400">Bankroll Allocation</CardTitle>
+   684→                      </CardHeader>
+   685→                      <CardContent>
+   686→                        <ResponsiveContainer width="100%" height={180}>
+   687→                          <PieChart>
+   688→                            <Pie data={kellyPie} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none" animationDuration={800}>
+   689→                              {kellyPie.map((_, i) => <Cell key={i} fill={['#00e676', '#ffd700', '#ff4757', '#38bdf8', '#c084fc'][i % 5]} />)}
+   690→                            </Pie>
+   691→                            <RTooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 8, fontSize: 12 }} />
+   692→                          </PieChart>
+   693→                        </ResponsiveContainer>
+   694→                        <div className="flex flex-wrap gap-2 justify-center mt-1">
+   695→                          {kellyPie.map((p, i) => (
+   696→                            <div key={i} className="flex items-center gap-1 text-xs text-zinc-400">
+   697→                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ['#00e676', '#ffd700', '#ff4757', '#38bdf8', '#c084fc'][i % 5] }} />
+   698→                              {p.name}: ${p.value}
+   699→                            </div>
+   700→                          ))}
+   701→                        </div>
+   702→                      </CardContent>
+   703→                    </Card>
+   704→                  )}
+   705→                </motion.div>
+   706→              )}
+   707→            </div>
+   708→
+   709→            {/* Kelly results table */}
+   710→            <div className="lg:col-span-2">
+   711→              <Card className="glass-card border-zinc-800/50">
+   712→                <CardHeader className="pb-3">
+   713→                  <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   714→                    <Target className="w-4 h-4 text-emerald-400" /> Kelly Criterion Results
+   715→                  </CardTitle>
+   716→                </CardHeader>
+   717→                <CardContent>
+   718→                  {!kellyResult ? (
+   719→                    <div className="flex items-center justify-center h-[300px]">
+   720→                      <p className="text-sm text-zinc-600">Run a simulation, then calculate Kelly allocation</p>
+   721→                    </div>
+   722→                  ) : (
+   723→                    <Table>
+   724→                      <TableHeader>
+   725→                        <TableRow className="border-zinc-800/50 hover:bg-transparent">
+   726→                          <TableHead className="text-xs text-zinc-500">Outcome</TableHead>
+   727→                          <TableHead className="text-xs text-zinc-500 text-right">Model Prob</TableHead>
+   728→                          <TableHead className="text-xs text-zinc-500 text-right">Market Odds</TableHead>
+   729→                          <TableHead className="text-xs text-zinc-500 text-right">Edge %</TableHead>
+   730→                          <TableHead className="text-xs text-zinc-500 text-right">Fraction</TableHead>
+   731→                          <TableHead className="text-xs text-zinc-500 text-right">Wager</TableHead>
+   732→                          <TableHead className="text-xs text-zinc-500 text-center">Action</TableHead>
+   733→                        </TableRow>
+   734→                      </TableHeader>
+   735→                      <TableBody>
+   736→                        {kellyResult.outcomes.map((o, i) => (
+   737→                          <TableRow key={i} className="border-zinc-800/30 hover:bg-zinc-800/20">
+   738→                            <TableCell className="text-xs font-medium text-white">{o.label}</TableCell>
+   739→                            <TableCell className="text-xs text-right text-zinc-300">{((o.modelProb ?? 0) * 100).toFixed(1)}%</TableCell>
+   740→                            <TableCell className="text-xs text-right text-zinc-300">{(o.marketOdds ?? 0).toFixed(2)}</TableCell>
+   741→                            <TableCell className={cn('text-xs text-right font-medium', (o.edge ?? 0) > 0 ? 'text-emerald-400' : 'text-red-400')}>
+   742→                              {(o.edge ?? 0) > 0 ? '+' : ''}{((o.edge ?? 0) * 100).toFixed(1)}%
+   743→                            </TableCell>
+   744→                            <TableCell className="text-xs text-right text-zinc-300">{((o.kellyFraction ?? 0) * 100).toFixed(1)}%</TableCell>
+   745→                            <TableCell className="text-xs text-right text-white font-medium">${(o.wagerAmount ?? 0).toFixed(2)}</TableCell>
+   746→                            <TableCell className="text-center">
+   747→                              <Badge className={cn('text-[10px] font-bold', ACTION_STYLE[o.action])}>{o.action}</Badge>
+   748→                            </TableCell>
+   749→                          </TableRow>
+   750→                        ))}
+   751→                      </TableBody>
+   752→                    </Table>
+   753→                  )}
+   754→                </CardContent>
+   755→              </Card>
+   756→            </div>
+   757→          </div>
+   758→        </TabsContent>
+   759→
+   760→        {/* ═════════════════════ TAB 3: MARKET SIGNALS ═════════════════════ */}
+   761→        <TabsContent value="signals" className="space-y-6 mt-6">
+   762→          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   763→            <Card className="glass-card border-zinc-800/50">
+   764→              <CardHeader className="pb-3">
+   765→                <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   766→                  <Radio className="w-4 h-4 text-emerald-400" /> Signal Input
+   767→                </CardTitle>
+   768→              </CardHeader>
+   769→              <CardContent className="space-y-3">
+   770→                <div className="grid grid-cols-2 gap-3">
+   771→                  <div>
+   772→                    <Label className="text-xs text-zinc-500">Home Team</Label>
+   773→                    <Select value={sigHomeTeam} onValueChange={setSigHomeTeam}>
+   774→                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Home" /></SelectTrigger>
+   775→                      <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+   776→                    </Select>
+   777→                  </div>
+   778→                  <div>
+   779→                    <Label className="text-xs text-zinc-500">Away Team</Label>
+   780→                    <Select value={sigAwayTeam} onValueChange={setSigAwayTeam}>
+   781→                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Away" /></SelectTrigger>
+   782→                      <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+   783→                    </Select>
+   784→                  </div>
+   785→                </div>
+   786→                <Separator className="bg-zinc-800/50" />
+   787→                <p className="text-xs text-zinc-500 font-medium">Opening Odds</p>
+   788→                <div className="grid grid-cols-3 gap-2">
+   789→                  <Input type="number" step="0.01" placeholder="Home" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   790→                  <Input type="number" step="0.01" placeholder="Draw" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   791→                  <Input type="number" step="0.01" placeholder="Away" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   792→                </div>
+   793→                <p className="text-xs text-zinc-500 font-medium">Current Odds</p>
+   794→                <div className="grid grid-cols-3 gap-2">
+   795→                  <Input type="number" step="0.01" placeholder="Home" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   796→                  <Input type="number" step="0.01" placeholder="Draw" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   797→                  <Input type="number" step="0.01" placeholder="Away" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+   798→                </div>
+   799→                <Button onClick={runSignals} disabled={sigLoading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
+   800→                  {sigLoading ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</> : <><Eye className="w-4 h-4 mr-2" /> ANALYZE</>}
+   801→                </Button>
+   802→              </CardContent>
+   803→            </Card>
+   804→
+   805→            <div className="lg:col-span-2 space-y-4">
+   806→              {!signalResult ? (
+   807→                <Card className="glass-card border-zinc-800/50 h-full min-h-[400px] flex items-center justify-center">
+   808→                  <div className="text-center space-y-3">
+   809→                    <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center">
+   810→                      <Radio className="w-8 h-8 text-emerald-400/50" />
+   811→                    </div>
+   812→                    <p className="text-zinc-600 text-sm">Enter opening & current odds to analyze line movements</p>
+   813→                  </div>
+   814→                </Card>
+   815→              ) : (
+   816→                <>
+   817→                  {/* Line Velocity */}
+   818→                  <Card className="glass-card border-zinc-800/50">
+   819→                    <CardHeader className="pb-2">
+   820→                      <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
+   821→                        <Activity className="w-3.5 h-3.5 text-emerald-400" /> Line Velocity
+   822→                      </CardTitle>
+   823→                    </CardHeader>
+   824→                    <CardContent>
+   825→                      <div className="grid grid-cols-3 gap-4">
+   826→                        {(['home', 'draw', 'away'] as const).map(side => {
+   827→                          const vel = signalResult.lineVelocity[side]
+   828→                          const direction = vel > 0 ? 'down' : vel < 0 ? 'up' : 'flat'
+   829→                          return (
+   830→                            <div key={side} className="text-center p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+   831→                              <p className="text-xs text-zinc-500 capitalize mb-1">{side}</p>
+   832→                              <div className="flex items-center justify-center gap-2">
+   833→                                {direction === 'up' && <ArrowUpRight className="w-5 h-5 text-emerald-400" />}
+   834→                                {direction === 'down' && <ArrowDownRight className="w-5 h-5 text-red-400" />}
+   835→                                {direction === 'flat' && <Minus className="w-5 h-5 text-zinc-500" />}
+   836→                                <span className={cn('text-lg font-bold', direction === 'up' ? 'text-emerald-400' : direction === 'down' ? 'text-red-400' : 'text-zinc-400')}>
+   837→                                  {vel > 0 ? '+' : ''}{(vel ?? 0).toFixed(4)}
+   838→                                </span>
+   839→                              </div>
+   840→                            </div>
+   841→                          )
+   842→                        })}
+   843→                      </div>
+   844→                    </CardContent>
+   845→                  </Card>
+   846→
+   847→                  {/* Alerts + Confidence */}
+   848→                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   849→                    <Card className="glass-card border-zinc-800/50">
+   850→                      <CardHeader className="pb-2">
+   851→                        <CardTitle className="text-xs font-medium text-zinc-400">Detection Alerts</CardTitle>
+   852→                      </CardHeader>
+   853→                      <CardContent className="space-y-3">
+   854→                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+   855→                          <div className="flex items-center gap-2">
+   856→                            <Flame className={cn('w-4 h-4', signalResult.steamMove ? 'text-orange-400' : 'text-zinc-600')} />
+   857→                            <span className="text-sm text-zinc-300">Steam Move</span>
+   858→                          </div>
+   859→                          {signalResult.steamMove
+   860→                            ? <Badge className="text-[10px] font-bold bg-orange-500/20 text-orange-400 border-orange-500/30">DETECTED</Badge>
+   861→                            : <Badge className="text-[10px] font-bold bg-zinc-800/60 text-zinc-500 border-zinc-700/50">NONE</Badge>
+   862→                          }
+   863→                        </div>
+   864→                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+   865→                          <div className="flex items-center gap-2">
+   866→                            <AlertOctagon className={cn('w-4 h-4', signalResult.rlmDetected ? 'text-purple-400' : 'text-zinc-600')} />
+   867→                            <span className="text-sm text-zinc-300">RLM Detected</span>
+   868→                          </div>
+   869→                          {signalResult.rlmDetected
+   870→                            ? <Badge className="text-[10px] font-bold bg-purple-500/20 text-purple-400 border-purple-500/30">DETECTED</Badge>
+   871→                            : <Badge className="text-[10px] font-bold bg-zinc-800/60 text-zinc-500 border-zinc-700/50">NONE</Badge>
+   872→                          }
+   873→                        </div>
+   874→                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+   875→                          <div className="flex items-center gap-2">
+   876→                            <Eye className={cn('w-4 h-4', signalResult.sharpAction !== 'neutral' ? 'text-emerald-400' : 'text-zinc-600')} />
+   877→                            <span className="text-sm text-zinc-300">Sharp Action</span>
+   878→                          </div>
+   879→                          <Badge className={cn('text-[10px] font-bold border',
+   880→                            signalResult.sharpAction === 'neutral' ? 'bg-zinc-800/60 text-zinc-500 border-zinc-700/50' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+   881→                          )}>
+   882→                            {signalResult.sharpAction === 'neutral' ? 'NEUTRAL' : signalResult.sharpAction.toUpperCase()}
+   883→                          </Badge>
+   884→                        </div>
+   885→                      </CardContent>
+   886→                    </Card>
+   887→                    <Card className="glass-card border-zinc-800/50">
+   888→                      <CardHeader className="pb-2">
+   889→                        <CardTitle className="text-xs font-medium text-zinc-400">Signal Confidence</CardTitle>
+   890→                      </CardHeader>
+   891→                      <CardContent className="flex flex-col items-center justify-center h-[160px] space-y-3">
+   892→                        <p className="text-4xl font-bold text-white">{((signalResult?.confidence ?? 0) * 100).toFixed(0)}%</p>
+   893→                        <div className="w-full h-3 rounded-full bg-zinc-800 overflow-hidden">
+   894→                          <motion.div
+   895→                            initial={{ width: 0 }}
+   896→                            animate={{ width: `${signalResult.confidence * 100}%` }}
+   897→                            transition={{ duration: 1 }}
+   898→                            className={cn('h-full rounded-full', signalResult.confidence > 0.7 ? 'bg-emerald-500' : signalResult.confidence > 0.4 ? 'bg-amber-500' : 'bg-red-500')}
+   899→                          />
+   900→                        </div>
+   901→                        <p className="text-xs text-zinc-500">{signalResult.homeTeam} vs {signalResult.awayTeam}</p>
+   902→                      </CardContent>
+   903→                    </Card>
+   904→                  </div>
+   905→                </>
+   906→              )}
+   907→            </div>
+   908→          </div>
+   909→        </TabsContent>
+   910→
+   911→        {/* ═════════════════════ TAB 4: ENGINE CONFIG ═════════════════════ */}
+   912→        <TabsContent value="config" className="space-y-6 mt-6">
+   913→          <div className="max-w-2xl mx-auto space-y-6">
+   914→            <Card className="glass-card border-zinc-800/50">
+   915→              <CardHeader>
+   916→                <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+   917→                  <Settings className="w-4 h-4 text-emerald-400" /> Engine Configuration
+   918→                </CardTitle>
+   919→                <CardDescription className="text-xs text-zinc-500">Fine-tune the stochastic engine parameters</CardDescription>
+   920→              </CardHeader>
+   921→              <CardContent className="space-y-6">
+   922→                {/* Simulation runs */}
+   923→                <div className="space-y-2">
+   924→                  <div className="flex items-center justify-between">
+   925→                    <Label className="text-sm text-zinc-300">Simulation Runs</Label>
+   926→                    <span className="text-xs font-mono text-emerald-400">{config.simulationRuns.toLocaleString()}</span>
+   927→                  </div>
+   928→                  <Slider
+   929→                    value={[config.simulationRuns]}
+   930→                    min={10000} max={500000} step={10000}
+   931→                    onValueChange={([v]) => setConfig(p => ({ ...p, simulationRuns: v }))}
+   932→                  />
+   933→                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>500K</span></div>
+   934→                </div>
+   935→
+   936→                <Separator className="bg-zinc-800/50" />
+   937→
+   938→                {/* Kelly fraction */}
+   939→                <div className="space-y-2">
+   940→                  <div className="flex items-center justify-between">
+   941→                    <Label className="text-sm text-zinc-300">Kelly Fraction</Label>
+   942→                    <span className="text-xs font-mono text-emerald-400">{(config.kellyFraction * 100).toFixed(0)}%</span>
+   943→                  </div>
+   944→                  <Slider
+   945→                    value={[config.kellyFraction * 100]}
+   946→                    min={5} max={100} step={5}
+   947→                    onValueChange={([v]) => setConfig(p => ({ ...p, kellyFraction: v / 100 }))}
+   948→                  />
+   949→                  <div className="flex justify-between text-[10px] text-zinc-600"><span>5% (Quarter)</span><span>100% (Full)</span></div>
+   950→                </div>
+   951→
+   952→                <Separator className="bg-zinc-800/50" />
+   953→
+   954→                {/* Min edge threshold */}
+   955→                <div className="space-y-2">
+   956→                  <div className="flex items-center justify-between">
+   957→                    <Label className="text-sm text-zinc-300">Min Edge Threshold</Label>
+   958→                    <span className="text-xs font-mono text-emerald-400">{(config.minEdgeThreshold * 100).toFixed(1)}%</span>
+   959→                  </div>
+   960→                  <Slider
+   961→                    value={[config.minEdgeThreshold * 100]}
+   962→                    min={0} max={10} step={0.5}
+   963→                    onValueChange={([v]) => setConfig(p => ({ ...p, minEdgeThreshold: v / 100 }))}
+   964→                  />
+   965→                  <div className="flex justify-between text-[10px] text-zinc-600"><span>0%</span><span>10%</span></div>
+   966→                </div>
+   967→
+   968→                <Separator className="bg-zinc-800/50" />
+   969→
+   970→                {/* Max bankroll risk */}
+   971→                <div className="space-y-2">
+   972→                  <div className="flex items-center justify-between">
+   973→                    <Label className="text-sm text-zinc-300">Max Bankroll Risk</Label>
+   974→                    <span className="text-xs font-mono text-emerald-400">{(config.maxBankrollRisk * 100).toFixed(0)}%</span>
+   975→                  </div>
+   976→                  <Slider
+   977→                    value={[config.maxBankrollRisk * 100]}
+   978→                    min={1} max={25} step={1}
+   979→                    onValueChange={([v]) => setConfig(p => ({ ...p, maxBankrollRisk: v / 100 }))}
+   980→                  />
+   981→                  <div className="flex justify-between text-[10px] text-zinc-600"><span>1%</span><span>25%</span></div>
+   982→                </div>
+   983→
+   984→                <Separator className="bg-zinc-800/50" />
+   985→
+   986→                {/* Toggles */}
+   987→                <div className="space-y-4">
+   988→                  <div className="flex items-center justify-between">
+   989→                    <div className="space-y-0.5">
+   990→                      <Label className="text-sm text-zinc-300">GARCH Volatility Model</Label>
+   991→                      <p className="text-[10px] text-zinc-600">Conditional variance estimation for volatility clustering</p>
+   992→                    </div>
+   993→                    <Switch checked={config.garchEnabled} onCheckedChange={v => setConfig(p => ({ ...p, garchEnabled: v }))} />
+   994→                  </div>
+   995→                  <div className="flex items-center justify-between">
+   996→                    <div className="space-y-0.5">
+   997→                      <Label className="text-sm text-zinc-300">Jump-Diffusion Model</Label>
+   998→                      <p className="text-[10px] text-zinc-600">Merton jump process for sudden momentum shifts</p>
+   999→                    </div>
+  1000→                    <Switch checked={config.jumpDiffusionEnabled} onCheckedChange={v => setConfig(p => ({ ...p, jumpDiffusionEnabled: v }))} />
+  1001→                  </div>
+  1002→                </div>
+  1003→
+  1004→                <Separator className="bg-zinc-800/50" />
+  1005→
+  1006→                <div className="flex gap-3">
+  1007→                  <Button onClick={saveConfig} disabled={configLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
+  1008→                    <Save className="w-4 h-4 mr-2" /> {configLoading ? 'Saving...' : 'Save Configuration'}
+  1009→                  </Button>
+  1010→                  <Button onClick={resetConfig} variant="outline" className="border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl">
+  1011→                    <RotateCcw className="w-4 h-4 mr-2" /> Reset
+  1012→                  </Button>
+  1013→                </div>
+  1014→              </CardContent>
+  1015→            </Card>
+  1016→          </div>
+  1017→        </TabsContent>
+  1018→      </Tabs>
+  1019→    </div>
+  1020→  )
+  1021→}

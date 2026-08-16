@@ -37,7 +37,6 @@ import {
 } from 'recharts'
 import { useElasticoStore, type Team } from '@/store/use-elastico-store'
 import { cn } from '@/lib/utils'
-import { fifaFlag } from '@/lib/flags'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -371,7 +370,7 @@ export function CompareView() {
                 <div className="flex items-center justify-center gap-4">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-primary">{h2hRecord.home}</div>
-                    <div className="text-[10px] text-muted-foreground">{fifaFlag(homeTeam.code)} {homeTeam.code} Wins</div>
+                    <div className="text-[10px] text-muted-foreground">{homeTeam.name} Wins</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-muted-foreground">{h2hRecord.draws}</div>
@@ -379,7 +378,7 @@ export function CompareView() {
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-orange-400">{h2hRecord.away}</div>
-                    <div className="text-[10px] text-muted-foreground">{fifaFlag(awayTeam.code)} {awayTeam.code} Wins</div>
+                    <div className="text-[10px] text-muted-foreground">{awayTeam.name} Wins</div>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -411,7 +410,7 @@ export function CompareView() {
                     <div className="flex items-center gap-2">
                       <ArrowRight className={cn('size-4', home ? 'text-primary' : 'text-orange-400 rotate-180')} />
                       <Badge variant="outline" className={cn('text-[10px]', home ? 'text-primary border-primary/30' : 'text-orange-400 border-orange-400/30')}>
-                        {home ? fifaFlag(homeTeam.code) : fifaFlag(awayTeam.code)} +{margin}
+                        {home ? homeTeam.name : awayTeam.name} +{margin}
                       </Badge>
                     </div>
                   </div>
@@ -453,9 +452,9 @@ export function CompareView() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {[
-                  { homePlayer: `${fifaFlag(homeTeam.code)} Best Striker`, awayPlayer: `${fifaFlag(awayTeam.code)} Best Striker`, metric: 'Goals' },
-                  { homePlayer: `${fifaFlag(homeTeam.code)} Playmaker`, awayPlayer: `${fifaFlag(awayTeam.code)} Playmaker`, metric: 'Assists' },
-                  { homePlayer: `${fifaFlag(homeTeam.code)} Key Defender`, awayPlayer: `${fifaFlag(awayTeam.code)} Key Defender`, metric: 'Tackles' },
+                  { homePlayer: `${homeTeam.name} Best Striker`, awayPlayer: `${awayTeam.name} Best Striker`, metric: 'Goals' },
+                  { homePlayer: `${homeTeam.name} Playmaker`, awayPlayer: `${awayTeam.name} Playmaker`, metric: 'Assists' },
+                  { homePlayer: `${homeTeam.name} Key Defender`, awayPlayer: `${awayTeam.name} Key Defender`, metric: 'Tackles' },
                 ].map((matchup, i) => (
                   <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-card/50 border border-border/30">
                     <div className="flex-1 text-right">

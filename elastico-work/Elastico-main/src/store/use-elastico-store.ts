@@ -378,13 +378,6 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
       if (res.ok) {
         const data = await res.json()
         const matches = Array.isArray(data) ? data : data.matches || []
-        // Track bandwidth
-        const payloadBytes = res.headers.get('X-Payload-Bytes')
-        if (payloadBytes) {
-          try { (
-            await import('@/lib/compressed-data-stream')
-          ).BandwidthTracker.log(parseInt(payloadBytes, 10), '/api/matches') } catch {}
-        }
         set({ matches })
       }
     } catch (e) { console.error('Failed to fetch matches:', e) }
@@ -396,10 +389,6 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
       if (res.ok) {
         const data = await res.json()
         const teams = Array.isArray(data) ? data : data.teams || []
-        const payloadBytes = res.headers.get('X-Payload-Bytes')
-        if (payloadBytes) {
-          try { (await import('@/lib/compressed-data-stream')).BandwidthTracker.log(parseInt(payloadBytes, 10), '/api/teams') } catch {}
-        }
         set({ teams })
       }
     } catch (e) { console.error('Failed to fetch teams:', e) }
@@ -411,10 +400,6 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
       if (res.ok) {
         const data = await res.json()
         const news = Array.isArray(data) ? data : data.news || []
-        const payloadBytes = res.headers.get('X-Payload-Bytes')
-        if (payloadBytes) {
-          try { (await import('@/lib/compressed-data-stream')).BandwidthTracker.log(parseInt(payloadBytes, 10), '/api/news') } catch {}
-        }
         set({ news })
       }
     } catch (e) { console.error('Failed to fetch news:', e) }
@@ -430,10 +415,6 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
       if (res.ok) {
         const data = await res.json()
         const notifications = Array.isArray(data) ? data : data.notifications || []
-        const payloadBytes = res.headers.get('X-Payload-Bytes')
-        if (payloadBytes) {
-          try { (await import('@/lib/compressed-data-stream')).BandwidthTracker.log(parseInt(payloadBytes, 10), '/api/notifications') } catch {}
-        }
         set({ notifications })
       }
     } catch (e) { console.error('Failed to fetch notifications:', e) }

@@ -161,7 +161,7 @@ function CircGauge({ value, max = 100, size = 120, label, strokeColor }: {
   return (
     <div className="flex flex-col items-center gap-2">
       <svg width={size} height={size} className="drop-shadow-lg">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="oklch(0.15 0.02 260)" strokeWidth={8} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={8} />
         <circle
           cx={size / 2} cy={size / 2} r={r} fill="none"
           stroke={color} strokeWidth={8} strokeLinecap="round"
@@ -551,13 +551,13 @@ function NonAdminAIForecasts() {
                   <BarChart data={indicatorTrendData}>
                     <XAxis
                       dataKey="name"
-                      tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
-                      axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      axisLine={{ stroke: 'var(--border)' }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
-                      axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                      axisLine={{ stroke: 'var(--border)' }}
                       tickLine={false}
                     />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>
@@ -1564,13 +1564,13 @@ function AdminSystemMonitor() {
                       <BarChart data={indicatorTrendData}>
                         <XAxis
                           dataKey="name"
-                          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
-                          axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+                          tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                          axisLine={{ stroke: 'var(--border)' }}
                           tickLine={false}
                         />
                         <YAxis
-                          tick={{ fill: 'oklch(0.6 0 0)', fontSize: 11 }}
-                          axisLine={{ stroke: 'oklch(0.25 0.03 260)' }}
+                          tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                          axisLine={{ stroke: 'var(--border)' }}
                           tickLine={false}
                         />
                         <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={36}>

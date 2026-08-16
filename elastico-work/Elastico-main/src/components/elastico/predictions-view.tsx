@@ -21,7 +21,6 @@ import {
   Target, ArrowUpDown, Flame, CheckCircle2, XCircle, Brain, Calendar, Crown, Download, Trophy, Zap, TrendingUp, Send,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fifaFlag } from '@/lib/flags'
 import { generateCSV } from '@/lib/export'
 import { toast } from '@/hooks/use-toast'
 
@@ -145,11 +144,16 @@ export default function PredictionsView() {
 
   const handleQuickPredict = useCallback((matchId: string, choice: string) => {
     if (!token) return
+    const match = matches.find(m => m.id === matchId)
+    if (!match) return
+    // Derive expected goals from match xG data, fallback to sensible defaults based on outcome
+    const homeXg = match.homeXg > 0 ? Math.round(match.homeXg) : (choice === 'home' ? 2 : choice === 'draw' ? 1 : 0)
+    const awayXg = match.awayXg > 0 ? Math.round(match.awayXg) : (choice === 'away' ? 2 : choice === 'draw' ? 1 : 0)
     fetch('/api/predictions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ matchId, predictedOutcome: choice, confidence: 70 }),
+      body: JSON.stringify({ matchId, predictedHomeGoals: homeXg, predictedAwayGoals: awayXg, predictedOutcome: choice, confidence: 70 }),
     }).then(() => { fetchPredictions(); toast({ title: 'Prediction submitted!' }) }).catch(() => toast({ title: 'Error', description: 'Failed', variant: 'destructive' }))
-  }, [token, fetchPredictions])
+  }, [token, fetchPredictions, matches])
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-32 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div>
 
@@ -276,7 +280,7 @@ export default function PredictionsView() {
                     <TableBody>
                       {filteredPast.map((p) => (
                         <TableRow key={p.id} className="border-border/10">
-                          <TableCell className="text-xs py-2">{fifaFlag(p.match?.homeTeam?.code)} vs {fifaFlag(p.match?.awayTeam?.code)}</TableCell>
+                          <TableCell className="text-xs py-2">{p.match?.homeTeam?.name ?? '—'} vs {p.match?.awayTeam?.name ?? '—'}</TableCell>
                           <TableCell className="text-xs py-2 capitalize">{p.predictedOutcome.replace('_', ' ')}</TableCell>
                           <TableCell className="text-xs py-2"><Badge variant="outline" className="text-[9px] border-border/50">{p.model}</Badge></TableCell>
                           <TableCell className="text-xs py-2 tabular-nums">{p.confidence}%</TableCell>
@@ -327,10 +331,10 @@ export default function PredictionsView() {
               <CardContent>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={accuracyByModel} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                    <YAxis type="category" dataKey="model" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} width={80} />
-                    <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                    <YAxis type="category" dataKey="model" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} width={80} />
+                    <RTooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--card-foreground)' }} />
                     <Bar dataKey="accuracy" radius={[0, 4, 4, 0]}>
                       {accuracyByModel.map((_, i) => <Cell key={i} fill={i === 0 ? '#00e676' : i === 1 ? '#00b4d8' : i === 2 ? '#ffd700' : '#a855f7'} />)}
                     </Bar>

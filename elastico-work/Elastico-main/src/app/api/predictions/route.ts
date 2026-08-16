@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
+/** GET /api/predictions — fetch current user's predictions with match data */
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
+
+    const { user } = auth
+    const predictions = await db.prediction.findMany({
+      where: { userId: user.id },
+      include: {
+        match: {
+          include: {
+            homeTeam: { select: { name: true, code: true, primaryColor: true } },
+            awayTeam: { select: { name: true, code: true, primaryColor: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    })
+
+    return NextResponse.json({ predictions })
+  } catch (error) {
+    console.error('Fetch predictions error:', error)
+    return NextResponse.json({ error: 'Failed to fetch predictions' }, { status: 500 })
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req)

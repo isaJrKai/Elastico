@@ -847,9 +847,9 @@ export default function AdminView() {
                         <stop offset="95%" stopColor="#00b4d8" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} interval={4} />
-                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} interval={4} />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
                     <RTooltip content={<ChartTooltip />} />
                     <Area type="monotone" dataKey="users" stroke="#00e676" fill="url(#gradUsers)" strokeWidth={2} />
                     <Area type="monotone" dataKey="pro" stroke="#00b4d8" fill="url(#gradPro)" strokeWidth={1.5} />
@@ -1328,9 +1328,9 @@ export default function AdminView() {
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={userGrowthData.slice(-14)}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: 'oklch(0.6 0 0)' }} />
-                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }} />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
                     <RTooltip content={<ChartTooltip />} />
                     <Bar dataKey="pro" stackId="a" fill="#00b4d8" name="Pro" />
                     <Bar dataKey="elite" stackId="a" fill="#ffd700" name="Elite" />
@@ -1344,9 +1344,9 @@ export default function AdminView() {
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={geoData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                    <YAxis type="category" dataKey="country" tick={{ fontSize: 9, fill: 'oklch(0.6 0 0)' }} width={90} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                    <YAxis type="category" dataKey="country" tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }} width={90} />
                     <RTooltip content={<ChartTooltip />} />
                     <Bar dataKey="users" fill="#00e676" name="Users" radius={[0, 4, 4, 0]} />
                   </BarChart>
@@ -1691,9 +1691,9 @@ export default function AdminView() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={modelPerfData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis dataKey="model" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} domain={[0, 100]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="model" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} domain={[0, 100]} />
                     <RTooltip content={<ChartTooltip />} />
                     <Bar dataKey="accuracy" fill="#00e676" name="Accuracy" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="avgConfidence" fill="#00b4d8" name="Confidence" radius={[4, 4, 0, 0]} />
@@ -1730,9 +1730,9 @@ export default function AdminView() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={funnelData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                    <YAxis type="category" dataKey="stage" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} width={110} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                    <YAxis type="category" dataKey="stage" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} width={110} />
                     <RTooltip content={<ChartTooltip />} />
                     <Bar dataKey="count" name="Users" radius={[0, 4, 4, 0]}>
                       {funnelData.map((_, i) => (
@@ -1785,9 +1785,9 @@ export default function AdminView() {
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={featureUsageData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} domain={[0, 100]} />
-                    <YAxis type="category" dataKey="feature" tick={{ fontSize: 9, fill: 'oklch(0.6 0 0)' }} width={80} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} domain={[0, 100]} />
+                    <YAxis type="category" dataKey="feature" tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }} width={80} />
                     <RTooltip content={<ChartTooltip />} />
                     <Bar dataKey="usage" fill="#00e676" name="Usage %" radius={[0, 4, 4, 0]}>
                       {featureUsageData.map((entry, i) => (
@@ -1829,9 +1829,9 @@ export default function AdminView() {
                       <stop offset="95%" stopColor="#ffd700" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                  <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                  <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
                   <RTooltip content={<ChartTooltip />} />
                   <Area type="monotone" dataKey="pro" stackId="rev" stroke="#00b4d8" fill="url(#gradProRev)" name="Pro Revenue" />
                   <Area type="monotone" dataKey="elite" stackId="rev" stroke="#ffd700" fill="url(#gradEliteRev)" name="Elite Revenue" />
@@ -1845,9 +1845,9 @@ export default function AdminView() {
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={revenueTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                  <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                  <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
                   <RTooltip content={<ChartTooltip />} />
                   <Area type="monotone" dataKey="pro" stroke="#00b4d8" fill="#00b4d8" fillOpacity={0.15} name="Pro" strokeWidth={2} />
                   <Area type="monotone" dataKey="elite" stroke="#ffd700" fill="#ffd700" fillOpacity={0.15} name="Elite" strokeWidth={2} />
@@ -2227,9 +2227,9 @@ export default function AdminView() {
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={realtimeData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                    <XAxis dataKey="second" tick={{ fontSize: 9, fill: 'oklch(0.6 0 0)' }} interval={9} />
-                    <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="second" tick={{ fontSize: 9, fill: 'var(--muted-foreground)' }} interval={9} />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
                     <RTooltip content={<ChartTooltip />} />
                     <Line type="monotone" dataKey="reqPerSec" stroke="#00e676" name="Req/sec" dot={false} strokeWidth={2} />
                     <Line type="monotone" dataKey="p95" stroke="#00b4d8" name="P95 (ms)" dot={false} strokeWidth={1.5} />

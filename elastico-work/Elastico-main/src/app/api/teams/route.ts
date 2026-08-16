@@ -35,7 +35,9 @@ export async function GET() {
       playerCount: team._count.players,
     }))
 
-    return NextResponse.json({ teams: result })
+    return NextResponse.json({ teams: result }, {
+      headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
+    })
   } catch (error) {
     console.error('Teams list error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

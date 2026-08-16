@@ -394,10 +394,10 @@ export default function DashboardView() {
                 {xgChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={xgChartData} barGap={4}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.2 0.03 260)" />
-                      <XAxis dataKey="match" tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                      <YAxis tick={{ fontSize: 10, fill: 'oklch(0.6 0 0)' }} />
-                      <RTooltip contentStyle={{ background: 'oklch(0.12 0.02 260)', border: '1px solid oklch(0.25 0.03 260)', borderRadius: 8, fontSize: 11 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                      <XAxis dataKey="match" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                      <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+                      <RTooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }} />
                       <Bar dataKey="xg" fill="#00b4d8" name="xG" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="goals" fill="#00e676" name="Goals" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -471,7 +471,7 @@ export default function DashboardView() {
               <CardContent className="flex flex-col items-center">
                 <div className="relative size-32">
                   <svg className="size-full -rotate-90" viewBox="0 0 120 120">
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="oklch(0.15 0.02 260)" strokeWidth="10" />
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" strokeWidth="10" />
                     <circle
                       cx="60" cy="60" r="50" fill="none"
                       stroke="url(#accuracyGrad)" strokeWidth="10"

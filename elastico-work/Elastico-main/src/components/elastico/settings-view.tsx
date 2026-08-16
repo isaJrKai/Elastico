@@ -79,7 +79,6 @@ import {
   Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { fifaFlag } from '@/lib/flags'
 import { usePWA } from '@/hooks/use-pwa'
 
 // ── Timezones ─────────────────────────────────────────────────────────────────
@@ -1162,7 +1161,7 @@ export function SettingsView() {
                           className="size-5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
                           style={{ backgroundColor: team.primaryColor }}
                         >
-                          {fifaFlag(team.code)}
+                          {team.name}
                         </div>
                         <span className="truncate">{team.name}</span>
                       </div>
