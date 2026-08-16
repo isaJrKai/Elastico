@@ -1,33 +1,44 @@
 'use client'
 import { useEffect, useCallback, useState, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Toaster } from '@/components/ui/sonner'
 import { Sidebar } from '@/components/elastico/sidebar'
 import { Header } from '@/components/elastico/header'
 import CommandPalette from '@/components/elastico/command-palette'
 import LoginView from '@/components/elastico/login-view'
-import DashboardView from '@/components/elastico/dashboard-view'
-import { MatchesView } from '@/components/elastico/matches-view'
-import { MatchDetailView } from '@/components/elastico/match-detail-view'
-import PredictionsView from '@/components/elastico/predictions-view'
-import TournamentView from '@/components/elastico/tournament-view'
-import LeaderboardView from '@/components/elastico/leaderboard-view'
-import { ChatView } from '@/components/elastico/chat-view'
-import { NewsView } from '@/components/elastico/news-view'
-import AdminView from '@/components/elastico/admin-view'
-import { SettingsView } from '@/components/elastico/settings-view'
-import NotificationsView from '@/components/elastico/notifications-view'
-import SubscriptionView from '@/components/elastico/subscription-view'
-import TacticalView from '@/components/elastico/tactical-view'
-import { PlayerView } from '@/components/elastico/player-view'
-import { CompareView } from '@/components/elastico/compare-view'
-import { AchievementsView } from '@/components/elastico/achievements-view'
-import { ExportView } from '@/components/elastico/export-view'
-import { SocialView } from '@/components/elastico/social-view'
-import PredictionEngineView from '@/components/elastico/prediction-engine-view'
-import SystemMonitorView from '@/components/elastico/system-monitor-view'
 import { OfflineIndicator } from '@/components/elastico/offline-indicator'
 import { ErrorBoundary } from '@/components/elastico/error-boundary'
+
+// Lazy-load heavy view components — only the active view gets bundled
+const DashboardView = dynamic(() => import('@/components/elastico/dashboard-view'), { loading: ViewSkeleton })
+const MatchesView = dynamic(() => import('@/components/elastico/matches-view').then(m => ({ default: () => <m.MatchesView /> })), { loading: ViewSkeleton })
+const MatchDetailView = dynamic(() => import('@/components/elastico/match-detail-view'), { loading: ViewSkeleton })
+const PredictionsView = dynamic(() => import('@/components/elastico/predictions-view'), { loading: ViewSkeleton })
+const TournamentView = dynamic(() => import('@/components/elastico/tournament-view'), { loading: ViewSkeleton })
+const LeaderboardView = dynamic(() => import('@/components/elastico/leaderboard-view'), { loading: ViewSkeleton })
+const ChatView = dynamic(() => import('@/components/elastico/chat-view').then(m => ({ default: () => <m.ChatView /> })), { loading: ViewSkeleton })
+const NewsView = dynamic(() => import('@/components/elastico/news-view').then(m => ({ default: () => <m.NewsView /> })), { loading: ViewSkeleton })
+const AdminView = dynamic(() => import('@/components/elastico/admin-view'), { loading: ViewSkeleton })
+const SettingsView = dynamic(() => import('@/components/elastico/settings-view').then(m => ({ default: () => <m.SettingsView /> })), { loading: ViewSkeleton })
+const NotificationsView = dynamic(() => import('@/components/elastico/notifications-view'), { loading: ViewSkeleton })
+const SubscriptionView = dynamic(() => import('@/components/elastico/subscription-view'), { loading: ViewSkeleton })
+const TacticalView = dynamic(() => import('@/components/elastico/tactical-view'), { loading: ViewSkeleton })
+const PlayerView = dynamic(() => import('@/components/elastico/player-view').then(m => ({ default: () => <m.PlayerView /> })), { loading: ViewSkeleton })
+const CompareView = dynamic(() => import('@/components/elastico/compare-view').then(m => ({ default: () => <m.CompareView /> })), { loading: ViewSkeleton })
+const AchievementsView = dynamic(() => import('@/components/elastico/achievements-view').then(m => ({ default: () => <m.AchievementsView /> })), { loading: ViewSkeleton })
+const ExportView = dynamic(() => import('@/components/elastico/export-view').then(m => ({ default: () => <m.ExportView /> })), { loading: ViewSkeleton })
+const SocialView = dynamic(() => import('@/components/elastico/social-view').then(m => ({ default: () => <m.SocialView /> })), { loading: ViewSkeleton })
+const PredictionEngineView = dynamic(() => import('@/components/elastico/prediction-engine-view'), { loading: ViewSkeleton })
+const SystemMonitorView = dynamic(() => import('@/components/elastico/system-monitor-view'), { loading: ViewSkeleton })
+
+function ViewSkeleton() {
+  return (
+    <div className="flex items-center justify-center py-20">
+      <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+    </div>
+  )
+}
 
 function SetupView({ onReady }: { onReady: () => void }) {
   const [status, setStatus] = useState<string>('checking')
@@ -90,11 +101,11 @@ function SetupView({ onReady }: { onReady: () => void }) {
   const isNeedsDatabase = status === 'needs_database'
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 aurora-bg noise-overlay">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 aurora-bg noise-overlay">
       <div className="relative z-[1] max-w-md w-full">
         <div className="text-center mb-8">
-          <div className="text-4xl font-black tracking-tighter text-white mb-2">ELASTICO</div>
-          <p className="text-sm text-zinc-500">AI-Powered Football Analytics</p>
+          <div className="text-4xl font-black tracking-tighter text-foreground mb-2">ELASTICO</div>
+          <p className="text-sm text-muted-foreground">AI-Powered Football Analytics</p>
         </div>
 
         <div className="glass-card-premium rounded-2xl p-8">
@@ -103,37 +114,37 @@ function SetupView({ onReady }: { onReady: () => void }) {
               <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
                 <svg className="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
               </div>
-              <h2 className="text-lg font-semibold text-white text-center mb-2">Database Not Connected</h2>
-              <p className="text-sm text-zinc-400 text-center mb-6">
-                Go to your Vercel project → <strong className="text-zinc-200">Storage</strong> → <strong className="text-zinc-200">Create Database</strong> → <strong className="text-zinc-200">Postgres (Neon)</strong>
+              <h2 className="text-lg font-semibold text-foreground text-center mb-2">Database Not Connected</h2>
+              <p className="text-sm text-muted-foreground text-center mb-6">
+                Go to your Vercel project → <strong className="text-foreground">Storage</strong> → <strong className="text-foreground">Create Database</strong> → <strong className="text-foreground">Postgres (Neon)</strong>
               </p>
-              <div className="bg-zinc-800/50 rounded-xl p-4 text-xs text-zinc-400 space-y-1">
-                <p>1. Open Vercel → elastico → <strong className="text-zinc-300">Storage</strong></p>
-                <p>2. Click <strong className="text-zinc-300">Create Database</strong></p>
-                <p>3. Select <strong className="text-zinc-300">Postgres (Neon)</strong></p>
-                <p>4. Click <strong className="text-zinc-300">Create</strong></p>
-                <p className="text-emerald-400 pt-1">← This page will auto-detect and set up everything</p>
+              <div className="bg-secondary rounded-xl p-4 text-xs text-muted-foreground space-y-1">
+                <p>1. Open Vercel → elastico → <strong className="text-foreground">Storage</strong></p>
+                <p>2. Click <strong className="text-foreground">Create Database</strong></p>
+                <p>3. Select <strong className="text-foreground">Postgres (Neon)</strong></p>
+                <p>4. Click <strong className="text-foreground">Create</strong></p>
+                <p className="text-primary pt-1">← This page will auto-detect and set up everything</p>
               </div>
-              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500">
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                 Waiting for database connection...
               </div>
             </>
           ) : settingUp || status === 'checking' ? (
             <div className="text-center py-8">
-              <div className="w-12 h-12 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-sm text-zinc-300">{message || 'Checking database...'}</p>
+              <div className="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-sm text-foreground">{message || 'Checking database...'}</p>
             </div>
           ) : (
             <div className="text-center py-4">
               <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
                 <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
               </div>
-              <p className="text-sm text-amber-300 mb-1">{message || 'Connection issue'}</p>
-              <p className="text-xs text-zinc-500 mb-4">Auto-retrying every 8 seconds...</p>
+              <p className="text-sm text-amber-600 dark:text-amber-300 mb-1">{message || 'Connection issue'}</p>
+              <p className="text-xs text-muted-foreground mb-4">Retrying shortly...</p>
               <button
                 onClick={checkAndSetup}
-                className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 rounded-lg text-sm text-emerald-400 transition-colors"
+                className="px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-lg text-sm text-primary transition-colors"
               >
                 Retry Now
               </button>

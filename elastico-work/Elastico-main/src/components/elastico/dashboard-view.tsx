@@ -243,7 +243,7 @@ export default function DashboardView() {
                             </Badge>
                           )}
                           {m.status === 'finished' && (
-                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-zinc-400 border-zinc-700 shrink-0">FT</Badge>
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-muted-foreground border-border shrink-0">FT</Badge>
                           )}
                           {m.status === 'halftime' && (
                             <Badge variant="outline" className="h-4 px-1 text-[9px] text-amber-400 border-amber-500/30 shrink-0">HT</Badge>
@@ -369,7 +369,7 @@ export default function DashboardView() {
                   {liveMatches && liveMatches.filter((m: any) => m.status === 'finished').slice(0, 5).map((m: any) => (
                     <div key={m.id} className="flex items-center justify-between py-2 border-b border-border/20 last:border-0">
                       <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="text-[9px] text-zinc-400 border-zinc-700 shrink-0">FT</Badge>
+                        <Badge variant="outline" className="text-[9px] text-muted-foreground border-border shrink-0">FT</Badge>
                         <div>
                           <p className="text-xs font-medium">{m.homeTeam?.name} vs {m.awayTeam?.name}</p>
                           <p className="text-[10px] text-muted-foreground">{m.competition}</p>
