@@ -366,11 +366,7 @@ export function MatchesView() {
 
   useEffect(() => { fetchMatches() }, [fetchMatches])
 
-  // Auto-refresh live
-  useEffect(() => {
-    const iv = setInterval(() => { if (activeTab === 'live') fetchMatches() }, 15000)
-    return () => clearInterval(iv)
-  }, [activeTab, fetchMatches])
+  // No auto-refresh — user can manually refresh
 
   // Sort
   const sortedMatches = useMemo(() => {

@@ -72,10 +72,17 @@ function SetupView({ onReady }: { onReady: () => void }) {
   }
 
   const checkAndSetupRef = useRef(checkAndSetup)
+  const clearedRef = useRef(false)
   checkAndSetupRef.current = checkAndSetup
   useEffect(() => {
-    checkAndSetupRef.current()
-    const interval = setInterval(() => checkAndSetupRef.current(), 8000) // poll every 8s
+    checkAndSetupRef.current().then(() => {
+      if (clearedRef.current) return
+      clearedRef.current = true
+    })
+    const interval = setInterval(() => {
+      if (clearedRef.current) { clearInterval(interval); return }
+      checkAndSetupRef.current().then(() => { clearedRef.current = true })
+    }, 8000)
     return () => clearInterval(interval)
   }, [])
 
@@ -160,12 +167,7 @@ export default function Home() {
     }
   }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications, fetchLiveScores])
 
-  // Auto-refresh live scores every 5 minutes (not aggressive)
-  useEffect(() => {
-    if (!isAuthenticated) return
-    const interval = setInterval(() => { fetchLiveScores() }, 300000)
-    return () => clearInterval(interval)
-  }, [isAuthenticated, fetchLiveScores])
+  // No auto-refresh intervals — data fetched once on login, user refreshes manually
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -216,12 +218,6 @@ export default function Home() {
     }
   }, [])
 
-  // Auto-refresh match data every 5 minutes (database-friendly)
-  useEffect(() => {
-    if (!isAuthenticated) return
-    const interval = setInterval(() => { fetchMatches() }, 300000)
-    return () => clearInterval(interval)
-  }, [isAuthenticated, fetchMatches])
 
   // Check database on mount — determine state
   useEffect(() => {
