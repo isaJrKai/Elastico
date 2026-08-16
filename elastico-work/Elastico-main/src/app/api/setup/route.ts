@@ -355,21 +355,26 @@ const NEWS = [
   { title: 'Key injuries ahead of the tournament', summary: 'Several star players are racing against time to be fit for the World Cup kickoff.', category: 'injury', isBreaking: false, sentiment: 'negative', source: 'The Athletic' },
 ]
 
-async function checkTablesExist() {
+async function checkDbReady() {
   try {
-    await db.$queryRaw`SELECT 1 FROM "User" LIMIT 1`
-    return true
-  } catch {
-    return false
-  }
-}
+    // Single lightweight query to verify DB is connected AND tables exist
+    const result = await db.$queryRaw`SELECT to_regclass('"User"') AS user_table, to_regclass('"Team"') AS team_table`
+    const row = result as Array<{ user_table: string | null; team_table: string | null }>
+    const hasTables = row[0]?.user_table !== null
 
-async function checkHasData() {
-  try {
+    if (!hasTables) {
+      return { status: 'needs_setup' as const }
+    }
+
+    // Only check data count if tables exist (avoids extra query when not needed)
     const count = await db.team.count()
-    return count > 0
+    if (count === 0) {
+      return { status: 'needs_seed' as const }
+    }
+
+    return { status: 'ready' as const }
   } catch {
-    return false
+    return { status: 'error' as const }
   }
 }
 
@@ -385,25 +390,25 @@ export async function GET() {
       })
     }
 
-    // Check if we can connect
-    await db.$queryRaw`SELECT 1`
+    const result = await checkDbReady()
 
-    // Check if tables exist
-    const tablesExist = await checkTablesExist()
-    if (!tablesExist) {
+    if (result.status === 'needs_setup') {
       return NextResponse.json({
         status: 'needs_setup',
         message: 'Database connected but tables not created. Run POST /api/setup to create tables and seed data.',
       })
     }
-
-    // Check if data exists
-    const hasData = await checkHasData()
-    if (!hasData) {
+    if (result.status === 'needs_seed') {
       return NextResponse.json({
         status: 'needs_seed',
         message: 'Tables exist but no data. Run POST /api/setup to seed.',
       })
+    }
+    if (result.status === 'error') {
+      return NextResponse.json({
+        status: 'error',
+        message: 'Database connection failed.',
+      }, { status: 503 })
     }
 
     return NextResponse.json({

@@ -24,7 +24,8 @@ import {
  *   action=leagues               — List all configured leagues
  */
 
-export const dynamic = 'force-dynamic'
+// No force-dynamic — let Next.js cache when possible. Live data is inherently uncached
+// by the browser (no-cache fetch), so we don't need server-side force-dynamic.
 
 export async function GET(request: NextRequest) {
   try {

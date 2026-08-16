@@ -329,6 +329,8 @@ export function MatchesView() {
   const [loading, setLoading] = useState(true)
   const [lastRefresh, setLastRefresh] = useState(new Date())
 
+  // Fetch matches from API — only re-fires when tab or token actually changes.
+  // Search/filter state is applied client-side to avoid hitting the API on every keystroke.
   const fetchMatches = useCallback(async () => {
     setLoading(true)
     try {
@@ -362,7 +364,7 @@ export function MatchesView() {
       setLoading(false)
       setLastRefresh(new Date())
     }
-  }, [activeTab, searchQuery, stageFilter, groupFilter, token])
+  }, [activeTab, token])
 
   useEffect(() => { fetchMatches() }, [fetchMatches])
 

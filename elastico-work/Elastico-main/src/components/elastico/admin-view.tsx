@@ -411,8 +411,9 @@ export default function AdminView() {
   // ── Log Tab State ──
   const [logStatusFilter, setLogStatusFilter] = useState('all')
 
-  // ── Real-time Metrics ──
-  const [realtimeData, setRealtimeData] = useState(generateRealtimeMetrics())
+  // ── Static Metrics (no setInterval) ──
+  const staticMetrics = useMemo(() => generateRealtimeMetrics(), [])
+  const realtimeData = staticMetrics
   const realtimeRef = useRef<NodeJS.Timeout | null>(null)
 
   // ── Data Fetching ──
@@ -441,24 +442,6 @@ export default function AdminView() {
   }, [])
 
   useEffect(() => { fetchAdminData() }, [fetchAdminData])
-
-  // ── Real-time metrics updater ──
-  useEffect(() => {
-    realtimeRef.current = setInterval(() => {
-      setRealtimeData(prev => {
-        const next = [...prev.slice(1), {
-          second: prev[prev.length - 1].second + 1,
-          reqPerSec: 45 + Math.floor(Math.random() * 40),
-          errorRate: 0.5 + Math.random() * 3,
-          p50: 20 + Math.floor(Math.random() * 15),
-          p95: 80 + Math.floor(Math.random() * 60),
-          p99: 200 + Math.floor(Math.random() * 150),
-        }]
-        return next
-      })
-    }, 2000)
-    return () => { if (realtimeRef.current) clearInterval(realtimeRef.current) }
-  }, [])
 
   // ── Filtered / Derived Data ──
   const filteredUsers = useMemo(() => {

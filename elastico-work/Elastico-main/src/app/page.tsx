@@ -79,11 +79,12 @@ function SetupView({ onReady }: { onReady: () => void }) {
       if (clearedRef.current) return
       clearedRef.current = true
     })
-    const interval = setInterval(() => {
-      if (clearedRef.current) { clearInterval(interval); return }
+    // Retry only once after 10 seconds if first attempt failed — no infinite polling
+    const timeout = setTimeout(() => {
+      if (clearedRef.current) return
       checkAndSetupRef.current().then(() => { clearedRef.current = true })
-    }, 8000)
-    return () => clearInterval(interval)
+    }, 10000)
+    return () => clearTimeout(timeout)
   }, [])
 
   const isNeedsDatabase = status === 'needs_database'
@@ -156,18 +157,20 @@ export default function Home() {
   const fetchLiveScores = useElasticoStore(s => s.fetchLiveScores)
   const zoomLevel = useElasticoStore(s => s.zoomLevel)
 
-  // Initial data fetch
+  // Initial data fetch — runs ONCE when user authenticates.
+  // Store actions are stable zustand references so this won't re-fire.
+  // No auto-refresh intervals — data fetched once on login, user refreshes manually.
+  const hasFetchedRef = useRef(false)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !hasFetchedRef.current) {
+      hasFetchedRef.current = true
       fetchMatches()
       fetchTeams()
       fetchNews()
       fetchNotifications()
-      fetchLiveScores() // Fetch live scores from ESPN
+      fetchLiveScores()
     }
   }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications, fetchLiveScores])
-
-  // No auto-refresh intervals — data fetched once on login, user refreshes manually
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -219,7 +222,7 @@ export default function Home() {
   }, [])
 
 
-  // Check database on mount — determine state
+  // Check database on mount — single check, no retry loop
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') { setDbReady('ready'); return }
     fetch('/api/setup')

@@ -266,7 +266,7 @@ function BandwidthSection() {
   const { isOffline, isRegistered, isStandalone, clearCache } = usePWA()
 
   useEffect(() => {
-    // Poll bandwidth tracker every 2 seconds
+    // Load bandwidth tracker once on mount — no polling needed
     const load = async () => {
       try {
         const mod = await import('@/lib/compressed-data-stream')
@@ -274,8 +274,6 @@ function BandwidthSection() {
       } catch {}
     }
     load()
-    const interval = setInterval(load, 2000)
-    return () => clearInterval(interval)
   }, [])
 
   return (
