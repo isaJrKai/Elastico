@@ -141,7 +141,6 @@ export default function Home() {
   const [dbReady, setDbReady] = useState<'checking' | 'ready' | 'down'>('checking') // three-state: checking, ready, down
   const isAuthenticated = useElasticoStore(s => s.isAuthenticated)
   const currentView = useElasticoStore(s => s.currentView)
-  const sidebarOpen = useElasticoStore(s => s.sidebarOpen)
 
   const fetchMatches = useElasticoStore(s => s.fetchMatches)
   const fetchTeams = useElasticoStore(s => s.fetchTeams)
@@ -161,10 +160,10 @@ export default function Home() {
     }
   }, [isAuthenticated, fetchMatches, fetchTeams, fetchNews, fetchNotifications, fetchLiveScores])
 
-  // Auto-refresh live scores every 60 seconds
+  // Auto-refresh live scores every 5 minutes (not aggressive)
   useEffect(() => {
     if (!isAuthenticated) return
-    const interval = setInterval(() => { fetchLiveScores() }, 60000)
+    const interval = setInterval(() => { fetchLiveScores() }, 300000)
     return () => clearInterval(interval)
   }, [isAuthenticated, fetchLiveScores])
 
@@ -217,10 +216,10 @@ export default function Home() {
     }
   }, [])
 
-  // Auto-refresh live data
+  // Auto-refresh match data every 5 minutes (database-friendly)
   useEffect(() => {
     if (!isAuthenticated) return
-    const interval = setInterval(() => { fetchMatches() }, 30000)
+    const interval = setInterval(() => { fetchMatches() }, 300000)
     return () => clearInterval(interval)
   }, [isAuthenticated, fetchMatches])
 
@@ -286,7 +285,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background flex aurora-bg noise-overlay">
       <div className="relative z-[1]"><Sidebar /></div>
-      <div className={`relative z-[1] flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'md:ml-[240px]' : 'md:ml-[64px]'}`}>
+      <div className="relative z-[1] flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300">
         <Header />
         <div className="flex-1 overflow-auto">
           <main className="p-4 md:p-6">

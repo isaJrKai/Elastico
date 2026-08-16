@@ -24,8 +24,9 @@ export const ESPN_LEAGUES = [
   { espnId: 'usa.1', name: 'MLS', code: 'MLS' },
   { espnId: 'uefa.champions', name: 'Champions League', code: 'UCL' },
   { espnId: 'uefa.europa', name: 'Europa League', code: 'UEL' },
-  { espnId: 'fifa.world', name: 'World Cup', code: 'WC' },
-  { espnId: 'conmebol.america', name: 'Copa America', code: 'CA' },
+  // World Cup & Copa America removed — tournaments not currently active
+  // { espnId: 'fifa.world', name: 'World Cup', code: 'WC' },
+  // { espnId: 'conmebol.america', name: 'Copa America', code: 'CA' },
   { espnId: 'ned.1', name: 'Eredivisie', code: 'ERE' },
   { espnId: 'por.1', name: 'Primeira Liga', code: 'PPL' },
   { espnId: 'ger.2', name: '2. Bundesliga', code: 'BL2' },
@@ -35,7 +36,8 @@ export const ESPN_LEAGUES = [
   { espnId: 'mex.1', name: 'Liga MX', code: 'MX' },
   { espnId: 'caf.champions', name: 'CAF Champions League', code: 'CAFCL' },
   { espnId: 'afc.champions', name: 'AFC Champions League', code: 'AFCCL' },
-  { espnId: 'uefa.euro', name: 'Euro Championship', code: 'EURO' },
+  // Euro Championship removed — tournament not currently active
+  // { espnId: 'uefa.euro', name: 'Euro Championship', code: 'EURO' },
 ]
 
 const SITE_V2 = 'https://site.api.espn.com/apis/v2/sports/soccer'

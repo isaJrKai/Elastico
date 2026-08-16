@@ -180,15 +180,14 @@ export function Sidebar() {
       {/* ── Sidebar Panel ────────────────────────────────────────────────── */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 flex h-screen flex-col border-r transition-all duration-300 ease-in-out',
-          'glass-card border-border',
-          // Desktop: transform-based collapse
-          'md:relative md:z-0',
+          'flex h-screen flex-col border-r border-border transition-all duration-300 ease-in-out shrink-0',
+          'bg-[var(--sidebar)]',
           // Mobile: overlay positioning
+          isMobile && 'fixed top-0 left-0 z-50',
           isMobile && (isOpen ? 'translate-x-0' : '-translate-x-full'),
+          isMobile && 'w-[280px]',
           // Desktop: width based on collapse state
           !isMobile && (isOpen ? 'w-[240px]' : 'w-[64px]'),
-          isMobile && 'w-[280px]',
         )}
       >
         {/* ── Logo Area ────────────────────────────────────────────────────── */}
