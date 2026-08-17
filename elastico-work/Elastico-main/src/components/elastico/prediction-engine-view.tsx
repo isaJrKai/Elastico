@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -21,7 +21,8 @@ import {
   Brain, Activity, TrendingUp, TrendingDown, DollarSign, Target, Zap, Settings,
   ArrowUpRight, ArrowDownRight, AlertTriangle, CheckCircle, XCircle, Flame,
   Shield, Gauge, BarChart3, Cpu, Calculator, Radio, Eye, GitBranch,
-  Plus, Trash2, RefreshCw, Play, Save, RotateCcw, Sparkles, AlertOctagon, Minus
+  Plus, Trash2, RefreshCw, Play, Save, RotateCcw, Sparkles, AlertOctagon, Minus,
+  Server, ServerOff, Workflow, CircleDot
 } from 'lucide-react'
 import type { MatchInput, FullMatchAnalysis, EngineConfig, InjuryAdjustment } from '@/lib/prediction-engine'
 import { cn } from '@/lib/utils'
@@ -61,6 +62,44 @@ const DEFAULT_INJURY: InjuryAdjustment = {
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════════
 
+// ── Mega Ensemble Types ─────────────────────────────────────────────────────────
+
+interface MegaModelResult {
+  model: string
+  home_win: number
+  draw: number
+  away_win: number
+  expected_home_goals: number
+  expected_away_goals: number
+}
+
+interface MegaPredictionResponse {
+  elo: MegaModelResult
+  poisson: MegaModelResult
+  dixon_coles: MegaModelResult
+  ensemble: MegaModelResult
+  confidence: string
+  signals: string[]
+  risks: string[]
+  simulation?: {
+    num_simulations: number
+    home_win_pct: number
+    draw_pct: number
+    away_win_pct: number
+    over_25_pct: number
+    btts_pct: number
+    top_scorelines: { score: string; count: number; pct: number }[]
+    avg_home_goals: number
+    avg_away_goals: number
+  }
+}
+
+interface MegaEngineStatus {
+  status: 'connected' | 'not_configured' | 'unreachable' | 'error'
+  message: string
+  models: string[]
+}
+
 export default function PredictionEngineView() {
   const teams = useElasticoStore(s => s.teams)
   const token = useElasticoStore(s => s.token)
@@ -98,6 +137,82 @@ export default function PredictionEngineView() {
   const [sigAwayTeam, setSigAwayTeam] = useState('')
   const [sigLoading, setSigLoading] = useState(false)
   const [signalResult, setSignalResult] = useState<import('@/lib/prediction-engine').MarketSignal | null>(null)
+
+  // ── Mega Ensemble state ──────────────────────────────────────────────────────
+  const [megaStatus, setMegaStatus] = useState<MegaEngineStatus | null>(null)
+  const [megaLoading, setMegaLoading] = useState(false)
+  const [megaResult, setMegaResult] = useState<MegaPredictionResponse | null>(null)
+  const [megaSimLoading, setMegaSimLoading] = useState(false)
+  const [megaSimResult, setMegaSimResult] = useState<MegaPredictionResponse['simulation'] | null>(null)
+
+  // Fetch mega engine status on mount
+  useEffect(() => {
+    fetch('/api/mega-predict', { headers: authHeaders() })
+      .then(r => r.json()).then(setMegaStatus).catch(() =>
+        setMegaStatus({ status: 'error', message: 'Failed to check status', models: [] })
+      )
+  }, [])
+
+  // ── Run Mega Ensemble Prediction ─────────────────────────────────────────────
+  const runMegaPredict = useCallback(async () => {
+    if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
+    setMegaLoading(true)
+    try {
+      const payload = {
+        home_team_id: homeTeamId,
+        away_team_id: awayTeamId,
+        home_elo: +homeElo,
+        away_elo: +awayElo,
+        home_avg_goals: +homeXg,
+        away_avg_goals: +awayXg,
+        home_avg_conceded: +awayXg * 0.9,
+        away_avg_conceded: +homeXg * 0.9,
+        league_avg_goals: 1.35,
+        odds_home: +oddsHome,
+        odds_draw: +oddsDraw,
+        odds_away: +oddsAway,
+      }
+      const res = await fetch('/api/mega-predict', {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Mega predict failed' }))
+        throw new Error(err.error || 'Mega predict failed')
+      }
+      const json = await res.json()
+      setMegaResult(json.data)
+      toast.success('Mega Ensemble prediction complete', { icon: <Sparkles className="text-emerald-400" /> })
+    } catch (e: any) {
+      toast.error(e.message || 'Mega predict error')
+    } finally {
+      setMegaLoading(false)
+    }
+  }, [homeTeamId, awayTeamId, homeElo, awayElo, homeXg, awayXg, oddsHome, oddsDraw, oddsAway])
+
+  // ── Run Mega Monte Carlo ─────────────────────────────────────────────────────
+  const runMegaSim = useCallback(async () => {
+    if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
+    setMegaSimLoading(true)
+    try {
+      const res = await fetch('/api/mega-predict/simulate', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          home_expected_goals: +homeXg,
+          away_expected_goals: +awayXg,
+          num_simulations: Math.min(+simRuns, 100000),
+          dixon_coles_rho: -0.1,
+        }),
+      })
+      if (!res.ok) throw new Error('Mega simulation failed')
+      const json = await res.json()
+      setMegaSimResult(json.data)
+      toast.success('Monte Carlo simulation complete')
+    } catch (e: any) {
+      toast.error(e.message || 'Mega sim error')
+    } finally {
+      setMegaSimLoading(false)
+    }
+  }, [homeTeamId, awayTeamId, homeXg, awayXg, simRuns])
 
   // ── Config state ──────────────────────────────────────────────────────────────
   const [config, setConfig] = useState<EngineConfig>({
@@ -294,6 +409,10 @@ export default function PredictionEngineView() {
           </TabsTrigger>
           <TabsTrigger value="signals" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Radio className="w-4 h-4 mr-2" />Market Signals
+          </TabsTrigger>
+          <TabsTrigger value="mega" className="data-[state=active]:bg-purple-500/15 data-[state=active]:text-purple-400 text-zinc-400 transition-all">
+            <Workflow className="w-4 h-4 mr-2" />Mega Ensemble
+            {megaStatus?.status === 'connected' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1.5 animate-pulse" />}
           </TabsTrigger>
           <TabsTrigger value="config" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Settings className="w-4 h-4 mr-2" />Engine Config
@@ -907,7 +1026,301 @@ export default function PredictionEngineView() {
           </div>
         </TabsContent>
 
-        {/* ═════════════════════ TAB 4: ENGINE CONFIG ═════════════════════ */}
+        {/* ═════════════════════ TAB 4: MEGA ENSEMBLE ═════════════════════ */}
+        <TabsContent value="mega" className="space-y-6 mt-6">
+          {/* Engine Status Banner */}
+          <Card className={cn('glass-card border', megaStatus?.status === 'connected' ? 'border-emerald-500/30' : megaStatus?.status === 'not_configured' ? 'border-amber-500/30' : 'border-red-500/30')}>
+            <CardContent className="py-3 px-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {megaStatus?.status === 'connected' ? <Server className="w-5 h-5 text-emerald-400" /> : <ServerOff className="w-5 h-5 text-amber-400" />}
+                <div>
+                  <p className="text-sm font-medium text-zinc-200">Mega Predict Engine</p>
+                  <p className="text-xs text-zinc-500">{megaStatus?.message || 'Checking...'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {megaStatus?.models.map(m => (
+                  <Badge key={m} className="text-[9px] font-medium bg-purple-500/10 text-purple-400 border-purple-500/20 hidden sm:inline-flex">{m}</Badge>
+                ))}
+                <Badge className={cn('text-[10px] font-bold border',
+                  megaStatus?.status === 'connected' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                  megaStatus?.status === 'not_configured' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                  'bg-red-500/20 text-red-400 border-red-500/30'
+                )}>
+                  {megaStatus?.status === 'connected' ? 'ONLINE' : megaStatus?.status === 'not_configured' ? 'NOT CONFIGURED' : 'OFFLINE'}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {megaStatus?.status === 'not_configured' && (
+            <Card className="glass-card border-zinc-800/50">
+              <CardContent className="py-8 text-center space-y-3">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-purple-500/10 flex items-center justify-center">
+                  <Workflow className="w-8 h-8 text-purple-400/50" />
+                </div>
+                <p className="text-sm text-zinc-400">Set <code className="text-xs bg-zinc-800 px-1.5 py-0.5 rounded">MEGA_PREDICT_API_URL</code> in your Vercel environment to connect the 6-model ensemble backend.</p>
+                <p className="text-xs text-zinc-600">The FastAPI backend runs ELO + Poisson + Dixon-Coles + Monte Carlo + XGBoost + BiLSTM with calibrated super-ensemble weighting.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {megaStatus?.status !== 'not_configured' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Input Panel — reuses same team/odds inputs */}
+              <div className="space-y-4">
+                <Card className="glass-card border-zinc-800/50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                      <Workflow className="w-4 h-4 text-purple-400" /> 6-Model Ensemble
+                    </CardTitle>
+                    <CardDescription className="text-xs text-zinc-500">Uses teams & odds from the Stochastic tab</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+                      <p className="text-xs text-zinc-500 mb-1">Match</p>
+                      <p className="text-sm text-white font-medium">{homeTeam?.name || 'Home'} vs {awayTeam?.name || 'Away'}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="text-center p-2 rounded-lg bg-zinc-900/60">
+                        <p className="text-xs text-zinc-500">H ELO</p>
+                        <p className="text-sm font-mono text-emerald-400">{homeElo}</p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-zinc-900/60">
+                        <p className="text-xs text-zinc-500">A ELO</p>
+                        <p className="text-sm font-mono text-red-400">{awayElo}</p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-zinc-900/60">
+                        <p className="text-xs text-zinc-500">ELO Diff</p>
+                        <p className="text-sm font-mono text-zinc-300">{(+homeElo - +awayElo) > 0 ? '+' : ''}{+homeElo - +awayElo}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-zinc-500 font-medium">Available Models</p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {['ELO Rating', 'Poisson', 'Dixon-Coles', 'Monte Carlo', 'XGBoost', 'BiLSTM+Attn', 'Super-Ensemble'].map(m => (
+                          <div key={m} className="flex items-center gap-1.5 text-xs text-zinc-400">
+                            <CircleDot className="w-3 h-3 text-purple-400" />{m}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Button onClick={() => { runMegaPredict(); runMegaSim(); }} disabled={megaLoading || megaSimLoading || megaStatus?.status !== 'connected'} className="w-full h-12 bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm tracking-wide rounded-xl transition-all">
+                  {(megaLoading || megaSimLoading) ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Running 6-model ensemble...</> : <><Sparkles className="w-4 h-4 mr-2" /> RUN MEGA ENSEMBLE</>}
+                </Button>
+              </div>
+
+              {/* Results Panel */}
+              <div className="lg:col-span-2 space-y-4">
+                {!megaResult && !megaSimResult ? (
+                  <Card className="glass-card border-zinc-800/50 h-full min-h-[400px] flex items-center justify-center">
+                    <div className="text-center space-y-3">
+                      <div className="w-16 h-16 mx-auto rounded-2xl bg-purple-500/10 flex items-center justify-center">
+                        <Workflow className="w-8 h-8 text-purple-400/50" />
+                      </div>
+                      <p className="text-zinc-600 text-sm">Select teams in the Stochastic tab, then run the Mega Ensemble</p>
+                    </div>
+                  </Card>
+                ) : (
+                  <>
+                    {/* Model Comparison Table */}
+                    {megaResult && (
+                      <Card className="glass-card border-zinc-800/50">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
+                              <BarChart3 className="w-3.5 h-3.5 text-purple-400" /> Model Comparison
+                            </CardTitle>
+                            <Badge className={cn('text-[10px] font-bold border',
+                              megaResult.confidence === 'high' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                              megaResult.confidence === 'medium' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                              'bg-red-500/20 text-red-400 border-red-500/30'
+                            )}>
+                              {megaResult.confidence.toUpperCase()} CONFIDENCE
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="border-zinc-800/50 hover:bg-transparent">
+                                <TableHead className="text-xs text-zinc-500">Model</TableHead>
+                                <TableHead className="text-xs text-zinc-500 text-right">Home Win</TableHead>
+                                <TableHead className="text-xs text-zinc-500 text-right">Draw</TableHead>
+                                <TableHead className="text-xs text-zinc-500 text-right">Away Win</TableHead>
+                                <TableHead className="text-xs text-zinc-500 text-right">Exp H xG</TableHead>
+                                <TableHead className="text-xs text-zinc-500 text-right">Exp A xG</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {([megaResult.elo, megaResult.poisson, megaResult.dixon_coles, megaResult.ensemble] as MegaModelResult[]).map((m, i) => {
+                                const isEnsemble = i === 3
+                                return (
+                                  <TableRow key={m.model} className={cn('border-zinc-800/30 hover:bg-zinc-800/20', isEnsemble && 'bg-purple-500/5')}> 
+                                    <TableCell className="text-xs font-medium text-white">
+                                      {isEnsemble && <Sparkles className="w-3 h-3 text-purple-400 mr-1 inline" />}
+                                      {m.model}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-right text-emerald-400 font-medium">{(m.home_win * 100).toFixed(1)}%</TableCell>
+                                    <TableCell className="text-xs text-right text-yellow-400">{(m.draw * 100).toFixed(1)}%</TableCell>
+                                    <TableCell className="text-xs text-right text-red-400 font-medium">{(m.away_win * 100).toFixed(1)}%</TableCell>
+                                    <TableCell className="text-xs text-right text-zinc-300 font-mono">{m.expected_home_goals.toFixed(2)}</TableCell>
+                                    <TableCell className="text-xs text-right text-zinc-300 font-mono">{m.expected_away_goals.toFixed(2)}</TableCell>
+                                  </TableRow>
+                                )
+                              })}
+                            </TableBody>
+                          </Table>
+
+                          {/* Signals & Risks */}
+                          {(megaResult.signals.length > 0 || megaResult.risks.length > 0) && (
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {megaResult.signals.length > 0 && (
+                                <div className="space-y-1.5">
+                                  <p className="text-xs text-emerald-400 font-medium">Signals</p>
+                                  {megaResult.signals.map((s, i) => (
+                                    <div key={i} className="flex items-center gap-2 text-xs text-zinc-300">
+                                      <CheckCircle className="w-3 h-3 text-emerald-400 flex-shrink-0" />{s}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {megaResult.risks.length > 0 && (
+                                <div className="space-y-1.5">
+                                  <p className="text-xs text-amber-400 font-medium">Risks</p>
+                                  {megaResult.risks.map((r, i) => (
+                                    <div key={i} className="flex items-center gap-2 text-xs text-zinc-300">
+                                      <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0" />{r}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Model Probability Comparison Chart */}
+                    {megaResult && (
+                      <Card className="glass-card border-zinc-800/50">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-xs font-medium text-zinc-400">Probability Distribution Across Models</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={200}>
+                            <BarChart data={
+                              [megaResult.elo, megaResult.poisson, megaResult.dixon_coles, megaResult.ensemble].map(m => ({
+                                model: m.model.replace('dixon-coles', 'Dixon-Coles').replace('ensemble', 'Ensemble'),
+                                home: +(m.home_win * 100).toFixed(1),
+                                draw: +(m.draw * 100).toFixed(1),
+                                away: +(m.away_win * 100).toFixed(1),
+                              }))
+                            } barSize={18}>
+                              <XAxis dataKey="model" tick={{ fill: '#a1a1aa', fontSize: 10 }} axisLine={false} tickLine={false} />
+                              <YAxis domain={[0, 80]} tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
+                              <RTooltip contentStyle={{ background: 'var(--card, #18181b)', border: '1px solid var(--border, #27272a)', borderRadius: 8, fontSize: 11 }} />
+                              <Bar dataKey="home" fill="#00e676" radius={[4, 4, 0, 0]} name="Home" />
+                              <Bar dataKey="draw" fill="#ffd700" radius={[4, 4, 0, 0]} name="Draw" />
+                              <Bar dataKey="away" fill="#ff4757" radius={[4, 4, 0, 0]} name="Away" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Monte Carlo Simulation Results */}
+                    {megaSimResult && (
+                      <Card className="glass-card border-zinc-800/50">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
+                              <Cpu className="w-3.5 h-3.5 text-purple-400" /> Monte Carlo Simulation
+                            </CardTitle>
+                            <Badge className="text-[10px] font-medium bg-zinc-800/60 text-zinc-400 border-zinc-700/50">
+                              {megaSimResult.num_simulations?.toLocaleString()} sims
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Outcome probabilities */}
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="text-center p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                              <p className="text-2xl font-bold text-emerald-400">{(megaSimResult.home_win_pct * 100).toFixed(1)}%</p>
+                              <p className="text-xs text-zinc-500">Home Win</p>
+                            </div>
+                            <div className="text-center p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+                              <p className="text-2xl font-bold text-yellow-400">{(megaSimResult.draw_pct * 100).toFixed(1)}%</p>
+                              <p className="text-xs text-zinc-500">Draw</p>
+                            </div>
+                            <div className="text-center p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                              <p className="text-2xl font-bold text-red-400">{(megaSimResult.away_win_pct * 100).toFixed(1)}%</p>
+                              <p className="text-xs text-zinc-500">Away Win</p>
+                            </div>
+                          </div>
+
+                          {/* Markets */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <p className="text-xs text-zinc-500 font-medium">Over 2.5 Goals</p>
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden">
+                                  <motion.div initial={{ width: 0 }} animate={{ width: `${megaSimResult.over_25_pct * 100}%` }} transition={{ duration: 0.8 }} className="bg-emerald-500 h-full rounded-full" />
+                                </div>
+                                <span className="text-xs font-mono text-emerald-400">{(megaSimResult.over_25_pct * 100).toFixed(1)}%</span>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-xs text-zinc-500 font-medium">BTTS</p>
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden">
+                                  <motion.div initial={{ width: 0 }} animate={{ width: `${megaSimResult.btts_pct * 100}%` }} transition={{ duration: 0.8 }} className="bg-purple-500 h-full rounded-full" />
+                                </div>
+                                <span className="text-xs font-mono text-purple-400">{(megaSimResult.btts_pct * 100).toFixed(1)}%</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Top scorelines */}
+                          {megaSimResult.top_scorelines && megaSimResult.top_scorelines.length > 0 && (
+                            <div>
+                              <p className="text-xs text-zinc-500 font-medium mb-2">Top Scorelines</p>
+                              <div className="flex gap-2 flex-wrap">
+                                {megaSimResult.top_scorelines.slice(0, 8).map((s, i) => (
+                                  <Badge key={s.score} variant="outline" className="text-xs font-mono border-zinc-700/50 text-zinc-300">
+                                    {s.score} <span className="text-emerald-400 ml-1">{s.pct}%</span>
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Average goals */}
+                          <div className="flex items-center justify-center gap-6 pt-2">
+                            <div className="text-center">
+                              <p className="text-xl font-bold text-white">{megaSimResult.avg_home_goals?.toFixed(2)}</p>
+                              <p className="text-[10px] text-zinc-500">Avg Home Goals</p>
+                            </div>
+                            <div className="text-2xl text-zinc-600 font-light">-</div>
+                            <div className="text-center">
+                              <p className="text-xl font-bold text-white">{megaSimResult.avg_away_goals?.toFixed(2)}</p>
+                              <p className="text-[10px] text-zinc-500">Avg Away Goals</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ═════════════════════ TAB 5: ENGINE CONFIG ═════════════════════ */}
         <TabsContent value="config" className="space-y-6 mt-6">
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="glass-card border-zinc-800/50">

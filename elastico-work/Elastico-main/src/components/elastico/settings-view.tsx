@@ -258,6 +258,79 @@ function ModelRow({
   )
 }
 
+// ── Mega Predict Engine Section ─────────────────────────────────────────────
+
+function MegaEngineSection() {
+  const [status, setStatus] = React.useState<{ status: string; message: string; models: string[] } | null>(null)
+
+  React.useEffect(() => {
+    fetch('/api/mega-predict')
+      .then(r => r.json()).then(setStatus).catch(() =>
+        setStatus({ status: 'error', message: 'Failed to check', models: [] })
+      )
+  }, [])
+
+  const isOnline = status?.status === 'connected'
+  const isNotConfigured = status?.status === 'not_configured'
+
+  return (
+    <Card className="glass-card border-border">
+      <CardHeader className="pb-4">
+        <SectionHeader
+          icon={Cpu}
+          title="Mega Predict Engine"
+          description="6-model super-ensemble prediction backend (FastAPI)"
+        />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-lg border border-border bg-secondary/30 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn('flex size-9 items-center justify-center rounded-lg',
+                isOnline ? 'bg-emerald-500/10' : isNotConfigured ? 'bg-amber-500/10' : 'bg-red-500/10'
+              )}>
+                {isOnline ? <Zap className="size-4 text-emerald-400" /> : <Zap className="size-4 text-amber-400" />}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">FastAPI Backend</p>
+                <p className="text-xs text-muted-foreground">{status?.message || 'Checking...'}</p>
+              </div>
+            </div>
+            <Badge className={cn('text-[10px] font-bold border',
+              isOnline ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+              isNotConfigured ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+              'bg-red-500/20 text-red-400 border-red-500/30'
+            )}>
+              {isOnline ? 'ONLINE' : isNotConfigured ? 'NOT CONFIGURED' : 'OFFLINE'}
+            </Badge>
+          </div>
+        </div>
+        {status?.models && status.models.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Available Models</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {status.models.map(m => (
+                <div key={m} className="flex items-center gap-2 rounded-lg px-3 py-2 bg-secondary/30">
+                  <CheckCircle2 className={cn('size-3.5', isOnline ? 'text-emerald-400' : 'text-zinc-500')} />
+                  <span className="text-xs text-foreground">{m}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="flex items-start gap-2.5 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+          <Info className="mt-0.5 size-4 shrink-0 text-purple-400/70" />
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Set the <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">MEGA_PREDICT_API_URL</code> environment variable in Vercel to your FastAPI backend URL (e.g. <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">https://your-app.onrender.com</code>).
+            Optionally set <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">MEGA_PREDICT_API_KEY</code> for authentication.
+            The backend repo is at <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">github.com/isaJrKai/football-prediction-mega</code>.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 // ── Bandwidth & Offline Section ────────────────────────────────────────────────
 
 function BandwidthSection() {
@@ -1262,6 +1335,9 @@ export function SettingsView() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 10. Mega Predict Engine */}
+      <MegaEngineSection />
     </div>
   )
 }

@@ -18,7 +18,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, Cell,
 } from 'recharts'
 import {
-  Target, ArrowUpDown, Flame, CheckCircle2, XCircle, Brain, Calendar, Crown, Download, Trophy, Zap, TrendingUp, Send,
+  Target, ArrowUpDown, Flame, CheckCircle2, XCircle, Brain, Calendar, Crown, Download, Trophy, Zap, TrendingUp, Send, Sparkles, Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateCSV } from '@/lib/export'
@@ -66,6 +66,7 @@ export default function PredictionsView() {
   const [predictions, setPredictions] = useState<PredictionRecord[]>([])
   const [leaderboardPos, setLeaderboardPos] = useState<number>(0)
   const [loading, setLoading] = useState(true)
+  const [megaBatchLoading, setMegaBatchLoading] = useState(false)
   const [sortBy, setSortBy] = useState<'date' | 'confidence' | 'model'>('date')
   const [modelFilter, setModelFilter] = useState('all')
   const [resultFilter, setResultFilter] = useState<'all' | 'correct' | 'incorrect'>('all')
@@ -155,6 +156,63 @@ export default function PredictionsView() {
     }).then(() => { fetchPredictions(); toast({ title: 'Prediction submitted!' }) }).catch(() => toast({ title: 'Error', description: 'Failed', variant: 'destructive' }))
   }, [token, fetchPredictions, matches])
 
+  // ── Mega Predict All: batch predict upcoming matches via ensemble backend ──
+  const handleMegaPredictAll = useCallback(async () => {
+    if (!token) return
+    const toPredict = upcomingMatches.filter(m => !activePredictions.find(p => p.matchId === m.id)).slice(0, 4)
+    if (toPredict.length === 0) { toast({ title: 'No new matches to predict' }); return }
+    setMegaBatchLoading(true)
+    let success = 0
+    for (const m of toPredict) {
+      try {
+        const homeXg = m.homeXg > 0 ? m.homeXg : 1.4
+        const awayXg = m.awayXg > 0 ? m.awayXg : 1.1
+        const res = await fetch('/api/mega-predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            home_team_id: m.homeTeam?.id || m.id,
+            away_team_id: m.awayTeam?.id || m.id,
+            home_elo: m.homeTeam?.eloRating || 1600,
+            away_elo: m.awayTeam?.eloRating || 1500,
+            home_avg_goals: homeXg,
+            away_avg_goals: awayXg,
+            home_avg_conceded: awayXg * 0.9,
+            away_avg_conceded: homeXg * 0.9,
+            odds_home: m.oddsHome || 2.1,
+            odds_draw: m.oddsDraw || 3.4,
+            odds_away: m.oddsAway || 3.5,
+          }),
+        })
+        if (res.ok) {
+          const json = await res.json()
+          const ensemble = json.data?.ensemble
+          if (ensemble) {
+            const outcome = ensemble.home_win >= ensemble.away_win && ensemble.home_win >= ensemble.draw ? 'home'
+              : ensemble.away_win >= ensemble.home_win && ensemble.away_win >= ensemble.draw ? 'away' : 'draw'
+            const conf = Math.round(Math.max(ensemble.home_win, ensemble.draw, ensemble.away_win) * 100)
+            await fetch('/api/predictions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                matchId: m.id,
+                predictedHomeGoals: Math.round(ensemble.expected_home_goals),
+                predictedAwayGoals: Math.round(ensemble.expected_away_goals),
+                predictedOutcome: outcome,
+                confidence: conf,
+                model: 'mega-ensemble',
+              }),
+            })
+            success++
+          }
+        }
+      } catch { /* skip failed match */ }
+    }
+    setMegaBatchLoading(false)
+    fetchPredictions()
+    toast({ title: `Mega Ensemble: ${success}/${toPredict.length} predicted`, description: success > 0 ? `Used 6-model super-ensemble` : 'Backend unavailable — configure MEGA_PREDICT_API_URL' })
+  }, [token, upcomingMatches, activePredictions, fetchPredictions])
+
   if (loading) return <div className="space-y-4"><Skeleton className="h-32 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div>
 
   return (
@@ -205,7 +263,12 @@ export default function PredictionsView() {
           {upcomingMatches.length > 0 && (
             <Card className="glass-card-premium rounded-xl">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold flex items-center gap-2"><Send className="size-4 text-primary" />Quick Predict — Upcoming Matches</CardTitle>
+                <CardTitle className="text-sm font-bold flex items-center gap-2"><Send className="size-4 text-primary" />Quick Predict — Upcoming Matches
+                  <Button size="sm" variant="outline" className="ml-auto h-6 gap-1 text-[10px] border-purple-500/30 text-purple-400 hover:bg-purple-500/10" onClick={handleMegaPredictAll} disabled={megaBatchLoading || upcomingMatches.length === 0}>
+                    {megaBatchLoading ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                    Mega Predict All
+                  </Button>
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {upcomingMatches.slice(0, 4).map((m) => {
@@ -250,6 +313,7 @@ export default function PredictionsView() {
                       <SelectItem value="poisson">Poisson</SelectItem>
                       <SelectItem value="dixon-coles">Dixon-Coles</SelectItem>
                       <SelectItem value="monte-carlo">Monte Carlo</SelectItem>
+                      <SelectItem value="mega-ensemble">Mega Ensemble</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={resultFilter} onValueChange={(v) => setResultFilter(v as typeof resultFilter)}>
