@@ -1,0 +1,716 @@
+     1→     1→"""
+     2→     2→Advanced Stochastic Prediction Engine
+     3→     3→====================================
+     4→     4→Merton Jump-Diffusion + GARCH(1,1) Monte Carlo simulation engine
+     5→     5→for football match outcome prediction.
+     6→     6→
+     7→     7→Ported and enhanced from the ELASTICO prediction-engine.ts logic.
+     8→     8→
+     9→     9→Core mathematical framework:
+    10→    10→  - GARCH(1,1) conditional variance: σ²_t = ω + α·ε²_{t-1} + β·σ²_{t-1}
+    11→    11→  - Merton Jump-Diffusion: dS = μ·dt + σ·dW + J·dN(J)
+    12→    12→  - Correlated Brownian motion via Cholesky decomposition
+    13→    13→  - Vectorized NumPy operations for 150K+ simulation paths
+    14→    14→"""
+    15→    15→
+    16→    16→from __future__ import annotations
+    17→    17→
+    18→    18→import math
+    19→    19→from typing import Optional
+    20→    20→
+    21→    21→import numpy as np
+    22→    22→from pydantic import BaseModel, Field
+    23→    23→from scipy.optimize import minimize
+    24→    24→from scipy.stats import poisson, norm
+    25→    25→
+    26→    26→
+    27→    27→# ──────────────────────────────────────────────────────────────────────────────
+    28→    28→# Configuration Models
+    29→    29→# ──────────────────────────────────────────────────────────────────────────────
+    30→    30→
+    31→    31→
+    32→    32→class GARCHParams(BaseModel):
+    33→    33→    """GARCH(1,1) model parameters.
+    34→    34→
+    35→    35→    σ²_t = ω + α · ε²_{t-1} + β · σ²_{t-1}
+    36→    36→    Stationarity requires: α + β < 1
+    37→    37→    """
+    38→    38→    omega: float = Field(default=0.02, ge=0.0, description="Long-run variance weight")
+    39→    39→    alpha: float = Field(default=0.12, ge=0.0, description="Shock sensitivity (ARCH term)")
+    40→    40→    beta: float = Field(default=0.85, ge=0.0, description="Variance persistence (GARCH term)")
+    41→    41→
+    42→    42→    @property
+    43→    43→    def unconditional_variance(self) -> float:
+    44→    44→        """σ² = ω / (1 - α - β) — long-run average variance."""
+    45→    45→        denom = 1.0 - self.alpha - self.beta
+    46→    46→        if denom <= 0:
+    47→    47→            return self.omega * 100.0  # fallback for non-stationary
+    48→    48→        return self.omega / denom
+    49→    49→
+    50→    50→    @property
+    51→    51→    def half_life(self) -> float:
+    52→    52→        """Number of periods for a shock to decay to half its initial impact."""
+    53→    53→        if self.beta >= 1.0:
+    54→    54→            return float('inf')
+    55→    55→        return -math.log(2) / math.log(self.beta)
+    56→    56→
+    57→    57→
+    58→    58→class JumpDiffusionParams(BaseModel):
+    59→    59→    """Merton Jump-Diffusion jump process parameters.
+    60→    60→
+    61→    61→    Jumps arrive via Poisson process with intensity λ.
+    62→    62→    Jump sizes are normally distributed: J ~ N(μ_J, σ²_J)
+    63→    63→    """
+    64→    64→    jump_intensity: float = Field(default=0.1, ge=0.0, description="λ — Poisson arrival rate")
+    65→    65→    jump_mean: float = Field(default=0.0, description="μ_J — mean jump size")
+    66→    66→    jump_std: float = Field(default=0.3, ge=0.0, description="σ_J — jump size volatility")
+    67→    67→
+    68→    68→
+    69→    69→class EngineConfig(BaseModel):
+    70→    70→    """Master configuration for the stochastic prediction engine."""
+    71→    71→    num_simulations: int = Field(default=150_000, ge=1000, description="Number of MC paths")
+    72→    72→    use_garch: bool = Field(default=True, description="Enable GARCH conditional variance")
+    73→    73→    use_jump_diffusion: bool = Field(default=True, description="Enable Merton jump component")
+    74→    74→    garch: GARCHParams = Field(default_factory=GARCHParams)
+    75→    75→    jump_diffusion: JumpDiffusionParams = Field(default_factory=JumpDiffusionParams)
+    76→    76→    random_seed: Optional[int] = Field(default=None, description="Reproducibility seed")
+    77→    77→    correlation: float = Field(
+    78→    78→        default=0.15,
+    79→    79→        ge=-1.0,
+    80→    80→        le=1.0,
+    81→    81→        description="Correlation between home/away goal processes",
+    82→    82→    )
+    83→    83→    elo_scale: float = Field(
+    84→    84→        default=400.0,
+    85→    85→        description="Elo rating scale factor",
+    86→    86→    )
+    87→    87→    max_goals: int = Field(
+    88→    88→        default=10, ge=5, description="Maximum goals to track per team")
+    89→    89→    top_scorelines_count: int = Field(
+    90→    90→        default=10, ge=1, description="Number of top scorelines to return")
+    91→    91→
+    92→    92→
+    93→    93→class StochasticResult(BaseModel):
+    94→    94→    """Complete output of the stochastic prediction engine."""
+    95→    95→    match_probabilities: dict = Field(
+    96→    96→        description="{home_victory, draw, away_victory}",
+    97→    97→    )
+    98→    98→    totals_market: dict = Field(
+    99→    99→        description="{over05, over15, over25, over35}",
+   100→   100→    )
+   101→   101→    asian_handicap: dict = Field(
+   102→   102→        description="{line0, line_half, line1, line15}",
+   103→   103→    )
+   104→   104→    both_teams_to_score: float = Field(description="P(BTTS: Yes)")
+   105→   105→    expected_means: dict = Field(
+   106→   106→        description="{home, away, total} — simulated mean goals",
+   107→   107→    )
+   108→   108→    volatility_index: float = Field(
+   109→   109→        description="Combined volatility measure (0-100)")
+   110→   110→    confidence: str = Field(description="'high', 'medium', or 'low'")
+   111→   111→    top_scorelines: list[dict] = Field(
+   112→   112→        description="[{scoreline, probability}, ...]",
+   113→   113→    )
+   114→   114→
+   115→   115→
+   116→   116→# ──────────────────────────────────────────────────────────────────────────────
+   117→   117→# GARCH(1,1) Calibration
+   118→   118→# ──────────────────────────────────────────────────────────────────────────────
+   119→   119→
+   120→   120→
+   121→   121→def calibrate_garch(residuals: np.ndarray, max_iter: int = 500) -> GARCHParams:
+   122→   122→    """MLE calibration of GARCH(1,1) parameters from historical residuals.
+   123→   123→
+   124→   124→    Maximises the Gaussian log-likelihood of the residuals under
+   125→   125→    a GARCH(1,1) conditional variance process.
+   126→   126→
+   127→   127→    Parameters
+   128→   128→    ----------
+   129→   129→    residuals : np.ndarray
+   130→   130→        1-D array of de-meaned goal residuals (goal - expected_goal).
+   131→   131→    max_iter : int
+   132→   132→        Maximum iterations for the optimiser.
+   133→   133→
+   134→   134→    Returns
+   135→   135→    -------
+   136→   136→    GARCHParams
+   137→   137→        Calibrated GARCH(1,1) parameters.
+   138→   138→    """
+   139→   139→    residuals = np.asarray(residuals, dtype=np.float64)
+   140→   140→    residuals = residuals.flatten()
+   141→   141→    if len(residuals) < 10:
+   142→   142→        return GARCHParams()
+   143→   143→
+   144→   144→    n = len(residuals)
+   145→   145→
+   146→   146→    def _neg_log_likelihood(params: np.ndarray) -> float:
+   147→   147→        omega, alpha, beta = params
+   148→   148→        # Enforce stationarity and positivity
+   149→   149→        if omega <= 0 or alpha < 0 or beta < 0 or (alpha + beta) >= 1.0:
+   150→   150→            return 1e12
+   151→   151→
+   152→   152→        sigma2 = np.empty(n)
+   153→   153→        sigma2[0] = omega / (1.0 - alpha - beta)  # unconditional variance init
+   154→   154→
+   155→   155→        for t in range(1, n):
+   156→   156→            sigma2[t] = omega + alpha * residuals[t - 1] ** 2 + beta * sigma2[t - 1]
+   157→   157→            if sigma2[t] <= 1e-15:
+   158→   158→                sigma2[t] = 1e-15
+   159→   159→
+   160→   160→        # Gaussian log-likelihood
+   161→   161→        ll = -0.5 * np.sum(np.log(2 * np.pi * sigma2) + residuals ** 2 / sigma2)
+   162→   162→        return -ll  # negative for minimisation
+   163→   163→
+   164→   164→    # Initial guess near typical football values
+   165→   165→    x0 = np.array([0.02, 0.10, 0.85])
+   166→   166→    bounds = [(1e-6, 1.0), (1e-6, 0.50), (1e-6, 0.99)]
+   167→   167→
+   168→   168→    result = minimize(
+   169→   169→        _neg_log_likelihood,
+   170→   170→        x0,
+   171→   171→        method="L-BFGS-B",
+   172→   172→        bounds=bounds,
+   173→   173→        options={"maxiter": max_iter, "ftol": 1e-10},
+   174→   174→    )
+   175→   175→
+   176→   176→    if result.success:
+   177→   177→        omega_c, alpha_c, beta_c = result.x
+   178→   178→        # Clamp alpha + beta below 1 for strict stationarity
+   179→   179→        if alpha_c + beta_c >= 0.99:
+   180→   180→            scale = 0.98 / (alpha_c + beta_c)
+   181→   181→            alpha_c *= scale
+   182→   182→            beta_c *= scale
+   183→   183→        return GARCHParams(omega=omega_c, alpha=alpha_c, beta=beta_c)
+   184→   184→
+   185→   185→    # Fallback: simple variance-based heuristic
+   186→   186→    var_r = float(np.var(residuals))
+   187→   187→    omega_fb = var_r * 0.05
+   188→   188→    alpha_fb = 0.10
+   189→   189→    beta_fb = 0.85
+   190→   190→    if alpha_fb + beta_fb >= 1.0:
+   191→   191→        beta_fb = 0.80
+   192→   192→    return GARCHParams(omega=omega_fb, alpha=alpha_fb, beta=beta_fb)
+   193→   193→
+   194→   194→
+   195→   195→# ──────────────────────────────────────────────────────────────────────────────
+   196→   196→# Jump-Diffusion Parameter Extraction
+   197→   197→# ──────────────────────────────────────────────────────────────────────────────
+   198→   198→
+   199→   199→
+   200→   200→def extract_jump_params(residuals: np.ndarray, threshold: float = 2.0) -> JumpDiffusionParams:
+   201→   201→    """Separate continuous diffusion from jump components.
+   202→   202→
+   203→   203→    Uses a threshold-based approach to identify jumps (|residual| > threshold σ),
+   204→   204→    then estimates Poisson intensity and jump-size distribution.
+   205→   205→
+   206→   206→    Parameters
+   207→   207→    ----------
+   208→   208→    residuals : np.ndarray
+   209→   209→        1-D array of de-meaned goal residuals.
+   210→   210→    threshold : float
+   211→   211→        Number of standard deviations above which a residual is considered a jump.
+   212→   212→
+   213→   213→    Returns
+   214→   214→    -------
+   215→   215→    JumpDiffusionParams
+   216→   216→        Estimated jump process parameters.
+   217→   217→    """
+   218→   218→    residuals = np.asarray(residuals, dtype=np.float64).flatten()
+   219→   219→    n = len(residuals)
+   220→   220→    if n < 10:
+   221→   221→        return JumpDiffusionParams()
+   222→   222→
+   223→   223→    std_r = float(np.std(residuals))
+   224→   224→    if std_r < 1e-10:
+   225→   225→        return JumpDiffusionParams()
+   226→   226→
+   227→   227→    # Identify jumps: residuals that exceed the threshold
+   228→   228→    jump_mask = np.abs(residuals) > threshold * std_r
+   229→   229→    jump_values = residuals[jump_mask]
+   230→   230→    num_jumps = len(jump_values)
+   231→   231→
+   232→   232→    if num_jumps < 2:
+   233→   233→        # Not enough jumps to estimate — return conservative defaults
+   234→   234→        return JumpDiffusionParams(
+   235→   235→            jump_intensity=0.05,
+   236→   236→            jump_mean=0.0,
+   237→   237→            jump_std=0.2,
+   238→   238→        )
+   239→   239→
+   240→   240→    # Poisson intensity: λ = (number of jumps) / (number of observations)
+   241→   241→    jump_intensity = num_jumps / n
+   242→   242→
+   243→   243→    # Jump size parameters from identified jumps
+   244→   244→    jump_mean = float(np.mean(jump_values))
+   245→   245→    jump_std = float(np.std(jump_values))
+   246→   246→
+   247→   247→    # Clamp jump_std to reasonable range
+   248→   248→    jump_std = max(0.05, min(jump_std, 2.0))
+   249→   249→
+   250→   250→    return JumpDiffusionParams(
+   251→   251→        jump_intensity=jump_intensity,
+   252→   252→        jump_mean=jump_mean,
+   253→   253→        jump_std=jump_std,
+   254→   254→    )
+   255→   255→
+   256→   256→
+   257→   257→# ──────────────────────────────────────────────────────────────────────────────
+   258→   258→# Core Monte Carlo Engine
+   259→   259→# ──────────────────────────────────────────────────────────────────────────────
+   260→   260→
+   261→   261→
+   262→   262→def _elo_to_expected(elo_diff: float, scale: float = 400.0) -> float:
+   263→   263→    """Convert ELO rating difference to expected score (0-1)."""
+   264→   264→    return 1.0 / (1.0 + 10.0 ** (-elo_diff / scale))
+   265→   265→
+   266→   266→
+   267→   267→def _expected_goals(
+   268→   268→    home_xg: float,
+   269→   269→    away_xg: float,
+   270→   270→    home_conceded: float,
+   271→   271→    away_conceded: float,
+   272→   272→    home_elo: float,
+   273→   273→    away_elo: float,
+   274→   274→    elo_scale: float,
+   275→   275→) -> tuple[float, float]:
+   276→   276→    """Compute adjusted expected goals from xG, conceded averages, and ELO ratings.
+   277→   277→
+   278→   278→    The expected goals are adjusted using:
+   279→   279→      1. Attacking strength: own xG relative to league average conceded
+   280→   280→      2. Defensive adjustment: opponent's conceded rate relative to average
+   281→   281→      3. ELO-based strength factor applied symmetrically
+   282→   282→
+   283→   283→    Returns (home_expected, away_expected) goals.
+   284→   284→    """
+   285→   285→    # League-average proxy (1.3 goals per team per match is typical)
+   286→   286→    league_avg = 1.3
+   287→   287→
+   288→   288→    # Attacking strength: how much better the team attacks vs average
+   289→   289→    home_attack = home_xg / league_avg
+   290→   290→    away_attack = away_xg / league_avg
+   291→   291→
+   292→   292→    # Defensive factor: opponent's conceded rate relative to average
+   293→   293→    home_defence = away_conceded / league_avg
+   294→   294→    away_defence = home_conceded / league_avg
+   295→   295→
+   296→   296→    # Base expected goals
+   297→   297→    home_base = home_attack * home_defence * league_avg
+   298→   298→    away_base = away_attack * away_defence * league_avg
+   299→   299→
+   300→   300→    # ELO factor — converts rating differential into a multiplicative strength
+   301→   301→    elo_diff = home_elo - away_elo
+   302→   302→    elo_expected = _elo_to_expected(elo_diff, elo_scale)
+   303→   303→    # Map [0.3, 0.7] → [0.8, 1.2] as a strength multiplier
+   304→   304→    elo_factor_home = 0.8 + 0.4 * (elo_expected - 0.3) / 0.4
+   305→   305→    elo_factor_away = 0.8 + 0.4 * (1.0 - elo_expected - 0.3) / 0.4
+   306→   306→
+   307→   307→    home_expected = max(0.1, home_base * elo_factor_home)
+   308→   308→    away_expected = max(0.1, away_base * elo_factor_away)
+   309→   309→
+   310→   310→    return home_expected, away_expected
+   311→   311→
+   312→   312→
+   313→   313→def _build_correlation_matrix(rho: float) -> np.ndarray:
+   314→   314→    """Build 2×2 correlation matrix for home/away processes."""
+   315→   315→    return np.array([
+   316→   316→        [1.0, rho],
+   317→   317→        [rho, 1.0],
+   318→   318→    ])
+   319→   319→
+   320→   320→
+   321→   321→def _cholesky_2x2(rho: float) -> np.ndarray:
+   322→   322→    """Cholesky decomposition of a 2×2 correlation matrix.
+   323→   323→
+   324→   324→    Returns lower-triangular L such that L @ L^T = Σ.
+   325→   325→    """
+   326→   326→    L = np.zeros((2, 2))
+   327→   327→    L[0, 0] = 1.0
+   328→   328→    L[1, 0] = rho
+   329→   329→    L[1, 1] = math.sqrt(max(0.0, 1.0 - rho * rho))
+   330→   330→    return L
+   331→   331→
+   332→   332→
+   333→   333→def _aggregate_results(
+   334→   334→    home_goals: np.ndarray,
+   335→   335→    away_goals: np.ndarray,
+   336→   336→    max_goals: int,
+   337→   337→    top_n: int,
+   338→   338→) -> dict:
+   339→   339→    """Aggregate simulation results into probability distributions.
+   340→   340→
+   341→   341→    Parameters
+   342→   342→    ----------
+   343→   343→    home_goals, away_goals : np.ndarray
+   344→   344→        1-D integer arrays of simulated goals (clipped).
+   345→   345→    max_goals : int
+   346→   346→        Maximum goal count tracked.
+   347→   347→    top_n : int
+   348→   348→        Number of top scorelines to return.
+   349→   349→
+   350→   350→    Returns
+   351→   351→    -------
+   352→   352→    dict with keys: match_probabilities, totals_market, asian_handicap,
+   353→   353→    both_teams_to_score, top_scorelines, expected_means, volatility_index, confidence.
+   354→   354→    """
+   355→   355→    n_sims = len(home_goals)
+   356→   356→    hg = np.clip(home_goals, 0, max_goals)
+   357→   357→    ag = np.clip(away_goals, 0, max_goals)
+   358→   358→    total_goals = hg + ag
+   359→   359→
+   360→   360→    # ── Match Result Probabilities (1X2) ──
+   361→   361→    home_win = float(np.mean(hg > ag))
+   362→   362→    draw = float(np.mean(hg == ag))
+   363→   363→    away_win = float(np.mean(hg < ag))
+   364→   364→
+   365→   365→    # ── Totals Market ──
+   366→   366→    over_05 = float(np.mean(total_goals > 0.5))
+   367→   367→    over_15 = float(np.mean(total_goals > 1.5))
+   368→   368→    over_25 = float(np.mean(total_goals > 2.5))
+   369→   369→    over_35 = float(np.mean(total_goals > 3.5))
+   370→   370→
+   371→   371→    # ── Asian Handicap ──
+   372→   372→    # Line 0 (Draw No Bet): home wins if home > away, void if draw
+   373→   373→    line_0_home = float(np.mean(hg > ag))
+   374→   374→    line_0_void = float(np.mean(hg == ag))
+   375→   375→    line_0_away = float(np.mean(hg < ag))
+   376→   376→
+   377→   377→    # Line -0.5 (standard 1X2 equivalent)
+   378→   378→    line_half = float(np.mean(hg > ag))
+   379→   379→
+   380→   380→    # Line -1.0
+   381→   381→    line_1_home = float(np.mean(hg - ag > 1))
+   382→   382→    line_1_void = float(np.mean(hg - ag == 1))
+   383→   383→    line_1_away = 1.0 - line_1_home - line_1_void
+   384→   384→
+   385→   385→    # Line -1.5
+   386→   386→    line_15 = float(np.mean(hg - ag > 1.5))
+   387→   387→
+   388→   388→    # ── BTTS ──
+   389→   389→    btts = float(np.mean((hg >= 1) & (ag >= 1)))
+   390→   390→
+   391→   391→    # ── Expected Means ──
+   392→   392→    mean_home = float(np.mean(hg))
+   393→   393→    mean_away = float(np.mean(ag))
+   394→   394→    mean_total = float(np.mean(total_goals))
+   395→   395→
+   396→   396→    # ── Volatility Index ──
+   397→   397→    # Composite measure: weighted combination of goal std devs
+   398→   398→    std_home = float(np.std(hg))
+   399→   399→    std_away = float(np.std(ag))
+   400→   400→    std_total = float(np.std(total_goals))
+   401→   401→    volatility_raw = (std_home + std_away + std_total) / 3.0
+   402→   402→    # Normalise to 0-100 scale (typical football std ~ 1.1 goals)
+   403→   403→    volatility_index = min(100.0, max(0.0, (volatility_raw / 2.0) * 100.0))
+   404→   404→
+   405→   405→    # ── Confidence ──
+   406→   406→    # Based on how dominant the most likely outcome is
+   407→   407→    probs = np.array([home_win, draw, away_win])
+   408→   408→    dominance = float(np.max(probs))
+   409→   409→    if dominance >= 0.55:
+   410→   410→        confidence = "high"
+   411→   411→    elif dominance >= 0.42:
+   412→   412→        confidence = "medium"
+   413→   413→    else:
+   414→   414→        confidence = "low"
+   415→   415→
+   416→   416→    # ── Top Scorelines ──
+   417→   417→    # Build a 2D histogram of scorelines
+   418→   418→    scoreline_counts: dict[tuple[int, int], int] = {}
+   419→   419→    for i in range(n_sims):
+   420→   420→        key = (int(hg[i]), int(ag[i]))
+   421→   421→        scoreline_counts[key] = scoreline_counts.get(key, 0) + 1
+   422→   422→
+   423→   423→    sorted_scorelines = sorted(
+   424→   424→        scoreline_counts.items(),
+   425→   425→        key=lambda x: x[1],
+   426→   426→        reverse=True,
+   427→   427→    )[:top_n]
+   428→   428→
+   429→   429→    top_scorelines = [
+   430→   430→        {
+   431→   431→            "scoreline": f"{h}-{a}",
+   432→   432→            "probability": round(count / n_sims, 4),
+   433→   433→        }
+   434→   434→        for (h, a), count in sorted_scorelines
+   435→   435→    ]
+   436→   436→
+   437→   437→    return {
+   438→   438→        "match_probabilities": {
+   439→   439→            "home_victory": round(home_win, 4),
+   440→   440→            "draw": round(draw, 4),
+   441→   441→            "away_victory": round(away_win, 4),
+   442→   442→        },
+   443→   443→        "totals_market": {
+   444→   444→            "over05": round(over_05, 4),
+   445→   445→            "over15": round(over_15, 4),
+   446→   446→            "over25": round(over_25, 4),
+   447→   447→            "over35": round(over_35, 4),
+   448→   448→        },
+   449→   449→        "asian_handicap": {
+   450→   450→            "line0": round(line_0_home, 4),
+   451→   451→            "line_half": round(line_half, 4),
+   452→   452→            "line1": round(line_1_home, 4),
+   453→   453→            "line15": round(line_15, 4),
+   454→   454→        },
+   455→   455→        "both_teams_to_score": round(btts, 4),
+   456→   456→        "expected_means": {
+   457→   457→            "home": round(mean_home, 3),
+   458→   458→            "away": round(mean_away, 3),
+   459→   459→            "total": round(mean_total, 3),
+   460→   460→        },
+   461→   461→        "volatility_index": round(volatility_index, 2),
+   462→   462→        "confidence": confidence,
+   463→   463→        "top_scorelines": top_scorelines,
+   464→   464→    }
+   465→   465→
+   466→   466→
+   467→   467→# ──────────────────────────────────────────────────────────────────────────────
+   468→   468→# Main Simulation Entry Point
+   469→   469→# ──────────────────────────────────────────────────────────────────────────────
+   470→   470→
+   471→   471→
+   472→   472→def run_stochastic_simulation(
+   473→   473→    home_xg: float,
+   474→   474→    away_xg: float,
+   475→   475→    home_conceded: float = 1.0,
+   476→   476→    away_conceded: float = 1.0,
+   477→   477→    home_elo: float = 1500.0,
+   478→   478→    away_elo: float = 1500.0,
+   479→   479→    config: EngineConfig = EngineConfig(),
+   480→   480→) -> StochasticResult:
+   481→   481→    """Run the full Merton Jump-Diffusion + GARCH Monte Carlo simulation.
+   482→   482→
+   483→   483→    Core algorithm:
+   484→   484→    1. Compute home/away expected goals from xG, conceded averages, and ELO
+   485→   485→    2. Calibrate GARCH volatility from goal time series (or use defaults)
+   486→   486→    3. Generate correlated Brownian motion paths
+   487→   487→    4. Overlay Poisson-distributed jump shocks (Merton)
+   488→   488→    5. Apply GARCH conditional variance
+   489→   489→    6. Discretize to integer goals
+   490→   490→    7. Aggregate into probabilities, markets, scorelines
+   491→   491→
+   492→   492→    Parameters
+   493→   493→    ----------
+   494→   494→    home_xg : float
+   495→   495→        Home team expected goals (xG) per match.
+   496→   496→    away_xg : float
+   497→   497→        Away team expected goals (xG) per match.
+   498→   498→    home_conceded : float
+   499→   499→        Goals conceded per match by the home team (averaged).
+   500→   500→    away_conceded : float
+   501→   501→        Goals conceded per match by the away team (averaged).
+   502→   502→    home_elo : float
+   503→   503→        Home team ELO rating.
+   504→   504→    away_elo : float
+   505→   505→        Away team ELO rating.
+   506→   506→    config : EngineConfig
+   507→   507→        Engine configuration (simulation count, model toggles, parameters).
+   508→   508→
+   509→   509→    Returns
+   510→   510→    -------
+   511→   511→    StochasticResult
+   512→   512→        Complete prediction output with match probabilities, market prices,
+   513→   513→        scoreline distributions, and confidence metrics.
+   514→   514→    """
+   515→   515→    rng = np.random.default_rng(config.random_seed)
+   516→   516→    n = config.num_simulations
+   517→   517→
+   518→   518→    # ── Step 1: Compute adjusted expected goals ─────────────────────────────
+   519→   519→    mu_home, mu_away = _expected_goals(
+   520→   520→        home_xg=home_xg,
+   521→   521→        away_xg=away_xg,
+   522→   522→        home_conceded=home_conceded,
+   523→   523→        away_conceded=away_conceded,
+   524→   524→        home_elo=home_elo,
+   525→   525→        away_elo=away_elo,
+   526→   526→        elo_scale=config.elo_scale,
+   527→   527→    )
+   528→   528→
+   529→   529→    # ── Step 2: Determine base volatility ──────────────────────────────────
+   530→   530→    # For football, the base volatility scales with sqrt of expected goals
+   531→   531→    # (Poisson-like behaviour: Var ≈ μ for low-scoring sports)
+   532→   532→    sigma_home = math.sqrt(max(0.01, mu_home))
+   533→   533→    sigma_away = math.sqrt(max(0.01, mu_away))
+   534→   534→
+   535→   535→    # If GARCH is enabled, augment volatility with conditional variance
+   536→   536→    if config.use_garch:
+   537→   537→        garch = config.garch
+   538→   538→        # GARCH amplification factor based on unconditional variance
+   539→   539→        garch_sigma = math.sqrt(garch.unconditional_variance)
+   540→   540→        # Blend base volatility with GARCH-augmented volatility
+   541→   541→        # Weight: 70% base Poisson-like, 30% GARCH contribution
+   542→   542→        sigma_home = sigma_home * 0.7 + garch_sigma * 0.3
+   543→   543→        sigma_away = sigma_away * 0.7 + garch_sigma * 0.3
+   544→   544→
+   545→   545→    # ── Step 3: Generate correlated Brownian motion ────────────────────────
+   546→   546→    # Cholesky decomposition for correlated standard normals
+   547→   547→    L = _cholesky_2x2(config.correlation)
+   548→   548→
+   549→   549→    # Generate independent standard normals and correlate
+   550→   550→    z_independent = rng.standard_normal((n, 2))
+   551→   551→    z_correlated = z_independent @ L.T  # (n, 2): column 0 = home, column 1 = away
+   552→   552→
+   553→   553→    # Scale by respective volatilities
+   554→   554→    home_continuous = mu_home + sigma_home * z_correlated[:, 0]
+   555→   555→    away_continuous = mu_away + sigma_away * z_correlated[:, 1]
+   556→   556→
+   557→   557→    # ── Step 4: Overlay Poisson Jump Shocks (Merton) ───────────────────────
+   558→   558→    if config.use_jump_diffusion:
+   559→   559→        jd = config.jump_diffusion
+   560→   560→
+   561→   561→        # Number of jumps per simulation path (Poisson distributed)
+   562→   562→        # We simulate a single-period jump: N ~ Poisson(λ)
+   563→   563→        # Total jump = sum of N individual jumps
+   564→   564→        jump_counts_home = rng.poisson(jd.jump_intensity, size=n)
+   565→   565→        jump_counts_away = rng.poisson(jd.jump_intensity, size=n)
+   566→   566→
+   567→   567→        # For vectorised efficiency: pre-generate a pool of jump sizes
+   568→   568→        # and select the right number per simulation
+   569→   569→        max_jumps = int(max(jump_counts_home.max(), jump_counts_away.max()))
+   570→   570→        if max_jumps > 0:
+   571→   571→            # Pool of jump sizes: N × max_jumps, then sum the first k per row
+   572→   572→            jump_pool_home = rng.normal(
+   573→   573→                jd.jump_mean, jd.jump_std, size=(n, max_jumps)
+   574→   574→            )
+   575→   575→            jump_pool_away = rng.normal(
+   576→   576→                jd.jump_mean, jd.jump_std, size=(n, max_jumps)
+   577→   577→            )
+   578→   578→
+   579→   579→            # Create a mask matrix for selective summing
+   580→   580→            idx_home = np.arange(n)
+   581→   581→            idx_away = np.arange(n)
+   582→   582→
+   583→   583→            # Sum only the jumps that occur (first jump_counts per row)
+   584→   584→            # Use cumulative mask approach for vectorised sum
+   585→   585→            jump_sum_home = np.zeros(n)
+   586→   586→            jump_sum_away = np.zeros(n)
+   587→   587→
+   588→   588→            for k in range(max_jumps):
+   589→   589→                mask_home = jump_counts_home > k
+   590→   590→                mask_away = jump_counts_away > k
+   591→   591→                jump_sum_home[mask_home] += jump_pool_home[mask_home, k]
+   592→   592→                jump_sum_away[mask_away] += jump_pool_away[mask_away, k]
+   593→   593→
+   594→   594→            home_continuous += jump_sum_home
+   595→   595→            away_continuous += jump_sum_away
+   596→   596→
+   597→   597→    # ── Step 5: Apply GARCH Conditional Variance Path ─────────────────────
+   598→   598→    # Simulate a single-step GARCH conditional variance and scale residuals
+   599→   599→    if config.use_garch:
+   600→   600→        garch = config.garch
+   601→   601→        # Conditional variance: σ²_cond = ω + α·(z²) + β·σ²_base
+   602→   602→        # where z is the standardised residual from the Brownian motion
+   603→   603→        z_home_std = z_correlated[:, 0]
+   604→   604→        z_away_std = z_correlated[:, 1]
+   605→   605→
+   606→   606→        sigma2_cond_home = garch.omega + garch.alpha * z_home_std ** 2 + garch.beta * sigma_home ** 2
+   607→   607→        sigma2_cond_away = garch.omega + garch.alpha * z_away_std ** 2 + garch.beta * sigma_away ** 2
+   608→   608→
+   609→   609→        # GARCH re-scaling: adjust the continuous goal by ratio of
+   610→   610→        # conditional vol to base vol
+   611→   611→        ratio_home = np.sqrt(np.maximum(sigma2_cond_home, 1e-10)) / max(sigma_home, 1e-10)
+   612→   612→        ratio_away = np.sqrt(np.maximum(sigma2_cond_away, 1e-10)) / max(sigma_away, 1e-10)
+   613→   613→
+   614→   614→        # Re-center around expected goals with GARCH-adjusted dispersion
+   615→   615→        home_continuous = mu_home + (home_continuous - mu_home) * ratio_home
+   616→   616→        away_continuous = mu_away + (away_continuous - mu_away) * ratio_away
+   617→   617→
+   618→   618→    # ── Step 6: Discretize to Integer Goals ─────────────────────────────────
+   619→   619→    # Method: round continuous values (preserving mean approximately)
+   620→   620→    # Then clamp to valid range
+   621→   621→    home_goals = np.round(np.clip(home_continuous, 0, config.max_goals)).astype(np.int32)
+   622→   622→    away_goals = np.round(np.clip(away_continuous, 0, config.max_goals)).astype(np.int32)
+   623→   623→
+   624→   624→    # ── Step 7: Aggregate into Probabilities, Markets, Scorelines ──────────
+   625→   625→    agg = _aggregate_results(
+   626→   626→        home_goals=home_goals,
+   627→   627→        away_goals=away_goals,
+   628→   628→        max_goals=config.max_goals,
+   629→   629→        top_n=config.top_scorelines_count,
+   630→   630→    )
+   631→   631→
+   632→   632→    return StochasticResult(
+   633→   633→        match_probabilities=agg["match_probabilities"],
+   634→   634→        totals_market=agg["totals_market"],
+   635→   635→        asian_handicap=agg["asian_handicap"],
+   636→   636→        both_teams_to_score=agg["both_teams_to_score"],
+   637→   637→        expected_means=agg["expected_means"],
+   638→   638→        volatility_index=agg["volatility_index"],
+   639→   639→        confidence=agg["confidence"],
+   640→   640→        top_scorelines=agg["top_scorelines"],
+   641→   641→    )
+   642→   642→
+   643→   643→
+   644→   644→# ──────────────────────────────────────────────────────────────────────────────
+   645→   645→# Convenience: Run with Historical Data Calibration
+   646→   646→# ──────────────────────────────────────────────────────────────────────────────
+   647→   647→
+   648→   648→
+   649→   649→def run_calibrated_simulation(
+   650→   650→    home_xg: float,
+   651→   651→    away_xg: float,
+   652→   652→    home_goals_history: np.ndarray,
+   653→   653→    away_goals_history: np.ndarray,
+   654→   654→    home_conceded: float = 1.0,
+   655→   655→    away_conceded: float = 1.0,
+   656→   656→    home_elo: float = 1500.0,
+   657→   657→    away_elo: float = 1500.0,
+   658→   658→    config: Optional[EngineConfig] = None,
+   659→   659→) -> StochasticResult:
+   660→   660→    """Run a simulation with GARCH and jump parameters calibrated from history.
+   661→   661→
+   662→   662→    This is a convenience wrapper that:
+   663→   663→    1. Computes residuals from historical goals vs expected goals
+   664→   664→    2. Calibrates GARCH(1,1) via MLE
+   665→   665→    3. Extracts jump-diffusion parameters
+   666→   666→    4. Runs the full stochastic simulation with calibrated params
+   667→   667→
+   668→   668→    Parameters
+   669→   669→    ----------
+   670→   670→    home_xg, away_xg : float
+   671→   671→        Current match expected goals.
+   672→   672→    home_goals_history, away_goals_history : np.ndarray
+   673→   673→        Historical goal counts for calibrating GARCH/jump params.
+   674→   674→    home_conceded, away_conceded : float
+   675→   675→        Goals conceded averages.
+   676→   676→    home_elo, away_elo : float
+   677→   677→        ELO ratings.
+   678→   678→    config : EngineConfig or None
+   679→   679→        If None, uses defaults with calibration enabled.
+   680→   680→
+   681→   681→    Returns
+   682→   682→    -------
+   683→   683→    StochasticResult
+   684→   684→    """
+   685→   685→    if config is None:
+   686→   686→        config = EngineConfig()
+   687→   687→
+   688→   688→    # Compute historical residuals
+   689→   689→    home_goals_history = np.asarray(home_goals_history, dtype=np.float64).flatten()
+   690→   690→    away_goals_history = np.asarray(away_goals_history, dtype=np.float64).flatten()
+   691→   691→
+   692→   692→    # Use mean of historical goals as proxy for past expected goals
+   693→   693→    residuals_home = home_goals_history - np.mean(home_goals_history)
+   694→   694→    residuals_away = away_goals_history - np.mean(away_goals_history)
+   695→   695→    all_residuals = np.concatenate([residuals_home, residuals_away])
+   696→   696→
+   697→   697→    # Calibrate GARCH
+   698→   698→    if config.use_garch:
+   699→   699→        garch_params = calibrate_garch(all_residuals)
+   700→   700→        config = config.model_copy(update={"garch": garch_params})
+   701→   701→
+   702→   702→    # Extract jump parameters
+   703→   703→    if config.use_jump_diffusion:
+   704→   704→        jump_params = extract_jump_params(all_residuals)
+   705→   705→        config = config.model_copy(update={"jump_diffusion": jump_params})
+   706→   706→
+   707→   707→    return run_stochastic_simulation(
+   708→   708→        home_xg=home_xg,
+   709→   709→        away_xg=away_xg,
+   710→   710→        home_conceded=home_conceded,
+   711→   711→        away_conceded=away_conceded,
+   712→   712→        home_elo=home_elo,
+   713→   713→        away_elo=away_elo,
+   714→   714→        config=config,
+   715→   715→    )
+   716→   716→
