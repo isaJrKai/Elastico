@@ -1,0 +1,786 @@
+     1→   280→    >>> X_h, X_a, y = engine.build_sequences(matches, feature_cols)
+     2→   281→    >>> metrics = engine.train(X_h, X_a, y, X_vh, X_va, y_v)
+     3→   282→    >>> pred = engine.predict(X_h[:1], X_a[:1])
+     4→   283→    >>> print(pred.predicted_class, pred.confidence)
+     5→   284→    """
+     6→   285→
+     7→   286→    def __init__(
+     8→   287→        self,
+     9→   288→        config: LSTMConfig | None = None,
+    10→   289→        model_dir: str = "saved_models",
+    11→   290→    ) -> None:
+    12→   291→        self.config = config or LSTMConfig()
+    13→   292→        self.model_dir = Path(model_dir)
+    14→   293→        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    15→   294→        self.model: Optional[FootballLSTM] = None
+    16→   295→        self.is_trained: bool = False
+    17→   296→        self.feature_cols: list[str] = []
+    18→   297→
+    19→   298→        # Ensure model directory exists
+    20→   299→        self.model_dir.mkdir(parents=True, exist_ok=True)
+    21→   300→
+    22→   301→        # Best model state (for early stopping restoration)
+    23→   302→        self._best_state: Optional[dict[str, Any]] = None
+    24→   303→
+    25→   304→    # ==================================================================
+    26→   305→    # Sequence Building
+    27→   306→    # ==================================================================
+    28→   307→
+    29→   308→    def build_sequences(
+    30→   309→        self,
+    31→   310→        matches: list[dict[str, Any]],
+    32→   311→        feature_cols: list[str],
+    33→   312→    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    34→   313→        """Build sequences from match history for each team.
+    35→   314→
+    36→   315→        For each match in *matches*, the method looks up the home team's
+    37→   316→        and away team's previous ``sequence_length`` matches (chronologically
+    38→   317→        earlier) and extracts the ``feature_cols`` from each.  The two
+    39→   318→        sequences are returned separately so the LSTM can encode them
+    40→   319→        independently.
+    41→   320→
+    42→   321→        Parameters
+    43→   322→        ----------
+    44→   323→        matches : list[dict]
+    45→   324→            Match records sorted chronologically.  Each dict **must** contain
+    46→   325→            at least the keys ``"date"``, ``"home_team"``, ``"away_team"``,
+    47→   326→            and ``"result"``.  It should also contain all columns listed in
+    48→   327→            *feature_cols*.  The ``"result"`` field must be one of
+    49→   328→            ``"home"``, ``"draw"``, ``"away"`` (or integer 0/1/2).
+    50→   329→        feature_cols : list[str]
+    51→   330→            Column names to extract per timestep.  These typically represent
+    52→   331→            that team's performance features for that match (e.g.
+    53→   332→            ``"goals_scored"``, ``"possession"``, etc.).
+    54→   333→
+    55→   334→        Returns
+    56→   335→        -------
+    57→   336→        X_home : np.ndarray, shape (N, seq_len, n_features)
+    58→   337→        X_away : np.ndarray, shape (N, seq_len, n_features)
+    59→   338→        y : np.ndarray, shape (N,), dtype int32
+    60→   339→            Labels: 0 = home win, 1 = draw, 2 = away win.
+    61→   340→
+    62→   341→        Notes
+    63→   342→        -----
+    64→   343→        Matches that do not have enough history for **either** team are
+    65→   344→        dropped (i.e. the first ``sequence_length`` matches per team cannot
+    66→   345→        form valid sequences).
+    67→   346→        """
+    68→   347→        self.feature_cols = list(feature_cols)
+    69→   348→        seq_len = self.config.sequence_length
+    70→   349→        n_features = len(feature_cols)
+    71→   350→
+    72→   351→        # Build per-team match history (ordered chronologically).
+    73→   352→        # Each entry stores the feature vector for that team in that match.
+    74→   353→        team_history: dict[str, list[np.ndarray]] = defaultdict(list)
+    75→   354→        team_dates: dict[str, list[Any]] = defaultdict(list)
+    76→   355→
+    77→   356→        # First pass: index all matches and collect per-team feature rows.
+    78→   357→        # We need to know the result label and the feature vector for
+    79→   358→        # each team from each match.
+    80→   359→        for match in matches:
+    81→   360→            date = match.get("date")
+    82→   361→            home = str(match["home_team"])
+    83→   362→            away = str(match["away_team"])
+    84→   363→
+    85→   364→            # --- result label ---
+    86→   365→            result = match.get("result")
+    87→   366→            if isinstance(result, str):
+    88→   367→                label = _LABEL_TO_CLASS_IDX.get(result.lower(), -1)
+    89→   368→            else:
+    90→   369→                label = int(result)
+    91→   370→            if label not in (0, 1, 2):
+    92→   371→                continue
+    93→   372→
+    94→   373→            # --- feature vectors ---
+    95→   374→            home_feats = np.array(
+    96→   375→                [match.get(c, 0.0) for c in feature_cols], dtype=np.float32
+    97→   376→            )
+    98→   377→            away_feats = np.array(
+    99→   378→                [match.get(c, 0.0) for c in feature_cols], dtype=np.float32
+   100→   379→            )
+   101→   380→
+   102→   381→            # Replace NaN/inf with 0
+   103→   382→            home_feats = np.nan_to_num(home_feats, nan=0.0, posinf=0.0, neginf=0.0)
+   104→   383→            away_feats = np.nan_to_num(away_feats, nan=0.0, posinf=0.0, neginf=0.0)
+   105→   384→
+   106→   385→            team_history[home].append(home_feats)
+   107→   386→            team_dates[home].append(date)
+   108→   387→            team_history[away].append(away_feats)
+   109→   388→            team_dates[away].append(date)
+   110→   389→
+   111→   390→        # Second pass: for each match, look up the last `seq_len` entries
+   112→   391→        # for home and away teams from history **before** this match.
+   113→   392→        X_home_list: list[np.ndarray] = []
+   114→   393→        X_away_list: list[np.ndarray] = []
+   115→   394→        y_list: list[int] = []
+   116→   395→
+   117→   396→        for match in matches:
+   118→   397→            date = match.get("date")
+   119→   398→            home = str(match["home_team"])
+   120→   399→            away = str(match["away_team"])
+   121→   400→
+   122→   401→            result = match.get("result")
+   123→   402→            if isinstance(result, str):
+   124→   403→                label = _LABEL_TO_CLASS_IDX.get(result.lower(), -1)
+   125→   404→            else:
+   126→   405→                label = int(result)
+   127→   406→            if label not in (0, 1, 2):
+   128→   407→                continue
+   129→   408→
+   130→   409→            # Number of entries so far for each team
+   131→   410→            home_count = len(team_history[home])
+   132→   411→            away_count = len(team_history[away])
+   133→   412→
+   134→   413→            # We need at least seq_len + 1 entries: seq_len for the input
+   135→   414→            # window plus the current match which we're predicting.
+   136→   415→            # Actually the history lists already contain the current match's
+   137→   416→            # entry, so we take the last `seq_len` entries *before* the
+   138→   417→            # current one.
+   139→   418→            if home_count < seq_len + 1 or away_count < seq_len + 1:
+   140→   419→                continue
+   141→   420→
+   142→   421→            # Home team: take last seq_len entries before the current match
+   143→   422→            home_seq = np.array(
+   144→   423→                team_history[home][home_count - seq_len - 1 : home_count - 1],
+   145→   424→                dtype=np.float32,
+   146→   425→            )  # (seq_len, n_features)
+   147→   426→
+   148→   427→            # Away team: take last seq_len entries before the current match
+   149→   428→            away_seq = np.array(
+   150→   429→                team_history[away][away_count - seq_len - 1 : away_count - 1],
+   151→   430→                dtype=np.float32,
+   152→   431→            )
+   153→   432→
+   154→   433→            # Sanity check shapes
+   155→   434→            if home_seq.shape != (seq_len, n_features):
+   156→   435→                continue
+   157→   436→            if away_seq.shape != (seq_len, n_features):
+   158→   437→                continue
+   159→   438→
+   160→   439→            X_home_list.append(home_seq)
+   161→   440→            X_away_list.append(away_seq)
+   162→   441→            y_list.append(label)
+   163→   442→
+   164→   443→        if not X_home_list:
+   165→   444→            logger.warning(
+   166→   445→                "build_sequences produced 0 samples.  Check data length vs sequence_length=%d.",
+   167→   446→                seq_len,
+   168→   447→            )
+   169→   448→            return (
+   170→   449→                np.empty((0, seq_len, n_features), dtype=np.float32),
+   171→   450→                np.empty((0, seq_len, n_features), dtype=np.float32),
+   172→   451→                np.empty(0, dtype=np.int32),
+   173→   452→            )
+   174→   453→
+   175→   454→        X_home = np.stack(X_home_list, axis=0)  # (N, seq_len, n_features)
+   176→   455→        X_away = np.stack(X_away_list, axis=0)
+   177→   456→        y = np.array(y_list, dtype=np.int32)
+   178→   457→
+   179→   458→        logger.info(
+   180→   459→            "Built sequences: %d samples, seq_len=%d, n_features=%d",
+   181→   460→            len(y), seq_len, n_features,
+   182→   461→        )
+   183→   462→        return X_home, X_away, y
+   184→   463→
+   185→   464→    # ==================================================================
+   186→   465→    # Training
+   187→   466→    # ==================================================================
+   188→   467→
+   189→   468→    def train(
+   190→   469→        self,
+   191→   470→        X_home: np.ndarray,
+   192→   471→        X_away: np.ndarray,
+   193→   472→        y: np.ndarray,
+   194→   473→        X_val_home: np.ndarray | None = None,
+   195→   474→        X_val_away: np.ndarray | None = None,
+   196→   475→        y_val: np.ndarray | None = None,
+   197→   476→    ) -> dict[str, Any]:
+   198→   477→        """Train the LSTM model.
+   199→   478→
+   200→   479→        Parameters
+   201→   480→        ----------
+   202→   481→        X_home, X_away : np.ndarray, shape (N, seq_len, input_size)
+   203→   482→            Training sequences for home and away teams.
+   204→   483→        y : np.ndarray, shape (N,), dtype int
+   205→   484→            Labels (0=home, 1=draw, 2=away).
+   206→   485→        X_val_home, X_val_away, y_val : optional
+   207→   486→            Validation set.  When provided, early stopping monitors
+   208→   487→            validation loss.
+   209→   488→
+   210→   489→        Returns
+   211→   490→        -------
+   212→   491→        dict
+   213→   492→            Training metrics: epochs_run, best_epoch, train_loss_best,
+   214→   493→            val_loss_best (if validation), learning_rates, etc.
+   215→   494→        """
+   216→   495→        # --- Validate inputs ---
+   217→   496→        X_home = np.asarray(X_home, dtype=np.float32)
+   218→   497→        X_away = np.asarray(X_away, dtype=np.float32)
+   219→   498→        y = np.asarray(y, dtype=np.int64)
+   220→   499→
+   221→   500→        # Auto-detect input_size from data if not set
+   222→   501→        if X_home.ndim == 3 and X_home.shape[2] != self.config.input_size:
+   223→   502→            logger.info(
+   224→   503→                "input_size mismatch: config=%d, data=%d. Updating config.",
+   225→   504→                self.config.input_size,
+   226→   505→                X_home.shape[2],
+   227→   506→            )
+   228→   507→            self.config.input_size = X_home.shape[2]
+   229→   508→
+   230→   509→        # Set random seed for reproducibility
+   231→   510→        torch.manual_seed(self.config.random_seed)
+   232→   511→        if torch.cuda.is_available():
+   233→   512→            torch.cuda.manual_seed_all(self.config.random_seed)
+   234→   513→
+   235→   514→        # --- Instantiate model ---
+   236→   515→        self.model = FootballLSTM(self.config).to(self.device)
+   237→   516→
+   238→   517→        # --- Data loaders ---
+   239→   518→        train_dataset = _MatchSequenceDataset(X_home, X_away, y)
+   240→   519→        train_loader = torch.utils.data.DataLoader(
+   241→   520→            train_dataset,
+   242→   521→            batch_size=self.config.batch_size,
+   243→   522→            shuffle=True,
+   244→   523→            drop_last=False,
+   245→   524→            num_workers=0,
+   246→   525→            pin_memory=self.device.type == "cuda",
+   247→   526→        )
+   248→   527→
+   249→   528→        has_val = (
+   250→   529→            X_val_home is not None
+   251→   530→            and X_val_away is not None
+   252→   531→            and y_val is not None
+   253→   532→        )
+   254→   533→
+   255→   534→        if has_val:
+   256→   535→            X_val_home = np.asarray(X_val_home, dtype=np.float32)
+   257→   536→            X_val_away = np.asarray(X_val_away, dtype=np.float32)
+   258→   537→            y_val = np.asarray(y_val, dtype=np.int64)
+   259→   538→
+   260→   539→            val_dataset = _MatchSequenceDataset(X_val_home, X_val_away, y_val)
+   261→   540→            val_loader = torch.utils.data.DataLoader(
+   262→   541→                val_dataset,
+   263→   542→                batch_size=self.config.batch_size,
+   264→   543→                shuffle=False,
+   265→   544→                drop_last=False,
+   266→   545→                num_workers=0,
+   267→   546→                pin_memory=self.device.type == "cuda",
+   268→   547→            )
+   269→   548→
+   270→   549→        # --- Optimiser, loss, scheduler ---
+   271→   550→        optimizer = torch.optim.Adam(
+   272→   551→            self.model.parameters(),
+   273→   552→            lr=self.config.learning_rate,
+   274→   553→            weight_decay=self.config.weight_decay,
+   275→   554→        )
+   276→   555→        criterion = nn.CrossEntropyLoss()
+   277→   556→        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+   278→   557→            optimizer,
+   279→   558→            mode="min",
+   280→   559→            factor=self.config.lr_scheduler_factor,
+   281→   560→            patience=self.config.lr_scheduler_patience,
+   282→   561→            min_lr=self.config.lr_scheduler_min_lr,
+   283→   562→            verbose=False,
+   284→   563→        )
+   285→   564→
+   286→   565→        # --- Training loop ---
+   287→   566→        cfg = self.config
+   288→   567→        best_val_loss = float("inf")
+   289→   568→        best_train_loss = float("inf")
+   290→   569→        best_epoch = 0
+   291→   570→        epochs_no_improve = 0
+   292→   571→        train_loss_history: list[float] = []
+   293→   572→        val_loss_history: list[float] = []
+   294→   573→        lr_history: list[float] = []
+   295→   574→
+   296→   575→        self._best_state = None
+   297→   576→
+   298→   577→        for epoch in range(1, cfg.epochs + 1):
+   299→   578→            # --- Train ---
+   300→   579→            self.model.train()
+   301→   580→            epoch_loss = 0.0
+   302→   581→            n_batches = 0
+   303→   582→
+   304→   583→            for batch_xh, batch_xa, batch_y in train_loader:
+   305→   584→                batch_xh = batch_xh.to(self.device)
+   306→   585→                batch_xa = batch_xa.to(self.device)
+   307→   586→                batch_y = batch_y.to(self.device)
+   308→   587→
+   309→   588→                optimizer.zero_grad()
+   310→   589→                logits = self.model(batch_xh, batch_xa)  # (B, 3)
+   311→   590→                loss = criterion(logits, batch_y)
+   312→   591→
+   313→   592→                loss.backward()
+   314→   593→                torch.nn.utils.clip_grad_norm_(
+   315→   594→                    self.model.parameters(), max_norm=cfg.grad_clip_max_norm
+   316→   595→                )
+   317→   596→                optimizer.step()
+   318→   597→
+   319→   598→                epoch_loss += loss.item()
+   320→   599→                n_batches += 1
+   321→   600→
+   322→   601→            avg_train_loss = epoch_loss / max(n_batches, 1)
+   323→   602→            train_loss_history.append(avg_train_loss)
+   324→   603→            lr_history.append(optimizer.param_groups[0]["lr"])
+   325→   604→
+   326→   605→            if avg_train_loss < best_train_loss:
+   327→   606→                best_train_loss = avg_train_loss
+   328→   607→
+   329→   608→            # --- Validate ---
+   330→   609→            if has_val:
+   331→   610→                val_loss = self._eval_loss(val_loader, criterion)
+   332→   611→                val_loss_history.append(val_loss)
+   333→   612→                scheduler.step(val_loss)
+   334→   613→
+   335→   614→                if val_loss < best_val_loss:
+   336→   615→                    best_val_loss = val_loss
+   337→   616→                    best_epoch = epoch
+   338→   617→                    epochs_no_improve = 0
+   339→   618→                    # Deepcopy best model state
+   340→   619→                    self._best_state = copy.deepcopy(self.model.state_dict())
+   341→   620→                else:
+   342→   621→                    epochs_no_improve += 1
+   343→   622→
+   344→   623→                if epoch % 10 == 0 or epoch == 1:
+   345→   624→                    logger.info(
+   346→   625→                        "Epoch %3d/%d  train_loss=%.4f  val_loss=%.4f  lr=%.2e",
+   347→   626→                        epoch,
+   348→   627→                        cfg.epochs,
+   349→   628→                        avg_train_loss,
+   350→   629→                        val_loss,
+   351→   630→                        optimizer.param_groups[0]["lr"],
+   352→   631→                    )
+   353→   632→
+   354→   633→                # Early stopping
+   355→   634→                if (
+   356→   635→                    cfg.early_stopping_patience > 0
+   357→   636→                    and epochs_no_improve >= cfg.early_stopping_patience
+   358→   637→                ):
+   359→   638→                    logger.info(
+   360→   639→                        "Early stopping at epoch %d (no improvement for %d epochs)",
+   361→   640→                        epoch,
+   362→   641→                        epochs_no_improve,
+   363→   642→                    )
+   364→   643→                    break
+   365→   644→            else:
+   366→   645→                # No validation: track training loss only
+   367→   646→                scheduler.step(avg_train_loss)
+   368→   647→                if avg_train_loss < best_val_loss:
+   369→   648→                    best_val_loss = avg_train_loss
+   370→   649→                    best_epoch = epoch
+   371→   650→                    epochs_no_improve = 0
+   372→   651→                    self._best_state = copy.deepcopy(self.model.state_dict())
+   373→   652→                else:
+   374→   653→                    epochs_no_improve += 1
+   375→   654→
+   376→   655→                if epoch % 10 == 0 or epoch == 1:
+   377→   656→                    logger.info(
+   378→   657→                        "Epoch %3d/%d  train_loss=%.4f  lr=%.2e",
+   379→   658→                        epoch,
+   380→   659→                        cfg.epochs,
+   381→   660→                        avg_train_loss,
+   382→   661→                        optimizer.param_groups[0]["lr"],
+   383→   662→                    )
+   384→   663→
+   385→   664→                if (
+   386→   665→                    cfg.early_stopping_patience > 0
+   387→   666→                    and epochs_no_improve >= cfg.early_stopping_patience
+   388→   667→                ):
+   389→   668→                    logger.info(
+   390→   669→                        "Early stopping at epoch %d (no improvement for %d epochs)",
+   391→   670→                        epoch,
+   392→   671→                        epochs_no_improve,
+   393→   672→                    )
+   394→   673→                    break
+   395→   674→
+   396→   675→        # --- Restore best weights ---
+   397→   676→        if self._best_state is not None:
+   398→   677→            self.model.load_state_dict(self._best_state)
+   399→   678→            logger.info("Restored best model weights from epoch %d", best_epoch)
+   400→   679→
+   401→   680→        self.model.eval()
+   402→   681→        self.is_trained = True
+   403→   682→
+   404→   683→        metrics: dict[str, Any] = {
+   405→   684→            "epochs_run": epoch,
+   406→   685→            "best_epoch": best_epoch,
+   407→   686→            "train_loss_best": best_train_loss,
+   408→   687→            "train_loss_final": train_loss_history[-1] if train_loss_history else None,
+   409→   688→            "n_samples_train": int(len(y)),
+   410→   689→            "n_samples_val": int(len(y_val)) if has_val else 0,
+   411→   690→            "device": str(self.device),
+   412→   691→            "loss_history": train_loss_history,
+   413→   692→            "lr_history": lr_history,
+   414→   693→        }
+   415→   694→
+   416→   695→        if has_val and val_loss_history:
+   417→   696→            metrics["val_loss_best"] = best_val_loss
+   418→   697→            metrics["val_loss_final"] = val_loss_history[-1]
+   419→   698→
+   420→   699→        logger.info(
+   421→   700→            "LSTM training complete – epochs=%d, best_epoch=%d, best_train_loss=%.4f%s",
+   422→   701→            metrics["epochs_run"],
+   423→   702→            best_epoch,
+   424→   703→            best_train_loss,
+   425→   704→            f", best_val_loss={best_val_loss:.4f}" if has_val else "",
+   426→   705→        )
+   427→   706→
+   428→   707→        return metrics
+   429→   708→
+   430→   709→    # ------------------------------------------------------------------
+   431→   710→    # Validation loss helper
+   432→   711→    # ------------------------------------------------------------------
+   433→   712→
+   434→   713→    def _eval_loss(
+   435→   714→        self,
+   436→   715→        loader: torch.utils.data.DataLoader,
+   437→   716→        criterion: nn.Module,
+   438→   717→    ) -> float:
+   439→   718→        """Compute average loss over a data loader (no gradient)."""
+   440→   719→        self.model.eval()
+   441→   720→        total_loss = 0.0
+   442→   721→        n_batches = 0
+   443→   722→        with torch.no_grad():
+   444→   723→            for batch_xh, batch_xa, batch_y in loader:
+   445→   724→                batch_xh = batch_xh.to(self.device)
+   446→   725→                batch_xa = batch_xa.to(self.device)
+   447→   726→                batch_y = batch_y.to(self.device)
+   448→   727→                logits = self.model(batch_xh, batch_xa)
+   449→   728→                loss = criterion(logits, batch_y)
+   450→   729→                total_loss += loss.item()
+   451→   730→                n_batches += 1
+   452→   731→        return total_loss / max(n_batches, 1)
+   453→   732→
+   454→   733→    # ==================================================================
+   455→   734→    # Prediction
+   456→   735→    # ==================================================================
+   457→   736→
+   458→   737→    def predict(
+   459→   738→        self,
+   460→   739→        X_home: np.ndarray,
+   461→   740→        X_away: np.ndarray,
+   462→   741→    ) -> dict[str, Any]:
+   463→   742→        """Predict match outcome probabilities.
+   464→   743→
+   465→   744→        Parameters
+   466→   745→        ----------
+   467→   746→        X_home : np.ndarray, shape (N, seq_len, input_size) or (seq_len, input_size)
+   468→   747→        X_away : np.ndarray, same shape as X_home
+   469→   748→
+   470→   749→        Returns
+   471→   750→        -------
+   472→   751→        dict
+   473→   752→            For a **single** sample: ``{home_win, draw, away_win,
+   474→   753→            predicted_class, confidence}``.  Probabilities are softmax-
+   475→   754→            normalised and sum to exactly 1.0.
+   476→   755→        """
+   477→   756→        if not self.is_trained or self.model is None:
+   478→   757→            raise RuntimeError("Model has not been trained or loaded yet.")
+   479→   758→
+   480→   759→        X_home = np.asarray(X_home, dtype=np.float32)
+   481→   760→        X_away = np.asarray(X_away, dtype=np.float32)
+   482→   761→
+   483→   762→        # Ensure 3-D
+   484→   763→        if X_home.ndim == 2:
+   485→   764→            X_home = X_home[np.newaxis, ...]
+   486→   765→        if X_away.ndim == 2:
+   487→   766→            X_away = X_away[np.newaxis, ...]
+   488→   767→
+   489→   768→        dataset = _SingleMatchDataset(X_home, X_away)
+   490→   769→        loader = torch.utils.data.DataLoader(
+   491→   770→            dataset, batch_size=len(dataset), shuffle=False
+   492→   771→        )
+   493→   772→
+   494→   773→        self.model.eval()
+   495→   774→        all_probs: list[np.ndarray] = []
+   496→   775→
+   497→   776→        with torch.no_grad():
+   498→   777→            for batch_xh, batch_xa in loader:
+   499→   778→                batch_xh = batch_xh.to(self.device)
+   500→   779→                batch_xa = batch_xa.to(self.device)
+   501→   780→                logits = self.model(batch_xh, batch_xa)  # (B, 3)
+   502→   781→                probs = torch.softmax(logits, dim=1).cpu().numpy()
+   503→   782→                all_probs.append(probs)
+   504→   783→
+   505→   784→        probs_matrix = np.concatenate(all_probs, axis=0)  # (N, 3)
+   506→   785→
+   507→   786→        # For the common single-sample case, return a flat dict
+   508→   787→        if probs_matrix.shape[0] == 1:
+   509→   788→            p = probs_matrix[0]
+   510→   789→            # Normalise to exactly 1.0
+   511→   790→            p = p / p.sum()
+   512→   791→            pred_idx = int(np.argmax(p))
+   513→   792→            return {
+   514→   793→                "home_win": float(p[0]),
+   515→   794→                "draw": float(p[1]),
+   516→   795→                "away_win": float(p[2]),
+   517→   796→                "predicted_class": _CLASS_IDX_TO_LABEL[pred_idx],
+   518→   797→                "confidence": float(p[pred_idx]),
+   519→   798→            }
+   520→   799→
+   521→   800→        # Batch case: return list of dicts
+   522→   801→        results = []
+   523→   802→        for i in range(probs_matrix.shape[0]):
+   524→   803→            p = probs_matrix[i]
+   525→   804→            p = p / p.sum()
+   526→   805→            pred_idx = int(np.argmax(p))
+   527→   806→            results.append(
+   528→   807→                {
+   529→   808→                    "home_win": float(p[0]),
+   530→   809→                    "draw": float(p[1]),
+   531→   810→                    "away_win": float(p[2]),
+   532→   811→                    "predicted_class": _CLASS_IDX_TO_LABEL[pred_idx],
+   533→   812→                    "confidence": float(p[pred_idx]),
+   534→   813→                }
+   535→   814→            )
+   536→   815→        return {"batch": results}
+   537→   816→
+   538→   817→    # ==================================================================
+   539→   818→    # Evaluation
+   540→   819→    # ==================================================================
+   541→   820→
+   542→   821→    def evaluate(
+   543→   822→        self,
+   544→   823→        X_home: np.ndarray,
+   545→   824→        X_away: np.ndarray,
+   546→   825→        y: np.ndarray,
+   547→   826→    ) -> dict[str, Any]:
+   548→   827→        """Evaluate the model on a labelled dataset.
+   549→   828→
+   550→   829→        Computes: accuracy, per-class precision / recall / F1, macro
+   551→   830→        averages, Brier score, log-loss, and confusion matrix.
+   552→   831→
+   553→   832→        Parameters
+   554→   833→        ----------
+   555→   834→        X_home, X_away : np.ndarray, shape (N, seq_len, input_size)
+   556→   835→        y : np.ndarray, shape (N,), dtype int
+   557→   836→
+   558→   837→        Returns
+   559→   838→        -------
+   560→   839→        dict
+   561→   840→            Comprehensive evaluation metrics.
+   562→   841→        """
+   563→   842→        if not self.is_trained or self.model is None:
+   564→   843→            raise RuntimeError("Model has not been trained or loaded yet.")
+   565→   844→
+   566→   845→        X_home = np.asarray(X_home, dtype=np.float32)
+   567→   846→        X_away = np.asarray(X_away, dtype=np.float32)
+   568→   847→        y = np.asarray(y, dtype=np.int64)
+   569→   848→
+   570→   849→        if X_home.ndim == 2:
+   571→   850→            X_home = X_home[np.newaxis, ...]
+   572→   851→        if X_away.ndim == 2:
+   573→   852→            X_away = X_away[np.newaxis, ...]
+   574→   853→
+   575→   854→        dataset = _MatchSequenceDataset(X_home, X_away, y)
+   576→   855→        loader = torch.utils.data.DataLoader(
+   577→   856→            dataset, batch_size=self.config.batch_size, shuffle=False
+   578→   857→        )
+   579→   858→
+   580→   859→        self.model.eval()
+   581→   860→        all_probs: list[np.ndarray] = []
+   582→   861→        all_labels: list[int] = []
+   583→   862→
+   584→   863→        with torch.no_grad():
+   585→   864→            for batch_xh, batch_xa, batch_y in loader:
+   586→   865→                batch_xh = batch_xh.to(self.device)
+   587→   866→                batch_xa = batch_xa.to(self.device)
+   588→   867→                logits = self.model(batch_xh, batch_xa)
+   589→   868→                probs = torch.softmax(logits, dim=1).cpu().numpy()
+   590→   869→                all_probs.append(probs)
+   591→   870→                all_labels.extend(batch_y.numpy().tolist())
+   592→   871→
+   593→   872→        proba = np.concatenate(all_probs, axis=0)  # (N, 3)
+   594→   873→        y_arr = np.array(all_labels, dtype=np.int64)
+   595→   874→        preds = np.argmax(proba, axis=1)
+   596→   875→
+   597→   876→        n = len(y_arr)
+   598→   877→
+   599→   878→        # --- Overall accuracy ---
+   600→   879→        correct = int(np.sum(preds == y_arr))
+   601→   880→        accuracy = correct / n
+   602→   881→
+   603→   882→        # --- Log loss ---
+   604→   883→        eps = 1e-15
+   605→   884→        clipped = np.clip(proba, eps, 1.0 - eps)
+   606→   885→        eye = np.eye(_N_CLASSES)[y_arr]
+   607→   886→        log_loss_val = float(
+   608→   887→            -np.mean(np.sum(eye * np.log(clipped), axis=1))
+   609→   888→        )
+   610→   889→
+   611→   890→        # --- Brier score (multi-class) ---
+   612→   891→        brier = float(np.mean(np.sum((proba - eye) ** 2, axis=1)))
+   613→   892→
+   614→   893→        # --- Per-class metrics ---
+   615→   894→        class_metrics: dict[str, dict[str, float]] = {}
+   616→   895→        for cls_idx, cls_label in _CLASS_IDX_TO_LABEL.items():
+   617→   896→            tp = int(np.sum((preds == cls_idx) & (y_arr == cls_idx)))
+   618→   897→            fp = int(np.sum((preds == cls_idx) & (y_arr != cls_idx)))
+   619→   898→            fn = int(np.sum((preds != cls_idx) & (y_arr == cls_idx)))
+   620→   899→
+   621→   900→            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+   622→   901→            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+   623→   902→            f1 = (
+   624→   903→                2 * precision * recall / (precision + recall)
+   625→   904→                if (precision + recall) > 0
+   626→   905→                else 0.0
+   627→   906→            )
+   628→   907→
+   629→   908→            class_metrics[cls_label] = {
+   630→   909→                "precision": precision,
+   631→   910→                "recall": recall,
+   632→   911→                "f1": f1,
+   633→   912→                "support": int(np.sum(y_arr == cls_idx)),
+   634→   913→            }
+   635→   914→
+   636→   915→        # Macro averages
+   637→   916→        macro_precision = float(
+   638→   917→            np.mean([m["precision"] for m in class_metrics.values()])
+   639→   918→        )
+   640→   919→        macro_recall = float(
+   641→   920→            np.mean([m["recall"] for m in class_metrics.values()])
+   642→   921→        )
+   643→   922→        macro_f1 = float(
+   644→   923→            np.mean([m["f1"] for m in class_metrics.values()])
+   645→   924→        )
+   646→   925→
+   647→   926→        # --- Confusion matrix ---
+   648→   927→        cm = np.zeros((_N_CLASSES, _N_CLASSES), dtype=int)
+   649→   928→        for true, pred in zip(y_arr, preds):
+   650→   929→            cm[int(true)][int(pred)] += 1
+   651→   930→
+   652→   931→        # --- Calibration: expected calibration error (ECE) ---
+   653→   932→        ece = self._compute_ece(proba, y_arr, n_bins=10)
+   654→   933→
+   655→   934→        return {
+   656→   935→            "n_samples": n,
+   657→   936→            "accuracy": accuracy,
+   658→   937→            "log_loss": log_loss_val,
+   659→   938→            "brier_score": brier,
+   660→   939→            "ece": ece,
+   661→   940→            "macro_precision": macro_precision,
+   662→   941→            "macro_recall": macro_recall,
+   663→   942→            "macro_f1": macro_f1,
+   664→   943→            "per_class": class_metrics,
+   665→   944→            "confusion_matrix": cm.tolist(),
+   666→   945→        }
+   667→   946→
+   668→   947→    # ------------------------------------------------------------------
+   669→   948→    # Expected Calibration Error
+   670→   949→    # ------------------------------------------------------------------
+   671→   950→
+   672→   951→    @staticmethod
+   673→   952→    def _compute_ece(
+   674→   953→        proba: np.ndarray, y: np.ndarray, n_bins: int = 10
+   675→   954→    ) -> float:
+   676→   955→        """Compute Expected Calibration Error.
+   677→   956→
+   678→   957→        Bins predictions by confidence and measures the gap between
+   679→   958→        average confidence and average accuracy in each bin.
+   680→   959→        """
+   681→   960→        confidences = np.max(proba, axis=1)
+   682→   961→        predictions = np.argmax(proba, axis=1)
+   683→   962→        accuracies = (predictions == y).astype(np.float32)
+   684→   963→
+   685→   964→        bin_boundaries = np.linspace(0.0, 1.0, n_bins + 1)
+   686→   965→        ece = 0.0
+   687→   966→        for i in range(n_bins):
+   688→   967→            lo, hi = bin_boundaries[i], bin_boundaries[i + 1]
+   689→   968→            if i == n_bins - 1:
+   690→   969→                mask = (confidences >= lo) & (confidences <= hi)
+   691→   970→            else:
+   692→   971→                mask = (confidences >= lo) & (confidences < hi)
+   693→   972→            if mask.sum() == 0:
+   694→   973→                continue
+   695→   974→            avg_conf = confidences[mask].mean()
+   696→   975→            avg_acc = accuracies[mask].mean()
+   697→   976→            ece += (mask.sum() / len(y)) * abs(avg_conf - avg_acc)
+   698→   977→        return float(ece)
+   699→   978→
+   700→   979→    # ==================================================================
+   701→   980→    # Persistence
+   702→   981→    # ==================================================================
+   703→   982→
+   704→   983→    def save(self, name: str = "lstm_v1") -> str:
+   705→   984→        """Save model weights and config to disk.
+   706→   985→
+   707→   986→        Creates:
+   708→   987→        - ``<model_dir>/<name>.pt`` — PyTorch state dict
+   709→   988→        - ``<model_dir>/<name>_meta.joblib`` — config + feature columns
+   710→   989→
+   711→   990→        Parameters
+   712→   991→        ----------
+   713→   992→        name : str
+   714→   993→            Model identifier (without extension).
+   715→   994→
+   716→   995→        Returns
+   717→   996→        -------
+   718→   997→        str
+   719→   998→            Absolute path to the saved model file.
+   720→   999→        """
+   721→  1000→        if not self.is_trained or self.model is None:
+   722→  1001→            raise RuntimeError("Cannot save – model has not been trained yet.")
+   723→  1002→
+   724→  1003→        self.model_dir.mkdir(parents=True, exist_ok=True)
+   725→  1004→
+   726→  1005→        # PyTorch weights
+   727→  1006→        model_path = self.model_dir / f"{name}.pt"
+   728→  1007→        torch.save(self.model.state_dict(), str(model_path))
+   729→  1008→
+   730→  1009→        # Metadata
+   731→  1010→        meta = {
+   732→  1011→            "config": self.config.model_dump(),
+   733→  1012→            "feature_cols": self.feature_cols,
+   734→  1013→            "class_mapping": _CLASS_IDX_TO_LABEL,
+   735→  1014→            "n_classes": _N_CLASSES,
+   736→  1015→        }
+   737→  1016→        meta_path = self.model_dir / f"{name}_meta.joblib"
+   738→  1017→        joblib.dump(meta, meta_path, compress=3)
+   739→  1018→
+   740→  1019→        logger.info("LSTM model saved to %s", model_path)
+   741→  1020→        return str(model_path)
+   742→  1021→
+   743→  1022→    def load(self, name: str = "lstm_v1") -> bool:
+   744→  1023→        """Load a previously saved model.
+   745→  1024→
+   746→  1025→        Parameters
+   747→  1026→        ----------
+   748→  1027→        name : str
+   749→  1028→            Model identifier used in :meth:`save`.
+   750→  1029→
+   751→  1030→        Returns
+   752→  1031→        -------
+   753→  1032→        bool
+   754→  1033→            ``True`` if loading succeeded, ``False`` otherwise.
+   755→  1034→        """
+   756→  1035→        model_path = self.model_dir / f"{name}.pt"
+   757→  1036→        meta_path = self.model_dir / f"{name}_meta.joblib"
+   758→  1037→
+   759→  1038→        if not model_path.exists():
+   760→  1039→            logger.warning("Model file not found: %s", model_path)
+   761→  1040→            return False
+   762→  1041→
+   763→  1042→        try:
+   764→  1043→            # Load metadata first to reconstruct config
+   765→  1044→            if meta_path.exists():
+   766→  1045→                meta: dict[str, Any] = joblib.load(meta_path)
+   767→  1046→                loaded_config = meta.get("config", {})
+   768→  1047→                if loaded_config:
+   769→  1048→                    self.config = LSTMConfig(**loaded_config)
+   770→  1049→                self.feature_cols = meta.get("feature_cols", [])
+   771→  1050→
+   772→  1051→            # Rebuild model architecture and load weights
+   773→  1052→            self.model = FootballLSTM(self.config).to(self.device)
+   774→  1053→            self.model.load_state_dict(
+   775→  1054→                torch.load(str(model_path), map_location=self.device, weights_only=True)
+   776→  1055→            )
+   777→  1056→            self.model.eval()
+   778→  1057→            self.is_trained = True
+   779→  1058→
+   780→  1059→            logger.info("LSTM model loaded from %s", model_path)
+   781→  1060→            return True
+   782→  1061→
+   783→  1062→        except Exception as exc:
+   784→  1063→            logger.error("Failed to load LSTM model: %s", exc)
+   785→  1064→            return False
+   786→  1065→

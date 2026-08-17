@@ -1,0 +1,813 @@
+     1→     1→     1→"""Super-Ensemble Prediction System.
+     2→     2→     2→
+     3→     3→     3→Combines ELO, Poisson, Dixon-Coles, Stochastic (Merton Jump-Diffusion + GARCH),
+     4→     4→     4→XGBoost, and LSTM into a unified calibrated ensemble with:
+     5→     5→     5→
+     6→     6→     6→1. Per-model configurable weights
+     7→     7→     7→2. Graceful fallback when ML models are not trained
+     8→     8→     8→3. Market signal integration (odds movement detection)
+     9→     9→     9→4. Kelly Criterion bankroll management
+    10→    10→    10→5. Auto-weight normalisation for available models only
+    11→    11→    11→
+    12→    12→    12→Usage
+    13→    13→    13→-----
+    14→    14→    14→>>> from src.engines.ensemble import SuperEnsemble
+    15→    15→    15→>>> ensemble = SuperEnsemble()
+    16→    16→    16→>>> result = ensemble.predict({
+    17→    17→    17→...     "home_team": "Arsenal", "away_team": "Chelsea",
+    18→    18→    18→...     "home_elo": 1620, "away_elo": 1550,
+    19→    19→    19→...     "home_avg_goals": 1.8, "away_avg_goals": 1.3,
+    20→    20→    20→...     "home_avg_conceded": 0.9, "away_avg_conceded": 1.1,
+    21→    21→    21→... })
+    22→    22→    22→"""
+    23→    23→    23→
+    24→    24→    24→from __future__ import annotations
+    25→    25→    25→
+    26→    26→    26→import logging
+    27→    27→    27→import os
+    28→    28→    28→from pathlib import Path
+    29→    29→    29→from typing import Optional
+    30→    30→    30→
+    31→    31→    31→import numpy as np
+    32→    32→    32→from pydantic import BaseModel, Field
+    33→    33→    33→
+    34→    34→    34→from config.logger import logger
+    35→    35→    35→from src.api.routes.predictions import (
+    36→    36→    36→    compute_dixon_coles_prob,
+    37→    37→    37→    compute_elo_prob,
+    38→    38→    38→    compute_poisson_prob,
+    39→    39→    39→)
+    40→    40→    40→from src.engines.kelly import KellyResult, calculate_kelly
+    41→    41→    41→from src.engines.market_signals import analyze_market_signals, summarize_market_state
+    42→    42→    42→from src.engines.stochastic import EngineConfig, StochasticResult, run_stochastic_simulation
+    43→    43→    43→
+    44→    44→    44→
+    45→    45→    45→# ──────────────────────────────────────────────────────────────────────────────
+    46→    46→    46→# Configuration
+    47→    47→    47→# ──────────────────────────────────────────────────────────────────────────────
+    48→    48→    48→
+    49→    49→    49→
+    50→    50→    50→class EnsembleConfig(BaseModel):
+    51→    51→    51→    """Configuration for the super-ensemble."""
+    52→    52→    52→
+    53→    53→    53→    weights: dict[str, float] = Field(
+    54→    54→    54→        default={
+    55→    55→    55→            "elo": 0.15,
+    56→    56→    56→            "poisson": 0.15,
+    57→    57→    57→            "dixon_coles": 0.15,
+    58→    58→    58→            "stochastic": 0.20,
+    59→    59→    59→            "xgboost": 0.20,
+    60→    60→    60→            "lstm": 0.15,
+    61→    61→    61→        },
+    62→    62→    62→        description="Per-model weights. Must sum to ~1.0 (auto-normalised).",
+    63→    63→    63→    )
+    64→    64→    64→    calibration_enabled: bool = Field(
+    65→    65→    65→        default=True,
+    66→    66→    66→        description="Apply probability calibration adjustments.",
+    67→    67→    67→    )
+    68→    68→    68→    min_samples_for_calibration: int = Field(
+    69→    69→    69→        default=50,
+    70→    70→    70→        description="Minimum samples before calibration adjustments are applied.",
+    71→    71→    71→    )
+    72→    72→    72→    bankroll: float = Field(
+    73→    73→    73→        default=1000.0,
+    74→    74→    74→        description="Current bankroll for Kelly criterion calculations.",
+    75→    75→    75→    )
+    76→    76→    76→    kelly_fraction: float = Field(
+    77→    77→    77→        default=0.25,
+    78→    78→    78→        description="Fractional Kelly multiplier (0.25 = quarter Kelly).",
+    79→    79→    79→    )
+    80→    80→    80→    model_dir: str = Field(
+    81→    81→    81→        default="saved_models",
+    82→    82→    82→        description="Directory containing trained model artefacts.",
+    83→    83→    83→    )
+    84→    84→    84→
+    85→    85→    85→
+    86→    86→    86→# ──────────────────────────────────────────────────────────────────────────────
+    87→    87→    87→# Result Models
+    88→    88→    88→# ──────────────────────────────────────────────────────────────────────────────
+    89→    89→    89→
+    90→    90→    90→
+    91→    91→    91→class SuperEnsembleResult(BaseModel):
+    92→    92→    92→    """Complete output of the super-ensemble prediction."""
+    93→    93→    93→
+    94→    94→    94→    match_id: Optional[str] = None
+    95→    95→    95→    home_team: Optional[str] = None
+    96→    96→    96→    away_team: Optional[str] = None
+    97→    97→    97→    probabilities: dict = Field(
+    98→    98→    98→        description="Final ensemble probabilities: {home_win, draw, away_win}",
+    99→    99→    99→    )
+   100→   100→   100→    per_model: dict = Field(
+   101→   101→   101→        description="Per-model raw probabilities: {elo: {...}, poisson: {...}, ...}",
+   102→   102→   102→    )
+   103→   103→   103→    expected_goals: dict = Field(
+   104→   104→   104→        description="{home, away, total} expected goals from stochastic model.",
+   105→   105→   105→    )
+   106→   106→   106→    markets: dict = Field(
+   107→   107→   107→        description="Derived markets: {over_25, btts, asian_handicap}.",
+   108→   108→   108→    )
+   109→   109→   109→    kelly: dict = Field(
+   110→   110→   110→        description="Kelly criterion results per outcome.",
+   111→   111→   111→    )
+   112→   112→   112→    market_signals: list[dict] = Field(
+   113→   113→   113→        default_factory=list,
+   114→   114→   114→        description="Detected market signals (steam, RLM, sharp).",
+   115→   115→   115→    )
+   116→   116→   116→    confidence: str = Field(
+   117→   117→   117→        description="Overall confidence: 'high', 'medium', or 'low'.",
+   118→   118→   118→    )
+   119→   119→   119→    signals: list[str] = Field(
+   120→   120→   120→        default_factory=list,
+   121→   121→   121→        description="Human-readable analysis signals.",
+   122→   122→   122→    )
+   123→   123→   123→    risks: list[str] = Field(
+   124→   124→   124→        default_factory=list,
+   125→   125→   125→        description="Human-readable risk factors.",
+   126→   126→   126→    )
+   127→   127→   127→    recommended_bet: Optional[dict] = Field(
+   128→   128→   128→        default=None,
+   129→   129→   129→        description="Best value bet: {outcome, edge, kelly_fraction, odds}.",
+   130→   130→   130→    )
+   131→   131→   131→    volatility_index: float = Field(
+   132→   132→   132→        default=0.0,
+   133→   133→   133→        description="Match volatility index (0-100) from stochastic model.",
+   134→   134→   134→    )
+   135→   135→   135→
+   136→   136→   136→
+   137→   137→   137→# ──────────────────────────────────────────────────────────────────────────────
+   138→   138→   138→# Super-Ensemble Engine
+   139→   139→   139→# ──────────────────────────────────────────────────────────────────────────────
+   140→   140→   140→
+   141→   141→   141→
+   142→   142→   142→class SuperEnsemble:
+   143→   143→   143→    """Combines all prediction models into a calibrated super-ensemble.
+   144→   144→   144→
+   145→   145→   145→    Weighted average with:
+   146→   146→   146→    1. Per-model calibration factors (based on recent accuracy)
+   147→   147→   147→    2. Market signal integration (odds movement detection)
+   148→   148→   148→    3. Kelly Criterion for bankroll management
+   149→   149→   149→    4. Auto-weight optimisation when enough historical data
+   150→   150→   150→
+   151→   151→   151→    Falls back gracefully when ML models aren't trained.
+   152→   152→   152→    """
+   153→   153→   153→
+   154→   154→   154→    def __init__(self, config: EnsembleConfig | None = None) -> None:
+   155→   155→   155→        self.config = config or EnsembleConfig()
+   156→   156→   156→        self.model_dir = Path(self.config.model_dir)
+   157→   157→   157→
+   158→   158→   158→        # Lazy-loaded ML models
+   159→   159→   159→        self._xgboost_engine = None
+   160→   160→   160→        self._lstm_engine = None
+   161→   161→   161→        self._xgboost_loaded = False
+   162→   162→   162→        self._lstm_loaded = False
+   163→   163→   163→
+   164→   164→   164→    # ==================================================================
+   165→   165→   165→    # Public API
+   166→   166→   166→    # ==================================================================
+   167→   167→   167→
+   168→   168→   168→    def predict(self, match_data: dict) -> SuperEnsembleResult:
+   169→   169→   169→        """Run full super-ensemble prediction.
+   170→   170→   170→
+   171→   171→   171→        match_data should contain:
+   172→   172→   172→        - home_team, away_team (names)
+   173→   173→   173→        - home_elo, away_elo
+   174→   174→   174→        - home_avg_goals, away_avg_goals
+   175→   175→   175→        - home_avg_conceded, away_avg_conceded
+   176→   176→   176→        - home_xg, away_xg (optional, defaults to avg_goals)
+   177→   177→   177→        - odds_home, odds_draw, odds_away (optional, for market analysis)
+   178→   178→   178→        - home_form, away_form (list of recent results, optional)
+   179→   179→   179→        - league (optional)
+   180→   180→   180→        - match_id (optional)
+   181→   181→   181→
+   182→   182→   182→        Returns
+   183→   183→   183→        -------
+   184→   184→   184→        SuperEnsembleResult
+   185→   185→   185→            Comprehensive prediction result with probabilities,
+   186→   186→   186→            markets, Kelly analysis, and signals.
+   187→   187→   187→        """
+   188→   188→   188→        match_id = match_data.get("match_id")
+   189→   189→   189→        home_team = match_data.get("home_team", "Home")
+   190→   190→   190→        away_team = match_data.get("away_team", "Away")
+   191→   191→   191→
+   192→   192→   192→        home_elo = float(match_data.get("home_elo", 1500.0))
+   193→   193→   193→        away_elo = float(match_data.get("away_elo", 1500.0))
+   194→   194→   194→        home_avg_goals = float(match_data.get("home_avg_goals", 1.3))
+   195→   195→   195→        away_avg_goals = float(match_data.get("away_avg_goals", 1.1))
+   196→   196→   196→        home_avg_conceded = float(match_data.get("home_avg_conceded", 1.0))
+   197→   197→   197→        away_avg_conceded = float(match_data.get("away_avg_conceded", 1.2))
+   198→   198→   198→        home_xg = float(match_data.get("home_xg", home_avg_goals))
+   199→   199→   199→        away_xg = float(match_data.get("away_xg", away_avg_goals))
+   200→   200→   200→        odds_home = match_data.get("odds_home")
+   201→   201→   201→        odds_draw = match_data.get("odds_draw")
+   202→   202→   202→        odds_away = match_data.get("odds_away")
+   203→   203→   203→
+   204→   204→   204→        # Compute expected goals for Poisson-based models
+   205→   205→   205→        lambda_h = (home_avg_goals + away_avg_conceded) / 2.0
+   206→   206→   206→        lambda_a = (away_avg_goals + home_avg_conceded) / 2.0
+   207→   207→   207→
+   208→   208→   208→        per_model: dict[str, dict] = {}
+   209→   209→   209→        available_models: list[str] = []
+   210→   210→   210→
+   211→   211→   211→        # ── 1. ELO Model ────────────────────────────────────────────────
+   212→   212→   212→        try:
+   213→   213→   213→            elo_probs = compute_elo_prob(home_elo, away_elo)
+   214→   214→   214→            per_model["elo"] = {
+   215→   215→   215→                "home_win": elo_probs["home_win"],
+   216→   216→   216→                "draw": elo_probs["draw"],
+   217→   217→   217→                "away_win": elo_probs["away_win"],
+   218→   218→   218→            }
+   219→   219→   219→            available_models.append("elo")
+   220→   220→   220→        except Exception as exc:
+   221→   221→   221→            logger.warning("ELO model failed: %s", exc)
+   222→   222→   222→
+   223→   223→   223→        # ── 2. Poisson Model ────────────────────────────────────────────
+   224→   224→   224→        try:
+   225→   225→   225→            poisson_probs = compute_poisson_prob(lambda_h, lambda_a)
+   226→   226→   226→            per_model["poisson"] = {
+   227→   227→   227→                "home_win": poisson_probs["home_win"],
+   228→   228→   228→                "draw": poisson_probs["draw"],
+   229→   229→   229→                "away_win": poisson_probs["away_win"],
+   230→   230→   230→            }
+   231→   231→   231→            available_models.append("poisson")
+   232→   232→   232→        except Exception as exc:
+   233→   233→   233→            logger.warning("Poisson model failed: %s", exc)
+   234→   234→   234→
+   235→   235→   235→        # ── 3. Dixon-Coles Model ────────────────────────────────────────
+   236→   236→   236→        try:
+   237→   237→   237→            dc_probs = compute_dixon_coles_prob(lambda_h, lambda_a)
+   238→   238→   238→            per_model["dixon_coles"] = {
+   239→   239→   239→                "home_win": dc_probs["home_win"],
+   240→   240→   240→                "draw": dc_probs["draw"],
+   241→   241→   241→                "away_win": dc_probs["away_win"],
+   242→   242→   242→            }
+   243→   243→   243→            available_models.append("dixon_coles")
+   244→   244→   244→        except Exception as exc:
+   245→   245→   245→            logger.warning("Dixon-Coles model failed: %s", exc)
+   246→   246→   246→
+   247→   247→   247→        # ── 4. Stochastic (Merton + GARCH Monte Carlo) ──────────────────
+   248→   248→   248→        stochastic_result: StochasticResult | None = None
+   249→   249→   249→        try:
+   250→   250→   250→            stochastic_result = run_stochastic_simulation(
+   251→   251→   251→                home_xg=home_xg,
+   252→   252→   252→                away_xg=away_xg,
+   253→   253→   253→                home_conceded=home_avg_conceded,
+   254→   254→   254→                away_conceded=away_avg_conceded,
+   255→   255→   255→                home_elo=home_elo,
+   256→   256→   256→                away_elo=away_elo,
+   257→   257→   257→                config=EngineConfig(num_simulations=50_000),
+   258→   258→   258→            )
+   259→   259→   259→            per_model["stochastic"] = {
+   260→   260→   260→                "home_win": stochastic_result.match_probabilities["home_victory"],
+   261→   261→   261→                "draw": stochastic_result.match_probabilities["draw"],
+   262→   262→   262→                "away_win": stochastic_result.match_probabilities["away_victory"],
+   263→   263→   263→            }
+   264→   264→   264→            available_models.append("stochastic")
+   265→   265→   265→        except Exception as exc:
+   266→   266→   266→            logger.warning("Stochastic model failed: %s", exc)
+   267→   267→   267→
+   268→   268→   268→        # ── 5. XGBoost ───────────────────────────────────────────────────
+   269→   269→   269→        try:
+   270→   270→   270→            xgb_probs = self._run_xgboost(match_data)
+   271→   271→   271→            if xgb_probs:
+   272→   272→   272→                per_model["xgboost"] = xgb_probs
+   273→   273→   273→                available_models.append("xgboost")
+   274→   274→   274→        except Exception as exc:
+   275→   275→   275→            logger.debug("XGBoost not available: %s", exc)
+   276→   276→   276→
+   277→   277→   277→        # ── 6. LSTM ─────────────────────────────────────────────────────
+   278→   278→   278→        try:
+   279→   279→   279→            lstm_probs = self._run_lstm(match_data)
+   280→   280→   280→            if lstm_probs:
+   281→   281→   281→                per_model["lstm"] = lstm_probs
+   282→   282→   282→                available_models.append("lstm")
+   283→   283→   283→        except Exception as exc:
+   284→   284→   284→            logger.debug("LSTM not available: %s", exc)
+   285→   285→   285→
+   286→   286→   286→        # ── 7. Weighted Ensemble ────────────────────────────────────────
+   287→   287→   287→        weights = self._get_model_weights(available_models)
+   288→   288→   288→        final_probs = self._compute_weighted_average(per_model, weights)
+   289→   289→   289→
+   290→   290→   290→        # ── 8. Market Signals ───────────────────────────────────────────
+   291→   291→   291→        market_signals: list[dict] = []
+   292→   292→   292→        if odds_home and odds_draw and odds_away:
+   293→   293→   293→            try:
+   294→   294→   294→                # Use current odds as both opening and current when we
+   295→   295→   295→                # don't have opening odds — signals will be empty, but
+   296→   296→   296→                # we can still compute Kelly
+   297→   297→   297→                opening_odds = match_data.get("opening_odds_home")
+   298→   298→   298→                if opening_odds and match_data.get("opening_odds_draw"):
+   299→   299→   299→                    opening = {
+   300→   300→   300→                        "home": float(match_data["opening_odds_home"]),
+   301→   301→   301→                        "draw": float(match_data["opening_odds_draw"]),
+   302→   302→   302→                        "away": float(match_data["opening_odds_away"]),
+   303→   303→   303→                    }
+   304→   304→   304→                    current = {
+   305→   305→   305→                        "home": float(odds_home),
+   306→   306→   306→                        "draw": float(odds_draw),
+   307→   307→   307→                        "away": float(odds_away),
+   308→   308→   308→                    }
+   309→   309→   309→                    detected = analyze_market_signals(opening, current)
+   310→   310→   310→                    for sig in detected:
+   311→   311→   311→                        market_signals.append(sig.model_dump())
+   312→   312→   312→            except Exception as exc:
+   313→   313→   313→                logger.debug("Market signal analysis failed: %s", exc)
+   314→   314→   314→
+   315→   315→   315→        # ── 9. Kelly Criterion ──────────────────────────────────────────
+   316→   316→   316→        kelly_results: dict[str, dict] = {}
+   317→   317→   317→        if odds_home and odds_draw and odds_away:
+   318→   318→   318→            kelly_results["home_win"] = calculate_kelly(
+   319→   319→   319→                final_probs["home_win"],
+   320→   320→   320→                float(odds_home),
+   321→   321→   321→                bankroll=self.config.bankroll,
+   322→   322→   322→                fraction=self.config.kelly_fraction,
+   323→   323→   323→            ).model_dump()
+   324→   324→   324→            kelly_results["draw"] = calculate_kelly(
+   325→   325→   325→                final_probs["draw"],
+   326→   326→   326→                float(odds_draw),
+   327→   327→   327→                bankroll=self.config.bankroll,
+   328→   328→   328→                fraction=self.config.kelly_fraction,
+   329→   329→   329→            ).model_dump()
+   330→   330→   330→            kelly_results["away_win"] = calculate_kelly(
+   331→   331→   331→                final_probs["away_win"],
+   332→   332→   332→                float(odds_away),
+   333→   333→   333→                bankroll=self.config.bankroll,
+   334→   334→   334→                fraction=self.config.kelly_fraction,
+   335→   335→   335→            ).model_dump()
+   336→   336→   336→
+   337→   337→   337→        # ── 10. Signals & Risks ────────────────────────────────────────
+   338→   338→   338→        signals, risks = self._generate_signals_and_risks(
+   339→   339→   339→            match_data, final_probs
+   340→   340→   340→        )
+   341→   341→   341→
+   342→   342→   342→        # Add market signal descriptions to signals list
+   343→   343→   343→        for sig in market_signals:
+   344→   344→   344→            signals.append(f"[{sig.get('signal_type', '').upper()}] {sig.get('description', '')}")
+   345→   345→   345→
+   346→   346→   346→        # ── 11. Markets (derived) ──────────────────────────────────────
+   347→   347→   347→        markets: dict = {}
+   348→   348→   348→        if stochastic_result:
+   349→   349→   349→            markets["over_25"] = stochastic_result.totals_market.get("over25", 0.0)
+   350→   350→   350→            markets["over_15"] = stochastic_result.totals_market.get("over15", 0.0)
+   351→   351→   351→            markets["over_35"] = stochastic_result.totals_market.get("over35", 0.0)
+   352→   352→   352→            markets["btts"] = stochastic_result.both_teams_to_score
+   353→   353→   353→            markets["asian_handicap"] = stochastic_result.asian_handicap
+   354→   354→   354→        else:
+   355→   355→   355→            # Fallback: estimate from Poisson
+   356→   356→   356→            from scipy.stats import poisson as poisson_dist
+   357→   357→   357→            over_25 = 0.0
+   358→   358→   358→            btts = 0.0
+   359→   359→   359→            for i in range(11):
+   360→   360→   360→                for j in range(11):
+   361→   361→   361→                    p = poisson_dist.pmf(i, lambda_h) * poisson_dist.pmf(j, lambda_a)
+   362→   362→   362→                    if i + j > 2:
+   363→   363→   363→                        over_25 += p
+   364→   364→   364→                    if i > 0 and j > 0:
+   365→   365→   365→                        btts += p
+   366→   366→   366→            markets["over_25"] = round(over_25, 4)
+   367→   367→   367→            markets["over_15"] = 0.0
+   368→   368→   368→            markets["over_35"] = 0.0
+   369→   369→   369→            markets["btts"] = round(btts, 4)
+   370→   370→   370→            markets["asian_handicap"] = {
+   371→   371→   371→                "0": round(final_probs["home_win"], 4),
+   372→   372→   372→                "-0.5": round(final_probs["home_win"], 4),
+   373→   373→   373→                "-1.0": 0.0,
+   374→   374→   374→                "-1.5": 0.0,
+   375→   375→   375→            }
+   376→   376→   376→
+   377→   377→   377→        # ── 12. Recommended Bet ────────────────────────────────────────
+   378→   378→   378→        recommended_bet = None
+   379→   379→   379→        if odds_home and odds_draw and odds_away:
+   380→   380→   380→            best_edge = -1.0
+   381→   381→   381→            for outcome_key, odds_val in [
+   382→   382→   382→                ("home_win", odds_home),
+   383→   383→   383→                ("draw", odds_draw),
+   384→   384→   384→                ("away_win", odds_away),
+   385→   385→   385→            ]:
+   386→   386→   386→                kr = kelly_results.get(outcome_key, {})
+   387→   387→   387→                edge = kr.get("edge", 0.0)
+   388→   388→   388→                kelly_frac = kr.get("optimal_fraction", 0.0)
+   389→   389→   389→                if edge > best_edge and kelly_frac > 0.001:
+   390→   390→   390→                    best_edge = edge
+   391→   391→   391→                    recommended_bet = {
+   392→   392→   392→                        "outcome": outcome_key,
+   393→   393→   393→                        "edge": round(edge, 4),
+   394→   394→   394→                        "kelly_fraction": round(kelly_frac, 6),
+   395→   395→   395→                        "odds": float(odds_val),
+   396→   396→   396→                        "recommended_stake": kr.get("recommended_stake", 0.0),
+   397→   397→   397→                    }
+   398→   398→   398→
+   399→   399→   399→        # ── 13. Expected Goals ──────────────────────────────────────────
+   400→   400→   400→        if stochastic_result:
+   401→   401→   401→            expected_goals = {
+   402→   402→   402→                "home": stochastic_result.expected_means["home"],
+   403→   403→   403→                "away": stochastic_result.expected_means["away"],
+   404→   404→   404→                "total": stochastic_result.expected_means["total"],
+   405→   405→   405→            }
+   406→   406→   406→            volatility_index = stochastic_result.volatility_index
+   407→   407→   407→        else:
+   408→   408→   408→            expected_goals = {
+   409→   409→   409→                "home": round(lambda_h, 3),
+   410→   410→   410→                "away": round(lambda_a, 3),
+   411→   411→   411→                "total": round(lambda_h + lambda_a, 3),
+   412→   412→   412→            }
+   413→   413→   413→            volatility_index = 0.0
+   414→   414→   414→
+   415→   415→   415→        # ── 14. Confidence ──────────────────────────────────────────────
+   416→   416→   416→        confidence = self._compute_confidence(final_probs)
+   417→   417→   417→
+   418→   418→   418→        return SuperEnsembleResult(
+   419→   419→   419→            match_id=match_id,
+   420→   420→   420→            home_team=home_team,
+   421→   421→   421→            away_team=away_team,
+   422→   422→   422→            probabilities=final_probs,
+   423→   423→   423→            per_model=per_model,
+   424→   424→   424→            expected_goals=expected_goals,
+   425→   425→   425→            markets=markets,
+   426→   426→   426→            kelly=kelly_results,
+   427→   427→   427→            market_signals=market_signals,
+   428→   428→   428→            confidence=confidence,
+   429→   429→   429→            signals=signals,
+   430→   430→   430→            risks=risks,
+   431→   431→   431→            recommended_bet=recommended_bet,
+   432→   432→   432→            volatility_index=volatility_index,
+   433→   433→   433→        )
+   434→   434→   434→
+   435→   435→   435→    def predict_batch(self, matches: list[dict]) -> list[SuperEnsembleResult]:
+   436→   436→   436→        """Predict for multiple matches.
+   437→   437→   437→
+   438→   438→   438→        Parameters
+   439→   439→   439→        ----------
+   440→   440→   440→        matches : list[dict]
+   441→   441→   441→            List of match data dicts, each with the same schema as ``predict()``.
+   442→   442→   442→
+   443→   443→   443→        Returns
+   444→   444→   444→        -------
+   445→   445→   445→        list[SuperEnsembleResult]
+   446→   446→   446→            One result per match, in the same order.
+   447→   447→   447→        """
+   448→   448→   448→        results: list[SuperEnsembleResult] = []
+   449→   449→   449→        for match in matches:
+   450→   450→   450→            try:
+   451→   451→   451→                result = self.predict(match)
+   452→   452→   452→                results.append(result)
+   453→   453→   453→            except Exception as exc:
+   454→   454→   454→                logger.error(
+   455→   455→   455→                    "Failed to predict for %s vs %s: %s",
+   456→   456→   456→                    match.get("home_team", "?"),
+   457→   457→   457→                    match.get("away_team", "?"),
+   458→   458→   458→                    exc,
+   459→   459→   459→                )
+   460→   460→   460→                # Insert a placeholder with error info
+   461→   461→   461→                results.append(
+   462→   462→   462→                    SuperEnsembleResult(
+   463→   463→   463→                        match_id=match.get("match_id"),
+   464→   464→   464→                        home_team=match.get("home_team"),
+   465→   465→   465→                        away_team=match.get("away_team"),
+   466→   466→   466→                        probabilities={"home_win": 1/3, "draw": 1/3, "away_win": 1/3},
+   467→   467→   467→                        per_model={},
+   468→   468→   468→                        expected_goals={"home": 0, "away": 0, "total": 0},
+   469→   469→   469→                        markets={},
+   470→   470→   470→                        kelly={},
+   471→   471→   471→                        confidence="low",
+   472→   472→   472→                        signals=[],
+   473→   473→   473→                        risks=[f"Prediction failed: {exc}"],
+   474→   474→   474→                    )
+   475→   475→   475→                )
+   476→   476→   476→        return results
+   477→   477→   477→
+   478→   478→   478→    # ==================================================================
+   479→   479→   479→    # Weight Management
+   480→   480→   480→    # ==================================================================
+   481→   481→   481→
+   482→   482→   482→    def _get_model_weights(self, available_models: list[str]) -> dict[str, float]:
+   483→   483→   483→        """Get normalized weights for available models only.
+   484→   484→   484→
+   485→   485→   485→        If some models are unavailable, their weight is redistributed
+   486→   486→   486→        proportionally among the remaining models.
+   487→   487→   487→
+   488→   488→   488→        Parameters
+   489→   489→   489→        ----------
+   490→   490→   490→        available_models : list[str]
+   491→   491→   491→            List of model names that produced valid results.
+   492→   492→   492→
+   493→   493→   493→        Returns
+   494→   494→   494→        -------
+   495→   495→   495→        dict[str, float]
+   496→   496→   496→            Normalized weights summing to 1.0, keyed by model name.
+   497→   497→   497→        """
+   498→   498→   498→        base_weights = self.config.weights
+   499→   499→   499→
+   500→   500→   500→        # Filter to available models
+   501→   501→   501→        filtered = {
+   502→   502→   502→            name: base_weights[name]
+   503→   503→   503→            for name in available_models
+   504→   504→   504→            if name in base_weights
+   505→   505→   505→        }
+   506→   506→   506→
+   507→   507→   507→        if not filtered:
+   508→   508→   508→            # Fallback: equal weight for all available
+   509→   509→   509→            n = len(available_models)
+   510→   510→   510→            return {name: 1.0 / n for name in available_models} if n > 0 else {}
+   511→   511→   511→
+   512→   512→   512→        # Normalize to sum to 1.0
+   513→   513→   513→        total = sum(filtered.values())
+   514→   514→   514→        return {name: w / total for name, w in filtered.items()}
+   515→   515→   515→
+   516→   516→   516→    def _compute_weighted_average(
+   517→   517→   517→        self,
+   518→   518→   518→        probs: dict[str, dict],
+   519→   519→   519→        weights: dict[str, float],
+   520→   520→   520→    ) -> dict[str, float]:
+   521→   521→   521→        """Weighted average of model probabilities.
+   522→   522→   522→
+   523→   523→   523→        Parameters
+   524→   524→   524→        ----------
+   525→   525→   525→        probs : dict[str, dict]
+   526→   526→   526→            Per-model probability dicts: {"elo": {"home_win": 0.5, ...}, ...}
+   527→   527→   527→        weights : dict[str, float]
+   528→   528→   528→            Normalized weights per model.
+   529→   529→   529→
+   530→   530→   530→        Returns
+   531→   531→   531→        -------
+   532→   532→   532→        dict[str, float]
+   533→   533→   533→            Combined {"home_win": ..., "draw": ..., "away_win": ...}.
+   534→   534→   534→        """
+   535→   535→   535→        if not probs or not weights:
+   536→   536→   536→            return {"home_win": 1/3, "draw": 1/3, "away_win": 1/3}
+   537→   537→   537→
+   538→   538→   538→        combined = {"home_win": 0.0, "draw": 0.0, "away_win": 0.0}
+   539→   539→   539→
+   540→   540→   540→        for model_name, model_probs in probs.items():
+   541→   541→   541→            w = weights.get(model_name, 0.0)
+   542→   542→   542→            if w <= 0:
+   543→   543→   543→                continue
+   544→   544→   544→            for key in ("home_win", "draw", "away_win"):
+   545→   545→   545→                combined[key] += w * model_probs.get(key, 0.0)
+   546→   546→   546→
+   547→   547→   547→        # Normalize to exactly 1.0
+   548→   548→   548→        total = sum(combined.values())
+   549→   549→   549→        if total > 0:
+   550→   550→   550→            combined = {k: round(v / total, 6) for k, v in combined.items()}
+   551→   551→   551→
+   552→   552→   552→        return combined
+   553→   553→   553→
+   554→   554→   554→    # ==================================================================
+   555→   555→   555→    # Confidence & Signal Generation
+   556→   556→   556→    # ==================================================================
+   557→   557→   557→
+   558→   558→   558→    def _compute_confidence(self, probs: dict) -> str:
+   559→   559→   559→        """Classify prediction confidence based on max probability.
+   560→   560→   560→
+   561→   561→   561→        - high: max probability >= 0.55
+   562→   562→   562→        - medium: max probability >= 0.42
+   563→   563→   563→        - low: otherwise
+   564→   564→   564→        """
+   565→   565→   565→        max_prob = max(probs.get("home_win", 0), probs.get("draw", 0), probs.get("away_win", 0))
+   566→   566→   566→        if max_prob >= 0.55:
+   567→   567→   567→            return "high"
+   568→   568→   568→        elif max_prob >= 0.42:
+   569→   569→   569→            return "medium"
+   570→   570→   570→        return "low"
+   571→   571→   571→
+   572→   572→   572→    def _generate_signals_and_risks(
+   573→   573→   573→        self,
+   574→   574→   574→        match_data: dict,
+   575→   575→   575→        probs: dict,
+   576→   576→   576→    ) -> tuple[list[str], list[str]]:
+   577→   577→   577→        """Generate human-readable signals and risk factors.
+   578→   578→   578→
+   579→   579→   579→        Parameters
+   580→   580→   580→        ----------
+   581→   581→   581→        match_data : dict
+   582→   582→   582→            Original match data dict.
+   583→   583→   583→        probs : dict
+   584→   584→   584→            Final ensemble probabilities.
+   585→   585→   585→
+   586→   586→   586→        Returns
+   587→   587→   587→        -------
+   588→   588→   588→        tuple[list[str], list[str]]
+   589→   589→   589→            (signals, risks) lists.
+   590→   590→   590→        """
+   591→   591→   591→        signals: list[str] = []
+   592→   592→   592→        risks: list[str] = []
+   593→   593→   593→
+   594→   594→   594→        home_elo = float(match_data.get("home_elo", 1500))
+   595→   595→   595→        away_elo = float(match_data.get("away_elo", 1500))
+   596→   596→   596→        elo_diff = home_elo - away_elo
+   597→   597→   597→        home_xg = float(match_data.get("home_xg", match_data.get("home_avg_goals", 1.3)))
+   598→   598→   598→        away_xg = float(match_data.get("away_xg", match_data.get("away_avg_goals", 1.1)))
+   599→   599→   599→        odds_home = match_data.get("odds_home")
+   600→   600→   600→
+   601→   601→   601→        # ELO signals
+   602→   602→   602→        if elo_diff > 150:
+   603→   603→   603→            signals.append(f"Strong ELO advantage for {match_data.get('home_team', 'home')} (+{elo_diff:.0f})")
+   604→   604→   604→        elif elo_diff < -150:
+   605→   605→   605→            signals.append(f"Strong ELO advantage for {match_data.get('away_team', 'away')} (+{abs(elo_diff):.0f})")
+   606→   606→   606→        elif abs(elo_diff) > 80:
+   607→   607→   607→            team = "home" if elo_diff > 0 else "away"
+   608→   608→   608→            signals.append(f"Moderate ELO edge for {team} team")
+   609→   609→   609→
+   610→   610→   610→        # xG signals
+   611→   611→   611→        if home_xg > away_xg * 1.3:
+   612→   612→   612→            signals.append(f"Home xG ({home_xg:.2f}) significantly higher than away ({away_xg:.2f})")
+   613→   613→   613→        elif away_xg > home_xg * 1.3:
+   614→   614→   614→            signals.append(f"Away xG ({away_xg:.2f}) significantly higher than home ({home_xg:.2f})")
+   615→   615→   615→
+   616→   616→   616→        # Form signals
+   617→   617→   617→        home_form = match_data.get("home_form", [])
+   618→   618→   618→        away_form = match_data.get("away_form", [])
+   619→   619→   619→        if len(home_form) >= 3:
+   620→   620→   620→            recent_wins = sum(1 for r in home_form[-3:] if r == "W")
+   621→   621→   621→            if recent_wins == 3:
+   622→   622→   622→                signals.append(f"{match_data.get('home_team', 'Home')} on a 3-match winning streak")
+   623→   623→   623→        if len(away_form) >= 3:
+   624→   624→   624→            recent_wins = sum(1 for r in away_form[-3:] if r == "W")
+   625→   625→   625→            if recent_wins == 3:
+   626→   626→   626→                signals.append(f"{match_data.get('away_team', 'Away')} on a 3-match winning streak")
+   627→   627→   627→
+   628→   628→   628→        # Model agreement signal
+   629→   629→   629→        max_prob = max(probs["home_win"], probs["draw"], probs["away_win"])
+   630→   630→   630→        if max_prob >= 0.55:
+   631→   631→   631→            signals.append(f"High model agreement ({max_prob*100:.1f}% on most likely outcome)")
+   632→   632→   632→
+   633→   633→   633→        # Risks
+   634→   634→   634→        if odds_home is None:
+   635→   635→   635→            risks.append("No market odds available — Kelly criterion and market signals excluded")
+   636→   636→   636→
+   637→   637→   637→        if odds_home and float(odds_home) < 1.3:
+   638→   638→   638→            risks.append("Heavy favorite — low value in outcome market")
+   639→   639→   639→
+   640→   640→   640→        if abs(elo_diff) < 30:
+   641→   641→   641→            risks.append("Teams are very evenly matched on ELO — high draw probability")
+   642→   642→   642→
+   643→   643→   643→        # Check if any model is missing
+   644→   644→   644→        expected_models = {"elo", "poisson", "dixon_coles", "stochastic"}
+   645→   645→   645→        # We don't risk-flag missing xgboost/lstm since they're optional
+   646→   646→   646→
+   647→   647→   647→        # Derive risk from model disagreement
+   648→   648→   648→        if probs["draw"] > 0.32:
+   649→   649→   649→            risks.append("High draw probability — consider Double Chance market")
+   650→   650→   650→
+   651→   651→   651→        return signals, risks
+   652→   652→   652→
+   653→   653→   653→    # ==================================================================
+   654→   654→   654→    # ML Model Loaders (lazy)
+   655→   655→   655→    # ==================================================================
+   656→   656→   656→
+   657→   657→   657→    def _run_xgboost(self, match_data: dict) -> dict[str, float] | None:
+   658→   658→   658→        """Try to load and run XGBoost model.
+   659→   659→   659→
+   660→   660→   660→        Returns home_win/draw/away_win probabilities or None if
+   661→   661→   661→        the model is not available.
+   662→   662→   662→        """
+   663→   663→   663→        if not self._xgboost_loaded:
+   664→   664→   664→            try:
+   665→   665→   665→                from src.ml.xgboost_engine import XGBoostEngine
+   666→   666→   666→
+   667→   667→   667→                self._xgboost_engine = XGBoostEngine(
+   668→   668→   668→                    model_dir=str(self.model_dir),
+   669→   669→   669→                )
+   670→   670→   670→                loaded = self._xgboost_engine.load("xgboost_v1")
+   671→   671→   671→                self._xgboost_loaded = True  # mark as attempted regardless
+   672→   672→   672→                if not loaded:
+   673→   673→   673→                    logger.info("XGBoost model not found — skipping")
+   674→   674→   674→                    return None
+   675→   675→   675→            except Exception as exc:
+   676→   676→   676→                self._xgboost_loaded = True
+   677→   677→   677→                logger.debug("XGBoost load failed: %s", exc)
+   678→   678→   678→                return None
+   679→   679→   679→
+   680→   680→   680→        if self._xgboost_engine is None or not self._xgboost_engine.is_trained:
+   681→   681→   681→            return None
+   682→   682→   682→
+   683→   683→   683→        # Build a feature vector from match_data
+   684→   684→   684→        # The XGBoost model expects the same feature order as training
+   685→   685→   685→        # We construct a basic feature vector; if the model was trained with
+   686→   686→   686→        # the full feature engineer, it will need the full 50-feature vector.
+   687→   687→   687→        # For the ensemble, we use a simplified 6-feature approximation.
+   688→   688→   688→        from src.ml.features import FEATURE_NAMES
+   689→   689→   689→
+   690→   690→   690→        # Build feature dict with defaults
+   691→   691→   691→        home_avg_goals = float(match_data.get("home_avg_goals", 1.3))
+   692→   692→   692→        away_avg_goals = float(match_data.get("away_avg_goals", 1.1))
+   693→   693→   693→        home_avg_conceded = float(match_data.get("home_avg_conceded", 1.0))
+   694→   694→   694→        away_avg_conceded = float(match_data.get("away_avg_conceded", 1.2))
+   695→   695→   695→        home_elo = float(match_data.get("home_elo", 1500))
+   696→   696→   696→        away_elo = float(match_data.get("away_elo", 1500))
+   697→   697→   697→
+   698→   698→   698→        # Map to feature names used by the training pipeline
+   699→   699→   699→        feature_dict = {
+   700→   700→   700→            "home_goals_for_avg": home_avg_goals,
+   701→   701→   701→            "away_goals_for_avg": away_avg_goals,
+   702→   702→   702→            "home_goals_against_avg": home_avg_conceded,
+   703→   703→   703→            "away_goals_against_avg": away_avg_conceded,
+   704→   704→   704→            "home_elo_rating": home_elo,
+   705→   705→   705→            "away_elo_rating": away_elo,
+   706→   706→   706→        }
+   707→   707→   707→
+   708→   708→   708→        # Fill remaining features with defaults
+   709→   709→   709→        for fname in FEATURE_NAMES:
+   710→   710→   710→            if fname not in feature_dict:
+   711→   711→   711→                feature_dict[fname] = 0.0
+   712→   712→   712→
+   713→   713→   713→        # Order features correctly
+   714→   714→   714→        feature_vector = np.array(
+   715→   715→   715→            [feature_dict[fname] for fname in FEATURE_NAMES],
+   716→   716→   716→            dtype=np.float32,
+   717→   717→   717→        )
+   718→   718→   718→
+   719→   719→   719→        try:
+   720→   720→   720→            pred = self._xgboost_engine.predict(
+   721→   721→   721→                feature_vector, feature_names=FEATURE_NAMES
+   722→   722→   722→            )
+   723→   723→   723→            return {
+   724→   724→   724→                "home_win": pred.home_win_prob,
+   725→   725→   725→                "draw": pred.draw_prob,
+   726→   726→   726→                "away_win": pred.away_win_prob,
+   727→   727→   727→            }
+   728→   728→   728→        except Exception as exc:
+   729→   729→   729→            logger.warning("XGBoost prediction failed: %s", exc)
+   730→   730→   730→            return None
+   731→   731→   731→
+   732→   732→   732→    def _run_lstm(self, match_data: dict) -> dict[str, float] | None:
+   733→   733→   733→        """Try to load and run LSTM model.
+   734→   734→   734→
+   735→   735→   735→        Returns home_win/draw/away_win probabilities or None if
+   736→   736→   736→        the model is not available.
+   737→   737→   737→
+   738→   738→   738→        Note: The LSTM model requires sequential input (recent match
+   739→   739→   739→        histories). When only aggregate stats are available, we
+   740→   740→   740→        construct a minimal sequence from the provided data.
+   741→   741→   741→        """
+   742→   742→   742→        if not self._lstm_loaded:
+   743→   743→   743→            try:
+   744→   744→   744→                from src.ml.lstm_engine import LSTMEngine
+   745→   745→   745→
+   746→   746→   746→                self._lstm_engine = LSTMEngine(
+   747→   747→   747→                    model_dir=str(self.model_dir),
+   748→   748→   748→                )
+   749→   749→   749→                loaded = self._lstm_engine.load("lstm_v1")
+   750→   750→   750→                self._lstm_loaded = True  # mark as attempted regardless
+   751→   751→   751→                if not loaded:
+   752→   752→   752→                    logger.info("LSTM model not found — skipping")
+   753→   753→   753→                    return None
+   754→   754→   754→            except Exception as exc:
+   755→   755→   755→                self._lstm_loaded = True
+   756→   756→   756→                logger.debug("LSTM load failed: %s", exc)
+   757→   757→   757→                return None
+   758→   758→   758→
+   759→   759→   759→        if self._lstm_engine is None or not self._lstm_engine.is_trained:
+   760→   760→   760→            return None
+   761→   761→   761→
+   762→   762→   762→        # The LSTM expects (seq_len, input_size) tensors for each team.
+   763→   763→   763→        # Without full match histories, we construct a minimal sequence
+   764→   764→   764→        # padded with recent average statistics.
+   765→   765→   765→        try:
+   766→   766→   766→            from src.ml.features import FEATURE_NAMES
+   767→   767→   767→            feature_size = len(self._lstm_engine.feature_cols) or len(FEATURE_NAMES)
+   768→   768→   768→            seq_len = self._lstm_engine.config.seq_len
+   769→   769→   769→
+   770→   770→   770→            home_avg_goals = float(match_data.get("home_avg_goals", 1.3))
+   771→   771→   771→            away_avg_goals = float(match_data.get("away_avg_goals", 1.1))
+   772→   772→   772→            home_avg_conceded = float(match_data.get("home_avg_conceded", 1.0))
+   773→   773→   773→            away_avg_conceded = float(match_data.get("away_avg_conceded", 1.2))
+   774→   774→   774→            home_elo = float(match_data.get("home_elo", 1500))
+   775→   775→   775→            away_elo = float(match_data.get("away_elo", 1500))
+   776→   776→   776→
+   777→   777→   777→            # Build a simple feature vector repeated across sequence steps
+   778→   778→   778→            base_home = np.array([
+   779→   779→   779→                home_avg_goals, home_avg_conceded, home_elo / 2000.0,
+   780→   780→   780→                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+   781→   781→   781→            ], dtype=np.float32)
+   782→   782→   782→            base_away = np.array([
+   783→   783→   783→                away_avg_goals, away_avg_conceded, away_elo / 2000.0,
+   784→   784→   784→                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+   785→   785→   785→            ], dtype=np.float32)
+   786→   786→   786→
+   787→   787→   787→            # Pad or trim to correct feature size
+   788→   788→   788→            if len(base_home) < feature_size:
+   789→   789→   789→                pad = np.zeros(feature_size - len(base_home), dtype=np.float32)
+   790→   790→   790→                base_home = np.concatenate([base_home, pad])
+   791→   791→   791→                base_away = np.concatenate([base_away, pad])
+   792→   792→   792→            elif len(base_home) > feature_size:
+   793→   793→   793→                base_home = base_home[:feature_size]
+   794→   794→   794→                base_away = base_away[:feature_size]
+   795→   795→   795→
+   796→   796→   796→            # Repeat across sequence length
+   797→   797→   797→            X_home = np.tile(base_home, (seq_len, 1))
+   798→   798→   798→            X_away = np.tile(base_away, (seq_len, 1))
+   799→   799→   799→
+   800→   800→   800→            result = self._lstm_engine.predict(X_home, X_away)
+   801→   801→   801→
+   802→   802→   802→            if isinstance(result, dict) and "batch" not in result:
+   803→   803→   803→                return {
+   804→   804→   804→                    "home_win": result["home_win"],
+   805→   805→   805→                    "draw": result["draw"],
+   806→   806→   806→                    "away_win": result["away_win"],
+   807→   807→   807→                }
+   808→   808→   808→
+   809→   809→   809→            return None
+   810→   810→   810→        except Exception as exc:
+   811→   811→   811→            logger.warning("LSTM prediction failed: %s", exc)
+   812→   812→   812→            return None
+   813→   813→   813→

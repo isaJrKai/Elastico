@@ -1,0 +1,851 @@
+     1→     1→"""Comprehensive Feature Engineering for Football Match Prediction.
+     2→     2→
+     3→     3→Transforms raw match / team / odds data into ~50 engineered features
+     4→     4→suitable for XGBoost-based match-outcome classification.
+     5→     5→
+     6→     6→Feature categories
+     7→     7→------------------
+     8→     8→1.  ELO features          (5)  – raw ratings, diff, home-advantage adjusted, trend
+     9→     9→2.  Goal features         (10) – scored / conceded averages (overall & venue-split), xG
+    10→    10→3.  Form features          (8) – recent form points, streaks, goal trend
+    11→    11→4.  Head-to-head           (4) – win %, draw %, avg goals
+    12→    12→5.  Home/away splits       (4) – venue-specific win %, goal averages
+    13→    13→6.  Market features        (4) – implied probabilities, overround
+    14→    14→7.  Temporal               (5) – day-of-week, month, rest days, weekend flag
+    15→    15→8.  Advanced              (10) – attack/defence strength, Poisson lambda, conversion, sheets
+    16→    16→
+    17→    17→Total: **50 features**
+    18→    18→"""
+    19→    19→
+    20→    20→from __future__ import annotations
+    21→    21→
+    22→    22→import math
+    23→    23→from collections import defaultdict
+    24→    24→from datetime import datetime, timedelta
+    25→    25→from typing import Any, Optional
+    26→    26→
+    27→    27→import numpy as np
+    28→    28→import pandas as pd
+    29→    29→
+    30→    30→
+    31→    31→# ═══════════════════════════════════════════════════════════════════════════════
+    32→    32→# Feature name constants  – single source of truth
+    33→    33→# ═══════════════════════════════════════════════════════════════════════════════
+    34→    34→
+    35→    35→FEATURE_NAMES: list[str] = [
+    36→    36→    # ELO (5)
+    37→    37→    "elo_home",
+    38→    38→    "elo_away",
+    39→    39→    "elo_diff",
+    40→    40→    "elo_home_advantage_adjusted",
+    41→    41→    "elo_form_trend",
+    42→    42→    # Goal features (10)
+    43→    43→    "avg_goals_scored_home",
+    44→    44→    "avg_goals_scored_away",
+    45→    45→    "avg_goals_conceded_home",
+    46→    46→    "avg_goals_conceded_away",
+    47→    47→    "avg_goals_scored",
+    48→    48→    "avg_goals_conceded",
+    49→    49→    "goal_difference",
+    50→    50→    "xg_for_home",
+    51→    51→    "xg_for_away",
+    52→    52→    "xg_diff",
+    53→    53→    # Form features (8)
+    54→    54→    "last_5_form_points_home",
+    55→    55→    "last_5_form_points_away",
+    56→    56→    "form_points_diff",
+    57→    57→    "win_streak_home",
+    58→    58→    "win_streak_away",
+    59→    59→    "unbeaten_streak_home",
+    60→    60→    "unbeaten_streak_away",
+    61→    61→    "goals_per_game_trend",
+    62→    62→    # Head-to-head (4)
+    63→    63→    "h2h_home_win_pct",
+    64→    64→    "h2h_away_win_pct",
+    65→    65→    "h2h_draw_pct",
+    66→    66→    "h2h_avg_goals",
+    67→    67→    # Home/away splits (4)
+    68→    68→    "home_win_pct",
+    69→    69→    "away_win_pct",
+    70→    70→    "home_goals_avg",
+    71→    71→    "away_goals_avg",
+    72→    72→    # Market features (4)
+    73→    73→    "implied_prob_home",
+    74→    74→    "implied_prob_draw",
+    75→    75→    "implied_prob_away",
+    76→    76→    "overround",
+    77→    77→    # Temporal (5)
+    78→    78→    "day_of_week",
+    79→    79→    "month",
+    80→    80→    "is_weekend",
+    81→    81→    "days_since_last_match_home",
+    82→    82→    "days_since_last_match_away",
+    83→    83→    # Advanced (10)
+    84→    84→    "attacking_strength_home",
+    85→    85→    "attacking_strength_away",
+    86→    86→    "defensive_strength_home",
+    87→    87→    "defensive_strength_away",
+    88→    88→    "poisson_lambda_home",
+    89→    89→    "poisson_lambda_away",
+    90→    90→    "shot_conversion_rate_home",
+    91→    91→    "shot_conversion_rate_away",
+    92→    92→    "clean_sheet_pct_home",
+    93→    93→    "clean_sheet_pct_away",
+    94→    94→]
+    95→    95→
+    96→    96→assert len(FEATURE_NAMES) == 50, f"Expected 50 features, got {len(FEATURE_NAMES)}"
+    97→    97→
+    98→    98→
+    99→    99→# ═══════════════════════════════════════════════════════════════════════════════
+   100→   100→# Human-readable descriptions for explainability
+   101→   101→# ═══════════════════════════════════════════════════════════════════════════════
+   102→   102→
+   103→   103→FEATURE_DESCRIPTIONS: dict[str, str] = {
+   104→   104→    # ELO
+   105→   105→    "elo_home": "ELO rating of the home team",
+   106→   106→    "elo_away": "ELO rating of the away team",
+   107→   107→    "elo_diff": "ELO difference (home − away); positive favours home",
+   108→   108→    "elo_home_advantage_adjusted": "ELO diff plus a home-advantage bonus (≈65 pts)",
+   109→   109→    "elo_form_trend": "Slope of ELO over the last 10 matches (>0 = improving)",
+   110→   110→    # Goal features
+   111→   111→    "avg_goals_scored_home": "Home team's average goals scored per match this season",
+   112→   112→    "avg_goals_scored_away": "Away team's average goals scored per match this season",
+   113→   113→    "avg_goals_conceded_home": "Home team's average goals conceded per match this season",
+   114→   114→    "avg_goals_conceded_away": "Away team's average goals conceded per match this season",
+   115→   115→    "avg_goals_scored": "Home team overall average goals scored",
+   116→   116→    "avg_goals_conceded": "Home team overall average goals conceded",
+   117→   117→    "goal_difference": "Home team season goal difference (scored − conceded)",
+   118→   118→    "xg_for_home": "Home team expected goals (xG) per match",
+   119→   119→    "xg_for_away": "Away team expected goals (xG) per match",
+   120→   120→    "xg_diff": "xG difference (home − away)",
+   121→   121→    # Form
+   122→   122→    "last_5_form_points_home": "Points from home team's last 5 matches (max 15)",
+   123→   123→    "last_5_form_points_away": "Points from away team's last 5 matches (max 15)",
+   124→   124→    "form_points_diff": "Difference in last-5 form points (home − away)",
+   125→   125→    "win_streak_home": "Current consecutive wins for home team",
+   126→   126→    "win_streak_away": "Current consecutive wins for away team",
+   127→   127→    "unbeaten_streak_home": "Current unbeaten run for home team (W + D)",
+   128→   128→    "unbeaten_streak_away": "Current unbeaten run for away team (W + D)",
+   129→   129→    "goals_per_game_trend": "Trend of home-team goals/game over last 10 matches",
+   130→   130→    # H2H
+   131→   131→    "h2h_home_win_pct": "% of previous meetings won by the home side",
+   132→   132→    "h2h_away_win_pct": "% of previous meetings won by the away side",
+   133→   133→    "h2h_draw_pct": "% of previous meetings that were draws",
+   134→   134→    "h2h_avg_goals": "Average total goals in previous head-to-head meetings",
+   135→   135→    # Venue splits
+   136→   136→    "home_win_pct": "Home team's win percentage when playing at home",
+   137→   137→    "away_win_pct": "Away team's win percentage when playing away",
+   138→   138→    "home_goals_avg": "Average goals scored by home team at home venue",
+   139→   139→    "away_goals_avg": "Average goals scored by away team at away venue",
+   140→   140→    # Market
+   141→   141→    "implied_prob_home": "Implied probability of home win from betting odds",
+   142→   142→    "implied_prob_draw": "Implied probability of draw from betting odds",
+   143→   143→    "implied_prob_away": "Implied probability of away win from betting odds",
+   144→   144→    "overround": "Bookmaker margin sum (1/prob); >1 indicates vig",
+   145→   145→    # Temporal
+   146→   146→    "day_of_week": "Day of the week (0=Mon … 6=Sun)",
+   147→   147→    "month": "Month of the year (1–12)",
+   148→   148→    "is_weekend": "1 if the match is on Sat/Sun, else 0",
+   149→   149→    "days_since_last_match_home": "Rest days for home team since last match",
+   150→   150→    "days_since_last_match_away": "Rest days for away team since last match",
+   151→   151→    # Advanced
+   152→   152→    "attacking_strength_home": "Home attack relative to league average (>1 = above avg)",
+   153→   153→    "attacking_strength_away": "Away attack relative to league average (>1 = above avg)",
+   154→   154→    "defensive_strength_home": "Home defence relative to league average (<1 = better)",
+   155→   155→    "defensive_strength_away": "Away defence relative to league average (<1 = better)",
+   156→   156→    "poisson_lambda_home": "Poisson λ for home-team goals",
+   157→   157→    "poisson_lambda_away": "Poisson λ for away-team goals",
+   158→   158→    "shot_conversion_rate_home": "Home team shot-to-goal conversion %",
+   159→   159→    "shot_conversion_rate_away": "Away team shot-to-goal conversion %",
+   160→   160→    "clean_sheet_pct_home": "% of matches where home team kept a clean sheet",
+   161→   161→    "clean_sheet_pct_away": "% of matches where away team kept a clean sheet",
+   162→   162→}
+   163→   163→
+   164→   164→
+   165→   165→# ═══════════════════════════════════════════════════════════════════════════════
+   166→   166→# Helper utilities
+   167→   167→# ═══════════════════════════════════════════════════════════════════════════════
+   168→   168→
+   169→   169→
+   170→   170→def _safe_div(numerator: float, denominator: float, default: float = 0.0) -> float:
+   171→   171→    """Divide with safe fallback for zero denominators."""
+   172→   172→    if denominator == 0 or not math.isfinite(denominator):
+   173→   173→        return default
+   174→   174→    result = numerator / denominator
+   175→   175→    return result if math.isfinite(result) else default
+   176→   176→
+   177→   177→
+   178→   178→def _safe_avg(values: list[float] | np.ndarray, default: float = 0.0) -> float:
+   179→   179→    """Mean of a numeric sequence, returning *default* for empty input."""
+   180→   180→    arr = np.asarray(values, dtype=float)
+   181→   181→    if arr.size == 0:
+   182→   182→        return default
+   183→   183→    return float(np.nanmean(arr))
+   184→   184→
+   185→   185→
+   186→   186→def _linear_trend(values: list[float] | np.ndarray, default: float = 0.0) -> float:
+   187→   187→    """Slope of a simple linear fit (most recent → oldest = positive trend)."""
+   188→   188→    arr = np.asarray(values, dtype=float)
+   189→   189→    if arr.size < 2:
+   190→   190→        return default
+   191→   191→    x = np.arange(len(arr), dtype=float)
+   192→   192→    valid = np.isfinite(arr)
+   193→   193→    if valid.sum() < 2:
+   194→   194→        return default
+   195→   195→    x = x[valid]
+   196→   196→    y = arr[valid]
+   197→   197→    slope = np.polyfit(x, y, 1)[0]
+   198→   198→    return float(slope) if math.isfinite(slope) else default
+   199→   199→
+   200→   200→
+   201→   201→def _compute_streaks(
+   202→   202→    results: list[str] | list[int] | None,
+   203→   203→) -> tuple[int, int, int]:
+   204→   204→    """Return (win_streak, unbeaten_streak, loss_streak) from recent results.
+   205→   205→
+   206→   206→    *results* is ordered **most recent first**.  Each element is one of:
+   207→   207→    - 'W' / 1  → win
+   208→   208→    - 'D' / 0  → draw
+   209→   209→    - 'L' / -1 → loss
+   210→   210→    """
+   211→   211→    if not results:
+   212→   212→        return 0, 0, 0
+   213→   213→    win_s = unbeaten_s = loss_s = 0
+   214→   214→    for r in results:
+   215→   215→        if r in ('W', 1):
+   216→   216→            win_s += 1
+   217→   217→            unbeaten_s += 1
+   218→   218→        elif r in ('D', 0):
+   219→   219→            unbeaten_s += 1
+   220→   220→            break
+   221→   221→        elif r in ('L', -1):
+   222→   222→            break
+   223→   223→        else:
+   224→   224→            break
+   225→   225→    for r in results:
+   226→   226→        if r in ('L', -1):
+   227→   227→            loss_s += 1
+   228→   228→        else:
+   229→   229→            break
+   230→   230→    return win_s, unbeaten_s, loss_s
+   231→   231→
+   232→   232→
+   233→   233→def _form_points(results: list[str] | list[int] | None) -> float:
+   234→   234→    """Sum of 3/1/0 for W/D/L over recent results (max 15 for 5 matches)."""
+   235→   235→    if not results:
+   236→   236→        return 0.0
+   237→   237→    mapping = {'W': 3, 'D': 1, 'L': 0, 1: 3, 0: 1, -1: 0}
+   238→   238→    return sum(mapping.get(r, 0) for r in results)
+   239→   239→
+   240→   240→
+   241→   241→def _parse_date(value: Any) -> Optional[datetime]:
+   242→   242→    """Coerce *value* to a ``datetime``.  Returns ``None`` on failure."""
+   243→   243→    if isinstance(value, datetime):
+   244→   244→        return value
+   245→   245→    if isinstance(value, str):
+   246→   246→        for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+   247→   247→            try:
+   248→   248→                return datetime.strptime(value, fmt)
+   249→   249→            except ValueError:
+   250→   250→                continue
+   251→   251→    if isinstance(value, (int, float)):
+   252→   252→        try:
+   253→   253→            return datetime.fromtimestamp(value)
+   254→   254→        except (OSError, ValueError):
+   255→   255→            pass
+   256→   256→    return None
+   257→   257→
+   258→   258→
+   259→   259→# ═══════════════════════════════════════════════════════════════════════════════
+   260→   260→# FeatureEngineer
+   261→   261→# ═══════════════════════════════════════════════════════════════════════════════
+   262→   262→
+   263→   263→
+   264→   264→class FeatureEngineer:
+   265→   265→    """Transform raw match/team/odds data into ~50 ML features.
+   266→   266→
+   267→   267→    Parameters
+   268→   268→    ----------
+   269→   269→    league_avg_goals : float
+   270→   270→        Average goals per team per match in the league.
+   271→   271→        Used as a baseline for strength calculations and as a
+   272→   272→        default fallback when team data is missing.
+   273→   273→    home_advantage_elo : float
+   274→   274→        ELO points added to home team (standard ≈ 65).
+   275→   275→    """
+   276→   276→
+   277→   277→    def __init__(
+   278→   278→        self,
+   279→   279→        league_avg_goals: float = 1.35,
+   280→   280→        home_advantage_elo: float = 65.0,
+   281→   281→    ) -> None:
+   282→   282→        self.league_avg_goals = league_avg_goals
+   283→   283→        self.home_advantage_elo = home_advantage_elo
+   284→   284→
+   285→   285→    # ------------------------------------------------------------------
+   286→   286→    # Public API
+   287→   287→    # ------------------------------------------------------------------
+   288→   288→
+   289→   289→    def build_match_features(
+   290→   290→        self,
+   291→   291→        match_data: dict[str, Any],
+   292→   292→        home_stats: dict[str, Any],
+   293→   293→        away_stats: dict[str, Any],
+   294→   294→        h2h_data: list[dict[str, Any]] | None = None,
+   295→   295→        odds: dict[str, Any] | None = None,
+   296→   296→    ) -> dict[str, float]:
+   297→   297→        """Build a feature vector (50 values) for a **single** match prediction.
+   298→   298→
+   299→   299→        Parameters
+   300→   300→        ----------
+   301→   301→        match_data : dict
+   302→   302→            Must contain ``date`` (str / datetime / timestamp).
+   303→   303→        home_stats, away_stats : dict
+   304→   304→            Per-team season statistics.  Expected keys (all optional):
+   305→   305→
+   306→   306→            ELO: ``elo``, ``elo_history`` (list[float])
+   307→   307→            Goals: ``goals_scored``, ``goals_conceded``,
+   308→   308→                   ``goals_scored_home``, ``goals_conceded_home`` (or ``_away``)
+   309→   309→            xG: ``xg_for``, ``xg_for_home`` (or ``_away``)
+   310→   310→            Form: ``recent_results`` (list[str] 'W'/'D'/'L', most-recent first),
+   311→   311→                  ``recent_goals_scored`` (list[float]),
+   312→   312→                  ``last_match_date`` (str/datetime)
+   313→   313→            Shots: ``shots_total``, ``shots_on_target``
+   314→   314→            Venue: ``home_wins``, ``home_draws``, ``home_losses``,
+   315→   315→                   ``away_wins``, ``away_draws``, ``away_losses``,
+   316→   316→                   ``home_goals``, ``away_goals``,
+   317→   317→                   ``clean_sheets_home``, ``clean_sheets_away``,
+   318→   318→                   ``matches_played_home``, ``matches_played_away``
+   319→   319→        h2h_data : list[dict], optional
+   320→   320→            List of previous head-to-head match dicts.  Each needs
+   321→   321→            ``home_goals`` and ``away_goals`` (or ``score`` like '2-1').
+   322→   322→        odds : dict, optional
+   323→   323→            ``home_odds``, ``draw_odds``, ``away_odds`` (decimal).
+   324→   324→
+   325→   325→        Returns
+   326→   326→        -------
+   327→   327→        dict[str, float]
+   328→   328→            Mapping of all 50 feature names to float values.
+   329→   329→        """
+   330→   330→        feats: dict[str, float] = {}
+   331→   331→
+   332→   332→        # 1. ELO features ─────────────────────────────────────────────
+   333→   333→        feats.update(self._elo_features(home_stats, away_stats))
+   334→   334→
+   335→   335→        # 2. Goal features ────────────────────────────────────────────
+   336→   336→        feats.update(self._goal_features(home_stats, away_stats))
+   337→   337→
+   338→   338→        # 3. Form features ────────────────────────────────────────────
+   339→   339→        feats.update(self._form_features(home_stats, away_stats))
+   340→   340→
+   341→   341→        # 4. Head-to-head features ─────────────────────────────────────
+   342→   342→        feats.update(self._h2h_features(h2h_data))
+   343→   343→
+   344→   344→        # 5. Home/away split features ──────────────────────────────────
+   345→   345→        feats.update(self._venue_features(home_stats, away_stats))
+   346→   346→
+   347→   347→        # 6. Market / odds features ────────────────────────────────────
+   348→   348→        feats.update(self._market_features(odds))
+   349→   349→
+   350→   350→        # 7. Temporal features ─────────────────────────────────────────
+   351→   351→        feats.update(self._temporal_features(match_data, home_stats, away_stats))
+   352→   352→
+   353→   353→        # 8. Advanced features ─────────────────────────────────────────
+   354→   354→        feats.update(self._advanced_features(home_stats, away_stats))
+   355→   355→
+   356→   356→        # Guarantee ordered output matching FEATURE_NAMES
+   357→   357→        return {name: feats.get(name, 0.0) for name in FEATURE_NAMES}
+   358→   358→
+   359→   359→    # ------------------------------------------------------------------
+   360→   360→    def build_training_dataset(
+   361→   361→        self,
+   362→   362→        matches: list[dict[str, Any]],
+   363→   363→        window: int = 10,
+   364→   364→    ) -> pd.DataFrame:
+   365→   365→        """Build a training dataset from historical matches.
+   366→   366→
+   367→   367→        Each match in *matches* must contain:
+   368→   368→
+   369→   369→        - ``home_team``, ``away_team``
+   370→   370→        - ``home_goals``, ``away_goals``  (for target + stats)
+   371→   371→        - ``date``
+   372→   372→        - ``home_odds``, ``draw_odds``, ``away_odds``  (optional)
+   373→   373→
+   374→   374→        The method computes a sliding-window of *window* previous matches
+   375→   375→        per team to derive form, streak, and trend features.  Missing
+   376→   376→        historical data is back-filled with league-average defaults.
+   377→   377→
+   378→   378→        Parameters
+   379→   379→        ----------
+   380→   380→        matches : list[dict]
+   381→   381→            Historical match records.  Must be **chronologically sorted**
+   382→   382→            (oldest first) for correct sliding-window behaviour.
+   383→   383→        window : int
+   384→   384→            Number of recent matches to use for rolling form stats.
+   385→   385→
+   386→   386→        Returns
+   387→   387→        -------
+   388→   388→        pd.DataFrame
+   389→   389→            One row per match.  Columns are the 50 features plus
+   390→   390→            ``target`` (0=away, 1=draw, 2=home).
+   391→   391→        """
+   392→   392→        if not matches:
+   393→   393→            return pd.DataFrame(columns=[*FEATURE_NAMES, "target"])
+   394→   394→
+   395→   395→        # Index: team_id → list of (date, goals_scored, goals_conceded, result)
+   396→   396→        team_history: dict[str, list[tuple]] = defaultdict(list)
+   397→   397→        # team_id → list of home-only / away-only records
+   398→   398→        team_home_history: dict[str, list[tuple]] = defaultdict(list)
+   399→   399→        team_away_history: dict[str, list[tuple]] = defaultdict(list)
+   400→   400→
+   401→   401→        rows: list[dict[str, float]] = []
+   402→   402→
+   403→   403→        for match in matches:
+   404→   404→            home_team = str(match.get("home_team", ""))
+   405→   405→            away_team = str(match.get("away_team", ""))
+   406→   406→            hg = int(match.get("home_goals", 0))
+   407→   407→            ag = int(match.get("away_goals", 0))
+   408→   408→
+   409→   409→            # Derive result codes (from home perspective)
+   410→   410→            if hg > ag:
+   411→   411→                home_result, away_result = "W", "L"
+   412→   412→            elif hg < ag:
+   413→   413→                home_result, away_result = "L", "W"
+   414→   414→            else:
+   415→   415→                home_result, away_result = "D", "D"
+   416→   416→
+   417→   417→            match_date = _parse_date(match.get("date")) or datetime.now()
+   418→   418→
+   419→   419→            # ── Build per-team stats dicts from rolling history ───────
+   420→   420→            home_stats = self._stats_from_history(
+   421→   421→                team_history[home_team],
+   422→   422→                team_home_history[home_team],
+   423→   423→                team_away_history[home_team],
+   424→   424→                window=window,
+   425→   425→            )
+   426→   426→            away_stats = self._stats_from_history(
+   427→   427→                team_history[away_team],
+   428→   428→                team_home_history[away_team],
+   429→   429→                team_away_history[away_team],
+   430→   430→                window=window,
+   431→   431→            )
+   432→   432→
+   433→   433→            # Set last-match date for rest-day calculation
+   434→   434→            if team_history[home_team]:
+   435→   435→                home_stats["last_match_date"] = team_history[home_team][-1][0].isoformat()
+   436→   436→            if team_history[away_team]:
+   437→   437→                away_stats["last_match_date"] = team_history[away_team][-1][0].isoformat()
+   438→   438→
+   439→   439→            # ── Head-to-head (use previous matches between these teams) ─
+   440→   440→            h2h: list[dict[str, Any]] = []
+   441→   441→            for prev in matches:
+   442→   442→                if prev is match:
+   443→   443→                    continue
+   444→   444→                if (
+   445→   445→                    str(prev.get("home_team")) == home_team
+   446→   446→                    and str(prev.get("away_team")) == away_team
+   447→   447→                ) or (
+   448→   448→                    str(prev.get("home_team")) == away_team
+   449→   449→                    and str(prev.get("away_team")) == home_team
+   450→   450→                ):
+   451→   451→                    phg = int(prev.get("home_goals", 0))
+   452→   452→                    pag = int(prev.get("away_goals", 0))
+   453→   453→                    # Normalise to current home perspective
+   454→   454→                    if str(prev.get("home_team")) == home_team:
+   455→   455→                        h2h.append({"home_goals": phg, "away_goals": pag})
+   456→   456→                    else:
+   457→   457→                        h2h.append({"home_goals": pag, "away_goals": phg})
+   458→   458→
+   459→   459→            # ── Odds ──────────────────────────────────────────────────
+   460→   460→            odds: dict[str, Any] | None = None
+   461→   461→            if match.get("home_odds") and match.get("draw_odds") and match.get("away_odds"):
+   462→   462→                odds = {
+   463→   463→                    "home_odds": float(match["home_odds"]),
+   464→   464→                    "draw_odds": float(match["draw_odds"]),
+   465→   465→                    "away_odds": float(match["away_odds"]),
+   466→   466→                }
+   467→   467→
+   468→   468→            # ── Build features ────────────────────────────────────────
+   469→   469→            feats = self.build_match_features(
+   470→   470→                match_data={"date": match_date},
+   471→   471→                home_stats=home_stats,
+   472→   472→                away_stats=away_stats,
+   473→   473→                h2h_data=h2h if h2h else None,
+   474→   474→                odds=odds,
+   475→   475→            )
+   476→   476→
+   477→   477→            # Target: 0=away, 1=draw, 2=home
+   478→   478→            if hg > ag:
+   479→   479→                target = 2
+   480→   480→            elif hg < ag:
+   481→   481→                target = 0
+   482→   482→            else:
+   483→   483→                target = 1
+   484→   484→
+   485→   485→            feats["target"] = float(target)
+   486→   486→            rows.append(feats)
+   487→   487→
+   488→   488→            # ── Update histories for future windows ───────────────────
+   489→   489→            team_history[home_team].append(
+   490→   490→                (match_date, hg, ag, home_result)
+   491→   491→            )
+   492→   492→            team_history[away_team].append(
+   493→   493→                (match_date, ag, hg, away_result)
+   494→   494→            )
+   495→   495→            team_home_history[home_team].append(
+   496→   496→                (match_date, hg, ag, home_result)
+   497→   497→            )
+   498→   498→            team_away_history[away_team].append(
+   499→   499→                (match_date, ag, hg, away_result)
+   500→   500→            )
+   501→   501→
+   502→   502→        df = pd.DataFrame(rows)
+   503→   503→        # Ensure column order
+   504→   504→        cols = [*FEATURE_NAMES, "target"]
+   505→   505→        for c in cols:
+   506→   506→            if c not in df.columns:
+   507→   507→                df[c] = 0.0
+   508→   508→        return df[cols]
+   509→   509→
+   510→   510→    # ------------------------------------------------------------------
+   511→   511→    def get_feature_names(self) -> list[str]:
+   512→   512→        """Return ordered list of 50 feature names."""
+   513→   513→        return list(FEATURE_NAMES)
+   514→   514→
+   515→   515→    def get_feature_importance_description(self) -> dict[str, str]:
+   516→   516→        """Human-readable description of every feature."""
+   517→   517→        return dict(FEATURE_DESCRIPTIONS)
+   518→   518→
+   519→   519→    # ==================================================================
+   520→   520→    # Private: per-category feature builders
+   521→   521→    # ==================================================================
+   522→   522→
+   523→   523→    # ---------- 1. ELO -------------------------------------------------
+   524→   524→
+   525→   525→    def _elo_features(
+   526→   526→        self, home_stats: dict[str, Any], away_stats: dict[str, Any]
+   527→   527→    ) -> dict[str, float]:
+   528→   528→        elo_home = float(home_stats.get("elo", 1500.0))
+   529→   529→        elo_away = float(away_stats.get("elo", 1500.0))
+   530→   530→        elo_diff = elo_home - elo_away
+   531→   531→        elo_haa = elo_diff + self.home_advantage_elo
+   532→   532→
+   533→   533→        # Form trend: slope of recent ELO history
+   534→   534→        home_history = home_stats.get("elo_history", [])
+   535→   535→        elo_trend = _linear_trend(home_history, default=0.0)
+   536→   536→
+   537→   537→        return {
+   538→   538→            "elo_home": elo_home,
+   539→   539→            "elo_away": elo_away,
+   540→   540→            "elo_diff": elo_diff,
+   541→   541→            "elo_home_advantage_adjusted": elo_haa,
+   542→   542→            "elo_form_trend": elo_trend,
+   543→   543→        }
+   544→   544→
+   545→   545→    # ---------- 2. Goal features ---------------------------------------
+   546→   546→
+   547→   547→    def _goal_features(
+   548→   548→        self, home_stats: dict[str, Any], away_stats: dict[str, Any]
+   549→   549→    ) -> dict[str, float]:
+   550→   550→        lag = self.league_avg_goals
+   551→   551→
+   552→   552→        h_gs_home = float(home_stats.get("goals_scored_home", lag))
+   553→   553→        h_gs_away = float(home_stats.get("goals_scored_away", lag))
+   554→   554→        h_gs = float(home_stats.get("goals_scored", lag))
+   555→   555→        h_gc_home = float(home_stats.get("goals_conceded_home", lag))
+   556→   556→        h_gc_away = float(home_stats.get("goals_conceded_away", lag))
+   557→   557→        h_gc = float(home_stats.get("goals_conceded", lag))
+   558→   558→
+   559→   559→        a_gs_home = float(away_stats.get("goals_scored_home", lag))
+   560→   560→        a_gs_away = float(away_stats.get("goals_scored_away", lag))
+   561→   561→        a_gs = float(away_stats.get("goals_scored", lag))
+   562→   562→        a_gc_home = float(away_stats.get("goals_conceded_home", lag))
+   563→   563→        a_gc_away = float(away_stats.get("goals_conceded_away", lag))
+   564→   564→        a_gc = float(away_stats.get("goals_conceded", lag))
+   565→   565→
+   566→   566→        gd = h_gs - h_gc
+   567→   567→
+   568→   568→        xg_h = float(home_stats.get("xg_for_home", lag))
+   569→   569→        xg_a = float(away_stats.get("xg_for_away", lag))
+   570→   570→        xg_diff = xg_h - xg_a
+   571→   571→
+   572→   572→        return {
+   573→   573→            "avg_goals_scored_home": h_gs_home,
+   574→   574→            "avg_goals_scored_away": a_gs_away,
+   575→   575→            "avg_goals_conceded_home": h_gc_home,
+   576→   576→            "avg_goals_conceded_away": a_gc_away,
+   577→   577→            "avg_goals_scored": h_gs,
+   578→   578→            "avg_goals_conceded": h_gc,
+   579→   579→            "goal_difference": gd,
+   580→   580→            "xg_for_home": xg_h,
+   581→   581→            "xg_for_away": xg_a,
+   582→   582→            "xg_diff": xg_diff,
+   583→   583→        }
+   584→   584→
+   585→   585→    # ---------- 3. Form features ---------------------------------------
+   586→   586→
+   587→   587→    def _form_features(
+   588→   588→        self, home_stats: dict[str, Any], away_stats: dict[str, Any]
+   589→   589→    ) -> dict[str, float]:
+   590→   590→        h_results = home_stats.get("recent_results", [])
+   591→   591→        a_results = away_stats.get("recent_results", [])
+   592→   592→
+   593→   593→        h_form = _form_points(h_results)
+   594→   594→        a_form = _form_points(a_results)
+   595→   595→
+   596→   596→        h_win, h_unbeaten, _ = _compute_streaks(h_results)
+   597→   597→        a_win, a_unbeaten, _ = _compute_streaks(a_results)
+   598→   598→
+   599→   599→        h_goals_trend_raw = home_stats.get("recent_goals_scored", [])
+   600→   600→        goals_trend = _linear_trend(h_goals_trend_raw, default=0.0)
+   601→   601→
+   602→   602→        return {
+   603→   603→            "last_5_form_points_home": float(h_form),
+   604→   604→            "last_5_form_points_away": float(a_form),
+   605→   605→            "form_points_diff": float(h_form - a_form),
+   606→   606→            "win_streak_home": float(h_win),
+   607→   607→            "win_streak_away": float(a_win),
+   608→   608→            "unbeaten_streak_home": float(h_unbeaten),
+   609→   609→            "unbeaten_streak_away": float(a_unbeaten),
+   610→   610→            "goals_per_game_trend": goals_trend,
+   611→   611→        }
+   612→   612→
+   613→   613→    # ---------- 4. Head-to-head ----------------------------------------
+   614→   614→
+   615→   615→    def _h2h_features(
+   616→   616→        self, h2h_data: list[dict[str, Any]] | None
+   617→   617→    ) -> dict[str, float]:
+   618→   618→        if not h2h_data:
+   619→   619→            return {
+   620→   620→                "h2h_home_win_pct": 0.0,
+   621→   621→                "h2h_away_win_pct": 0.0,
+   622→   622→                "h2h_draw_pct": 0.0,
+   623→   623→                "h2h_avg_goals": self.league_avg_goals * 2,
+   624→   624→            }
+   625→   625→
+   626→   626→        n = len(h2h_data)
+   627→   627→        home_wins = sum(1 for m in h2h_data if m.get("home_goals", 0) > m.get("away_goals", 0))
+   628→   628→        away_wins = sum(1 for m in h2h_data if m.get("home_goals", 0) < m.get("away_goals", 0))
+   629→   629→        draws = n - home_wins - away_wins
+   630→   630→
+   631→   631→        total_goals_list = [m.get("home_goals", 0) + m.get("away_goals", 0) for m in h2h_data]
+   632→   632→        avg_goals = _safe_avg(total_goals_list, default=self.league_avg_goals * 2)
+   633→   633→
+   634→   634→        return {
+   635→   635→            "h2h_home_win_pct": _safe_div(home_wins, n),
+   636→   636→            "h2h_away_win_pct": _safe_div(away_wins, n),
+   637→   637→            "h2h_draw_pct": _safe_div(draws, n),
+   638→   638→            "h2h_avg_goals": avg_goals,
+   639→   639→        }
+   640→   640→
+   641→   641→    # ---------- 5. Venue splits ----------------------------------------
+   642→   642→
+   643→   643→    def _venue_features(
+   644→   644→        self, home_stats: dict[str, Any], away_stats: dict[str, Any]
+   645→   645→    ) -> dict[str, float]:
+   646→   646→        lag = self.league_avg_goals
+   647→   647→
+   648→   648→        # Home team's home record
+   649→   649→        hw = int(home_stats.get("home_wins", 0))
+   650→   650→        hd = int(home_stats.get("home_draws", 0))
+   651→   651→        hl = int(home_stats.get("home_losses", 0))
+   652→   652→        h_home_total = hw + hd + hl
+   653→   653→        h_home_goals = float(home_stats.get("home_goals", lag))
+   654→   654→
+   655→   655→        # Away team's away record
+   656→   656→        aw = int(away_stats.get("away_wins", 0))
+   657→   657→        ad = int(away_stats.get("away_draws", 0))
+   658→   658→        al = int(away_stats.get("away_losses", 0))
+   659→   659→        a_away_total = aw + ad + al
+   660→   660→        a_away_goals = float(away_stats.get("away_goals", lag))
+   661→   661→
+   662→   662→        return {
+   663→   663→            "home_win_pct": _safe_div(hw, h_home_total),
+   664→   664→            "away_win_pct": _safe_div(aw, a_away_total),
+   665→   665→            "home_goals_avg": h_home_goals,
+   666→   666→            "away_goals_avg": a_away_goals,
+   667→   667→        }
+   668→   668→
+   669→   669→    # ---------- 6. Market / odds features ------------------------------
+   670→   670→
+   671→   671→    def _market_features(
+   672→   672→        self, odds: dict[str, Any] | None
+   673→   673→    ) -> dict[str, float]:
+   674→   674→        default_odds = 1.0
+   675→   675→        if odds is None:
+   676→   676→            return {
+   677→   677→                "implied_prob_home": 1.0 / 3.0,
+   678→   678→                "implied_prob_draw": 1.0 / 3.0,
+   679→   679→                "implied_prob_away": 1.0 / 3.0,
+   680→   680→                "overround": 1.0,
+   681→   681→            }
+   682→   682→
+   683→   683→        ho = float(odds.get("home_odds", default_odds))
+   684→   684→        do = float(odds.get("draw_odds", default_odds))
+   685→   685→        ao = float(odds.get("away_odds", default_odds))
+   686→   686→
+   687→   687→        # Guard against zero
+   688→   688→        ho = max(ho, 1.01)
+   689→   689→        do = max(do, 1.01)
+   690→   690→        ao = max(ao, 1.01)
+   691→   691→
+   692→   692→        ip_h = _safe_div(1.0, ho, 1.0 / 3.0)
+   693→   693→        ip_d = _safe_div(1.0, do, 1.0 / 3.0)
+   694→   694→        ip_a = _safe_div(1.0, ao, 1.0 / 3.0)
+   695→   695→        overround = ip_h + ip_d + ip_a
+   696→   696→
+   697→   697→        return {
+   698→   698→            "implied_prob_home": ip_h,
+   699→   699→            "implied_prob_draw": ip_d,
+   700→   700→            "implied_prob_away": ip_a,
+   701→   701→            "overround": overround,
+   702→   702→        }
+   703→   703→
+   704→   704→    # ---------- 7. Temporal features -----------------------------------
+   705→   705→
+   706→   706→    def _temporal_features(
+   707→   707→        self,
+   708→   708→        match_data: dict[str, Any],
+   709→   709→        home_stats: dict[str, Any],
+   710→   710→        away_stats: dict[str, Any],
+   711→   711→    ) -> dict[str, float]:
+   712→   712→        match_date = _parse_date(match_data.get("date")) or datetime.now()
+   713→   713→        dow = float(match_date.weekday())
+   714→   714→        month = float(match_date.month)
+   715→   715→        is_weekend = 1.0 if dow >= 5 else 0.0
+   716→   716→
+   717→   717→        # Rest days
+   718→   718→        h_last = _parse_date(home_stats.get("last_match_date"))
+   719→   719→        a_last = _parse_date(away_stats.get("last_match_date"))
+   720→   720→
+   721→   721→        default_rest = 7.0
+   722→   722→        h_rest = default_rest
+   723→   723→        a_rest = default_rest
+   724→   724→        if h_last:
+   725→   725→            delta = (match_date - h_last).days
+   726→   726→            h_rest = float(max(delta, 0)) if delta is not None else default_rest
+   727→   727→        if a_last:
+   728→   728→            delta = (match_date - a_last).days
+   729→   729→            a_rest = float(max(delta, 0)) if delta is not None else default_rest
+   730→   730→
+   731→   731→        return {
+   732→   732→            "day_of_week": dow,
+   733→   733→            "month": month,
+   734→   734→            "is_weekend": is_weekend,
+   735→   735→            "days_since_last_match_home": h_rest,
+   736→   736→            "days_since_last_match_away": a_rest,
+   737→   737→        }
+   738→   738→
+   739→   739→    # ---------- 8. Advanced features -----------------------------------
+   740→   740→
+   741→   741→    def _advanced_features(
+   742→   742→        self, home_stats: dict[str, Any], away_stats: dict[str, Any]
+   743→   743→    ) -> dict[str, float]:
+   744→   744→        lag = self.league_avg_goals
+   745→   745→
+   746→   746→        # Attacking / defensive strength (relative to league average)
+   747→   747→        h_gs = float(home_stats.get("goals_scored", lag))
+   748→   748→        h_gc = float(home_stats.get("goals_conceded", lag))
+   749→   749→        a_gs = float(away_stats.get("goals_scored", lag))
+   750→   750→        a_gc = float(away_stats.get("goals_conceded", lag))
+   751→   751→
+   752→   752→        atk_h = _safe_div(h_gs, lag, 1.0)
+   753→   753→        atk_a = _safe_div(a_gs, lag, 1.0)
+   754→   754→        def_h = _safe_div(h_gc, lag, 1.0)
+   755→   755→        def_a = _safe_div(a_gc, lag, 1.0)
+   756→   756→
+   757→   757→        # Poisson lambda: attack * opponent defence * league average
+   758→   758→        poisson_h = atk_h * def_a * lag
+   759→   759→        poisson_a = atk_a * def_h * lag
+   760→   760→
+   761→   761→        # Shot conversion rates
+   762→   762→        h_shots = float(home_stats.get("shots_total", 0.0))
+   763→   763→        h_sot = float(home_stats.get("shots_on_target", 0.0))
+   764→   764→        h_matches = max(float(home_stats.get("matches_played", 1)), 1.0)
+   765→   765→        a_shots = float(away_stats.get("shots_total", 0.0))
+   766→   766→        a_sot = float(away_stats.get("shots_on_target", 0.0))
+   767→   767→        a_matches = max(float(away_stats.get("matches_played", 1)), 1.0)
+   768→   768→
+   769→   769→        h_conv = _safe_div(h_sot, h_shots, 0.33)
+   770→   770→        a_conv = _safe_div(a_sot, a_shots, 0.33)
+   771→   771→
+   772→   772→        # Clean-sheet percentage
+   773→   773→        h_cs = float(home_stats.get("clean_sheets_home", 0.0))
+   774→   774→        h_home_m = max(float(home_stats.get("matches_played_home", 1)), 1.0)
+   775→   775→        a_cs = float(away_stats.get("clean_sheets_away", 0.0))
+   776→   776→        a_away_m = max(float(away_stats.get("matches_played_away", 1)), 1.0)
+   777→   777→
+   778→   778→        return {
+   779→   779→            "attacking_strength_home": atk_h,
+   780→   780→            "attacking_strength_away": atk_a,
+   781→   781→            "defensive_strength_home": def_h,
+   782→   782→            "defensive_strength_away": def_a,
+   783→   783→            "poisson_lambda_home": poisson_h,
+   784→   784→            "poisson_lambda_away": poisson_a,
+   785→   785→            "shot_conversion_rate_home": h_conv,
+   786→   786→            "shot_conversion_rate_away": a_conv,
+   787→   787→            "clean_sheet_pct_home": _safe_div(h_cs, h_home_m),
+   788→   788→            "clean_sheet_pct_away": _safe_div(a_cs, a_away_m),
+   789→   789→        }
+   790→   790→
+   791→   791→    # ==================================================================
+   792→   792→    # Private: training-dataset helpers
+   793→   793→    # ==================================================================
+   794→   794→
+   795→   795→    @staticmethod
+   796→   796→    def _stats_from_history(
+   797→   797→        overall: list[tuple],
+   798→   798→        home_only: list[tuple],
+   799→   799→        away_only: list[tuple],
+   800→   800→        window: int = 10,
+   801→   801→    ) -> dict[str, Any]:
+   802→   802→        """Derive a stats dict from rolling match history.
+   803→   803→
+   804→   804→        Each tuple is ``(date, goals_scored, goals_conceded, result_char)``.
+   805→   805→        Uses the last *window* entries for form/streak, and full history
+   806→   806→        for season averages.
+   807→   807→        """
+   808→   808→        stats: dict[str, Any] = {}
+   809→   809→
+   810→   810→        if not overall:
+   811→   811→            return stats
+   812→   812→
+   813→   813→        # Full-season averages (all matches)
+   814→   814→        gs_all = [m[1] for m in overall]
+   815→   815→        gc_all = [m[2] for m in overall]
+   816→   816→        stats["goals_scored"] = _safe_avg(gs_all)
+   817→   817→        stats["goals_conceded"] = _safe_avg(gc_all)
+   818→   818→        stats["matches_played"] = float(len(overall))
+   819→   819→
+   820→   820→        # Venue-split averages
+   821→   821→        if home_only:
+   822→   822→            stats["goals_scored_home"] = _safe_avg([m[1] for m in home_only])
+   823→   823→            stats["goals_conceded_home"] = _safe_avg([m[2] for m in home_only])
+   824→   824→            stats["home_wins"] = sum(1 for m in home_only if m[3] == "W")
+   825→   825→            stats["home_draws"] = sum(1 for m in home_only if m[3] == "D")
+   826→   826→            stats["home_losses"] = sum(1 for m in home_only if m[3] == "L")
+   827→   827→            stats["home_goals"] = _safe_avg([m[1] for m in home_only])
+   828→   828→            stats["matches_played_home"] = float(len(home_only))
+   829→   829→            stats["clean_sheets_home"] = float(
+   830→   830→                sum(1 for m in home_only if m[2] == 0)
+   831→   831→            )
+   832→   832→
+   833→   833→        if away_only:
+   834→   834→            stats["goals_scored_away"] = _safe_avg([m[1] for m in away_only])
+   835→   835→            stats["goals_conceded_away"] = _safe_avg([m[2] for m in away_only])
+   836→   836→            stats["away_wins"] = sum(1 for m in away_only if m[3] == "W")
+   837→   837→            stats["away_draws"] = sum(1 for m in away_only if m[3] == "D")
+   838→   838→            stats["away_losses"] = sum(1 for m in away_only if m[3] == "L")
+   839→   839→            stats["away_goals"] = _safe_avg([m[1] for m in away_only])
+   840→   840→            stats["matches_played_away"] = float(len(away_only))
+   841→   841→            stats["clean_sheets_away"] = float(
+   842→   842→                sum(1 for m in away_only if m[2] == 0)
+   843→   843→            )
+   844→   844→
+   845→   845→        # Recent form (sliding window)
+   846→   846→        recent = overall[-window:] if len(overall) >= window else overall
+   847→   847→        stats["recent_results"] = [m[3] for m in recent]
+   848→   848→        stats["recent_goals_scored"] = [m[1] for m in recent]
+   849→   849→
+   850→   850→        return stats
+   851→   851→
