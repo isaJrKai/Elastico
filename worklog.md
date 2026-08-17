@@ -51,3 +51,24 @@ Stage Summary:
 - Reference project capabilities that were REJECTED: duplicate DB schema (ELASTICO has Prisma), duplicate API routes (ELASTICO has Next.js routes), duplicate Docker/deployment, basic ELO/Poisson/Dixon-Coles (ELASTICO's are equal or better), basic Monte Carlo (ELASTICO's stochastic simulation is far more advanced), head-to-head (no historical data), backtesting placeholders (no real data to evaluate against yet)
 - Reference project capabilities that were ADDED: Brier/log loss evaluation, calibration bins, model accuracy tracking, data freshness tracking, weighted ensemble with market model, explainability signals/risks, prediction provenance fields, admin evaluation endpoint
 - Reference project capabilities that were IMPROVED: ensemble methodology (naive average → weighted with configurable weights + market model), prediction output format (added signals, risks, model agreement, version, timestamp)
+---
+Task ID: 3
+Agent: main
+Task: Phase 3 - Integrate ELASTICO with FastAPI Mega Predict Backend
+
+Work Log:
+- Created 3 proxy API routes: /api/mega-predict (GET status + POST predict), /api/mega-predict/simulate, /api/mega-predict/kelly
+- All routes proxy to FastAPI backend with timeout handling, auth passthrough, error forwarding
+- Fixed route paths to match FastAPI (/api/health, /api/predictions/predict, /api/predictions/simulate)
+- Added MEGA_PREDICT_API_URL and MEGA_PREDICT_API_KEY env vars on Vercel
+- Added Mega Ensemble tab to prediction-engine-view.tsx with: model comparison table, probability bar chart, Monte Carlo results, signals/risks display, engine status banner with live indicator
+- Added Mega Predict All batch button to predictions-view that calls ensemble for all upcoming matches
+- Added mega-ensemble model filter option to predictions history
+- Added MegaEngineSection to settings-view showing backend status, available models, and setup instructions
+- Pushed all changes to GitHub (commits 478f251, abfc97a)
+
+Stage Summary:
+- Code is correct and pushed, Vercel build pending (GitHub webhook may need manual trigger)
+- To activate: go to Vercel dashboard > ELASTICO > Deployments > Redeploy latest
+- Then set MEGA_PREDICT_API_URL to your deployed FastAPI backend URL (e.g. Render, Railway)
+- All 7 model names shown: ELO, Poisson, Dixon-Coles, Monte Carlo (150K), XGBoost, BiLSTM+Attention, Super-Ensemble
