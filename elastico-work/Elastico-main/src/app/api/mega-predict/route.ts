@@ -110,3 +110,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Mega Predict error: ${msg}` }, { status: 502 })
   }
 }
+
