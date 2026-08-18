@@ -70,3 +70,30 @@ Stage Summary:
 - Top 3 features are all market/odds features, confirming odds are primary signal
 - Significant overfitting observed (train 85.7% vs test 51.3%) — early stopping essential
 - Report: data/phase3_xgboost_report.md, Metrics: data/phase3_xgboost_metrics.json
+
+---
+Task ID: 3.5
+Agent: main
+Task: Phase 3.5 - XGBoost Stress Test: Market vs Football vs Combined
+
+Work Log:
+- Designed 3 feature sets: market-only (4 features), football-only (46 features), combined (50 features)
+- Designed 5 temporal evaluation windows: W1 (test 2223), W2 (test 2324, long train), W3 (test 2324, recent train), W4 (test 2324, very-recent train), W5 (2-season test)
+- Ran 15 experiments (3 feature sets x 5 windows), all completed
+- Computed naive baselines for each window
+- Computed prediction correlation between market-only and football-only models
+- Full metrics: log loss, Brier, ECE, accuracy, per-class P/R/F1, confusion matrix, per-league breakdown, calibration bins, overfitting gap
+
+Stage Summary:
+- Verdict: FOOTBALL FEATURES OFFER NEGLIGIBLE INDEPENDENT VALUE
+- Market-only wins log loss in 3/5 windows, football-only wins 0/5, combined wins 2/5
+- Average football-only vs market-only LL delta: +0.0167 (football-only is WORSE)
+- Average combined vs market-only LL delta: +0.0035 (combined barely different from market)
+- Prediction correlation between market and football models: 0.52 (moderate — they disagree often)
+- Combined model ADDS value in W1 and W5 but HURTS in W2/W3/W4 (inconsistent)
+- Severe overfitting in football/combined models: train LL ~0.18 vs test LL ~1.12 (gap >0.9)
+- Market-only overfits less: train LL ~0.6 vs test LL ~1.1 (gap ~0.5)
+- v1 model (xgboost_v1.json) PRESERVED — not modified
+- Report: data/phase3_5_stress_test_report.md
+- Metrics: data/phase3_5_stress_test_metrics.json
+- Key implication: LSTM should train on football-only features; ensemble should route by feature availability
