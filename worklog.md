@@ -97,3 +97,32 @@ Stage Summary:
 - Report: data/phase3_5_stress_test_report.md
 - Metrics: data/phase3_5_stress_test_metrics.json
 - Key implication: LSTM should train on football-only features; ensemble should route by feature availability
+
+---
+Task ID: 4
+Agent: main
+Task: Phase 4 - LSTM Temporal Intelligence
+
+Work Log:
+- Defined LSTM input contract: 15 team-centric features, SEQ_LEN=10, strict temporal ordering
+- Team-centric feature projection: canonical match-level features mapped to per-team perspective using home/away column variants
+- Built 5326 valid sequences from 6096 training-ready matches (87.4% coverage, 770 skipped)
+- Architecture: Two-branch BiLSTM(hidden=48, 2-layer) + attention, shared weights, FC(192->64->3)
+- Reduced from existing lstm_engine.py: hidden 64->48, FC 3-layer->2-layer, dropout 0.3->0.4 (93,796 params)
+- StandardScaler normalization fit on training set only, applied to val/test
+- Temporal 60/20/20 split: Train=3195, Val=1065, Test=1066
+- Early stopped at epoch 26 (aggressive regularization worked)
+- Trained football-only XGBoost on same split for direct comparison
+- Computed baselines: home-class, class-frequency, uniform random
+- Computed prediction correlation and disagreement analysis
+
+Stage Summary:
+- Classification: B. COMPLEMENTARY
+- LSTM vs XGBoost football-only: LL -0.0068 (LSTM better), Acc +0.0103 (LSTM better), ECE +0.0075 (XGBoost better)
+- LSTM much better at away wins: F1_Away 0.5466 vs 0.4975 (+0.049)
+- Prediction correlation: 0.78, disagreement rate: 31.2%
+- When disagreeing, LSTM right 37.8% vs XGBoost 35.1% — disagreement contains useful signal
+- Generalization gap: train-test LL gap = +0.039 (much better than XGBoost football-only's +0.92)
+- Model: saved_models/lstm_v1.pt, Metadata: saved_models/lstm_v1_metadata.json
+- Report: data/phase4_lstm_report.md, Metrics: data/phase4_lstm_metrics.json
+- STOP CONDITION MET — no ensemble, no deployment, no ELASTICO changes
