@@ -101,28 +101,29 @@ Stage Summary:
 ---
 Task ID: 4
 Agent: main
-Task: Phase 4 - LSTM Temporal Intelligence
+Task: Phase 4 — LSTM Temporal Intelligence (RE-RUN with 5 temporal windows)
 
 Work Log:
-- Defined LSTM input contract: 15 team-centric features, SEQ_LEN=10, strict temporal ordering
-- Team-centric feature projection: canonical match-level features mapped to per-team perspective using home/away column variants
-- Built 5326 valid sequences from 6096 training-ready matches (87.4% coverage, 770 skipped)
-- Architecture: Two-branch BiLSTM(hidden=48, 2-layer) + attention, shared weights, FC(192->64->3)
-- Reduced from existing lstm_engine.py: hidden 64->48, FC 3-layer->2-layer, dropout 0.3->0.4 (93,796 params)
-- StandardScaler normalization fit on training set only, applied to val/test
-- Temporal 60/20/20 split: Train=3195, Val=1065, Test=1066
-- Early stopped at epoch 26 (aggressive regularization worked)
-- Trained football-only XGBoost on same split for direct comparison
-- Computed baselines: home-class, class-frequency, uniform random
-- Computed prediction correlation and disagreement analysis
+- Re-ran Phase 4 with 5 temporal windows (W1-W5) identical to Phase 3.5 for fair comparison
+- Previous version used single 60/20/20 split and got COMPLEMENTARY verdict — this was misleading
+- Split sequence building into optimized two-step process (phase4_build_sequences.py + phase4_train_windows.py)
+- Sequence construction: vectorized with pre-computed feature matrices, binary search for temporal filtering
+- Built 5326 valid sequences from 6096 matches (87.4% coverage, 770 skipped for <10 history)
+- Architecture: Two-branch BiLSTM(hidden=48, 2-layer, bidir) + attention, shared weights, FC(192->64->3), 93,796 params
+- Trained separate LSTM per window, compared vs football-only XGBoost per window
 
 Stage Summary:
-- Classification: B. COMPLEMENTARY
-- LSTM vs XGBoost football-only: LL -0.0068 (LSTM better), Acc +0.0103 (LSTM better), ECE +0.0075 (XGBoost better)
-- LSTM much better at away wins: F1_Away 0.5466 vs 0.4975 (+0.049)
-- Prediction correlation: 0.78, disagreement rate: 31.2%
-- When disagreeing, LSTM right 37.8% vs XGBoost 35.1% — disagreement contains useful signal
-- Generalization gap: train-test LL gap = +0.039 (much better than XGBoost football-only's +0.92)
-- Model: saved_models/lstm_v1.pt, Metadata: saved_models/lstm_v1_metadata.json
+- **Classification: D. FAILED**
+- LSTM beat XGBoost on log loss in 0/5 windows (avg LL delta: +2.0145)
+- LSTM beat XGBoost on accuracy in 1/5 windows (avg Acc delta: -0.0442)
+- W1 (test=2223): LL=1.008 vs XGB 1.007 — competitive, BUT val and test are same season (leakage)
+- W2-W5 (test=2324): LSTM LL 3.1-3.8 vs XGB LL ~1.0 — CATASTROPHIC FAILURE
+- Generalization gap W2: LL=+3.45, Acc=-0.55 — extreme overfitting (train LL ~0.03, test LL ~3.48)
+- XGBoost football-only: overfits with LL gap ~0.9. LSTM: overfits with LL gap ~3.5. 4x worse.
+- Root cause: BiLSTM with attention + 93K params memorizes 3000-4000 training sequences of football features
+- Temporal patterns in football features do NOT transfer between seasons
+- **Recommendation: Do NOT include LSTM in ensemble. Focus on market XGBoost.**
+- Model: saved_models/lstm_v1.pt (W2, catastrophically overfit — kept for record only)
 - Report: data/phase4_lstm_report.md, Metrics: data/phase4_lstm_metrics.json
 - STOP CONDITION MET — no ensemble, no deployment, no ELASTICO changes
+- Next: Phase 5 (Evaluation + Calibration) will proceed WITHOUT LSTM

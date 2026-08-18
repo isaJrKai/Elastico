@@ -1,0 +1,1324 @@
+     1→     1→"""Phase 4 — LSTM Temporal Intelligence Training.
+     2→     2→
+     3→     3→Research Question: "Does temporal football history contain predictive
+     4→     4→information that a static feature model cannot effectively exploit?"
+     5→     5→
+     6→     6→This script implements phases 4A through 4O:
+     7→     7→  4A: LSTM Input Contract (from Phase 1 canonical schema)
+     8→     8→  4B: Temporal Sequence Construction (team-centric, no leakage)
+     9→     9→  4C: Home/Away Representation (two-branch with shared weights)
+    10→    10→  4D: Normalization (fit on train only, persisted)
+    11→    11→  4E: Temporal Train/Val/Test Split
+    12→    12→  4F: LSTM Architecture (inspected existing, reduced for data size)
+    13→    13→  4G: Baselines (home-class, class-freq, XGBoost football-only)
+    14→    14→  4H: Training (early stopping, gradient clipping, LR scheduling)
+    15→    15→  4I: Final Evaluation (full metrics suite)
+    16→    16→  4J: Critical Comparison vs Football-Only XGBoost
+    17→    17→  4K: Model Value Decision (SUPERIOR/COMPLEMENTARY/REDUNDANT/FAILED)
+    18→    18→  4L: Model Artifact (lstm_v1.pt + metadata)
+    19→    19→  4M: Reproducibility (single script)
+    20→    20→  4N: Honesty Rule
+    21→    21→  4O: Stop Condition (complete report)
+    22→    22→
+    23→    23→Usage:
+    24→    24→    cd /home/z/my-project/football-prediction-mega
+    25→    25→    python scripts/phase4_lstm_training.py
+    26→    26→"""
+    27→    27→
+    28→    28→from __future__ import annotations
+    29→    29→
+    30→    30→import copy
+    31→    31→import json
+    32→    32→import sys
+    33→    33→import warnings
+    34→    34→from datetime import datetime
+    35→    35→from pathlib import Path
+    36→    36→
+    37→    37→import numpy as np
+    38→    38→import pandas as pd
+    39→    39→from sklearn.metrics import (
+    40→    40→    accuracy_score, brier_score_loss, confusion_matrix,
+    41→    41→    log_loss, precision_recall_fscore_support,
+    42→    42→)
+    43→    43→
+    44→    44→warnings.filterwarnings('ignore')
+    45→    45→
+    46→    46→# ═══════════════════════════════════════════════════════════════════════
+    47→    47→# Paths
+    48→    48→# ═══════════════════════════════════════════════════════════════════════
+    49→    49→
+    50→    50→PROJECT_ROOT = Path('/home/z/my-project/football-prediction-mega')
+    51→    51→DATASET_PATH = PROJECT_ROOT / 'data' / 'processed' / 'training_dataset.parquet'
+    52→    52→MODEL_DIR = PROJECT_ROOT / 'saved_models'
+    53→    53→REPORT_PATH = PROJECT_ROOT / 'data' / 'phase4_lstm_report.md'
+    54→    54→METRICS_PATH = PROJECT_ROOT / 'data' / 'phase4_lstm_metrics.json'
+    55→    55→
+    56→    56→sys.path.insert(0, str(PROJECT_ROOT))
+    57→    57→from src.ml.feature_schema import (
+    58→    58→    FEATURE_NAMES, FEATURE_CATEGORIES, SCHEMA_VERSION,
+    59→    59→    SCHEMA_HASH, LSTM_SEQUENCE_FEATURES,
+    60→    60→)
+    61→    61→
+    62→    62→# ═══════════════════════════════════════════════════════════════════════
+    63→    63→# Phase 4A — LSTM INPUT CONTRACT
+    64→    64→# ═══════════════════════════════════════════════════════════════════════
+    65→    65→#
+    66→    66→# SEQUENCE_LENGTH = 10
+    67→    67→#   Each target match uses the 10 most recent matches for each team.
+    68→    68→#
+    69→    69→# TIMESTEP DEFINITION
+    70→    70→#   Each timestep = one past match for a specific team.
+    71→    71→#   T=0 is the OLDEST match, T=9 is the MOST RECENT.
+    72→    72→#   All timesteps satisfy: timestamp(timestep) < timestamp(target match).
+    73→    73→#
+    74→    74→# FEATURE ORDERING — Team-Centric Projection (15 features)
+    75→    75→#   The canonical LSTM_SEQUENCE_FEATURES are match-level (home/away in row).
+    76→    76→#   For team-centric sequences, we project them to "from this team's perspective":
+    77→    77→#
+    78→    78→#   Index | Conceptual Name            | Team is HOME (column)        | Team is AWAY (column)
+    79→    79→#   ------|---------------------------|-----------------------------|---------------------------
+    80→    80→#   0     | team_goals_scored          | avg_goals_scored_home       | avg_goals_scored_away
+    81→    81→#   1     | team_goals_conceded        | avg_goals_conceded_home     | avg_goals_conceded_away
+    82→    82→#   2     | team_xg                    | xg_for_home                 | xg_for_away
+    83→    83→#   3     | team_elo                   | elo_home                    | elo_away
+    84→    84→#   4     | team_form                  | last_5_form_points_home     | last_5_form_points_away
+    85→    85→#   5     | team_win_streak            | win_streak_home             | win_streak_away
+    86→    86→#   6     | team_venue_win_pct         | home_win_pct                | away_win_pct
+    87→    87→#   7     | team_attacking_strength    | attacking_strength_home     | attacking_strength_away
+    88→    88→#   8     | team_defensive_strength    | defensive_strength_home     | defensive_strength_away
+    89→    89→#   9     | team_poisson_lambda        | poisson_lambda_home         | poisson_lambda_away
+    90→    90→#   10    | opp_elo                    | elo_away                    | elo_home
+    91→    91→#   11    | opp_form                   | last_5_form_points_away     | last_5_form_points_home
+    92→    92→#   12    | opp_win_streak             | win_streak_away             | win_streak_home
+    93→    93→#   13    | opp_xg                     | xg_for_away                 | xg_for_home
+    94→    94→#   14    | is_home_flag               | 1.0                         | 0.0
+    95→    95→#
+    96→    96→# NORMALIZATION
+    97→    97→#   StandardScaler (mean=0, std=1) fit ONLY on training set.
+    98→    98→#   Same parameters applied to val, test, inference.
+    99→    99→#   NaN → 0.0 (after normalization, only occurs for cold-start residual NaNs).
+   100→   100→#
+   101→   101→# MISSING VALUE HANDLING
+   102→   102→#   If a team has < SEQ_LEN past training-ready matches, the match is SKIPPED.
+   103→   103→#   No zero-padding. No vector repetition. No synthetic data.
+   104→   104→#
+   105→   105→# TARGET DEFINITION
+   106→   106→#   result_encoded: 0=Home Win, 1=Draw, 2=Away Win
+   107→   107→#   Identical to XGBoost and canonical schema.
+   108→   108→#
+   109→   109→# TRAINING/INFERENCE PARITY
+   110→   110→#   Inference must use the same 15 features, same normalization params,
+   111→   111→#   same sequence length, and same model architecture.
+   112→   112→
+   113→   113→SEQ_LEN = 10
+   114→   114→
+   115→   115→# Team-centric feature mapping: (when_home_col, when_away_col)
+   116→   116→TEAM_FEATURE_MAP = [
+   117→   117→    ('avg_goals_scored_home',    'avg_goals_scored_away'),
+   118→   118→    ('avg_goals_conceded_home',  'avg_goals_conceded_away'),
+   119→   119→    ('xg_for_home',              'xg_for_away'),
+   120→   120→    ('elo_home',                 'elo_away'),
+   121→   121→    ('last_5_form_points_home',  'last_5_form_points_away'),
+   122→   122→    ('win_streak_home',          'win_streak_away'),
+   123→   123→    ('home_win_pct',             'away_win_pct'),
+   124→   124→    ('attacking_strength_home',  'attacking_strength_away'),
+   125→   125→    ('defensive_strength_home',  'defensive_strength_away'),
+   126→   126→    ('poisson_lambda_home',      'poisson_lambda_away'),
+   127→   127→    ('elo_away',                 'elo_home'),
+   128→   128→    ('last_5_form_points_away',  'last_5_form_points_home'),
+   129→   129→    ('win_streak_away',          'win_streak_home'),
+   130→   130→    ('xg_for_away',              'xg_for_home'),
+   131→   131→]
+   132→   132→
+   133→   133→N_SEQ_FEATURES = len(TEAM_FEATURE_MAP) + 1  # +1 for is_home_flag
+   134→   134→assert N_SEQ_FEATURES == 15, f"Expected 15, got {N_SEQ_FEATURES}"
+   135→   135→
+   136→   136→# ═══════════════════════════════════════════════════════════════════════
+   137→   137→# Phase 4B — TEMPORAL SEQUENCE CONSTRUCTION
+   138→   138→# ═══════════════════════════════════════════════════════════════════════
+   139→   139→
+   140→   140→def build_team_sequences(df_complete):
+   141→   141→    """Build team-centric temporal sequences for every match.
+   142→   142→
+   143→   143→    For each target match at time T:
+   144→   144→      1. Find all past matches for HomeTeam where Date < T
+   145→   145→      2. Find all past matches for AwayTeam where Date < T
+   146→   146→      3. Take the last SEQ_LEN matches for each team
+   147→   147→      4. Extract 15 team-centric features per timestep
+   148→   148→      5. If either team has < SEQ_LEN past matches, SKIP the target match
+   149→   149→
+   150→   150→    Returns:
+   151→   151→        X_home: np.ndarray (N_valid, SEQ_LEN, 15)
+   152→   152→        X_away: np.ndarray (N_valid, SEQ_LEN, 15)
+   153→   153→        y:      np.ndarray (N_valid,) int32
+   154→   154→        indices: list[int] — row indices into df_complete for valid matches
+   155→   155→        skipped: int — number of matches skipped
+   156→   156→    """
+   157→   157→    print('Building temporal sequences...')
+   158→   158→
+   159→   159→    # Build per-team match index: team -> [(date, row_idx, is_home), ...]
+   160→   160→    team_matches = {}
+   161→   161→    for idx, row in df_complete.iterrows():
+   162→   162→        ht = row['HomeTeam']
+   163→   163→        at = row['AwayTeam']
+   164→   164→        dt = row['Date']
+   165→   165→        for team, is_home in [(ht, True), (at, False)]:
+   166→   166→            if team not in team_matches:
+   167→   167→                team_matches[team] = []
+   168→   168→            team_matches[team].append((dt, idx, is_home))
+   169→   169→
+   170→   170→    # Sort each team's matches chronologically
+   171→   171→    for team in team_matches:
+   172→   172→        team_matches[team].sort(key=lambda x: x[0])
+   173→   173→
+   174→   174→    # For each target match, build sequences
+   175→   175→    X_home_list = []
+   176→   176→    X_away_list = []
+   177→   177→    y_list = []
+   178→   178→    valid_indices = []
+   179→   179→    skipped = 0
+   180→   180→
+   181→   181→    for idx, row in df_complete.iterrows():
+   182→   182→        ht = row['HomeTeam']
+   183→   183→        at = row['AwayTeam']
+   184→   184→        target_date = row['Date']
+   185→   185→
+   186→   186→        # Get past matches for home team (Date < target_date)
+   187→   187→        home_past = [(dt, ri, ih) for dt, ri, ih in team_matches[ht]
+   188→   188→                     if dt < target_date and ri != idx]
+   189→   189→        # Get past matches for away team
+   190→   190→        away_past = [(dt, ri, ih) for dt, ri, ih in team_matches[at]
+   191→   191→                     if dt < target_date and ri != idx]
+   192→   192→
+   193→   193→        # Check sufficient history
+   194→   194→        if len(home_past) < SEQ_LEN or len(away_past) < SEQ_LEN:
+   195→   195→            skipped += 1
+   196→   196→            continue
+   197→   197→
+   198→   198→        # Take last SEQ_LEN matches for each team
+   199→   199→        home_seq_raw = home_past[-SEQ_LEN:]
+   200→   200→        away_seq_raw = away_past[-SEQ_LEN:]
+   201→   201→
+   202→   202→        # Build feature matrices
+   203→   203→        home_features = np.zeros((SEQ_LEN, N_SEQ_FEATURES), dtype=np.float32)
+   204→   204→        away_features = np.zeros((SEQ_LEN, N_SEQ_FEATURES), dtype=np.float32)
+   205→   205→
+   206→   206→        for t, (dt, ri, is_home) in enumerate(home_seq_raw):
+   207→   207→            past_row = df_complete.loc[ri]
+   208→   208→            feat = extract_team_features(past_row, is_home)
+   209→   209→            home_features[t] = feat
+   210→   210→
+   211→   211→        for t, (dt, ri, is_home) in enumerate(away_seq_raw):
+   212→   212→            past_row = df_complete.loc[ri]
+   213→   213→            feat = extract_team_features(past_row, is_home)
+   214→   214→            away_features[t] = feat
+   215→   215→
+   216→   216→        # Replace any NaN/inf with 0
+   217→   217→        home_features = np.nan_to_num(home_features, nan=0.0, posinf=0.0, neginf=0.0)
+   218→   218→        away_features = np.nan_to_num(away_features, nan=0.0, posinf=0.0, neginf=0.0)
+   219→   219→
+   220→   220→        X_home_list.append(home_features)
+   221→   221→        X_away_list.append(away_features)
+   222→   222→        y_list.append(int(row['result_encoded']))
+   223→   223→        valid_indices.append(idx)
+   224→   224→
+   225→   225→    X_home = np.stack(X_home_list, axis=0)
+   226→   226→    X_away = np.stack(X_away_list, axis=0)
+   227→   227→    y = np.array(y_list, dtype=np.int32)
+   228→   228→
+   229→   229→    print(f'  Total matches: {len(df_complete)}')
+   230→   230→    print(f'  Valid sequences: {len(y)}')
+   231→   231→    print(f'  Skipped (insufficient history): {skipped}')
+   232→   232→    print(f'  Coverage: {len(y)/len(df_complete)*100:.1f}%')
+   233→   233→
+   234→   234→    return X_home, X_away, y, valid_indices, skipped
+   235→   235→
+   236→   236→
+   237→   237→def extract_team_features(row, is_home):
+   238→   238→    """Extract 15 team-centric features from a match row.
+   239→   239→
+   240→   240→    Parameters:
+   241→   241→        row: DataFrame row (from training_dataset.parquet)
+   242→   242→        is_home: True if the team was the home team in this match
+   243→   243→
+   244→   244→    Returns:
+   245→   245→        np.ndarray of shape (15,) — team-centric feature vector
+   246→   246→    """
+   247→   247→    feat = np.zeros(N_SEQ_FEATURES, dtype=np.float32)
+   248→   248→    for i, (home_col, away_col) in enumerate(TEAM_FEATURE_MAP):
+   249→   249→        col = home_col if is_home else away_col
+   250→   250→        feat[i] = float(row.get(col, 0.0))
+   251→   251→    feat[14] = 1.0 if is_home else 0.0  # is_home_flag
+   252→   252→    return feat
+   253→   253→
+   254→   254→
+   255→   255→# ═══════════════════════════════════════════════════════════════════════
+   256→   256→# Phase 4D — NORMALIZATION
+   257→   257→# ═══════════════════════════════════════════════════════════════════════
+   258→   258→
+   259→   259→class Normalizer:
+   260→   260→    """StandardScaler fit on training data only."""
+   261→   261→
+   262→   262→    def __init__(self):
+   263→   263→        self.mean = None
+   264→   264→        self.std = None
+   265→   265→        self.n_features = None
+   266→   266→
+   267→   267→    def fit(self, X):
+   268→   268→        """Fit on training data. X shape: (N, seq_len, n_features) or (N, n_features)."""
+   269→   269→        if X.ndim == 3:
+   270→   270→            X_flat = X.reshape(-1, X.shape[-1])
+   271→   271→        else:
+   272→   272→            X_flat = X
+   273→   273→        self.n_features = X_flat.shape[1]
+   274→   274→        self.mean = X_flat.mean(axis=0)
+   275→   275→        self.std = X_flat.std(axis=0)
+   276→   276→        # Avoid division by zero
+   277→   277→        self.std[self.std < 1e-8] = 1.0
+   278→   278→        return self
+   279→   279→
+   280→   280→    def transform(self, X):
+   281→   281→        """Transform using stored parameters."""
+   282→   282→        if X.ndim == 3:
+   283→   283→            shape = X.shape
+   284→   284→            X_flat = X.reshape(-1, self.n_features)
+   285→   285→            X_norm = (X_flat - self.mean) / self.std
+   286→   286→            return X_norm.reshape(shape)
+   287→   287→        return (X - self.mean) / self.std
+   288→   288→
+   289→   289→    def to_dict(self):
+   290→   290→        return {'mean': self.mean.tolist(), 'std': self.std.tolist(),
+   291→   291→                'n_features': self.n_features}
+   292→   292→
+   293→   293→    @classmethod
+   294→   294→    def from_dict(cls, d):
+   295→   295→        n = cls()
+   296→   296→        n.mean = np.array(d['mean'])
+   297→   297→        n.std = np.array(d['std'])
+   298→   298→        n.n_features = d['n_features']
+   299→   299→        return n
+   300→   300→
+   301→   301→
+   302→   302→# ═══════════════════════════════════════════════════════════════════════
+   303→   303→# Phase 4F — LSTM ARCHITECTURE
+   304→   304→# ═══════════════════════════════════════════════════════════════════════
+   305→   305→#
+   306→   306→# Inspected existing lstm_engine.py FootballLSTM (hidden=64, layers=2,
+   307→   307→# BiLSTM, attention, FC: 256→128→64→3).
+   308→   308→#
+   309→   309→# Changes from existing architecture:
+   310→   310→#   1. REDUCED hidden_size: 64 → 48
+   311→   311→#      Reason: ~4000 training sequences. 64*2*2=256 FC input with
+   312→   312→#      128→64→3 head = ~50K params just in FC. Too many for this data size.
+   313→   313→#      48*2*2=192 FC input with 64→3 head = ~14K params. More appropriate.
+   314→   314→#   2. REDUCED FC head: 256→128→64→3 → 192→64→3
+   315→   315→#      Reason: Removed one FC layer. Less overfitting risk.
+   316→   316→#   3. INCREASED dropout: 0.3 → 0.4
+   317→   317→#      Reason: XGBoost showed severe overfitting. LSTM with sequences
+   318→   318→#      will overfit even more without strong regularization.
+   319→   319→#   4. PRESERVED: BiLSTM, attention, batch norm, gradient clipping,
+   320→   320→#      LR scheduling, early stopping, Xavier/orthogonal init.
+   321→   321→#
+   322→   322→
+   323→   323→import torch
+   324→   324→import torch.nn as nn
+   325→   325→
+   326→   326→
+   327→   327→class FootballLSTM_v1(nn.Module):
+   328→   328→    """Two-branch BiLSTM with attention for football prediction.
+   329→   329→
+   330→   330→    Architecture:
+   331→   331→        Home seq (B, T, 15) → BiLSTM → Attention → home_ctx (B, 96)
+   332→   332→        Away seq (B, T, 15) → BiLSTM → Attention → away_ctx (B, 96) [shared weights]
+   333→   333→        Concat → FC(192→64) → BN → ReLU → Dropout → FC(64→3)
+   334→   334→
+   335→   335→    Changes from lstm_engine.py v1:
+   336→   336→      hidden_size: 64 → 48 (fewer params for ~4K sequences)
+   337→   337→      FC head: 256→128→64→3 → 192→64→3 (one fewer layer)
+   338→   338→      dropout: 0.3 → 0.4 (stronger regularization)
+   339→   339→    """
+   340→   340→
+   341→   341→    def __init__(self, input_size=15, hidden_size=48, num_layers=2,
+   342→   342→                 dropout=0.4, n_classes=3):
+   343→   343→        super().__init__()
+   344→   344→        self.input_size = input_size
+   345→   345→        self.hidden_size = hidden_size
+   346→   346→        self.num_layers = num_layers
+   347→   347→        self.dropout_rate = dropout
+   348→   348→        bidir_hidden = hidden_size * 2  # 96
+   349→   349→
+   350→   350→        # Shared BiLSTM
+   351→   351→        self.lstm = nn.LSTM(
+   352→   352→            input_size=input_size,
+   353→   353→            hidden_size=hidden_size,
+   354→   354→            num_layers=num_layers,
+   355→   355→            batch_first=True,
+   356→   356→            bidirectional=True,
+   357→   357→            dropout=dropout if num_layers > 1 else 0.0,
+   358→   358→        )
+   359→   359→
+   360→   360→        # Attention
+   361→   361→        self.attention = nn.Linear(bidir_hidden, 1)
+   362→   362→
+   363→   363→        # FC head
+   364→   364→        fc_input = bidir_hidden * 2  # 192
+   365→   365→        self.fc = nn.Sequential(
+   366→   366→            nn.Linear(fc_input, 64),
+   367→   367→            nn.BatchNorm1d(64),
+   368→   368→            nn.ReLU(),
+   369→   369→            nn.Dropout(dropout),
+   370→   370→            nn.Linear(64, n_classes),
+   371→   371→        )
+   372→   372→
+   373→   373→        self._init_weights()
+   374→   374→
+   375→   375→    def _init_weights(self):
+   376→   376→        for name, param in self.named_parameters():
+   377→   377→            if 'lstm' in name and 'weight_ih' in name:
+   378→   378→                nn.init.xavier_uniform_(param)
+   379→   379→            elif 'lstm' in name and 'weight_hh' in name:
+   380→   380→                nn.init.orthogonal_(param)
+   381→   381→            elif 'lstm' in name and 'bias' in name:
+   382→   382→                nn.init.zeros_(param)
+   383→   383→                n = param.size(0)
+   384→   384→                start, end = n // 4, n // 2
+   385→   385→                nn.init.constant_(param.data[start:end], 1.0)
+   386→   386→            elif 'weight' in name and param.ndim >= 2:
+   387→   387→                nn.init.xavier_uniform_(param)
+   388→   388→            elif 'bias' in name:
+   389→   389→                nn.init.zeros_(param)
+   390→   390→
+   391→   391→    def _attend(self, lstm_out):
+   392→   392→        """Softmax attention: (B, T, H*2) → (B, H*2)"""
+   393→   393→        attn_logits = self.attention(lstm_out)       # (B, T, 1)
+   394→   394→        attn_weights = torch.softmax(attn_logits, dim=1)  # (B, T, 1)
+   395→   395→        context = torch.sum(attn_weights * lstm_out, dim=1)  # (B, H*2)
+   396→   396→        return context
+   397→   397→
+   398→   398→    def forward(self, x_home, x_away):
+   399→   399→        """
+   400→   400→        x_home: (B, T, 15)  x_away: (B, T, 15)
+   401→   401→        Returns: logits (B, 3)
+   402→   402→        """
+   403→   403→        home_out, _ = self.lstm(x_home)
+   404→   404→        home_ctx = self._attend(home_out)
+   405→   405→
+   406→   406→        away_out, _ = self.lstm(x_away)
+   407→   407→        away_ctx = self._attend(away_out)
+   408→   408→
+   409→   409→        combined = torch.cat([home_ctx, away_ctx], dim=1)
+   410→   410→        return self.fc(combined)
+   411→   411→
+   412→   412→
+   413→   413→# ═══════════════════════════════════════════════════════════════════════
+   414→   414→# Phase 4H — TRAINING
+   415→   415→# ═══════════════════════════════════════════════════════════════════════
+   416→   416→
+   417→   417→
+   418→   418→def train_lstm(model, train_loader, val_loader, config):
+   419→   419→    """Train LSTM with early stopping, gradient clipping, LR scheduling."""
+   420→   420→    device = torch.device('cpu')
+   421→   421→    model = model.to(device)
+   422→   422→
+   423→   423→    # Class weights for imbalance
+   424→   424→    y_all = []
+   425→   425→    for _, _, yb in train_loader:
+   426→   426→        y_all.append(yb.numpy())
+   427→   427→    y_all = np.concatenate(y_all)
+   428→   428→    counts = np.bincount(y_all, minlength=3).astype(float)
+   429→   429→    total = counts.sum()
+   430→   430→    class_weights = torch.tensor(total / (3 * counts), dtype=torch.float32).to(device)
+   431→   431→    print(f'  Class weights: {class_weights.tolist()}')
+   432→   432→
+   433→   433→    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'],
+   434→   434→                                  weight_decay=config['weight_decay'])
+   435→   435→    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+   436→   436→        optimizer, factor=config['lr_factor'], patience=config['lr_patience'],
+   437→   437→        min_lr=config['lr_min'], mode='min')
+   438→   438→    criterion = nn.CrossEntropyLoss(weight=class_weights)
+   439→   439→
+   440→   440→    best_val_loss = float('inf')
+   441→   441→    best_state = None
+   442→   442→    patience_counter = 0
+   443→   443→    history = {'train_loss': [], 'val_loss': [],
+   444→   444→               'train_acc': [], 'val_acc': [], 'lr': []}
+   445→   445→
+   446→   446→    for epoch in range(config['max_epochs']):
+   447→   447→        # --- Train ---
+   448→   448→        model.train()
+   449→   449→        train_loss_sum = 0.0
+   450→   450→        train_correct = 0
+   451→   451→        train_total = 0
+   452→   452→        for xh, xa, yb in train_loader:
+   453→   453→            xh, xa, yb = xh.to(device), xa.to(device), yb.to(device)
+   454→   454→            optimizer.zero_grad()
+   455→   455→            logits = model(xh, xa)
+   456→   456→            loss = criterion(logits, yb)
+   457→   457→            loss.backward()
+   458→   458→            torch.nn.utils.clip_grad_norm_(model.parameters(), config['grad_clip'])
+   459→   459→            optimizer.step()
+   460→   460→            train_loss_sum += loss.item() * yb.size(0)
+   461→   461→            train_correct += (logits.argmax(1) == yb).sum().item()
+   462→   462→            train_total += yb.size(0)
+   463→   463→
+   464→   464→        train_loss = train_loss_sum / train_total
+   465→   465→        train_acc = train_correct / train_total
+   466→   466→
+   467→   467→        # --- Validate ---
+   468→   468→        model.eval()
+   469→   469→        val_loss_sum = 0.0
+   470→   470→        val_correct = 0
+   471→   471→        val_total = 0
+   472→   472→        with torch.no_grad():
+   473→   473→            for xh, xa, yb in val_loader:
+   474→   474→                xh, xa, yb = xh.to(device), xa.to(device), yb.to(device)
+   475→   475→                logits = model(xh, xa)
+   476→   476→                loss = criterion(logits, yb)
+   477→   477→                val_loss_sum += loss.item() * yb.size(0)
+   478→   478→                val_correct += (logits.argmax(1) == yb).sum().item()
+   479→   479→                val_total += yb.size(0)
+   480→   480→
+   481→   481→        val_loss = val_loss_sum / val_total
+   482→   482→        val_acc = val_correct / val_total
+   483→   483→        current_lr = optimizer.param_groups[0]['lr']
+   484→   484→
+   485→   485→        scheduler.step(val_loss)
+   486→   486→
+   487→   487→        history['train_loss'].append(train_loss)
+   488→   488→        history['val_loss'].append(val_loss)
+   489→   489→        history['train_acc'].append(train_acc)
+   490→   490→        history['val_acc'].append(val_acc)
+   491→   491→        history['lr'].append(current_lr)
+   492→   492→
+   493→   493→        if (epoch + 1) % 10 == 0 or epoch == 0:
+   494→   494→            print(f'    Epoch {epoch+1:3d}: train_loss={train_loss:.4f} train_acc={train_acc:.4f} '
+   495→   495→                  f'val_loss={val_loss:.4f} val_acc={val_acc:.4f} lr={current_lr:.6f}')
+   496→   496→
+   497→   497→        # Early stopping
+   498→   498→        if val_loss < best_val_loss:
+   499→   499→            best_val_loss = val_loss
+   500→   500→            best_state = copy.deepcopy(model.state_dict())
+   501→   501→            patience_counter = 0
+   502→   502→        else:
+   503→   503→            patience_counter += 1
+   504→   504→            if patience_counter >= config['patience']:
+   505→   505→                print(f'    Early stopping at epoch {epoch+1}')
+   506→   506→                break
+   507→   507→
+   508→   508→    # Restore best model
+   509→   509→    if best_state is not None:
+   510→   510→        model.load_state_dict(best_state)
+   511→   511→
+   512→   512→    return model, history
+   513→   513→
+   514→   514→
+   515→   515→# ═══════════════════════════════════════════════════════════════════════
+   516→   516→# Phase 4I — EVALUATION
+   517→   517→# ═══════════════════════════════════════════════════════════════════════
+   518→   518→
+   519→   519→def compute_ece(y_true, y_prob, n_bins=15):
+   520→   520→    """Expected Calibration Error."""
+   521→   521→    n_classes = y_prob.shape[1]
+   522→   522→    ece = 0.0
+   523→   523→    for c in range(n_classes):
+   524→   524→        y_binary = (y_true == c).astype(int)
+   525→   525→        prob_c = y_prob[:, c]
+   526→   526→        edges = np.linspace(0, 1, n_bins + 1)
+   527→   527→        for i in range(n_bins):
+   528→   528→            mask = (prob_c >= edges[i]) & (prob_c < edges[i + 1])
+   529→   529→            if i == n_bins - 1:
+   530→   530→                mask = (prob_c >= edges[i]) & (prob_c <= edges[i + 1])
+   531→   531→            n_bin = mask.sum()
+   532→   532→            if n_bin == 0:
+   533→   533→                continue
+   534→   534→            ece += (n_bin / len(y_true)) * abs(prob_c[mask].mean() - y_binary[mask].mean())
+   535→   535→    return ece / n_classes
+   536→   536→
+   537→   537→
+   538→   538→def compute_metrics(y_true, y_proba, y_pred, label='set'):
+   539→   539→    """Full metrics suite."""
+   540→   540→    n = len(y_true)
+   541→   541→    m = {'label': label, 'n_samples': n}
+   542→   542→    m['accuracy'] = float(accuracy_score(y_true, y_pred))
+   543→   543→    try:
+   544→   544→        m['log_loss'] = float(log_loss(y_true, y_proba))
+   545→   545→    except Exception:
+   546→   546→        m['log_loss'] = float('nan')
+   547→   547→    n_classes = y_proba.shape[1]
+   548→   548→    y_onehot = np.zeros_like(y_proba)
+   549→   549→    for i in range(n_classes):
+   550→   550→        y_onehot[:, i] = (y_true == i).astype(float)
+   551→   551→    briers = []
+   552→   552→    for i in range(n_classes):
+   553→   553→        try:
+   554→   554→            briers.append(brier_score_loss(y_onehot[:, i], y_proba[:, i]))
+   555→   555→        except Exception:
+   556→   556→            briers.append(float('nan'))
+   557→   557→    m['brier_score'] = float(np.nanmean(briers))
+   558→   558→    prec, rec, f1, support = precision_recall_fscore_support(
+   559→   559→        y_true, y_pred, labels=[0, 1, 2], zero_division=0)
+   560→   560→    for i, name in enumerate(['Home', 'Draw', 'Away']):
+   561→   561→        m[f'precision_{name}'] = float(prec[i])
+   562→   562→        m[f'recall_{name}'] = float(rec[i])
+   563→   563→        m[f'f1_{name}'] = float(f1[i])
+   564→   564→        m[f'support_{name}'] = int(support[i])
+   565→   565→    m['precision_macro'] = float(np.mean(prec))
+   566→   566→    m['recall_macro'] = float(np.mean(rec))
+   567→   567→    m['f1_macro'] = float(np.mean(f1))
+   568→   568→    m['confusion_matrix'] = confusion_matrix(y_true, y_pred, labels=[0, 1, 2]).tolist()
+   569→   569→    m['ece'] = float(compute_ece(y_true, y_proba))
+   570→   570→    return m
+   571→   571→
+   572→   572→
+   573→   573→def predict_proba(model, X_home, X_away, batch_size=256):
+   574→   574→    """Get probability predictions from model."""
+   575→   575→    model.eval()
+   576→   576→    device = torch.device('cpu')
+   577→   577→    all_proba = []
+   578→   578→    with torch.no_grad():
+   579→   579→        for i in range(0, len(X_home), batch_size):
+   580→   580→            xh = torch.as_tensor(X_home[i:i+batch_size], dtype=torch.float32).to(device)
+   581→   581→            xa = torch.as_tensor(X_away[i:i+batch_size], dtype=torch.float32).to(device)
+   582→   582→            logits = model(xh, xa)
+   583→   583→            proba = torch.softmax(logits, dim=1).cpu().numpy()
+   584→   584→            all_proba.append(proba)
+   585→   585→    return np.concatenate(all_proba, axis=0)
+   586→   586→
+   587→   587→
+   588→   588→def compute_breakdown(df_subset, y_true, y_proba, y_pred, group_col):
+   589→   589→    """Compute metrics by group (season/league)."""
+   590→   590→    results = []
+   591→   591→    for g in sorted(df_subset[group_col].unique()):
+   592→   592→        mask = df_subset[group_col] == g
+   593→   593→        if mask.sum() < 20:
+   594→   594→            continue
+   595→   595→        yt = y_true[mask]
+   596→   596→        yp = y_pred[mask]
+   597→   597→        ypr = y_proba[mask]
+   598→   598→        m = {'group': str(g), 'n': int(mask.sum()),
+   599→   599→             'accuracy': float(accuracy_score(yt, yp))}
+   600→   600→        try:
+   601→   601→            m['log_loss'] = float(log_loss(yt, ypr))
+   602→   602→        except Exception:
+   603→   603→            m['log_loss'] = float('nan')
+   604→   604→        m['ece'] = float(compute_ece(yt, ypr))
+   605→   605→        prec, rec, f1, _ = precision_recall_fscore_support(yt, yp, labels=[0,1,2], zero_division=0)
+   606→   606→        m['f1_home'] = float(f1[0])
+   607→   607→        m['f1_draw'] = float(f1[1])
+   608→   608→        m['f1_away'] = float(f1[2])
+   609→   609→        results.append(m)
+   610→   610→    return results
+   611→   611→
+   612→   612→
+   613→   613→# ═══════════════════════════════════════════════════════════════════════
+   614→   614→# Phase 4J — XGBOOST COMPARISON
+   615→   615→# ═══════════════════════════════════════════════════════════════════════
+   616→   616→
+   617→   617→def compute_prediction_correlation(proba_a, proba_b, y_true):
+   618→   618→    """Correlation between two models' predictions."""
+   619→   619→    p_a = proba_a.flatten()
+   620→   620→    p_b = proba_b.flatten()
+   621→   621→    corr = float(np.corrcoef(p_a, p_b)[0, 1])
+   622→   622→    pred_a = np.argmax(proba_a, axis=1)
+   623→   623→    pred_b = np.argmax(proba_b, axis=1)
+   624→   624→    agreement = float((pred_a == pred_b).mean())
+   625→   625→    both_correct = float(((pred_a == y_true) & (pred_b == y_true)).mean())
+   626→   626→    # When they disagree, who is right more often?
+   627→   627→    disagree_mask = pred_a != pred_b
+   628→   628→    if disagree_mask.sum() > 0:
+   629→   629→        a_right = (pred_a[disagree_mask] == y_true[disagree_mask]).mean()
+   630→   630→        b_right = (pred_b[disagree_mask] == y_true[disagree_mask]).mean()
+   631→   631→    else:
+   632→   632→        a_right = b_right = 0.0
+   633→   633→    return {
+   634→   634→        'probability_correlation': corr,
+   635→   635→        'prediction_agreement': agreement,
+   636→   636→        'both_correct_rate': both_correct,
+   637→   637→        'disagree_rate': float(disagree_mask.mean()),
+   638→   638→        'lstm_right_on_disagree': float(a_right),
+   639→   639→        'xgb_right_on_disagree': float(b_right),
+   640→   640→    }
+   641→   641→
+   642→   642→
+   643→   643→def train_xgb_football_only(df_train, df_test, football_features):
+   644→   644→    """Train a football-only XGBoost on the same temporal split for direct comparison."""
+   645→   645→    import xgboost as xgb
+   646→   646→
+   647→   647→    X_train = df_train[football_features].values.astype(np.float32)
+   648→   648→    y_train = df_train['result_encoded'].values.astype(np.int32)
+   649→   649→    X_test = df_test[football_features].values.astype(np.float32)
+   650→   650→    y_test = df_test['result_encoded'].values.astype(np.int32)
+   651→   651→
+   652→   652→    # Filter complete cases
+   653→   653→    train_mask = ~np.isnan(X_train).any(axis=1)
+   654→   654→    test_mask = ~np.isnan(X_test).any(axis=1)
+   655→   655→    X_train, y_train = X_train[train_mask], y_train[train_mask]
+   656→   656→    X_test, y_test = X_test[test_mask], y_test[test_mask]
+   657→   657→
+   658→   658→    counts = np.bincount(y_train, minlength=3)
+   659→   659→    total = counts.sum()
+   660→   660→    sw = {i: total / (3 * c) for i, c in enumerate(counts) if c > 0}
+   661→   661→    sample_weights = np.array([sw.get(y, 1.0) for y in y_train])
+   662→   662→
+   663→   663→    dtrain = xgb.DMatrix(X_train, label=y_train, weight=sample_weights,
+   664→   664→                          feature_names=football_features)
+   665→   665→    dtest = xgb.DMatrix(X_test, label=y_test, feature_names=football_features)
+   666→   666→
+   667→   667→    params = {'objective': 'multi:softprob', 'num_class': 3,
+   668→   668→              'eval_metric': 'mlogloss', 'max_depth': 5, 'eta': 0.05,
+   669→   669→              'subsample': 0.8, 'colsample_bytree': 0.8,
+   670→   670→              'min_child_weight': 5, 'gamma': 0.1,
+   671→   671→              'lambda': 1.5, 'alpha': 0.1, 'seed': 42, 'nthread': 4}
+   672→   672→
+   673→   673→    bst = xgb.train(params, dtrain, num_boost_round=1000,
+   674→   674→                    evals=[(dtrain, 'train'), (dtest, 'test')],
+   675→   675→                    early_stopping_rounds=100, verbose_eval=False)
+   676→   676→
+   677→   677→    proba = bst.predict(dtest)
+   678→   678→    pred = np.argmax(proba, axis=1)
+   679→   679→    return proba, pred, y_test
+   680→   680→
+   681→   681→
+   682→   682→# ═══════════════════════════════════════════════════════════════════════
+   683→   683→# Phase 4O — REPORT GENERATION
+   684→   684→# ═══════════════════════════════════════════════════════════════════════
+   685→   685→
+   686→   686→def generate_report(all_data, config):
+   687→   687→    """Generate the complete Phase 4 report."""
+   688→   688→    lines = []
+   689→   689→    w = lines.append
+   690→   690→
+   691→   691→    w('# Phase 4 — LSTM Temporal Intelligence Report')
+   692→   692→    w('')
+   693→   693→    w(f'**Date**: {datetime.now().strftime("%Y-%m-%d %H:%M UTC")}')
+   694→   694→    w(f'**Schema**: v{SCHEMA_VERSION} (hash: {SCHEMA_HASH})')
+   695→   695→    w(f'**Model**: lstm_v1')
+   696→   696→    w('')
+   697→   697→
+   698→   698→    # 1. Sequence Construction Methodology
+   699→   699→    w('## 1. Sequence Construction Methodology')
+   700→   700→    w('')
+   701→   701→    w(f'- **Sequence length**: {SEQ_LEN} timesteps per team')
+   702→   702→    w(f'- **Timestep definition**: One past match per timestep, chronologically ordered (T=0 oldest, T={SEQ_LEN-1} most recent)')
+   703→   703→    w(f'- **Feature count**: {N_SEQ_FEATURES} team-centric features per timestep')
+   704→   704→    w('- **Team-centric projection**: The 15 canonical LSTM features are match-level (home/away columns). For team-centric sequences, features are projected to "from this team\'s perspective" using home/away column variants.')
+   705→   705→    w('- **Temporal guarantee**: Every timestep satisfies timestamp(timestep) < timestamp(target match). No exceptions.')
+   706→   706→    w(f'- **Skipped matches**: {all_data["skipped"]} matches skipped due to insufficient team history (< {SEQ_LEN} past matches)')
+   707→   707→    w(f'- **Sequence coverage**: {all_data["coverage_pct"]:.1f}% of training-ready matches')
+   708→   708→    w(f'- **Valid sequences**: {all_data["n_valid"]}')
+   709→   709→    w('')
+   710→   710→    w('### Team-Centric Feature Mapping')
+   711→   711→    w('')
+   712→   712→    w('| # | Feature | Team is HOME | Team is AWAY |')
+   713→   713→    w('|---|---------|--------------|--------------|')
+   714→   714→    for i, (hc, ac) in enumerate(TEAM_FEATURE_MAP):
+   715→   715→        w(f'| {i} | {hc} | {hc} | {ac} |')
+   716→   716→    w(f'| 14 | is_home_flag | 1.0 | 0.0 |')
+   717→   717→    w('')
+   718→   718→
+   719→   719→    # 2. Dataset Statistics
+   720→   720→    w('## 2. Dataset Statistics')
+   721→   721→    w('')
+   722→   722→    w(f'| Set | Sequences | H | D | A | Date Range |')
+   723→   723→    w(f'|-----|-----------|---|---|---|------------|')
+   724→   724→    for s in ['train', 'val', 'test']:
+   725→   725→        d = all_data[s]
+   726→   726→        w(f'| {s.capitalize()} | {d["n"]} | {d["h_count"]} | {d["d_count"]} | {d["a_count"]} | {d["date_min"]} to {d["date_max"]} |')
+   727→   727→    w('')
+   728→   728→
+   729→   729→    # 3. Architecture
+   730→   730→    w('## 3. Architecture')
+   731→   731→    w('')
+   732→   732→    w('Two-branch BiLSTM with attention (shared weights).')
+   733→   733→    w('')
+   734→   734→    w('```')
+   735→   735→    w('Home seq (B, T, 15) --> BiLSTM(hidden=48, layers=2) --> Attention --> home_ctx (B, 96)')
+   736→   736→    w('Away seq (B, T, 15) --> BiLSTM(      shared weights  ) --> Attention --> away_ctx (B, 96)')
+   737→   737→    w('Concat(home_ctx, away_ctx) --> FC(192->64) --> BN --> ReLU --> Dropout(0.4) --> FC(64->3)')
+   738→   738→    w('```')
+   739→   739→    w('')
+   740→   740→    w(f'- **Parameters**: {all_data["n_params"]:,}')
+   741→   741→    w(f'- **Changes from lstm_engine.py**: hidden 64->48, FC 3-layer->2-layer, dropout 0.3->0.4')
+   742→   742→    w(f'- **Reason**: ~{all_data["train"]["n"]} training sequences — reduced complexity to mitigate overfitting')
+   743→   743→    w('')
+   744→   744→
+   745→   745→    # 4. Training Configuration
+   746→   746→    w('## 4. Training Configuration')
+   747→   747→    w('')
+   748→   748→    tc = config
+   749→   749→    w(f'| Parameter | Value |')
+   750→   750→    w(f'|-----------|-------|')
+   751→   751→    for k, v in tc.items():
+   752→   752→        w(f'| {k} | {v} |')
+   753→   753→    w('')
+   754→   754→
+   755→   755→    # 5. Training/Validation Curves
+   756→   756→    w('## 5. Training/Validation Curves')
+   757→   757→    w('')
+   758→   758→    hist = all_data['history']
+   759→   759→    best_epoch = len(hist['val_loss'])  # early stopped
+   760→   760→    w(f'Early stopped at epoch {best_epoch}.')
+   761→   761→    w('')
+   762→   762→    w('| Epoch | Train Loss | Val Loss | Train Acc | Val Acc | LR |')
+   763→   763→    w('|-------|------------|----------|-----------|---------|------|')
+   764→   764→    for i in range(len(hist['train_loss'])):
+   765→   765→        if i % 5 == 0 or i == len(hist['train_loss']) - 1:
+   766→   766→            w(f'| {i+1} | {hist["train_loss"][i]:.4f} | {hist["val_loss"][i]:.4f} '
+   767→   767→              f'| {hist["train_acc"][i]:.4f} | {hist["val_acc"][i]:.4f} | {hist["lr"][i]:.6f} |')
+   768→   768→    w('')
+   769→   769→
+   770→   770→    # 6. Test Metrics
+   771→   771→    w('## 6. Test Metrics (Final Evaluation)')
+   772→   772→    w('')
+   773→   773→    w('| Metric | Train | Validation | Test |')
+   774→   774→    w('|--------|-------|------------|------|')
+   775→   775→    tm = all_data['train_metrics']
+   776→   776→    vm = all_data['val_metrics']
+   777→   777→    em = all_data['test_metrics']
+   778→   778→    for key in ['accuracy', 'log_loss', 'brier_score', 'ece', 'f1_macro', 'precision_macro', 'recall_macro']:
+   779→   779→        tr = f'{tm[key]:.4f}' if isinstance(tm.get(key), float) else str(tm.get(key))
+   780→   780→        va = f'{vm[key]:.4f}' if isinstance(vm.get(key), float) else str(vm.get(key))
+   781→   781→        te = f'{em[key]:.4f}' if isinstance(em.get(key), float) else str(em.get(key))
+   782→   782→        w(f'| {key} | {tr} | {va} | {te} |')
+   783→   783→    w('')
+   784→   784→
+   785→   785→    # Per-class
+   786→   786→    w('### Per-Class Metrics (Test)')
+   787→   787→    w('')
+   788→   788→    w('| Class | Precision | Recall | F1 | Support |')
+   789→   789→    w('|-------|-----------|--------|----|---------|')
+   790→   790→    for cls in ['Home', 'Draw', 'Away']:
+   791→   791→        p = em[f'precision_{cls}']
+   792→   792→        r = em[f'recall_{cls}']
+   793→   793→        f = em[f'f1_{cls}']
+   794→   794→        s = em[f'support_{cls}']
+   795→   795→        w(f'| {cls} | {p:.4f} | {r:.4f} | {f:.4f} | {s} |')
+   796→   796→    w('')
+   797→   797→
+   798→   798→    # Confusion matrix
+   799→   799→    w('### Confusion Matrix (Test)')
+   800→   800→    w('')
+   801→   801→    cm = em['confusion_matrix']
+   802→   802→    w('| | Pred H | Pred D | Pred A |')
+   803→   803→    w('|---|--------|--------|--------|')
+   804→   804→    for i, label in enumerate(['Actual H', 'Actual D', 'Actual A']):
+   805→   805→        w(f'| {label} | {cm[i][0]} | {cm[i][1]} | {cm[i][2]} |')
+   806→   806→    w('')
+   807→   807→
+   808→   808→    # 7. Calibration
+   809→   809→    w('## 7. Calibration')
+   810→   810→    w('')
+   811→   811→    w('| Set | ECE |')
+   812→   812→    w('|-----|-----|')
+   813→   813→    for s, m in [('Train', tm), ('Validation', vm), ('Test', em)]:
+   814→   814→        w(f'| {s} | {m["ece"]:.4f} |')
+   815→   815→    w('')
+   816→   816→
+   817→   817→    # Confidence distribution
+   818→   818→    w('### Prediction Confidence Distribution (Test)')
+   819→   819→    w('')
+   820→   820→    test_conf = all_data['test_confidence']
+   821→   821→    w(f'- Mean confidence: {test_conf["mean"]:.4f}')
+   822→   822→    w(f'- Median confidence: {test_conf["median"]:.4f}')
+   823→   823→    w(f'- Min confidence: {test_conf["min"]:.4f}')
+   824→   824→    w(f'- Max confidence: {test_conf["max"]:.4f}')
+   825→   825→    w(f'- Std confidence: {test_conf["std"]:.4f}')
+   826→   826→    w('')
+   827→   827→
+   828→   828→    # 8. Per-Season Results
+   829→   829→    w('## 8. Performance by Season (Test Set)')
+   830→   830→    w('')
+   831→   831→    w('| Season | N | Accuracy | Log Loss | ECE | F1 H | F1 D | F1 A |')
+   832→   832→    w('|--------|---|----------|----------|-----|------|------|------|')
+   833→   833→    for row in all_data['test_by_season']:
+   834→   834→        w(f'| {row["group"]} | {row["n"]} | {row["accuracy"]:.4f} | {row["log_loss"]:.4f} '
+   835→   835→          f'| {row["ece"]:.4f} | {row["f1_home"]:.4f} | {row["f1_draw"]:.4f} | {row["f1_away"]:.4f} |')
+   836→   836→    w('')
+   837→   837→
+   838→   838→    # 9. Per-League Results
+   839→   839→    w('## 9. Performance by League (Test Set)')
+   840→   840→    w('')
+   841→   841→    w('| League | N | Accuracy | Log Loss | ECE | F1 H | F1 D | F1 A |')
+   842→   842→    w('|--------|---|----------|----------|-----|------|------|------|')
+   843→   843→    for row in all_data['test_by_league']:
+   844→   844→        w(f'| {row["group"]} | {row["n"]} | {row["accuracy"]:.4f} | {row["log_loss"]:.4f} '
+   845→   845→          f'| {row["ece"]:.4f} | {row["f1_home"]:.4f} | {row["f1_draw"]:.4f} | {row["f1_away"]:.4f} |')
+   846→   846→    w('')
+   847→   847→
+   848→   848→    # 10. XGBoost Football-Only Comparison
+   849→   849→    w('## 10. Football-Only XGBoost vs Football-Only LSTM')
+   850→   850→    w('')
+   851→   851→    comp = all_data['xgb_comparison']
+   852→   852→    w('| Metric | XGBoost Football-Only | LSTM Football-Only | Delta | LSTM Better? |')
+   853→   853→    w('|--------|----------------------|---------------------|-------|-------------|')
+   854→   854→    for key in ['accuracy', 'log_loss', 'brier_score', 'ece', 'f1_Home', 'f1_Draw', 'f1_Away', 'f1_macro']:
+   855→   855→        xgb_v = comp['xgb_metrics'].get(key, 0)
+   856→   856→        lstm_v = comp['lstm_metrics'].get(key, 0)
+   857→   857→        delta = lstm_v - xgb_v
+   858→   858→        if key in ['log_loss', 'brier_score', 'ece']:
+   859→   859→            better = 'Yes' if delta < -0.005 else ('No' if delta > 0.005 else 'Tie')
+   860→   860→        else:
+   861→   861→            better = 'Yes' if delta > 0.005 else ('No' if delta < -0.005 else 'Tie')
+   862→   862→        xgb_str = f'{xgb_v:.4f}' if isinstance(xgb_v, float) else str(xgb_v)
+   863→   863→        lstm_str = f'{lstm_v:.4f}' if isinstance(lstm_v, float) else str(lstm_v)
+   864→   864→        w(f'| {key} | {xgb_str} | {lstm_str} | {delta:+.4f} | {better} |')
+   865→   865→    w('')
+   866→   866→
+   867→   867→    # Prediction correlation
+   868→   868→    corr = comp['correlation']
+   869→   869→    w('### Prediction Correlation')
+   870→   870→    w('')
+   871→   871→    w(f'- Probability correlation: {corr["probability_correlation"]:.4f}')
+   872→   872→    w(f'- Prediction agreement: {corr["prediction_agreement"]:.4f}')
+   873→   873→    w(f'- Both-correct rate: {corr["both_correct_rate"]:.4f}')
+   874→   874→    w(f'- Disagreement rate: {corr["disagree_rate"]:.4f}')
+   875→   875→    w(f'- When disagreeing, LSTM right: {corr["lstm_right_on_disagree"]:.4f}')
+   876→   876→    w(f'- When disagreeing, XGBoost right: {corr["xgb_right_on_disagree"]:.4f}')
+   877→   877→    w('')
+   878→   878→
+   879→   879→    # 11. Baseline Comparison
+   880→   880→    w('## 11. Baseline Comparison (Test Set)')
+   881→   881→    w('')
+   882→   882→    w('| Model | Accuracy | Log Loss | Brier | ECE |')
+   883→   883→    w('|-------|----------|----------|-------|-----|')
+   884→   884→    for b in all_data['baselines']:
+   885→   885→        w(f'| {b["name"]} | {b["accuracy"]:.4f} | {b["log_loss"]:.4f} | {b["brier_score"]:.4f} | {b["ece"]:.4f} |')
+   886→   886→    w('')
+   887→   887→
+   888→   888→    # 12. Generalization Gap
+   889→   889→    w('## 12. Generalization Gap')
+   890→   890→    w('')
+   891→   891→    w('| Metric | Train | Test | Gap |')
+   892→   892→    w('|--------|-------|------|-----|')
+   893→   893→    for key in ['accuracy', 'log_loss', 'f1_macro']:
+   894→   894→        tr = tm[key]
+   895→   895→        te = em[key]
+   896→   896→        w(f'| {key} | {tr:.4f} | {te:.4f} | {te-tr:+.4f} |')
+   897→   897→    w('')
+   898→   898→
+   899→   899→    # 13-15. Verdict
+   900→   900→    verdict = all_data['verdict']
+   901→   901→    w('## 13-15. Verdict: Does Temporal Information Add Value?')
+   902→   902→    w('')
+   903→   903→    w(f'**Classification: {verdict["classification"]}**')
+   904→   904→    w('')
+   905→   905→    w(verdict['explanation'])
+   906→   906→    w('')
+   907→   907→    for i, c in enumerate(verdict['conclusions'], 1):
+   908→   908→        w(f'{i}. {c}')
+   909→   909→    w('')
+   910→   910→    w('### Recommendation for Phase 5')
+   911→   911→    w('')
+   912→   912→    for i, r in enumerate(verdict['recommendations'], 1):
+   913→   913→        w(f'{i}. {r}')
+   914→   914→    w('')
+   915→   915→
+   916→   916→    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+   917→   917→    REPORT_PATH.write_text('\n'.join(lines), encoding='utf-8')
+   918→   918→    print(f'  Report: {REPORT_PATH}')
+   919→   919→
+   920→   920→
+   921→   921→# ═══════════════════════════════════════════════════════════════════════
+   922→   922→# MAIN
+   923→   923→# ═══════════════════════════════════════════════════════════════════════
+   924→   924→
+   925→   925→def main():
+   926→   926→    print(f"\n{'#'*80}")
+   927→   927→    print(f"# PHASE 4 — LSTM TEMPORAL INTELLIGENCE")
+   928→   928→    print(f"# {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}")
+   929→   929→    print(f"{'#'*80}")
+   930→   930→
+   931→   931→    # ═══════════════════════════════════════════════════════════════
+   932→   932→    # Load data
+   933→   933→    # ═══════════════════════════════════════════════════════════════
+   934→   934→    print('\n[1] Loading dataset...')
+   935→   935→    df = pd.read_parquet(DATASET_PATH)
+   936→   936→    feat_cols = [f for f in FEATURE_NAMES if f in df.columns]
+   937→   937→    complete_mask = df[feat_cols].notna().all(axis=1)
+   938→   938→    df_complete = df[complete_mask].copy().reset_index(drop=True)
+   939→   939→    df_complete = df_complete.sort_values('Date').reset_index(drop=True)
+   940→   940→    print(f'  Training-ready: {len(df_complete):,} matches')
+   941→   941→    print(f'  Date range: {df_complete["Date"].min().date()} to {df_complete["Date"].max().date()}')
+   942→   942→
+   943→   943→    # ═══════════════════════════════════════════════════════════════
+   944→   944→    # Build sequences (uses ALL data for history, targets split later)
+   945→   945→    # ═══════════════════════════════════════════════════════════════
+   946→   946→    print('\n[2] Building temporal sequences...')
+   947→   947→    X_home_all, X_away_all, y_all, valid_indices, skipped = build_team_sequences(df_complete)
+   948→   948→
+   949→   949→    # Get metadata for valid sequences
+   950→   950→    df_valid = df_complete.iloc[valid_indices].copy().reset_index(drop=True)
+   951→   951→    n_valid = len(y_all)
+   952→   952→
+   953→   953→    # ═══════════════════════════════════════════════════════════════
+   954→   954→    # Phase 4E — Temporal split
+   955→   955→    # ═══════════════════════════════════════════════════════════════
+   956→   956→    print('\n[3] Creating temporal train/val/test split...')
+   957→   957→    n = n_valid
+   958→   958→    cut1 = int(n * 0.6)
+   959→   959→    cut2 = int(n * 0.8)
+   960→   960→
+   961→   961→    train_idx = slice(0, cut1)
+   962→   962→    val_idx = slice(cut1, cut2)
+   963→   963→    test_idx = slice(cut2, n)
+   964→   964→
+   965→   965→    splits = {}
+   966→   966→    for name, idx_slice, arr_h, arr_a, arr_y, df_sub in [
+   967→   967→        ('train', train_idx, X_home_all, X_away_all, y_all, df_valid),
+   968→   968→        ('val', val_idx, X_home_all, X_away_all, y_all, df_valid),
+   969→   969→        ('test', test_idx, X_home_all, X_away_all, y_all, df_valid),
+   970→   970→    ]:
+   971→   971→        Xh = arr_h[idx_slice]
+   972→   972→        Xa = arr_a[idx_slice]
+   973→   973→        yy = arr_y[idx_slice]
+   974→   974→        dd = df_sub.iloc[idx_slice]
+   975→   975→        splits[name] = {
+   976→   976→            'X_home': Xh, 'X_away': Xa, 'y': yy, 'df': dd,
+   977→   977→            'n': len(yy),
+   978→   978→            'h_count': int((yy == 0).sum()),
+   979→   979→            'd_count': int((yy == 1).sum()),
+   980→   980→            'a_count': int((yy == 2).sum()),
+   981→   981→            'date_min': str(dd['Date'].min().date()),
+   982→   982→            'date_max': str(dd['Date'].max().date()),
+   983→   983→        }
+   984→   984→        print(f'  {name.capitalize():10s}: {len(yy):4d} sequences '
+   985→   985→              f'({dd["Date"].min().date()} to {dd["Date"].max().date()}) '
+   986→   986→              f'H={splits[name]["h_count"]} D={splits[name]["d_count"]} A={splits[name]["a_count"]}')
+   987→   987→
+   988→   988→    # ═══════════════════════════════════════════════════════════════
+   989→   989→    # Phase 4D — Normalization (fit on TRAIN only)
+   990→   990→    # ═══════════════════════════════════════════════════════════════
+   991→   991→    print('\n[4] Fitting normalization on training data...')
+   992→   992→    normalizer = Normalizer()
+   993→   993→    X_train_h = splits['train']['X_home']
+   994→   994→    normalizer.fit(X_train_h)
+   995→   995→    print(f'  Feature means (first 5): {normalizer.mean[:5].tolist()}')
+   996→   996→    print(f'  Feature stds  (first 5): {normalizer.std[:5].tolist()}')
+   997→   997→
+   998→   998→    for name in ['train', 'val', 'test']:
+   999→   999→        splits[name]['X_home_norm'] = normalizer.transform(splits[name]['X_home'])
+  1000→  1000→        splits[name]['X_away_norm'] = normalizer.transform(splits[name]['X_away'])
+  1001→  1001→
+  1002→  1002→    # ═══════════════════════════════════════════════════════════════
+  1003→  1003→    # Create PyTorch DataLoaders
+  1004→  1004→    # ═══════════════════════════════════════════════════════════════
+  1005→  1005→    print('\n[5] Creating DataLoaders...')
+  1006→  1006→    from torch.utils.data import TensorDataset, DataLoader
+  1007→  1007→
+  1008→  1008→    train_ds = TensorDataset(
+  1009→  1009→        torch.as_tensor(splits['train']['X_home_norm'], dtype=torch.float32),
+  1010→  1010→        torch.as_tensor(splits['train']['X_away_norm'], dtype=torch.float32),
+  1011→  1011→        torch.as_tensor(splits['train']['y'], dtype=torch.long),
+  1012→  1012→    )
+  1013→  1013→    val_ds = TensorDataset(
+  1014→  1014→        torch.as_tensor(splits['val']['X_home_norm'], dtype=torch.float32),
+  1015→  1015→        torch.as_tensor(splits['val']['X_away_norm'], dtype=torch.float32),
+  1016→  1016→        torch.as_tensor(splits['val']['y'], dtype=torch.long),
+  1017→  1017→    )
+  1018→  1018→    train_loader = DataLoader(train_ds, batch_size=32, shuffle=True, drop_last=False)
+  1019→  1019→    val_loader = DataLoader(val_ds, batch_size=64, shuffle=False, drop_last=False)
+  1020→  1020→    print(f'  Train batches: {len(train_loader)}, Val batches: {len(val_loader)}')
+  1021→  1021→
+  1022→  1022→    # ═══════════════════════════════════════════════════════════════
+  1023→  1023→    # Phase 4F — Create model
+  1024→  1024→    # ═══════════════════════════════════════════════════════════════
+  1025→  1025→    print('\n[6] Initializing LSTM model...')
+  1026→  1026→    train_config = {
+  1027→  1027→        'lr': 0.001, 'weight_decay': 1e-4, 'grad_clip': 1.0,
+  1028→  1028→        'lr_factor': 0.5, 'lr_patience': 5, 'lr_min': 1e-6,
+  1029→  1029→        'max_epochs': 150, 'patience': 20,
+  1030→  1030→    }
+  1031→  1031→    model = FootballLSTM_v1(
+  1032→  1032→        input_size=N_SEQ_FEATURES, hidden_size=48,
+  1033→  1033→        num_layers=2, dropout=0.4, n_classes=3)
+  1034→  1034→    n_params = sum(p.numel() for p in model.parameters())
+  1035→  1035→    print(f'  Parameters: {n_params:,}')
+  1036→  1036→
+  1037→  1037→    # ═══════════════════════════════════════════════════════════════
+  1038→  1038→    # Phase 4H — Train
+  1039→  1039→    # ═══════════════════════════════════════════════════════════════
+  1040→  1040→    print('\n[7] Training...')
+  1041→  1041→    model, history = train_lstm(model, train_loader, val_loader, train_config)
+  1042→  1042→
+  1043→  1043→    # ═══════════════════════════════════════════════════════════════
+  1044→  1044→    # Phase 4I — Evaluate
+  1045→  1045→    # ═══════════════════════════════════════════════════════════════
+  1046→  1046→    print('\n[8] Evaluating on all sets...')
+  1047→  1047→    results = {}
+  1048→  1048→    for name in ['train', 'val', 'test']:
+  1049→  1049→        proba = predict_proba(model, splits[name]['X_home_norm'], splits[name]['X_away_norm'])
+  1050→  1050→        pred = np.argmax(proba, axis=1)
+  1051→  1051→        y_true = splits[name]['y']
+  1052→  1052→        metrics = compute_metrics(y_true, proba, pred, name)
+  1053→  1053→        results[name] = metrics
+  1054→  1054→        print(f'  {name.capitalize():10s}: LL={metrics["log_loss"]:.4f} Acc={metrics["accuracy"]:.4f} '
+  1055→  1055→              f'ECE={metrics["ece"]:.4f} F1={metrics["f1_macro"]:.4f}')
+  1056→  1056→
+  1057→  1057→    # Confidence distribution
+  1058→  1058→    test_proba = predict_proba(model, splits['test']['X_home_norm'], splits['test']['X_away_norm'])
+  1059→  1059→    test_conf = {
+  1060→  1060→        'mean': float(test_proba.max(axis=1).mean()),
+  1061→  1061→        'median': float(np.median(test_proba.max(axis=1))),
+  1062→  1062→        'min': float(test_proba.max(axis=1).min()),
+  1063→  1063→        'max': float(test_proba.max(axis=1).max()),
+  1064→  1064→        'std': float(test_proba.max(axis=1).std()),
+  1065→  1065→    }
+  1066→  1066→
+  1067→  1067→    # Per-season and per-league breakdowns
+  1068→  1068→    print('  Computing per-season and per-league breakdowns...')
+  1069→  1069→    test_df = splits['test']['df']
+  1070→  1070→    test_pred = np.argmax(test_proba, axis=1)
+  1071→  1071→    test_y = splits['test']['y']
+  1072→  1072→    test_by_season = compute_breakdown(test_df, test_y, test_proba, test_pred, 'season_code')
+  1073→  1073→    test_by_league = compute_breakdown(test_df, test_y, test_proba, test_pred, 'league_code')
+  1074→  1074→
+  1075→  1075→    # ═══════════════════════════════════════════════════════════════
+  1076→  1076→    # Phase 4G — Baselines
+  1077→  1077→    # ═══════════════════════════════════════════════════════════════
+  1078→  1078→    print('\n[9] Computing baselines...')
+  1079→  1079→    test_y_true = splits['test']['y']
+  1080→  1080→    n_test = len(test_y_true)
+  1081→  1081→    baselines = []
+  1082→  1082→
+  1083→  1083→    # 1. Home-class baseline (always predict Home)
+  1084→  1084→    pred_home = np.zeros(n_test, dtype=int)
+  1085→  1085→    proba_home = np.zeros((n_test, 3))
+  1086→  1086→    proba_home[:, 0] = 1.0
+  1087→  1087→    baselines.append(compute_metrics(test_y_true, proba_home, pred_home, 'home_baseline'))
+  1088→  1088→    baselines[-1]['name'] = 'Home-class baseline'
+  1089→  1089→
+  1090→  1090→    # 2. Class-frequency baseline (predict priors)
+  1091→  1091→    counts = np.bincount(splits['train']['y'], minlength=3)
+  1092→  1092→    priors = counts / counts.sum()
+  1093→  1093→    proba_prior = np.tile(priors, (n_test, 1))
+  1094→  1094→    pred_prior = np.full(n_test, np.argmax(priors))
+  1095→  1095→    baselines.append(compute_metrics(test_y_true, proba_prior, pred_prior, 'freq_baseline'))
+  1096→  1096→    baselines[-1]['name'] = 'Class-frequency baseline'
+  1097→  1097→
+  1098→  1098→    # 3. Naive random (uniform)
+  1099→  1099→    proba_unif = np.full((n_test, 3), 1/3)
+  1100→  1100→    pred_unif = np.zeros(n_test, dtype=int)
+  1101→  1101→    baselines.append(compute_metrics(test_y_true, proba_unif, pred_unif, 'random_baseline'))
+  1102→  1102→    baselines[-1]['name'] = 'Uniform random baseline'
+  1103→  1103→
+  1104→  1104→    for b in baselines:
+  1105→  1105→        print(f'  {b["name"]}: Acc={b["accuracy"]:.4f} LL={b["log_loss"]:.4f}')
+  1106→  1106→
+  1107→  1107→    # ═══════════════════════════════════════════════════════════════
+  1108→  1108→    # Phase 4J — XGBoost Football-Only comparison (same test set)
+  1109→  1109→    # ═══════════════════════════════════════════════════════════════
+  1110→  1110→    print('\n[10] Training football-only XGBoost on same split for comparison...')
+  1111→  1111→    FOOTBALL_FEATURES = [f for f in FEATURE_NAMES if f not in
+  1112→  1112→                         ['implied_prob_home', 'implied_prob_draw', 'implied_prob_away', 'overround']]
+  1113→  1113→
+  1114→  1114→    # Use the same temporal split from the ORIGINAL dataframe
+  1115→  1115→    # (not the sequence-filtered one, for fair XGBoost comparison)
+  1116→  1116→    df_train_orig = df_complete.iloc[:int(len(df_complete)*0.6)]
+  1117→  1117→    df_test_orig = df_complete.iloc[int(len(df_complete)*0.8):]
+  1118→  1118→    xgb_proba, xgb_pred, xgb_y_test = train_xgb_football_only(df_train_orig, df_test_orig, FOOTBALL_FEATURES)
+  1119→  1119→    xgb_metrics = compute_metrics(xgb_y_test, xgb_proba, xgb_pred, 'xgb_football_only')
+  1120→  1120→    print(f'  XGBoost football-only: LL={xgb_metrics["log_loss"]:.4f} Acc={xgb_metrics["accuracy"]:.4f}')
+  1121→  1121→
+  1122→  1122→    # Compute prediction correlation on the LSTM's test set
+  1123→  1123→    # We need XGBoost predictions on the same matches as LSTM test set
+  1124→  1124→    # LSTM test = last 20% of sequence-valid matches = specific subset of df_complete
+  1125→  1125→    test_row_indices = valid_indices[cut2:]
+  1126→  1126→    df_xgb_test = df_complete.iloc[test_row_indices]
+  1127→  1127→    # Train XGBoost on same train period, predict on LSTM test matches
+  1128→  1128→    xgb_proba_matched, xgb_pred_matched, _ = train_xgb_football_only(df_train_orig, df_xgb_test, FOOTBALL_FEATURES)
+  1129→  1129→
+  1130→  1130→    correlation = compute_prediction_correlation(test_proba, xgb_proba_matched, test_y_true)
+  1131→  1131→    print(f'  Prediction correlation: {correlation["probability_correlation"]:.4f}')
+  1132→  1132→    print(f'  Agreement: {correlation["prediction_agreement"]:.4f}')
+  1133→  1133→    print(f'  LSTM right when disagreeing: {correlation["lstm_right_on_disagree"]:.4f}')
+  1134→  1134→    print(f'  XGBoost right when disagreeing: {correlation["xgb_right_on_disagree"]:.4f}')
+  1135→  1135→
+  1136→  1136→    # ═══════════════════════════════════════════════════════════════
+  1137→  1137→    # Phase 4K — Model Value Decision
+  1138→  1138→    # ═══════════════════════════════════════════════════════════════
+  1139→  1139→    print('\n[11] Computing model value decision...')
+  1140→  1140→    lstm_ll = results['test']['log_loss']
+  1141→  1141→    xgb_ll = xgb_metrics['log_loss']
+  1142→  1142→    lstm_acc = results['test']['accuracy']
+  1143→  1143→    xgb_acc = xgb_metrics['accuracy']
+  1144→  1144→    lstm_ece = results['test']['ece']
+  1145→  1145→    xgb_ece = xgb_metrics['ece']
+  1146→  1146→    ll_delta = lstm_ll - xgb_ll
+  1147→  1147→    acc_delta = lstm_acc - xgb_acc
+  1148→  1148→    ece_delta = lstm_ece - xgb_ece
+  1149→  1149→
+  1150→  1150→    # Classification logic
+  1151→  1151→    lstm_better_ll = ll_delta < -0.01
+  1152→  1152→    lstm_better_acc = acc_delta > 0.01
+  1153→  1153→    lstm_better_ece = ece_delta < -0.01
+  1154→  1154→    n_better = sum([lstm_better_ll, lstm_better_acc, lstm_better_ece])
+  1155→  1155→    lstm_not_worse = ll_delta < 0.02 and acc_delta > -0.02
+  1156→  1156→
+  1157→  1157→    if n_better >= 2 and ll_delta < -0.01:
+  1158→  1158→        classification = 'A. SUPERIOR'
+  1159→  1159→    elif n_better >= 1 and lstm_not_worse and correlation['disagree_rate'] > 0.15:
+  1160→  1160→        classification = 'B. COMPLEMENTARY'
+  1161→  1161→    elif lstm_not_worse:
+  1162→  1162→        classification = 'C. REDUNDANT'
+  1163→  1163→    else:
+  1164→  1164→        classification = 'D. FAILED'
+  1165→  1165→
+  1166→  1166→    conclusions = []
+  1167→  1167→    conclusions.append(
+  1168→  1168→        f'LSTM log loss: {lstm_ll:.4f} vs XGBoost: {xgb_ll:.4f} (delta: {ll_delta:+.4f}). '
+  1169→  1169→        f'{"LSTM is better." if lstm_better_ll else "XGBoost is better."}')
+  1170→  1170→    conclusions.append(
+  1171→  1171→        f'LSTM accuracy: {lstm_acc:.4f} vs XGBoost: {xgb_acc:.4f} (delta: {acc_delta:+.4f}). '
+  1172→  1172→        f'{"LSTM is better." if lstm_better_acc else "XGBoost is better."}')
+  1173→  1173→    conclusions.append(
+  1174→  1174→        f'LSTM ECE: {lstm_ece:.4f} vs XGBoost: {xgb_ece:.4f} (delta: {ece_delta:+.4f}). '
+  1175→  1175→        f'{"LSTM is better calibrated." if lstm_better_ece else "XGBoost is better calibrated."}')
+  1176→  1176→    conclusions.append(
+  1177→  1177→        f'Prediction correlation: {correlation["probability_correlation"]:.4f}, '
+  1178→  1178→        f'agreement: {correlation["prediction_agreement"]:.4f}. '
+  1179→  1179→        f'When disagreeing, LSTM is right {correlation["lstm_right_on_disagree"]:.1%} vs XGBoost {correlation["xgb_right_on_disagree"]:.1%}.')
+  1180→  1180→
+  1181→  1181→    if classification == 'D. FAILED':
+  1182→  1182→        conclusions.append(
+  1183→  1183→            'The LSTM does not outperform a static football-only XGBoost on any meaningful metric. '
+  1184→  1184→            'Temporal structure in football features does not provide extractable predictive value '
+  1185→  1185→            'beyond what XGBoost captures from the same features at a single point in time.')
+  1186→  1186→    elif classification == 'B. COMPLEMENTARY':
+  1187→  1187→        conclusions.append(
+  1188→  1188→            'The LSTM does not substantially outperform XGBoost alone, but the models disagree '
+  1189→  1189→            'frequently enough that combining them may yield improvement. The disagreement '
+  1190→  1190→            'contains potentially useful signal for ensemble construction.')
+  1191→  1191→    elif classification == 'A. SUPERIOR':
+  1192→  1192→        conclusions.append(
+  1193→  1193→            'The LSTM extracts genuinely useful temporal patterns from football history that '
+  1194→  1194→            'static XGBoost cannot capture. This justifies its inclusion in the ensemble.')
+  1195→  1195→    else:
+  1196→  1196→        conclusions.append(
+  1197→  1197→            'The LSTM performs similarly to XGBoost with no meaningful improvement. '
+  1198→  1198→            'Adding temporal structure provides no benefit over static features.')
+  1199→  1199→
+  1200→  1200→    recommendations = []
+  1201→  1201→    if classification == 'D. FAILED':
+  1202→  1202→        recommendations.append('Do NOT include LSTM in the final ensemble.')
+  1203→  1203→        recommendations.append('Focus ensemble work on combining market-based XGBoost with football-only XGBoost.')
+  1204→  1204→        recommendations.append('If ensemble diversity is needed, consider simpler statistical models instead.')
+  1205→  1205→    elif classification == 'B. COMPLEMENTARY':
+  1206→  1206→        recommendations.append('Preserve LSTM for ensemble experimentation in Phase 5.')
+  1207→  1207→        recommendations.append('Investigate whether the LSTM\'s disagreements with XGBoost are calibrated.')
+  1208→  1208→        recommendations.append('Consider a weighted ensemble that downweights the LSTM relative to XGBoost.')
+  1209→  1209→    elif classification == 'A. SUPERIOR':
+  1210→  1210→        recommendations.append('Promote LSTM as a primary football-intelligence model in the ensemble.')
+  1211→  1211→        recommendations.append('Investigate stacking or blending with market-based XGBoost.')
+  1212→  1212→        recommendations.append('The combination of market XGBoost + temporal LSTM may approach genuine predictive value.')
+  1213→  1213→    else:
+  1214→  1214→        recommendations.append('LSTM is redundant. Reserve ensemble slots for models with independent signal.')
+  1215→  1215→        recommendations.append('Consider whether the LSTM architecture needs fundamental redesign.')
+  1216→  1216→
+  1217→  1217→    verdict = {
+  1218→  1218→        'classification': classification,
+  1219→  1219→        'explanation': f'Based on out-of-sample evaluation: LL delta={ll_delta:+.4f}, Acc delta={acc_delta:+.4f}, '
+  1220→  1220→                       f'ECE delta={ece_delta:+.4f}. Prediction correlation={correlation["probability_correlation"]:.4f}.',
+  1221→  1221→        'conclusions': conclusions,
+  1222→  1222→        'recommendations': recommendations,
+  1223→  1223→    }
+  1224→  1224→    print(f'  Classification: {classification}')
+  1225→  1225→
+  1226→  1226→    # ═══════════════════════════════════════════════════════════════
+  1227→  1227→    # Phase 4L — Save model artifact
+  1228→  1228→    # ═══════════════════════════════════════════════════════════════
+  1229→  1229→    print('\n[12] Saving model artifact...')
+  1230→  1230→    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+  1231→  1231→    model_path = MODEL_DIR / 'lstm_v1.pt'
+  1232→  1232→    torch.save(model.state_dict(), str(model_path))
+  1233→  1233→    print(f'  Model saved: {model_path}')
+  1234→  1234→
+  1235→  1235→    metadata = {
+  1236→  1236→        'model_name': 'lstm_v1',
+  1237→  1237→        'model_type': 'BiLSTM-Attention',
+  1238→  1238→        'schema_version': SCHEMA_VERSION,
+  1239→  1239→        'schema_hash': SCHEMA_HASH,
+  1240→  1240→        'sequence_length': SEQ_LEN,
+  1241→  1241→        'sequence_features': [f'team_centric_{i}' for i in range(N_SEQ_FEATURES)],
+  1242→  1242→        'team_feature_map': [(hc, ac) for hc, ac in TEAM_FEATURE_MAP] + [('is_home_flag', 'is_home_flag')],
+  1243→  1243→        'normalization': normalizer.to_dict(),
+  1244→  1244→        'class_mapping': {0: 'Home', 1: 'Draw', 2: 'Away'},
+  1245→  1245→        'training_period': {'start': splits['train']['date_min'], 'end': splits['train']['date_max']},
+  1246→  1246→        'validation_period': {'start': splits['val']['date_min'], 'end': splits['val']['date_max']},
+  1247→  1247→        'test_period': {'start': splits['test']['date_min'], 'end': splits['test']['date_max']},
+  1248→  1248→        'architecture': {
+  1249→  1249→            'input_size': N_SEQ_FEATURES, 'hidden_size': 48, 'num_layers': 2,
+  1250→  1250→            'bidirectional': True, 'dropout': 0.4, 'n_classes': 3,
+  1251→  1251→            'fc_head': '192->64->3', 'attention': True, 'batch_norm': True,
+  1252→  1252→        },
+  1253→  1253→        'training_config': train_config,
+  1254→  1254→        'n_parameters': n_params,
+  1255→  1255→        'metrics': {'train': results['train'], 'validation': results['val'], 'test': results['test']},
+  1256→  1256→        'xgb_football_only_comparison': {
+  1257→  1257→            'xgb_metrics': xgb_metrics,
+  1258→  1258→            'correlation': correlation,
+  1259→  1259→        },
+  1260→  1260→        'baselines': [{k: v for k, v in b.items() if k != 'name'} for b in baselines],
+  1261→  1261→        'verdict': verdict,
+  1262→  1262→        'dataset_version': 'phase2_v1',
+  1263→  1263→        'sequence_coverage': f'{n_valid/len(df_complete)*100:.1f}%',
+  1264→  1264→        'n_sequences': {'train': splits['train']['n'], 'val': splits['val']['n'], 'test': splits['test']['n']},
+  1265→  1265→        'skipped_sequences': skipped,
+  1266→  1266→        'creation_timestamp': datetime.now().isoformat(),
+  1267→  1267→    }
+  1268→  1268→    meta_path = MODEL_DIR / 'lstm_v1_metadata.json'
+  1269→  1269→    with open(meta_path, 'w') as f:
+  1270→  1270→        json.dump(metadata, f, indent=2, default=str)
+  1271→  1271→    print(f'  Metadata: {meta_path}')
+  1272→  1272→
+  1273→  1273→    # ═══════════════════════════════════════════════════════════════
+  1274→  1274→    # Save raw metrics
+  1275→  1275→    # ═══════════════════════════════════════════════════════════════
+  1276→  1276→    metrics_export = {
+  1277→  1277→        'train_metrics': results['train'], 'val_metrics': results['val'],
+  1278→  1278→        'test_metrics': results['test'], 'xgb_football_metrics': xgb_metrics,
+  1279→  1279→        'correlation': correlation, 'baselines': baselines,
+  1280→  1280→        'history': {k: [float(v) for v in vals] for k, vals in history.items()},
+  1281→  1281→        'verdict': verdict,
+  1282→  1282→    }
+  1283→  1283→    with open(METRICS_PATH, 'w') as f:
+  1284→  1284→        json.dump(metrics_export, f, indent=2, default=str)
+  1285→  1285→    print(f'  Metrics: {METRICS_PATH}')
+  1286→  1286→
+  1287→  1287→    # ═══════════════════════════════════════════════════════════════
+  1288→  1288→    # Phase 4O — Generate Report
+  1289→  1289→    # ═══════════════════════════════════════════════════════════════
+  1290→  1290→    print('\n[13] Generating report...')
+  1291→  1291→    all_data = {
+  1292→  1292→        'skipped': skipped, 'coverage_pct': n_valid/len(df_complete)*100,
+  1293→  1293→        'n_valid': n_valid, 'n_params': n_params,
+  1294→  1294→        'train': splits['train'], 'val': splits['val'], 'test': splits['test'],
+  1295→  1295→        'train_metrics': results['train'], 'val_metrics': results['val'],
+  1296→  1296→        'test_metrics': results['test'], 'test_confidence': test_conf,
+  1297→  1297→        'test_by_season': test_by_season, 'test_by_league': test_by_league,
+  1298→  1298→        'history': history, 'baselines': baselines,
+  1299→  1299→        'xgb_comparison': {
+  1300→  1300→            'xgb_metrics': xgb_metrics, 'lstm_metrics': results['test'],
+  1301→  1301→            'correlation': correlation,
+  1302→  1302→        },
+  1303→  1303→        'verdict': verdict,
+  1304→  1304→    }
+  1305→  1305→    generate_report(all_data, train_config)
+  1306→  1306→
+  1307→  1307→    # ═══════════════════════════════════════════════════════════════
+  1308→  1308→    # Final summary
+  1309→  1309→    # ═══════════════════════════════════════════════════════════════
+  1310→  1310→    print(f"\n{'='*80}")
+  1311→  1311→    print(f'PHASE 4 COMPLETE')
+  1312→  1312→    print(f"{'='*80}")
+  1313→  1313→    print(f'  Classification: {verdict["classification"]}')
+  1314→  1314→    print(f'  LSTM LL: {lstm_ll:.4f} vs XGBoost LL: {xgb_ll:.4f} ({ll_delta:+.4f})')
+  1315→  1315→    print(f'  LSTM Acc: {lstm_acc:.4f} vs XGBoost Acc: {xgb_acc:.4f} ({acc_delta:+.4f})')
+  1316→  1316→    print(f'  LSTM ECE: {lstm_ece:.4f} vs XGBoost ECE: {xgb_ece:.4f} ({ece_delta:+.4f})')
+  1317→  1317→    print(f'  Prediction correlation: {correlation["probability_correlation"]:.4f}')
+  1318→  1318→    print(f'  Model saved: {model_path}')
+  1319→  1319→    print(f"{'='*80}")
+  1320→  1320→
+  1321→  1321→
+  1322→  1322→if __name__ == '__main__':
+  1323→  1323→    main()
+  1324→  1324→
