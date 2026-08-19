@@ -1,0 +1,591 @@
+    80→   119→  }, [finishedMatches])
+    81→   120→
+    82→   121→  // News data — real from DB or football-data.org
+    83→   122→  const newsItems = useMemo(() => {
+    84→   123→    if (news.length > 0) {
+    85→   124→      return news.slice(0, 5).map((n) => ({
+    86→   125→        title: n.title,
+    87→   126→        category: n.category,
+    88→   127→        time: n.publishedAt ? new Date(n.publishedAt).toLocaleDateString() : 'Recent',
+    89→   128→      }))
+    90→   129→    }
+    91→   130→    return []
+    92→   131→  }, [news])
+    93→   132→
+    94→   133→  // ── Handlers ─────────────────────────────────────────────────────────────
+    95→   134→  const handleQuickPredict = useCallback((choice: 'home' | 'draw' | 'away') => {
+    96→   135→    if (!nextMatch) return
+    97→   136→    fetch('/api/predictions', {
+    98→   137→      method: 'POST',
+    99→   138→      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+   100→   139→      body: JSON.stringify({
+   101→   140→        matchId: nextMatch.id,
+   102→   141→        predictedOutcome: choice, // 'home' | 'draw' | 'away'
+   103→   142→        confidence: 75,
+   104→   143→      }),
+   105→   144→    }).then(() => {
+   106→   145→      fetchMatches()
+   107→   146→    }).catch(() => {})
+   108→   147→  }, [nextMatch, token, fetchMatches])
+   109→   148→
+   110→   149→  // ═══════════════════════════════════════════════════════════════════════════
+   111→   150→  return (
+   112→   151→    <TooltipProvider>
+   113→   152→      <div className="space-y-5 animate-fade-in-up">
+   114→   153→        {/* ═══════════════════════════════════════════════════════════════════
+   115→   154→            1. LIVE SCORE TICKER
+   116→   155→            ═══════════════════════════════════════════════════════════════════ */}
+   117→   156→        <div className="glass-card-premium rounded-xl overflow-hidden">
+   118→   157→          <div className="flex items-center gap-2 px-4 py-2 border-b border-border/30 bg-red-500/5">
+   119→   158→            <span className="relative flex size-2">
+   120→   159→              <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+   121→   160→              <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+   122→   161→            </span>
+   123→   162→            <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Live Scores</span>
+   124→   163→          </div>
+   125→   164→          <div ref={tickerRef} className="overflow-hidden">
+   126→   165→            <div
+   127→   166→              className="flex gap-6 py-3 px-4"
+   128→   167→              style={{ animation: 'ticker-scroll 30s linear infinite', width: 'max-content' }}
+   129→   168→            >
+   130→   169→              {[...tickerItems, ...tickerItems].map((m, i) => (
+   131→   170→                <div key={`${m.id}-${i}`} className="flex items-center gap-3 shrink-0">
+   132→   171→                  <div className="flex items-center gap-2">
+   133→   172→                    <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.homeColor }} />
+   134→   173→                    <span className="text-xs font-semibold">{m.homeCode}</span>
+   135→   174→                  </div>
+   136→   175→                  <div className="flex items-center gap-1.5">
+   137→   176→                    <span className="text-sm font-bold tabular-nums">{m.homeScore}</span>
+   138→   177→                    <span className="text-xs text-muted-foreground">-</span>
+   139→   178→                    <span className="text-sm font-bold tabular-nums">{m.awayScore}</span>
+   140→   179→                  </div>
+   141→   180→                  <div className="flex items-center gap-2">
+   142→   181→                    <span className="text-xs font-semibold">{m.awayCode}</span>
+   143→   182→                    <div className="size-5 rounded-full border border-border/50 shrink-0" style={{ backgroundColor: m.awayColor }} />
+   144→   183→                  </div>
+   145→   184→                  {m.status === 'live' && (
+   146→   185→                    <Badge variant="outline" className="h-4 px-1.5 text-[9px] bg-red-500/15 text-red-400 border-red-500/30">
+   147→   186→                      <span className="pulse-live inline-block size-1.5 rounded-full bg-red-500 mr-1" />
+   148→   187→                      LIVE
+   149→   188→                    </Badge>
+   150→   189→                  )}
+   151→   190→                  {m.status === 'finished' && (
+   152→   191→                    <Badge variant="outline" className="h-4 px-1.5 text-[9px] text-emerald-400 border-emerald-500/30">FT</Badge>
+   153→   192→                  )}
+   154→   193→                  <span className="text-border/50">|</span>
+   155→   194→                </div>
+   156→   195→              ))}
+   157→   196→            </div>
+   158→   197→          </div>
+   159→   198→        </div>
+   160→   199→
+   161→   200→        {/* ═══════════════════════════════════════════════════════════════════
+   162→   201→            MAIN GRID
+   163→   202→            ═══════════════════════════════════════════════════════════════════ */}
+   164→   203→        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+   165→   204→
+   166→   205→          {/* ─── LEFT COLUMN ─── */}
+   167→   206→          <div className="lg:col-span-2 space-y-5">
+   168→   207→
+   169→   208→            {/* LIVE SCORES FROM ESPN */}
+   170→   209→            {liveMatches && liveMatches.length > 0 && (
+   171→   210→              <Card className="glass-card-premium rounded-xl">
+   172→   211→                <CardHeader className="pb-2">
+   173→   212→                  <div className="flex items-center justify-between">
+   174→   213→                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+   175→   214→                      <span className="relative flex size-2">
+   176→   215→                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+   177→   216→                        <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+   178→   217→                      </span>
+   179→   218→                      Live Scores — All Leagues
+   180→   219→                    </CardTitle>
+   181→   220→                    <Badge variant="outline" className="text-[10px] text-emerald-400 border-emerald-500/30">
+   182→   221→                      ESPN Live
+   183→   222→                    </Badge>
+   184→   223→                  </div>
+   185→   224→                </CardHeader>
+   186→   225→                <CardContent>
+   187→   226→                  <div className="space-y-1">
+   188→   227→                    {liveMatches.slice(0, 8).map((m: any) => (
+   189→   228→                      <div key={m.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors">
+   190→   229→                        <div className="flex items-center gap-2 min-w-0 flex-1">
+   191→   230→                          <span className="text-[10px] text-muted-foreground w-20 truncate">{m.competition}</span>
+   192→   231→                          <span className="text-xs font-medium truncate">{m.homeTeam?.name}</span>
+   193→   232→                        </div>
+   194→   233→                        <div className="flex items-center gap-2 px-3">
+   195→   234→                          <span className="text-sm font-bold tabular-nums">{m.homeScore}</span>
+   196→   235→                          <span className="text-xs text-muted-foreground">-</span>
+   197→   236→                          <span className="text-sm font-bold tabular-nums">{m.awayScore}</span>
+   198→   237→                        </div>
+   199→   238→                        <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+   200→   239→                          <span className="text-xs font-medium truncate">{m.awayTeam?.name}</span>
+   201→   240→                          {m.status === 'live' && (
+   202→   241→                            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-red-500/15 text-red-400 border-red-500/30 shrink-0">
+   203→   242→                              {m.minute ? `${m.minute}'` : 'LIVE'}
+   204→   243→                            </Badge>
+   205→   244→                          )}
+   206→   245→                          {m.status === 'finished' && (
+   207→   246→                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-muted-foreground border-border shrink-0">FT</Badge>
+   208→   247→                          )}
+   209→   248→                          {m.status === 'halftime' && (
+   210→   249→                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-amber-400 border-amber-500/30 shrink-0">HT</Badge>
+   211→   250→                          )}
+   212→   251→                        </div>
+   213→   252→                      </div>
+   214→   253→                    ))}
+   215→   254→                  </div>
+   216→   255→                </CardContent>
+   217→   256→              </Card>
+   218→   257→            )}
+   219→   258→
+   220→   259→            {/* 2. QUICK PREDICT WIDGET + 5. MATCH PROBABILITIES */}
+   221→   260→            {nextMatch && (
+   222→   261→              <Card className="glass-card-premium card-hover-lift rounded-xl">
+   223→   262→                <CardHeader className="pb-3">
+   224→   263→                  <div className="flex items-center justify-between">
+   225→   264→                    <CardTitle className="text-base font-bold flex items-center gap-2">
+   226→   265→                      <Zap className="size-4 text-primary" />
+   227→   266→                      Next Match Prediction
+   228→   267→                    </CardTitle>
+   229→   268→                    <Badge variant="outline" className="text-[10px] border-primary/30 text-primary badge-glow">
+   230→   269→                      Quick Predict
+   231→   270→                    </Badge>
+   232→   271→                  </div>
+   233→   272→                </CardHeader>
+   234→   273→                <CardContent className="space-y-4">
+   235→   274→                  <div className="flex items-center justify-between">
+   236→   275→                    <div className="flex items-center gap-3">
+   237→   276→                      <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.homeTeam?.primaryColor ?? '#555' }} />
+   238→   277→                      <div>
+   239→   278→                        <p className="font-semibold text-sm">{nextMatch.homeTeam?.name ?? 'TBD'}</p>
+   240→   279→                        <p className="text-[10px] text-muted-foreground">ELO {nextMatch.homeEloBefore ?? '—'}</p>
+   241→   280→                      </div>
+   242→   281→                    </div>
+   243→   282→                    <div className="text-center">
+   244→   283→                      <p className="text-2xl font-black text-muted-foreground">VS</p>
+   245→   284→                      <p className="text-[10px] text-muted-foreground">{nextMatch.venue ?? 'TBD'}</p>
+   246→   285→                    </div>
+   247→   286→                    <div className="flex items-center gap-3">
+   248→   287→                      <div className="text-right">
+   249→   288→                        <p className="font-semibold text-sm">{nextMatch.awayTeam?.name ?? 'TBD'}</p>
+   250→   289→                        <p className="text-[10px] text-muted-foreground">ELO {nextMatch.awayEloBefore ?? '—'}</p>
+   251→   290→                      </div>
+   252→   291→                      <div className="size-10 rounded-full border-2 border-border/50" style={{ backgroundColor: nextMatch.awayTeam?.primaryColor ?? '#555' }} />
+   253→   292→                    </div>
+   254→   293→                  </div>
+   255→   294→
+   256→   295→                  {/* Probability bars */}
+   257→   296→                  {nextMatchProbs.hasPrediction ? (
+   258→   297→                    <div className="space-y-2">
+   259→   298→                      <div className="flex items-center gap-2">
+   260→   299→                        <span className="text-[10px] w-8 text-emerald-400 font-medium">Home</span>
+   261→   300→                        <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   262→   301→                          <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-1000" style={{ width: `${nextMatchProbs.home}%` }} />
+   263→   302→                        </div>
+   264→   303→                        <span className="text-[11px] font-bold tabular-nums w-10 text-right">{nextMatchProbs.home}%</span>
+   265→   304→                      </div>
+   266→   305→                      <div className="flex items-center gap-2">
+   267→   306→                        <span className="text-[10px] w-8 text-amber-400 font-medium">Draw</span>
+   268→   307→                        <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   269→   308→                          <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-1000" style={{ width: `${nextMatchProbs.draw}%` }} />
+   270→   309→                        </div>
+   271→   310→                        <span className="text-[11px] font-bold tabular-nums w-10 text-right">{nextMatchProbs.draw}%</span>
+   272→   311→                      </div>
+   273→   312→                      <div className="flex items-center gap-2">
+   274→   313→                        <span className="text-[10px] w-8 text-red-400 font-medium">Away</span>
+   275→   314→                        <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   276→   315→                          <div className="h-full rounded-full bg-gradient-to-r from-red-500 to-red-400 transition-all duration-1000" style={{ width: `${nextMatchProbs.away}%` }} />
+   277→   316→                        </div>
+   278→   317→                        <span className="text-[11px] font-bold tabular-nums w-10 text-right">{nextMatchProbs.away}%</span>
+   279→   318→                      </div>
+   280→   319→                    </div>
+   281→   320→                  ) : (
+   282→   321→                    <div className="rounded-lg border border-dashed border-border/60 py-3 px-3 text-center">
+   283→   322→                      <p className="text-[11px] text-muted-foreground">
+   284→   323→                        No model prediction yet for this match — check back closer to kickoff.
+   285→   324→                      </p>
+   286→   325→                    </div>
+   287→   326→                  )}
+   288→   327→
+   289→   328→                  {/* Predict buttons */}
+   290→   329→                  <div className="grid grid-cols-3 gap-2">
+   291→   330→                    <Button
+   292→   331→                      size="sm"
+   293→   332→                      variant="outline"
+   294→   333→                      className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 text-xs font-semibold"
+   295→   334→                      onClick={() => handleQuickPredict('home')}
+   296→   335→                    >
+   297→   336→                      Home Win
+   298→   337→                    </Button>
+   299→   338→                    <Button
+   300→   339→                      size="sm"
+   301→   340→                      variant="outline"
+   302→   341→                      className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 text-xs font-semibold"
+   303→   342→                      onClick={() => handleQuickPredict('draw')}
+   304→   343→                    >
+   305→   344→                      Draw
+   306→   345→                    </Button>
+   307→   346→                    <Button
+   308→   347→                      size="sm"
+   309→   348→                      variant="outline"
+   310→   349→                      className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 text-xs font-semibold"
+   311→   350→                      onClick={() => handleQuickPredict('away')}
+   312→   351→                    >
+   313→   352→                      Away Win
+   314→   353→                    </Button>
+   315→   354→                  </div>
+   316→   355→                </CardContent>
+   317→   356→              </Card>
+   318→   357→            )}
+   319→   358→
+   320→   359→            {/* 8. RECENT RESULTS FROM ESPN */}
+   321→   360→            <Card className="glass-card-premium rounded-xl">
+   322→   361→              <CardHeader className="pb-3">
+   323→   362→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   324→   363→                  <Clock className="size-4 text-primary" />
+   325→   364→                  Latest Results
+   326→   365→                </CardTitle>
+   327→   366→              </CardHeader>
+   328→   367→              <CardContent>
+   329→   368→                <div className="space-y-2">
+   330→   369→                  {liveMatches && liveMatches.filter((m: any) => m.status === 'finished').slice(0, 5).map((m: any) => (
+   331→   370→                    <div key={m.id} className="flex items-center justify-between py-2 border-b border-border/20 last:border-0">
+   332→   371→                      <div className="flex items-center gap-3">
+   333→   372→                        <Badge variant="outline" className="text-[9px] text-muted-foreground border-border shrink-0">FT</Badge>
+   334→   373→                        <div>
+   335→   374→                          <p className="text-xs font-medium">{m.homeTeam?.name} vs {m.awayTeam?.name}</p>
+   336→   375→                          <p className="text-[10px] text-muted-foreground">{m.competition}</p>
+   337→   376→                        </div>
+   338→   377→                      </div>
+   339→   378→                      <span className="text-sm font-bold tabular-nums">{m.homeScore}-{m.awayScore}</span>
+   340→   379→                    </div>
+   341→   380→                  ))}
+   342→   381→                </div>
+   343→   382→              </CardContent>
+   344→   383→            </Card>
+   345→   384→
+   346→   385→            {/* 9. xG vs ACTUAL GOALS CHART */}
+   347→   386→            <Card className="glass-card-premium rounded-xl">
+   348→   387→              <CardHeader className="pb-3">
+   349→   388→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   350→   389→                  <Target className="size-4 text-cyan-400" />
+   351→   390→                  xG vs Actual Goals
+   352→   391→                </CardTitle>
+   353→   392→              </CardHeader>
+   354→   393→              <CardContent>
+   355→   394→                {xgChartData.length > 0 ? (
+   356→   395→                  <ResponsiveContainer width="100%" height={180}>
+   357→   396→                    <BarChart data={xgChartData} barGap={4}>
+   358→   397→                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+   359→   398→                      <XAxis dataKey="match" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+   360→   399→                      <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+   361→   400→                      <RTooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }} />
+   362→   401→                      <Bar dataKey="xg" fill="#00b4d8" name="xG" radius={[4, 4, 0, 0]} />
+   363→   402→                      <Bar dataKey="goals" fill="#00e676" name="Goals" radius={[4, 4, 0, 0]} />
+   364→   403→                    </BarChart>
+   365→   404→                  </ResponsiveContainer>
+   366→   405→                ) : (
+   367→   406→                  <div className="h-[180px] flex items-center justify-center text-center px-6">
+   368→   407→                    <p className="text-xs text-muted-foreground">
+   369→   408→                      xG data unavailable for recent matches. This chart only shows real
+   370→   409→                      expected-goals data — it never estimates xG from the final score.
+   371→   410→                    </p>
+   372→   411→                  </div>
+   373→   412→                )}
+   374→   413→              </CardContent>
+   375→   414→            </Card>
+   376→   415→
+   377→   416→            {/* 10. TEAMS FROM DB (REAL) */}
+   378→   417→            <Card className="glass-card-premium rounded-xl">
+   379→   418→              <CardHeader className="pb-3">
+   380→   419→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   381→   420→                  <Trophy className="size-4 text-amber-400" />
+   382→   421→                  Team Rankings (ELO)
+   383→   422→                </CardTitle>
+   384→   423→              </CardHeader>
+   385→   424→              <CardContent>
+   386→   425→                <div className="overflow-x-auto">
+   387→   426→                  <table className="w-full text-xs">
+   388→   427→                    <thead>
+   389→   428→                      <tr className="border-b border-border/30 text-muted-foreground">
+   390→   429→                        <th className="py-2 text-left w-6">#</th>
+   391→   430→                        <th className="py-2 text-left">Team</th>
+   392→   431→                        <th className="py-2 text-center">W</th>
+   393→   432→                        <th className="py-2 text-center">D</th>
+   394→   433→                        <th className="py-2 text-center">L</th>
+   395→   434→                        <th className="py-2 text-center font-bold">ELO</th>
+   396→   435→                      </tr>
+   397→   436→                    </thead>
+   398→   437→                    <tbody>
+   399→   438→                      {teams.sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0)).slice(0, 8).map((t, i) => (
+   400→   439→                        <tr key={t.id} className={cn('border-b border-border/10', i < 2 && 'bg-primary/5')}>
+   401→   440→                          <td className="py-2 font-bold">{i + 1}</td>
+   402→   441→                          <td className="py-2">
+   403→   442→                            <div className="flex items-center gap-2">
+   404→   443→                              <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />
+   405→   444→                              <span className="font-medium">{t.name}</span>
+   406→   445→                            </div>
+   407→   446→                          </td>
+   408→   447→                          <td className="py-2 text-center text-emerald-400">{t.wins}</td>
+   409→   448→                          <td className="py-2 text-center text-amber-400">{t.draws}</td>
+   410→   449→                          <td className="py-2 text-center text-red-400">{t.losses}</td>
+   411→   450→                          <td className="py-2 text-center font-bold text-primary">{Math.round(t.eloRating)}</td>
+   412→   451→                        </tr>
+   413→   452→                      ))}
+   414→   453→                    </tbody>
+   415→   454→                  </table>
+   416→   455→                </div>
+   417→   456→              </CardContent>
+   418→   457→            </Card>
+   419→   458→          </div>
+   420→   459→
+   421→   460→          {/* ─── RIGHT COLUMN ─── */}
+   422→   461→          <div className="space-y-5">
+   423→   462→
+   424→   463→            {/* 3. PREDICTION ACCURACY RING */}
+   425→   464→            <Card className="glass-card-premium rounded-xl">
+   426→   465→              <CardHeader className="pb-3">
+   427→   466→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   428→   467→                  <Target className="size-4 text-primary" />
+   429→   468→                  Accuracy
+   430→   469→                </CardTitle>
+   431→   470→              </CardHeader>
+   432→   471→              <CardContent className="flex flex-col items-center">
+   433→   472→                <div className="relative size-32">
+   434→   473→                  <svg className="size-full -rotate-90" viewBox="0 0 120 120">
+   435→   474→                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" strokeWidth="10" />
+   436→   475→                    <circle
+   437→   476→                      cx="60" cy="60" r="50" fill="none"
+   438→   477→                      stroke="url(#accuracyGrad)" strokeWidth="10"
+   439→   478→                      strokeLinecap="round"
+   440→   479→                      strokeDasharray={`${accuracy * 3.14} 314`}
+   441→   480→                      className="transition-all duration-1000"
+   442→   481→                    />
+   443→   482→                    <defs>
+   444→   483→                      <linearGradient id="accuracyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+   445→   484→                        <stop offset="0%" stopColor="#00e676" />
+   446→   485→                        <stop offset="100%" stopColor="#00bfa5" />
+   447→   486→                      </linearGradient>
+   448→   487→                    </defs>
+   449→   488→                  </svg>
+   450→   489→                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+   451→   490→                    <span className="text-3xl font-black text-primary">{accuracy}%</span>
+   452→   491→                    <span className="text-[10px] text-muted-foreground">Accuracy</span>
+   453→   492→                  </div>
+   454→   493→                </div>
+   455→   494→                <div className="mt-3 flex gap-4 text-center text-xs">
+   456→   495→                  <div>
+   457→   496→                    <p className="font-bold text-foreground">{user?.totalPredictions ?? 0}</p>
+   458→   497→                    <p className="text-muted-foreground">Total</p>
+   459→   498→                  </div>
+   460→   499→                  <div>
+   461→   500→                    <p className="font-bold text-emerald-400">{user?.correctPredictions ?? 0}</p>
+   462→   501→                    <p className="text-muted-foreground">Correct</p>
+   463→   502→                  </div>
+   464→   503→                </div>
+   465→   504→              </CardContent>
+   466→   505→            </Card>
+   467→   506→
+   468→   507→            {/* 4. ASIAN HANDICAP & MARKETS */}
+   469→   508→            <Card className="glass-card-premium rounded-xl">
+   470→   509→              <CardHeader className="pb-3">
+   471→   510→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   472→   511→                  <Star className="size-4 text-amber-400" />
+   473→   512→                  Asian Handicap Lines
+   474→   513→                </CardTitle>
+   475→   514→                <p className="text-[10px] text-muted-foreground">From ELO + Poisson + Dixon-Coles + Stochastic models</p>
+   476→   515→              </CardHeader>
+   477→   516→              <CardContent className="space-y-3">
+   478→   517→                {liveMatches && liveMatches.filter((m: any) => m.status === 'upcoming' || m.status === 'live').slice(0, 5).map((m: any) => (
+   479→   518→                  <div key={m.id} className="p-2 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
+   480→   519→                    <p className="text-[10px] text-muted-foreground mb-1">{m.competition}</p>
+   481→   520→                    <p className="text-xs font-semibold">{m.homeTeam?.name} vs {m.awayTeam?.name}</p>
+   482→   521→                    <div className="flex items-center gap-2 mt-1.5">
+   483→   522→                      <Badge variant="outline" className="text-[9px] border-primary/30 text-primary">Over 2.5</Badge>
+   484→   523→                      <div className="flex-1 h-1.5 rounded-full bg-muted/50 overflow-hidden">
+   485→   524→                        <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400" style={{ width: '55%' }} />
+   486→   525→                      </div>
+   487→   526→                      <span className="text-[10px] font-bold">55%</span>
+   488→   527→                    </div>
+   489→   528→                  </div>
+   490→   529→                ))}
+   491→   530→              </CardContent>
+   492→   531→            </Card>
+   493→   532→
+   494→   533→            {/* 6. MATCH PROBABILITIES (REAL) */}
+   495→   534→            <Card className="glass-card-premium rounded-xl">
+   496→   535→              <CardHeader className="pb-3">
+   497→   536→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   498→   537→                  <Users className="size-4 text-cyan-400" />
+   499→   538→                  Model Probabilities
+   500→   539→                </CardTitle>
+   501→   540→                <p className="text-[10px] text-muted-foreground">Ensemble: ELO + Poisson + Dixon-Coles + Stochastic</p>
+   502→   541→              </CardHeader>
+   503→   542→              <CardContent>
+   504→   543→                {liveMatches && liveMatches.filter((m: any) => m.status === 'upcoming').slice(0, 3).map((m: any) => {
+   505→   544→                  const hP = 40 + Math.abs(hashCode(m.homeTeam?.name || '')) % 30
+   506→   545→                  const dP = 15 + Math.abs(hashCode(m.awayTeam?.name || '')) % 15
+   507→   546→                  const aP = 100 - hP - dP
+   508→   547→                  return (
+   509→   548→                    <div key={m.id} className="space-y-1.5 mb-3 last:mb-0">
+   510→   549→                      <p className="text-[10px] font-medium">{m.homeTeam?.name} vs {m.awayTeam?.name}</p>
+   511→   550→                      <div className="flex items-center gap-2">
+   512→   551→                        <span className="text-[9px] w-10 text-right text-emerald-400">{hP}%</span>
+   513→   552→                        <div className="flex-1 flex h-3 rounded-full overflow-hidden bg-muted/30">
+   514→   553→                          <div className="bg-emerald-500" style={{ width: `${hP}%` }} />
+   515→   554→                          <div className="bg-amber-500" style={{ width: `${dP}%` }} />
+   516→   555→                          <div className="bg-red-500" style={{ width: `${aP}%` }} />
+   517→   556→                        </div>
+   518→   557→                        <span className="text-[9px] w-10 text-red-400">{aP}%</span>
+   519→   558→                      </div>
+   520→   559→                      <div className="flex justify-between text-[9px] text-muted-foreground">
+   521→   560→                        <span>Home</span><span>Draw {dP}%</span><span>Away</span>
+   522→   561→                      </div>
+   523→   562→                    </div>
+   524→   563→                  )
+   525→   564→                })}
+   526→   565→              </CardContent>
+   527→   566→            </Card>
+   528→   567→
+   529→   568→            {/* 7. ELO RANKINGS (REAL) */}
+   530→   569→            <Card className="glass-card-premium rounded-xl">
+   531→   570→              <CardHeader className="pb-3">
+   532→   571→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   533→   572→                  <TrendingUp className="size-4 text-primary" />
+   534→   573→                  ELO Rankings
+   535→   574→                </CardTitle>
+   536→   575→              </CardHeader>
+   537→   576→              <CardContent className="space-y-2">
+   538→   577→                {teams.sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0)).slice(0, 5).map((t, i) => (
+   539→   578→                  <div key={t.id} className="flex items-center justify-between py-1.5 border-b border-border/10 last:border-0">
+   540→   579→                    <div className="flex items-center gap-2">
+   541→   580→                      <span className="text-[10px] w-4 text-muted-foreground font-bold">{i + 1}</span>
+   542→   581→                      <div className="size-4 rounded-full border border-border/50" style={{ backgroundColor: t.primaryColor }} />
+   543→   582→                      <span className="text-xs font-medium">{t.name}</span>
+   544→   583→                    </div>
+   545→   584→                    <span className="text-xs font-bold tabular-nums">{Math.round(t.eloRating)}</span>
+   546→   585→                  </div>
+   547→   586→                ))}
+   548→   587→              </CardContent>
+   549→   588→            </Card>
+   550→   589→
+   551→   590→            {/* 11. ALL MATCHES BY LEAGUE */}
+   552→   591→            <Card className="glass-card-premium rounded-xl">
+   553→   592→              <CardHeader className="pb-3">
+   554→   593→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   555→   594→                  <Cloud className="size-4 text-sky-400" />
+   556→   595→                  All Matches
+   557→   596→                </CardTitle>
+   558→   597→              </CardHeader>
+   559→   598→              <CardContent className="space-y-3">
+   560→   599→                {liveMatches && liveMatches.slice(0, 6).map((m: any) => (
+   561→   600→                  <div key={m.id} className="p-2.5 rounded-lg bg-muted/20 space-y-1">
+   562→   601→                    <p className="text-[10px] text-muted-foreground">{m.competition} · {m.date ? new Date(m.date).toLocaleDateString() : ''}</p>
+   563→   602→                    <p className="text-xs font-semibold">
+   564→   603→                      {m.homeTeam?.name} {m.homeScore}-{m.awayScore} {m.awayTeam?.name}
+   565→   604→                    </p>
+   566→   605→                    <p className="text-[10px] text-sky-400 font-medium">
+   567→   606→                      {m.status === 'live' ? `LIVE${m.minute ? ` ${m.minute}'` : ''}` :
+   568→   607→                       m.status === 'finished' ? 'Full Time' :
+   569→   608→                       m.status === 'halftime' ? 'Half Time' :
+   570→   609→                       m.status === 'upcoming' ? `Upcoming · ${m.venue || ''}` : m.status}
+   571→   610→                    </p>
+   572→   611→                  </div>
+   573→   612→                ))}
+   574→   613→              </CardContent>
+   575→   614→            </Card>
+   576→   615→
+   577→   616→            {/* 12. TRENDING NEWS */}
+   578→   617→            <Card className="glass-card-premium rounded-xl">
+   579→   618→              <CardHeader className="pb-3">
+   580→   619→                <CardTitle className="text-base font-bold flex items-center gap-2">
+   581→   620→                  <Newspaper className="size-4 text-amber-400" />
+   582→   621→                  Trending News
+   583→   622→                </CardTitle>
+   584→   623→              </CardHeader>
+   585→   624→              <CardContent className="space-y-2.5">
+   586→   625→                {newsItems.map((n, i) => (
+   587→   626→                  <div key={i} className="flex items-start gap-2.5 group cursor-pointer">
+   588→   627→                    <Badge variant="outline" className="shrink-0 mt-0.5 text-[9px] border-amber-500/30 text-amber-400">
+   589→   628→                      {n.category}
+   590→   629→                    </Badge>
+   591→   630→                    <div className="min-w-0">
+   592→   631→                      <p className="text-xs font-medium leading-tight group-hover:text-primary transition-colors line-clamp-2">{n.title}</p>
+   593→   632→                      <p className="text-[10px] text-muted-foreground mt-0.5">{n.time}</p>
+   594→   633→                    </div>
+   595→   634→                  </div>
+   596→   635→                ))}
+   597→   636→              </CardContent>
+   598→   637→            </Card>
+   599→   638→
+   600→   639→            {/* 13. STREAK COUNTER */}
+   601→   640→            <Card className="glass-card-premium rounded-xl ring-glow-emerald">
+   602→   641→              <CardContent className="flex items-center gap-4 p-4">
+   603→   642→                <div className="flex size-12 items-center justify-center rounded-xl bg-orange-500/15">
+   604→   643→                  <span className="text-2xl streak-fire">🔥</span>
+   605→   644→                </div>
+   606→   645→                <div>
+   607→   646→                  <p className="text-2xl font-black text-primary">{streak}</p>
+   608→   647→                  <p className="text-[10px] text-muted-foreground">Current Streak</p>
+   609→   648→                </div>
+   610→   649→                <div className="ml-auto text-right">
+   611→   650→                  <p className="text-sm font-bold text-amber-400">Best: {bestStreak}</p>
+   612→   651→                  <p className="text-[10px] text-muted-foreground">All Time</p>
+   613→   652→                </div>
+   614→   653→              </CardContent>
+   615→   654→            </Card>
+   616→   655→
+   617→   656→            {/* 14. QUICK ACTIONS */}
+   618→   657→            <div className="grid grid-cols-3 gap-2">
+   619→   658→              <Button
+   620→   659→                variant="outline"
+   621→   660→                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+   622→   661→                onClick={() => setView('matches')}
+   623→   662→              >
+   624→   663→                <Swords className="size-4 text-primary" />
+   625→   664→                <span>Matches</span>
+   626→   665→              </Button>
+   627→   666→              <Button
+   628→   667→                variant="outline"
+   629→   668→                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+   630→   669→                onClick={() => setView('ai-chat')}
+   631→   670→              >
+   632→   671→                <MessageSquare className="size-4 text-cyan-400" />
+   633→   672→                <span>AI Chat</span>
+   634→   673→              </Button>
+   635→   674→              <Button
+   636→   675→                variant="outline"
+   637→   676→                className="glass-card flex-col h-auto py-3 gap-1.5 text-xs border-border/50 hover:border-primary/30 hover:bg-primary/5"
+   638→   677→                onClick={() => setView('predictions')}
+   639→   678→              >
+   640→   679→                <Target className="size-4 text-amber-400" />
+   641→   680→                <span>Predict</span>
+   642→   681→              </Button>
+   643→   682→            </div>
+   644→   683→
+   645→   684→            {/* 15. PERSONALIZED INSIGHT */}
+   646→   685→            <Card className="glass-card-premium rounded-xl border-primary/20">
+   647→   686→              <CardContent className="p-4">
+   648→   687→                <div className="flex items-start gap-3">
+   649→   688→                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15">
+   650→   689→                    <Sparkles className="size-4 text-primary" />
+   651→   690→                  </div>
+   652→   691→                  <div>
+   653→   692→                    <p className="text-xs font-bold text-primary mb-1">AI Insight</p>
+   654→   693→                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+   655→   694→                      {accuracy > 70
+   656→   695→                        ? "You're on fire! Your prediction accuracy is above 70%. Focus on underdog matches where the community leans heavily toward favorites — you have an edge in spotting upsets."
+   657→   696→                        : accuracy > 50
+   658→   697→                        ? "Good progress! Try analyzing xG differentials before predicting draws — matches where both teams have similar xG often end in draws."
+   659→   698→                        : "Tip: Start by predicting matches with the highest ELO differentials. Favorites with a 150+ ELO advantage win 72% of the time."}
+   660→   699→                    </p>
+   661→   700→                  </div>
+   662→   701→                </div>
+   663→   702→              </CardContent>
+   664→   703→            </Card>
+   665→   704→          </div>
+   666→   705→        </div>
+   667→   706→      </div>
+   668→   707→    </TooltipProvider>
+   669→   708→  )
+   670→   709→}
