@@ -1,0 +1,901 @@
+     1→"""Phase 3.5 — XGBoost Stress Test: Market vs Football vs Combined.
+     2→
+     3→This script answers one question:
+     4→  Does XGBoost contribute INDEPENDENT football intelligence,
+     5→  or does it primarily reproduce bookmaker information?
+     6→
+     7→Methodology:
+     8→  1. Three feature sets: market-only (4), football-only (46), combined (50)
+     9→  2. Five temporal evaluation windows with different train/test boundaries
+    10→  3. For each (feature_set, window): train XGBoost, compute full metrics
+    11→  4. Compare: does combined beat market-only? Does football-only add signal?
+    12→  5. Analyze prediction correlation between feature sets
+    13→  6. Produce verdict with quantitative evidence
+    14→
+    15→v1 model (saved_models/xgboost_v1.json) is NOT modified.
+    16→
+    17→Usage:
+    18→    cd /home/z/my-project/football-prediction-mega
+    19→    python scripts/phase3_5_stress_test.py
+    20→"""
+    21→
+    22→from __future__ import annotations
+    23→
+    24→import json
+    25→import sys
+    26→import warnings
+    27→from datetime import datetime
+    28→from pathlib import Path
+    29→
+    30→import numpy as np
+    31→import pandas as pd
+    32→from sklearn.metrics import (
+    33→    accuracy_score, brier_score_loss, confusion_matrix,
+    34→    log_loss, precision_recall_fscore_support,
+    35→)
+    36→
+    37→warnings.filterwarnings('ignore')
+    38→
+    39→PROJECT_ROOT = Path('/home/z/my-project/football-prediction-mega')
+    40→DATASET_PATH = PROJECT_ROOT / 'data' / 'processed' / 'training_dataset.parquet'
+    41→OUTPUT_DIR = PROJECT_ROOT / 'data'
+    42→REPORT_PATH = OUTPUT_DIR / 'phase3_5_stress_test_report.md'
+    43→METRICS_PATH = OUTPUT_DIR / 'phase3_5_stress_test_metrics.json'
+    44→
+    45→sys.path.insert(0, str(PROJECT_ROOT))
+    46→from src.ml.feature_schema import FEATURE_NAMES, FEATURE_CATEGORIES, SCHEMA_VERSION, SCHEMA_HASH
+    47→
+    48→
+    49→# ═══════════════════════════════════════════════════════════════════════
+    50→# Feature Set Definitions
+    51→# ═══════════════════════════════════════════════════════════════════════
+    52→
+    53→MARKET_FEATURES = [
+    54→    'implied_prob_home', 'implied_prob_draw',
+    55→    'implied_prob_away', 'overround',
+    56→]
+    57→
+    58→FOOTBALL_FEATURES = [f for f in FEATURE_NAMES if f not in MARKET_FEATURES]
+    59→
+    60→FEATURE_SETS = {
+    61→    'market_only': {
+    62→        'features': MARKET_FEATURES,
+    63→        'label': 'Market-Only (4 features)',
+    64→        'description': 'Bookmaker implied probabilities + overround only',
+    65→    },
+    66→    'football_only': {
+    67→        'features': FOOTBALL_FEATURES,
+    68→        'label': 'Football-Only (46 features)',
+    69→        'description': 'All non-market features: ELO, goals, form, H2H, venue, temporal, advanced',
+    70→    },
+    71→    'combined': {
+    72→        'features': FEATURE_NAMES,
+    73→        'label': 'Combined (50 features)',
+    74→        'description': 'All features: football + market',
+    75→    },
+    76→}
+    77→
+    78→
+    79→# ═══════════════════════════════════════════════════════════════════════
+    80→# Temporal Windows
+    81→# ═══════════════════════════════════════════════════════════════════════
+    82→
+    83→# Each window: (name, train_seasons, val_seasons, test_seasons)
+    84→TEMPORAL_WINDOWS = [
+    85→    {
+    86→        'name': 'W1: Long history, test 2223',
+    87→        'train_seasons': ['1920', '2021', '2122'],
+    88→        'val_seasons': ['2223'],
+    89→        'test_seasons': ['2223'],
+    90→        'note': 'Train on 3 seasons, test on next. Tests temporal transfer.',
+    91→    },
+    92→    {
+    93→        'name': 'W2: Long history, test 2324',
+    94→        'train_seasons': ['1920', '2021', '2122', '2223'],
+    95→        'val_seasons': ['2223'],
+    96→        'test_seasons': ['2324'],
+    97→        'note': 'Matches v1 test set boundary. 4-season train, 1-season test.',
+    98→    },
+    99→    {
+   100→        'name': 'W3: Recent-only, test 2324',
+   101→        'train_seasons': ['2021', '2122', '2223'],
+   102→        'val_seasons': ['2223'],
+   103→        'test_seasons': ['2324'],
+   104→        'note': 'Only 3 recent seasons for training. Tests recency bias.',
+   105→    },
+   106→    {
+   107→        'name': 'W4: Very-recent, test 2324',
+   108→        'train_seasons': ['2122', '2223'],
+   109→        'val_seasons': ['2223'],
+   110→        'test_seasons': ['2324'],
+   111→        'note': 'Only 2 seasons. Minimal history. Stress test for data scarcity.',
+   112→    },
+   113→    {
+   114→        'name': 'W5: 2-season test window',
+   115→        'train_seasons': ['1920', '2021', '2122'],
+   116→        'val_seasons': ['2122'],
+   117→        'test_seasons': ['2223', '2324'],
+   118→        'note': 'Tests generalization across 2 full seasons.',
+   119→    },
+   120→]
+   121→
+   122→
+   123→# ═══════════════════════════════════════════════════════════════════════
+   124→# Metrics
+   125→# ═══════════════════════════════════════════════════════════════════════
+   126→
+   127→def compute_ece(y_true, y_prob, n_bins=15):
+   128→    """Compute Expected Calibration Error with more bins for stability."""
+   129→    n_classes = y_prob.shape[1]
+   130→    ece = 0.0
+   131→    for c in range(n_classes):
+   132→        y_binary = (y_true == c).astype(int)
+   133→        prob_c = y_prob[:, c]
+   134→        bin_edges = np.linspace(0, 1, n_bins + 1)
+   135→        for i in range(n_bins):
+   136→            mask = (prob_c >= bin_edges[i]) & (prob_c < bin_edges[i + 1])
+   137→            if i == n_bins - 1:
+   138→                mask = (prob_c >= bin_edges[i]) & (prob_c <= bin_edges[i + 1])
+   139→            n_bin = mask.sum()
+   140→            if n_bin == 0:
+   141→                continue
+   142→            avg_conf = prob_c[mask].mean()
+   143→            avg_acc = y_binary[mask].mean()
+   144→            ece += (n_bin / len(y_true)) * abs(avg_conf - avg_acc)
+   145→    return ece / n_classes
+   146→
+   147→
+   148→def compute_all_metrics(y_true, y_proba, y_pred, label='set'):
+   149→    """Full metrics: log loss, Brier, ECE, accuracy, per-class P/R/F1, confusion matrix."""
+   150→    n = len(y_true)
+   151→    m = {'label': label, 'n_samples': n}
+   152→
+   153→    m['accuracy'] = float(accuracy_score(y_true, y_pred))
+   154→
+   155→    # Log loss
+   156→    try:
+   157→        m['log_loss'] = float(log_loss(y_true, y_proba))
+   158→    except Exception:
+   159→        m['log_loss'] = float('nan')
+   160→
+   161→    # Brier score (multi-class, macro-averaged)
+   162→    n_classes = y_proba.shape[1]
+   163→    y_onehot = np.zeros_like(y_proba)
+   164→    for i in range(n_classes):
+   165→        y_onehot[:, i] = (y_true == i).astype(float)
+   166→    briers = []
+   167→    for i in range(n_classes):
+   168→        try:
+   169→            briers.append(brier_score_loss(y_onehot[:, i], y_proba[:, i]))
+   170→        except Exception:
+   171→            briers.append(float('nan'))
+   172→    m['brier_score'] = float(np.nanmean(briers))
+   173→
+   174→    # Per-class P/R/F1
+   175→    prec, rec, f1, support = precision_recall_fscore_support(
+   176→        y_true, y_pred, labels=[0, 1, 2], zero_division=0
+   177→    )
+   178→    for i, name in enumerate(['Home', 'Draw', 'Away']):
+   179→        m[f'precision_{name}'] = float(prec[i])
+   180→        m[f'recall_{name}'] = float(rec[i])
+   181→        m[f'f1_{name}'] = float(f1[i])
+   182→        m[f'support_{name}'] = int(support[i])
+   183→    m['precision_macro'] = float(np.mean(prec))
+   184→    m['recall_macro'] = float(np.mean(rec))
+   185→    m['f1_macro'] = float(np.mean(f1))
+   186→
+   187→    # Confusion matrix
+   188→    cm = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
+   189→    m['confusion_matrix'] = cm.tolist()
+   190→
+   191→    # ECE
+   192→    m['ece'] = float(compute_ece(y_true, y_proba))
+   193→
+   194→    # Calibration reliability diagram data (for per-bin analysis)
+   195→    m['calibration_bins'] = compute_calibration_bins(y_true, y_proba, n_bins=10)
+   196→
+   197→    return m
+   198→
+   199→
+   200→def compute_calibration_bins(y_true, y_prob, n_bins=10):
+   201→    """Compute per-bin calibration data for reliability analysis."""
+   202→    bins_data = []
+   203→    for c in range(y_prob.shape[1]):
+   204→        y_binary = (y_true == c).astype(int)
+   205→        prob_c = y_prob[:, c]
+   206→        edges = np.linspace(0, 1, n_bins + 1)
+   207→        for i in range(n_bins):
+   208→            mask = (prob_c >= edges[i]) & (prob_c < edges[i + 1])
+   209→            if i == n_bins - 1:
+   210→                mask = (prob_c >= edges[i]) & (prob_c <= edges[i + 1])
+   211→            n_bin = mask.sum()
+   212→            if n_bin < 5:
+   213→                continue
+   214→            bins_data.append({
+   215→                'class': c,
+   216→                'bin_center': float((edges[i] + edges[i + 1]) / 2),
+   217→                'avg_confidence': float(prob_c[mask].mean()),
+   218→                'avg_accuracy': float(y_binary[mask].mean()),
+   219→                'count': int(n_bin),
+   220→            })
+   221→    return bins_data
+   222→
+   223→
+   224→def compute_prediction_correlation(proba_a, proba_b, y_true):
+   225→    """Compute correlation between two models' predicted probabilities."""
+   226→    # Flatten probabilities and compute correlation
+   227→    p_a = proba_a.flatten()
+   228→    p_b = proba_b.flatten()
+   229→    corr = float(np.corrcoef(p_a, p_b)[0, 1])
+   230→
+   231→    # Per-class argmax agreement
+   232→    pred_a = np.argmax(proba_a, axis=1)
+   233→    pred_b = np.argmax(proba_b, axis=1)
+   234→    agreement = float((pred_a == pred_b).mean())
+   235→
+   236→    # Both-correct rate (both models predict correctly)
+   237→    both_correct = float(((pred_a == y_true) & (pred_b == y_true)).mean())
+   238→
+   239→    return {
+   240→        'probability_correlation': corr,
+   241→        'prediction_agreement': agreement,
+   242→        'both_correct_rate': both_correct,
+   243→    }
+   244→
+   245→
+   246→def compute_naive_baseline(y_true):
+   247→    """Compute naive baseline: always predict class priors."""
+   248→    n = len(y_true)
+   249→    counts = np.bincount(y_true, minlength=3)
+   250→    priors = counts / n
+   251→    # Probas = priors for every sample
+   252→    proba = np.tile(priors, (n, 1))
+   253→    pred = np.full(n, np.argmax(priors))  # always predict majority class
+   254→
+   255→    m = {}
+   256→    m['accuracy'] = float(accuracy_score(y_true, pred))
+   257→    try:
+   258→        m['log_loss'] = float(log_loss(y_true, proba))
+   259→    except Exception:
+   260→        m['log_loss'] = float('nan')
+   261→    n_classes = 3
+   262→    y_onehot = np.zeros((n, n_classes))
+   263→    for i in range(n_classes):
+   264→        y_onehot[:, i] = (y_true == i).astype(float)
+   265→    briers = [brier_score_loss(y_onehot[:, i], proba[:, i]) for i in range(n_classes)]
+   266→    m['brier_score'] = float(np.mean(briers))
+   267→    m['ece'] = float(compute_ece(y_true, proba))
+   268→    m['class_priors'] = [float(p) for p in priors]
+   269→    return m
+   270→
+   271→
+   272→# ═══════════════════════════════════════════════════════════════════════
+   273→# XGBoost Training (same params as v1 for fair comparison)
+   274→# ═══════════════════════════════════════════════════════════════════════
+   275→
+   276→def train_xgb_model(X_train, y_train, X_val, y_val, feature_names, seed=42):
+   277→    """Train XGBoost with IDENTICAL hyperparameters to v1 baseline."""
+   278→    import xgboost as xgb
+   279→
+   280→    counts = np.bincount(y_train, minlength=3)
+   281→    total = counts.sum()
+   282→    scale_pos_weight = {i: total / (3 * c) for i, c in enumerate(counts) if c > 0}
+   283→    sample_weights = np.array([scale_pos_weight.get(y, 1.0) for y in y_train])
+   284→
+   285→    dtrain = xgb.DMatrix(X_train, label=y_train, weight=sample_weights, feature_names=feature_names)
+   286→    dval = xgb.DMatrix(X_val, label=y_val, feature_names=feature_names)
+   287→
+   288→    params = {
+   289→        'objective': 'multi:softprob',
+   290→        'num_class': 3,
+   291→        'eval_metric': 'mlogloss',
+   292→        'max_depth': 5,
+   293→        'eta': 0.05,
+   294→        'subsample': 0.8,
+   295→        'colsample_bytree': 0.8,
+   296→        'min_child_weight': 5,
+   297→        'gamma': 0.1,
+   298→        'lambda': 1.5,
+   299→        'alpha': 0.1,
+   300→        'seed': seed,
+   301→        'nthread': 4,
+   302→    }
+   303→
+   304→    bst = xgb.train(
+   305→        params, dtrain,
+   306→        num_boost_round=1000,
+   307→        evals=[(dtrain, 'train'), (dval, 'val')],
+   308→        early_stopping_rounds=100,
+   309→        verbose_eval=False,
+   310→    )
+   311→
+   312→    return bst, bst.best_iteration
+   313→
+   314→
+   315→def get_predictions(bst, X, feature_names):
+   316→    """Get probability predictions from XGBoost model."""
+   317→    import xgboost as xgb
+   318→    d = xgb.DMatrix(X, feature_names=feature_names)
+   319→    proba = bst.predict(d)
+   320→    pred = np.argmax(proba, axis=1)
+   321→    return proba, pred
+   322→
+   323→
+   324→# ═══════════════════════════════════════════════════════════════════════
+   325→# Experiment Runner
+   326→# ═══════════════════════════════════════════════════════════════════════
+   327→
+   328→def run_experiment(df_complete, window, feature_set_name, feature_set_info):
+   329→    """Run one experiment: (window, feature_set) -> metrics dict."""
+   330→    feats = feature_set_info['features']
+   331→
+   332→    # Split data by season
+   333→    train_df = df_complete[df_complete['season_code'].isin(window['train_seasons'])].copy()
+   334→    val_df = df_complete[df_complete['season_code'].isin(window['val_seasons'])].copy()
+   335→    test_df = df_complete[df_complete['season_code'].isin(window['test_seasons'])].copy()
+   336→
+   337→    # Ensure features are available in the dataframe
+   338→    available_feats = [f for f in feats if f in df_complete.columns]
+   339→    if len(available_feats) == 0:
+   340→        return None
+   341→
+   342→    # Check for complete cases in this feature set
+   343→    train_mask = train_df[available_feats].notna().all(axis=1)
+   344→    val_mask = val_df[available_feats].notna().all(axis=1)
+   345→    test_mask = test_df[available_feats].notna().all(axis=1)
+   346→
+   347→    train_df = train_df[train_mask].reset_index(drop=True)
+   348→    val_df = val_df[val_mask].reset_index(drop=True)
+   349→    test_df = test_df[test_mask].reset_index(drop=True)
+   350→
+   351→    if len(test_df) < 50:
+   352→        return None
+   353→
+   354→    # Extract X, y
+   355→    X_train = train_df[available_feats].values.astype(np.float32)
+   356→    y_train = train_df['result_encoded'].values.astype(np.int32)
+   357→    X_val = val_df[available_feats].values.astype(np.float32)
+   358→    y_val = val_df['result_encoded'].values.astype(np.int32)
+   359→    X_test = test_df[available_feats].values.astype(np.float32)
+   360→    y_test = test_df['result_encoded'].values.astype(np.int32)
+   361→
+   362→    if len(y_train) < 100 or len(np.unique(y_train)) < 3:
+   363→        return None
+   364→
+   365→    # Train
+   366→    try:
+   367→        bst, best_iter = train_xgb_model(X_train, y_train, X_val, y_val, available_feats)
+   368→    except Exception as e:
+   369→        print(f'    Training failed: {e}')
+   370→        return None
+   371→
+   372→    # Predict
+   373→    test_proba, test_pred = get_predictions(bst, X_test, available_feats)
+   374→    val_proba, val_pred = get_predictions(bst, X_val, available_feats)
+   375→    train_proba, train_pred = get_predictions(bst, X_train, available_feats)
+   376→
+   377→    # Metrics
+   378→    test_metrics = compute_all_metrics(y_test, test_proba, test_pred, 'test')
+   379→    val_metrics = compute_all_metrics(y_val, val_proba, val_pred, 'validation')
+   380→    train_metrics = compute_all_metrics(y_train, train_proba, train_pred, 'train')
+   381→
+   382→    # Feature importance
+   383→    importance = bst.get_score(importance_type='gain')
+   384→    feat_imp = {f: float(importance.get(f, 0.0)) for f in available_feats}
+   385→
+   386→    return {
+   387→        'feature_set': feature_set_name,
+   388→        'n_features': len(available_feats),
+   389→        'features': available_feats,
+   390→        'window': window['name'],
+   391→        'train_n': len(y_train),
+   392→        'val_n': len(y_val),
+   393→        'test_n': len(y_test),
+   394→        'best_iteration': int(best_iter),
+   395→        'test_metrics': test_metrics,
+   396→        'val_metrics': val_metrics,
+   397→        'train_metrics': train_metrics,
+   398→        'feature_importance': feat_imp,
+   399→        'test_proba': test_proba,  # keep for correlation analysis
+   400→        'test_pred': test_pred,
+   401→        'y_test': y_test,
+   402→        'test_df': test_df,  # keep for per-league breakdown
+   403→    }
+   404→
+   405→
+   406→# ═══════════════════════════════════════════════════════════════════════
+   407→# Report Generation
+   408→# ═══════════════════════════════════════════════════════════════════════
+   409→
+   410→def generate_report(all_results, naive_baselines, correlations, summary):
+   411→    """Generate the comprehensive stress test report."""
+   412→    lines = []
+   413→    w = lines.append
+   414→
+   415→    w('# Phase 3.5 — XGBoost Stress Test: Market vs Football vs Combined')
+   416→    w('')
+   417→    w(f'**Date**: {datetime.now().strftime("%Y-%m-%d %H:%M UTC")}')
+   418→    w(f'**Schema**: v{SCHEMA_VERSION} (hash: {SCHEMA_HASH})')
+   419→    w(f'**v1 model**: PRESERVED (not modified)')
+   420→    w(f'**Experiments**: {len(all_results)} completed')
+   421→    w('')
+   422→    w('## Purpose')
+   423→    w('')
+   424→    w('Determine whether XGBoost contributes **independent football intelligence** or')
+   425→    w('primarily **reproduces bookmaker information** encoded in the market features')
+   426→    w('(implied probabilities from closing odds).')
+   427→    w('')
+   428→    w('Three feature sets are compared across multiple temporal windows:')
+   429→    w('')
+   430→    w('| Feature Set | N | Contents |')
+   431→    w('|-------------|---|----------|')
+   432→    w('| Market-Only | 4 | implied_prob_home/draw/away, overround |')
+   433→    w('| Football-Only | 46 | ELO, goals, form, H2H, venue, temporal, advanced |')
+   434→    w('| Combined | 50 | All features |')
+   435→    w('')
+   436→
+   437→    # ── Executive Summary ──
+   438→    w('## Executive Summary')
+   439→    w('')
+   440→    w(f'**Verdict**: {summary["verdict"]}')
+   441→    w('')
+   442→    w(summary['summary_text'])
+   443→    w('')
+   444→
+   445→    # ── Master Comparison Table ──
+   446→    w('## Master Comparison: All Windows')
+   447→    w('')
+   448→    w('| Window | Feature Set | N Feat | Train N | Test N | Log Loss | Brier | ECE | Acc | F1 H | F1 D | F1 A | F1 Macro |')
+   449→    w('|--------|-------------|--------|---------|--------|----------|-------|-----|-----|------|------|------|-----------|')
+   450→
+   451→    # Group results by window for easy comparison
+   452→    for window_info in TEMPORAL_WINDOWS:
+   453→        wname = window_info['name']
+   454→        window_results = [r for r in all_results if r['window'] == wname]
+   455→        # Sort: combined, market_only, football_only
+   456→        order = {'combined': 0, 'market_only': 1, 'football_only': 2}
+   457→        window_results.sort(key=lambda r: order.get(r['feature_set'], 9))
+   458→
+   459→        for r in window_results:
+   460→            tm = r['test_metrics']
+   461→            short_name = {'market_only': 'Market', 'football_only': 'Football', 'combined': 'Combined'}[r['feature_set']]
+   462→            w(f'| {wname.split(":")[0]} | {short_name} | {r["n_features"]} | {r["train_n"]} | {r["test_n"]} '
+   463→              f'| {tm["log_loss"]:.4f} | {tm["brier_score"]:.4f} | {tm["ece"]:.4f} '
+   464→              f'| {tm["accuracy"]:.4f} | {tm["f1_Home"]:.4f} | {tm["f1_Draw"]:.4f} '
+   465→              f'| {tm["f1_Away"]:.4f} | {tm["f1_macro"]:.4f} |')
+   466→        w('')  # blank line between windows
+   467→
+   468→    # ── Naive Baseline ──
+   469→    w('## Naive Baseline (Class Priors)')
+   470→    w('')
+   471→    w('Predicting the majority class for every match. Any model must beat this.')
+   472→    w('')
+   473→    w('| Window | Log Loss | Brier | ECE | Accuracy | Priors (H/D/A) |')
+   474→    w('|--------|----------|-------|-----|----------|-----------------|')
+   475→    for nb in naive_baselines:
+   476→        w(f'| {nb["window"]} | {nb["log_loss"]:.4f} | {nb["brier_score"]:.4f} | {nb["ece"]:.4f} '
+   477→          f'| {nb["accuracy"]:.4f} | {nb["class_priors"][0]:.3f}/{nb["class_priors"][1]:.3f}/{nb["class_priors"][2]:.3f} |')
+   478→    w('')
+   479→
+   480→    # ── Key Question Analysis ──
+   481→    w('## Analysis: Does Football-Only Add Independent Signal?')
+   482→    w('')
+   483→
+   484→    # Q1: Market-only vs Football-only
+   485→    w('### Q1: Market-Only vs Football-Only Head-to-Head')
+   486→    w('')
+   487→    w('Which feature set produces lower log loss on each window\'s test set?')
+   488→    w('')
+   489→    w('| Window | Market LL | Football LL | Delta | Winner |')
+   490→    w('|--------|-----------|-------------|-------|--------|')
+   491→    for window_info in TEMPORAL_WINDOWS:
+   492→        wname = window_info['name']
+   493→        mr = next((r for r in all_results if r['window'] == wname and r['feature_set'] == 'market_only'), None)
+   494→        fr = next((r for r in all_results if r['window'] == wname and r['feature_set'] == 'football_only'), None)
+   495→        if mr and fr:
+   496→            delta = fr['test_metrics']['log_loss'] - mr['test_metrics']['log_loss']
+   497→            winner = 'Market' if delta > 0 else ('Football' if delta < 0 else 'Tie')
+   498→            w(f'| {wname.split(":")[0]} | {mr["test_metrics"]["log_loss"]:.4f} | {fr["test_metrics"]["log_loss"]:.4f} | {delta:+.4f} | {winner} |')
+   499→    w('')
+   500→
+   501→    # Q2: Combined vs Market-Only (marginal value of football)
+   502→    w('### Q2: Does Adding Football Features Improve Over Market-Only?')
+   503→    w('')
+   504→    w('If combined ~= market-only, football features add no value. If combined < market-only (lower LL), they contribute independent signal.')
+   505→    w('')
+   506→    w('| Window | Market LL | Combined LL | Football Marginal Delta | Verdict |')
+   507→    w('|--------|-----------|-------------|------------------------|---------|')
+   508→    for window_info in TEMPORAL_WINDOWS:
+   509→        wname = window_info['name']
+   510→        mr = next((r for r in all_results if r['window'] == wname and r['feature_set'] == 'market_only'), None)
+   511→        cr = next((r for r in all_results if r['window'] == wname and r['feature_set'] == 'combined'), None)
+   512→        if mr and cr:
+   513→            delta = cr['test_metrics']['log_loss'] - mr['test_metrics']['log_loss']
+   514→            if delta < -0.005:
+   515→                verdict = 'Football ADDS value'
+   516→            elif delta > 0.005:
+   517→                verdict = 'Football HURTS (overfitting?)'
+   518→            else:
+   519→                verdict = 'Negligible difference'
+   520→            w(f'| {wname.split(":")[0]} | {mr["test_metrics"]["log_loss"]:.4f} | {cr["test_metrics"]["log_loss"]:.4f} | {delta:+.4f} | {verdict} |')
+   521→    w('')
+   522→
+   523→    # Q3: Prediction Correlation
+   524→    w('### Q3: How Similar Are Market-Only and Football-Only Predictions?')
+   525→    w('')
+   526→    w('High correlation means the two feature sets produce similar probability distributions.')
+   527→    w('Low correlation suggests they capture different information.')
+   528→    w('')
+   529→    w('| Window | Prob Correlation | Prediction Agreement | Both-Correct Rate |')
+   530→    w('|--------|-----------------|---------------------|-------------------|')
+   531→    for c in correlations:
+   532→        w(f'| {c["window"]} | {c["probability_correlation"]:.4f} | {c["prediction_agreement"]:.4f} | {c["both_correct_rate"]:.4f} |')
+   533→    w('')
+   534→
+   535→    # ── Per-League Breakdown (Window 2 - most comparable to v1) ──
+   536→    w('## Per-League Breakdown (W2: Long History, Test 2324)')
+   537→    w('')
+   538→    w('Detailed comparison for the window most comparable to the v1 baseline.')
+   539→    w('')
+   540→    for fs_name in ['market_only', 'football_only', 'combined']:
+   541→        short = {'market_only': 'Market-Only', 'football_only': 'Football-Only', 'combined': 'Combined'}[fs_name]
+   542→        r = next((r for r in all_results if r['window'] == 'W2: Long history, test 2324' and r['feature_set'] == fs_name), None)
+   543→        if not r:
+   544→            continue
+   545→        w(f'### {short}')
+   546→        w('')
+   547→        w('| League | N | Acc | Log Loss | ECE | F1 H | F1 D | F1 A |')
+   548→        w('|--------|---|-----|----------|-----|------|------|------|')
+   549→        test_df = r['test_df']
+   550→        y_test = r['y_test']
+   551→        test_proba = r['test_proba']
+   552→        test_pred = r['test_pred']
+   553→        for league in sorted(test_df['league_code'].unique()):
+   554→            mask = test_df['league_code'] == league
+   555→            if mask.sum() < 20:
+   556→                continue
+   557→            yt = y_test[mask]
+   558→            yp = test_pred[mask]
+   559→            ypr = test_proba[mask]
+   560→            acc = accuracy_score(yt, yp)
+   561→            ll = log_loss(yt, ypr)
+   562→            ece = compute_ece(yt, ypr)
+   563→            prec, rec, f1, _ = precision_recall_fscore_support(yt, yp, labels=[0, 1, 2], zero_division=0)
+   564→            w(f'| {league} | {mask.sum()} | {acc:.4f} | {ll:.4f} | {ece:.4f} | {f1[0]:.4f} | {f1[1]:.4f} | {f1[2]:.4f} |')
+   565→        w('')
+   566→
+   567→    # ── Overfitting Analysis ──
+   568→    w('## Overfitting Analysis')
+   569→    w('')
+   570→    w('Gap between train and test metrics reveals overfitting. Larger gap = more overfitting.')
+   571→    w('')
+   572→    w('| Window | Feature Set | Train LL | Test LL | Gap | Train Acc | Test Acc | Gap |')
+   573→    w('|--------|-------------|----------|---------|-----|-----------|----------|-----|')
+   574→    for r in all_results:
+   575→        train_ll = r['train_metrics']['log_loss']
+   576→        test_ll = r['test_metrics']['log_loss']
+   577→        train_acc = r['train_metrics']['accuracy']
+   578→        test_acc = r['test_metrics']['accuracy']
+   579→        short_name = {'market_only': 'Market', 'football_only': 'Football', 'combined': 'Combined'}[r['feature_set']]
+   580→        w(f'| {r["window"].split(":")[0]} | {short_name} | {train_ll:.4f} | {test_ll:.4f} | {test_ll - train_ll:+.4f} '
+   581→          f'| {train_acc:.4f} | {test_acc:.4f} | {test_acc - train_acc:+.4f} |')
+   582→    w('')
+   583→
+   584→    # ── Feature Importance Comparison ──
+   585→    w('## Feature Importance: Combined Model Top 15 (W2)')
+   586→    w('')
+   587→    r_combined_w2 = next((r for r in all_results
+   588→                          if r['window'] == 'W2: Long history, test 2324'
+   589→                          and r['feature_set'] == 'combined'), None)
+   590→    if r_combined_w2:
+   591→        imp = r_combined_w2['feature_importance']
+   592→        sorted_imp = sorted(imp.items(), key=lambda x: x[1], reverse=True)[:15]
+   593→        w('| Rank | Feature | Category | Gain |')
+   594→        w('|------|---------|----------|------|')
+   595→        for i, (feat, gain) in enumerate(sorted_imp, 1):
+   596→            cat = FEATURE_CATEGORIES.get(feat, '?')
+   597→            marker = ' **(MARKET)**' if feat in MARKET_FEATURES else ''
+   598→            w(f'| {i} | {feat} | {cat}{marker} | {gain:.4f} |')
+   599→        w('')
+   600→
+   601→    # ── Football-Only Feature Importance ──
+   602→    w('## Feature Importance: Football-Only Model Top 15 (W2)')
+   603→    w('')
+   604→    r_football_w2 = next((r for r in all_results
+   605→                           if r['window'] == 'W2: Long history, test 2324'
+   606→                           and r['feature_set'] == 'football_only'), None)
+   607→    if r_football_w2:
+   608→        imp = r_football_w2['feature_importance']
+   609→        sorted_imp = sorted(imp.items(), key=lambda x: x[1], reverse=True)[:15]
+   610→        w('| Rank | Feature | Category | Gain |')
+   611→        w('|------|---------|----------|------|')
+   612→        for i, (feat, gain) in enumerate(sorted_imp, 1):
+   613→            cat = FEATURE_CATEGORIES.get(feat, '?')
+   614→            w(f'| {i} | {feat} | {cat} | {gain:.4f} |')
+   615→        w('')
+   616→
+   617→    # ── Calibration Comparison ──
+   618→    w('## Calibration Comparison (ECE by Window)')
+   619→    w('')
+   620→    w('Lower ECE = better calibrated probabilities. Critical for betting value detection.')
+   621→    w('')
+   622→    w('| Window | Market ECE | Football ECE | Combined ECE | Best Calibrated |')
+   623→    w('|--------|------------|--------------|--------------|-----------------|')
+   624→    for window_info in TEMPORAL_WINDOWS:
+   625→        wname = window_info['name']
+   626→        results = {r['feature_set']: r for r in all_results if r['window'] == wname}
+   627→        m_ece = results.get('market_only', {}).get('test_metrics', {}).get('ece', float('nan'))
+   628→        f_ece = results.get('football_only', {}).get('test_metrics', {}).get('ece', float('nan'))
+   629→        c_ece = results.get('combined', {}).get('test_metrics', {}).get('ece', float('nan'))
+   630→        eces = {'Market': m_ece, 'Football': f_ece, 'Combined': c_ece}
+   631→        best = min(eces, key=eces.get) if all(isinstance(v, float) for v in eces.values()) else '?'
+   632→        w(f'| {wname.split(":")[0]} | {m_ece:.4f} | {f_ece:.4f} | {c_ece:.4f} | {best} |')
+   633→    w('')
+   634→
+   635→    # ── Conclusions ──
+   636→    w('## Conclusions & Recommendations')
+   637→    w('')
+   638→    for i, conc in enumerate(summary['conclusions'], 1):
+   639→        w(f'{i}. {conc}')
+   640→    w('')
+   641→    w('## Implications for Next Phases')
+   642→    w('')
+   643→    for i, imp in enumerate(summary['implications'], 1):
+   644→        w(f'{i}. {imp}')
+   645→    w('')
+   646→
+   647→    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+   648→    REPORT_PATH.write_text('\n'.join(lines), encoding='utf-8')
+   649→    print(f'  Report: {REPORT_PATH}')
+   650→
+   651→
+   652→# ═══════════════════════════════════════════════════════════════════════
+   653→# Main
+   654→# ═══════════════════════════════════════════════════════════════════════
+   655→
+   656→def main():
+   657→    print(f"\n{'#'*80}")
+   658→    print(f"# PHASE 3.5 — XGBOOST STRESS TEST")
+   659→    print(f"# Market-Only vs Football-Only vs Combined")
+   660→    print(f"# {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}")
+   661→    print(f"{'#'*80}")
+   662→
+   663→    # Load dataset
+   664→    print('\n[1/5] Loading dataset...')
+   665→    df = pd.read_parquet(DATASET_PATH)
+   666→
+   667→    # Filter to training-ready rows (all 50 features non-NaN)
+   668→    feat_cols = [f for f in FEATURE_NAMES if f in df.columns]
+   669→    complete_mask = df[feat_cols].notna().all(axis=1)
+   670→    df_complete = df[complete_mask].copy().reset_index(drop=True)
+   671→    print(f'  Total: {len(df):,} -> Training-ready: {len(df_complete):,}')
+   672→    print(f'  Seasons: {sorted(df_complete["season_code"].unique())}')
+   673→    print(f'  Market features available: {df_complete[MARKET_FEATURES].notna().all(axis=1).sum()}/{len(df_complete)}')
+   674→
+   675→    # Run all experiments
+   676→    print(f'\n[2/5] Running experiments ({len(TEMPORAL_WINDOWS)} windows x 3 feature sets = {len(TEMPORAL_WINDOWS)*3} experiments)...')
+   677→    all_results = []
+   678→    for window in TEMPORAL_WINDOWS:
+   679→        print(f"\n  Window: {window['name']}")
+   680→        for fs_name, fs_info in FEATURE_SETS.items():
+   681→            print(f'    Training {fs_info["label"]}...', end=' ', flush=True)
+   682→            result = run_experiment(df_complete, window, fs_name, fs_info)
+   683→            if result:
+   684→                all_results.append(result)
+   685→                tm = result['test_metrics']
+   686→                print(f'LL={tm["log_loss"]:.4f} Acc={tm["accuracy"]:.4f} ECE={tm["ece"]:.4f} (iter={result["best_iteration"]})')
+   687→            else:
+   688→                print('SKIPPED (insufficient data)')
+   689→
+   690→    print(f'\n  Completed: {len(all_results)}/{len(TEMPORAL_WINDOWS)*3} experiments')
+   691→
+   692→    # Compute naive baselines
+   693→    print('\n[3/5] Computing naive baselines...')
+   694→    naive_baselines = []
+   695→    for window in TEMPORAL_WINDOWS:
+   696→        test_df = df_complete[df_complete['season_code'].isin(window['test_seasons'])]
+   697→        y_test = test_df['result_encoded'].values.astype(np.int32)
+   698→        nb = compute_naive_baseline(y_test)
+   699→        nb['window'] = window['name'].split(':')[0]
+   700→        naive_baselines.append(nb)
+   701→        print(f'  {window["name"]}: LL={nb["log_loss"]:.4f} Acc={nb["accuracy"]:.4f}')
+   702→
+   703→    # Compute prediction correlations (market-only vs football-only)
+   704→    print('\n[4/5] Computing prediction correlations...')
+   705→    correlations = []
+   706→    for window in TEMPORAL_WINDOWS:
+   707→        wname = window['name']
+   708→        mr = next((r for r in all_results if r['window'] == wname and r['feature_set'] == 'market_only'), None)
+   709→        fr = next((r for r in all_results if r['window'] == wname and r['feature_set'] == 'football_only'), None)
+   710→        if mr and fr:
+   711→            # Align: they should have the same test rows since they use the same window
+   712→            # But training-ready filtering might differ slightly due to NaN patterns
+   713→            # Use the minimum common length
+   714→            min_len = min(len(mr['y_test']), len(fr['y_test']))
+   715→            corr = compute_prediction_correlation(
+   716→                mr['test_proba'][:min_len],
+   717→                fr['test_proba'][:min_len],
+   718→                mr['y_test'][:min_len],
+   719→            )
+   720→            corr['window'] = wname.split(':')[0]
+   721→            correlations.append(corr)
+   722→            print(f'  {wname}: prob_corr={corr["probability_correlation"]:.4f} '
+   723→                  f'agreement={corr["prediction_agreement"]:.4f} both_correct={corr["both_correct_rate"]:.4f}')
+   724→
+   725→    # Compute summary statistics
+   726→    print('\n[5/5] Generating summary and report...')
+   727→    summary = compute_summary(all_results, naive_baselines, correlations)
+   728→
+   729→    # Save raw metrics (without large arrays)
+   730→    metrics_export = []
+   731→    for r in all_results:
+   732→        export_r = {k: v for k, v in r.items()
+   733→                    if k not in ('test_proba', 'test_df')}
+   734→        metrics_export.append(export_r)
+   735→
+   736→    with open(METRICS_PATH, 'w') as f:
+   737→        json.dump({
+   738→            'experiment_results': metrics_export,
+   739→            'naive_baselines': naive_baselines,
+   740→            'correlations': correlations,
+   741→            'summary': summary,
+   742→        }, f, indent=2, default=str)
+   743→    print(f'  Metrics: {METRICS_PATH}')
+   744→
+   745→    # Generate report
+   746→    generate_report(all_results, naive_baselines, correlations, summary)
+   747→
+   748→    # Print final summary
+   749→    print(f"\n{'='*80}")
+   750→    print(f'PHASE 3.5 COMPLETE')
+   751→    print(f'{'='*80}')
+   752→    print(f'  Verdict: {summary["verdict"]}')
+   753→    print(f'')
+   754→    print(f'  Key finding:')
+   755→    for conc in summary['conclusions'][:3]:
+   756→        print(f'    - {conc}')
+   757→    print(f'')
+   758→    print(f'  v1 model: PRESERVED at saved_models/xgboost_v1.json')
+   759→    print(f'{'='*80}')
+   760→
+   761→
+   762→def compute_summary(all_results, naive_baselines, correlations):
+   763→    """Compute the overall summary and verdict."""
+   764→    # Count how often each feature set wins on log loss
+   765→    wins = {'market_only': 0, 'football_only': 0, 'combined': 0}
+   766→    deltas_combined_vs_market = []
+   767→    deltas_football_vs_market = []
+   768→
+   769→    for window in TEMPORAL_WINDOWS:
+   770→        wname = window['name']
+   771→        results = {r['feature_set']: r for r in all_results if r['window'] == wname}
+   772→        ll_values = {}
+   773→        for fs_name in ['market_only', 'football_only', 'combined']:
+   774→            if fs_name in results:
+   775→                ll_values[fs_name] = results[fs_name]['test_metrics']['log_loss']
+   776→
+   777→        if len(ll_values) >= 2:
+   778→            best = min(ll_values, key=ll_values.get)
+   779→            wins[best] += 1
+   780→
+   781→        if 'market_only' in ll_values and 'combined' in ll_values:
+   782→            delta = ll_values['combined'] - ll_values['market_only']
+   783→            deltas_combined_vs_market.append(delta)
+   784→
+   785→        if 'market_only' in ll_values and 'football_only' in ll_values:
+   786→            delta = ll_values['football_only'] - ll_values['market_only']
+   787→            deltas_football_vs_market.append(delta)
+   788→
+   789→    avg_corr = np.mean([c['probability_correlation'] for c in correlations]) if correlations else 0
+   790→    avg_agreement = np.mean([c['prediction_agreement'] for c in correlations]) if correlations else 0
+   791→    avg_combined_delta = np.mean(deltas_combined_vs_market) if deltas_combined_vs_market else 0
+   792→    avg_football_delta = np.mean(deltas_football_vs_market) if deltas_football_vs_market else 0
+   793→
+   794→    # Determine verdict
+   795→    if avg_football_delta < -0.01 and avg_corr < 0.7:
+   796→        verdict = 'FOOTBALL FEATURES CONTRIBUTE INDEPENDENT INTELLIGENCE'
+   797→        color = 'green'
+   798→    elif avg_football_delta > 0.02:
+   799→        verdict = 'MARKET FEATURES DOMINATE — FOOTBALL FEATURES ADD NOISE'
+   800→        color = 'red'
+   801→    elif avg_combined_delta < -0.005:
+   802→        verdict = 'COMBINED MODEL SHOWS MARGINAL FOOTBALL CONTRIBUTION'
+   803→        color = 'amber'
+   804→    else:
+   805→        verdict = 'FOOTBALL FEATURES OFFER NEGLIGIBLE INDEPENDENT VALUE'
+   806→        color = 'amber'
+   807→
+   808→    # Build summary text
+   809→    summary_parts = []
+   810→    summary_parts.append(
+   811→        f'Across {len(TEMPORAL_WINDOWS)} temporal windows, the market-only model (4 features) '
+   812→        f'achieved an average log loss competitive with the football-only model (46 features).'
+   813→    )
+   814→    summary_parts.append(
+   815→        f'The combined model (50 features) shows an average log loss delta of {avg_combined_delta:+.4f} '
+   816→        f'relative to market-only, meaning football features {"add marginal value" if avg_combined_delta < -0.005 else "do not reliably improve"} over bookmaker information alone.'
+   817→    )
+   818→    summary_parts.append(
+   819→        f'The average prediction correlation between market-only and football-only models is {avg_corr:.4f} '
+   820→        f'(agreement: {avg_agreement:.4f}). '
+   821→        f'{"This moderate correlation suggests the feature sets capture partially different information." if avg_corr < 0.7 else "This high correlation suggests both feature sets produce similar predictions."}'
+   822→    )
+   823→
+   824→    # Conclusions
+   825→    conclusions = []
+   826→    conclusions.append(
+   827→        f'Market features win on log loss in {wins["market_only"]}/{len(TEMPORAL_WINDOWS)} windows. '
+   828→        f'Football-only wins in {wins["football_only"]}/{len(TEMPORAL_WINDOWS)}. '
+   829→        f'Combined wins in {wins["combined"]}/{len(TEMPORAL_WINDOWS)}.'
+   830→    )
+   831→    conclusions.append(
+   832→        f'Average football-only vs market-only LL delta: {avg_football_delta:+.4f}. '
+   833→        f'Average combined vs market-only LL delta: {avg_combined_delta:+.4f}.'
+   834→    )
+   835→    conclusions.append(
+   836→        f'Prediction correlation (market vs football): {avg_corr:.4f}. '
+   837→        f'{"The models make meaningfully different predictions." if avg_corr < 0.6 else "The models largely agree on predictions."}'
+   838→    )
+   839→
+   840→    if avg_football_delta > 0.02:
+   841→        conclusions.append(
+   842→            'Football-only features consistently UNDERPERFORM market-only. '
+   843→            'The XGBoost model with all 50 features is primarily a bookmaker-odds repackaging engine.'
+   844→        )
+   845→        conclusions.append(
+   846→            'This does NOT mean football features are useless — it means they need better engineering, '
+   847→            'or the market odds already encode the information they contain (efficient market hypothesis).'
+   848→        )
+   849→    elif avg_combined_delta < -0.01:
+   850→        conclusions.append(
+   851→            'Combined model improves over market-only, suggesting football features DO contribute '
+   852→            'independent signal that complements market information.'
+   853→        )
+   854→    else:
+   855→        conclusions.append(
+   856→            'The marginal value of football features is SMALL but consistent. '
+   857→            'The combined model does not reliably outperform market-only.'
+   858→        )
+   859→
+   860→    conclusions.append(
+   861→        'For LSTM and ensemble phases: football features should be retained but NOT expected to be '
+   862→        'the primary driver of performance. Market features (when available at prediction time) provide '
+   863→        'the strongest signal. For pre-match prediction WITHOUT odds, football-only is the only option '
+   864→        'and its performance sets the floor for the LSTM.'
+   865→    )
+   866→
+   867→    # Implications
+   868→    implications = []
+   869→    implications.append(
+   870→        'LSTM training should focus on football-only features as its primary input. '
+   871→        'Market features can be incorporated later via feature concatenation at the ensemble level.'
+   872→    )
+   873→    implications.append(
+   874→        'The ensemble strategy should weight models based on feature availability: '
+   875→        'use XGBoost-combined when odds are available, XGBoost-football/LSTM when they are not.'
+   876→    )
+   877→    implications.append(
+   878→        'Calibration is critical: even if log loss is similar, different models may have '
+   879→        'different calibration properties. The ensemble should leverage calibration diversity.'
+   880→    )
+   881→    implications.append(
+   882→        'For the ELASTICO frontend, display a "confidence source" indicator showing whether '
+   883→        'predictions are based on market data, football data, or both.'
+   884→    )
+   885→
+   886→    return {
+   887→        'verdict': verdict,
+   888→        'summary_text': '\n\n'.join(summary_parts),
+   889→        'wins': wins,
+   890→        'avg_correlation': float(avg_corr),
+   891→        'avg_agreement': float(avg_agreement),
+   892→        'avg_combined_delta': float(avg_combined_delta),
+   893→        'avg_football_delta': float(avg_football_delta),
+   894→        'conclusions': conclusions,
+   895→        'implications': implications,
+   896→    }
+   897→
+   898→
+   899→if __name__ == '__main__':
+   900→    main()
+   901→

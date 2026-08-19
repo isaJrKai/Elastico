@@ -127,3 +127,42 @@ Stage Summary:
 - Report: data/phase4_lstm_report.md, Metrics: data/phase4_lstm_metrics.json
 - STOP CONDITION MET — no ensemble, no deployment, no ELASTICO changes
 - Next: Phase 5 (Evaluation + Calibration) will proceed WITHOUT LSTM
+
+---
+Task ID: 5
+Agent: main
+Task: Phase 5 — Prediction Calibration & Market Intelligence
+
+Work Log:
+- Built comprehensive calibration pipeline (scripts/phase5_calibration.py, ~1830 lines)
+- Implemented 6 model baselines: Raw Market, Naive (class priors), Poisson, ELO, XGBoost Football-Only, XGBoost Market-Only, XGBoost Combined
+- Evaluated all models on identical 5 temporal windows from Phase 3.5
+- Audited market probability construction: Pinnacle/B365 closing odds, normalized (overround-removed), sum=100, overround mean=103%
+- Discovered train/inference mismatch in src/ml/features.py (raw vs normalized implied probs)
+- Ran calibration experiments: temperature scaling, Platt logistic, isotonic regression
+- Computed model disagreement analysis (5 buckets per outcome class, per window)
+- Computed market edge analysis (6 edge buckets, accuracy per bucket)
+- Computed uncertainty analysis (confidence vs accuracy, market agreement)
+- Generated 6 calibration/reliability plots
+
+Stage Summary:
+- **CRITICAL FINDING: Raw bookmaker probabilities dominate ALL models on ALL metrics in ALL 5 windows**
+  - Raw Market wins log loss: 5/5 (avg LL=0.959)
+  - Raw Market wins accuracy: 5/5 (avg Acc=54.2%)
+  - Raw Market wins ECE (calibration): 4/5 (avg ECE=0.030)
+- XGBoost Combined avg LL=1.100, +0.14 worse than raw market
+- ELO is best football-only model: avg LL=1.017 (better than XGB Football 1.113)
+- Poisson model: avg LL=1.131, Acc=33-37% (poor — simple implementation)
+- Temperature scaling converged to T=1.000 everywhere — XGBoost already optimally calibrated
+- Platt/isotonic calibration HURT (LL +0.4 to +4.1) — overfit calibration set
+- Model disagreement: when market and football agree on home prob (~42%), actual home win rate ~42% — both well calibrated
+- Market edge: >10pp model edge corresponds to LOWER accuracy (46-49%) — model overconfidence when disagreeing with market
+- Uncertainty: model confidence DOES correlate with accuracy (38% at 35% conf vs 65% at >70% conf) — but only above ~60% confidence
+- Model governance established: ELO/Poisson/XGB → PRODUCTION CANDIDATE, LSTM → FAILED, Merton/GARCH → EXPERIMENTAL
+- Probability output contract defined (JSON schema for ELASTICO predictions)
+- **VERDICT: XGBoost Combined does NOT improve over raw market. Bookmaker odds encode most predictable information.**
+- Path to differentiation: better data (real xG, injuries, news), not better algorithms
+- Report: data/phase5_calibration_report.md
+- Metrics: data/phase5_calibration_metrics.json
+- Plots: data/phase5_plots/ (6 PNGs)
+- Script: scripts/phase5_calibration.py
