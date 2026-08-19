@@ -166,3 +166,29 @@ Stage Summary:
 - Metrics: data/phase5_calibration_metrics.json
 - Plots: data/phase5_plots/ (6 PNGs)
 - Script: scripts/phase5_calibration.py
+
+---
+Task ID: 6
+Agent: Main
+Task: Phase 6 — Data Advantage Audit
+
+Work Log:
+- Explored entire FastAPI codebase: 7 data sources audited (4 implemented, 1 scaffolded, 2 not integrated)
+- Inventoried all 50 canonical features with quality states and missing data patterns
+- Identified xG_PROXY (SOT × 0.1) as fraudulent proxy in 3 features
+- Audited ELASTICO frontend: 11 of 18 tactical tabs are empty states, dashboard probabilities are hashCode fabrications, odds fall back to hardcoded 2.1/3.4/3.5
+- Discovered unused CSV data: opening odds, referee, half-time results for multiple bookmakers
+- Mapped feature information gaps across 7 categories (Expected Performance, Player, Tactical, Context, Match Event, Market Timing, News)
+- Ranked 8 data gaps by predictive value, market independence, and feasibility
+- Designed experiment protocol: 3-experiment structure per data addition, 5 temporal windows, same XGBoost params
+- Defined Data Quality Contract: 6 feature states (REAL, PROXY, DERIVED, MISSING, STALE, UNAVAILABLE)
+- Designed future data architecture: Source → Ingestion → Raw Storage → Normalization → Provenance → Feature Store → Model → ELASTICO
+- Identified 6 risks including the existential risk that no data addition beats the market
+- Recommended Phase 7: 8-phase data acquisition plan (A through H), starting with extracting unused CSV data
+
+Stage Summary:
+- Core finding: **The bottleneck is information, not algorithms.** Market LL 0.959 vs best ELASTICO 1.100.
+- Top 3 data gaps: (1) Injuries [API already exists], (2) Real xG from Understat, (3) Opening vs closing odds movement [already in CSVs]
+- Deliverables: data/phase6_data_advantage_report.md (758 lines), data/phase6_data_advantage_matrix.json (46KB, 12 sections)
+- Key discovery: opening odds for B365/PS/WH and referee column exist in CSVs but are completely unused — zero-effort feature additions
+- Strategic recommendation: Stop model development. Acquire data. Test each addition empirically. Accept market-calibrated display if no data addition beats the market after 3 experiments.
