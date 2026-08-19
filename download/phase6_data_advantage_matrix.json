@@ -1,0 +1,714 @@
+{
+  "meta": {
+    "phase": "6",
+    "title": "Data Advantage Audit",
+    "date": "2026-08-19",
+    "schema_version": "1.0.0",
+    "evidence_base": ["phase3_5_stress_test", "phase4_lstm", "phase5_calibration"],
+    "core_finding": "The bottleneck is information, not algorithms. Raw market probabilities (LL 0.959) outperform all ELASTICO models (best XGB Combined LL 1.100)."
+  },
+  "current_data_inventory": {
+    "sources": [
+      {
+        "name": "football-data.co.uk",
+        "type": "CSV (manual download)",
+        "status": "IMPLEMENTED",
+        "is_primary_training_data": true,
+        "leagues": ["E0", "SP1", "I1", "D1", "F1"],
+        "seasons": ["1920", "2021", "2122", "2223", "2324"],
+        "match_count": 7536,
+        "fields_available": ["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR", "HTHG", "HTAG", "HTR", "HS", "AS", "HST", "AST", "HC", "AC", "HF", "AF", "HY", "AY", "HR", "AR", "Referee", "B365H/D/A", "PSH/D/A", "WHH/D/A", "VCH/D/A", "BFH/D/A", "1XBH/D/A", "MaxH/D/A", "AvgH/D/A", "B365CH/D/A", "PSCH/D/A", "MaxCH/D/A", "AvgCH/D/A"],
+        "fields_actually_used": ["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR", "HS", "AS", "HST", "AST", "HC", "AC", "HF", "AF", "HY", "AY", "HR", "AR", "PSH/PSD/PSA", "B365H/B365D/B365A", "PSCH/PSCD/PSCA", "B365CH/B365CD/B365CA"],
+        "fields_unused": ["Referee", "HTHG", "HTAG", "HTR", "WHH/D/A", "VCH/D/A", "BFH/D/A", "1XBH/D/A", "MaxH/D/A", "AvgH/D/A", "MaxCH/D/A", "AvgCH/D/A"],
+        "update_frequency": "Manual, post-season",
+        "reliability": "High (widely used academic source)",
+        "provenance": "football-data.co.uk, aggregated from multiple bookmakers and league sources",
+        "api_requirements": "None (direct CSV download)",
+        "licensing": "Free for non-commercial use; data aggregation",
+        "granularity": "Match-level, post-match statistics only"
+      },
+      {
+        "name": "API-Football (API-Sports.io v3)",
+        "type": "REST API (async)",
+        "status": "IMPLEMENTED",
+        "is_primary_training_data": false,
+        "leagues_supported": ["PL", "La Liga", "Serie A", "Bundesliga", "Ligue 1", "UCL", "EFL Championship", "Segunda Div", "Serie B", "2. Bundesliga", "Ligue 2", "Eredivisie"],
+        "seasons": "Current + historical (varies)",
+        "match_count": "On-demand (not in training pipeline)",
+        "fields_available": ["fixture details", "in-match statistics (possession, shots, corners, fouls)", "odds from multiple bookmakers", "API-Football predictions", "team statistics (form, goals, clean sheets, lineups)", "head-to-head records"],
+        "fields_actually_used": ["Live scores via API routes", "match statistics on demand", "team statistics on demand"],
+        "fields_unused": ["In-match statistics (not piped to training)", "lineups (not piped to training)", "form strings (not piped to training)", "team statistics (not piped to training)", "head-to-head (not piped to training)"],
+        "update_frequency": "On-demand HTTP request",
+        "reliability": "High (paid tier, rate-limited)",
+        "provenance": "api-sports.io v3 API",
+        "api_requirements": "API_FOOTBALL_KEY header, 15s timeout, rate limit ~100 requests/day free",
+        "licensing": "Freemium (100 req/day free, paid tiers available)",
+        "granularity": "Match-level + in-match stats, team-season aggregates"
+      },
+      {
+        "name": "ESPN Public API",
+        "type": "REST API (async, unauthenticated)",
+        "status": "IMPLEMENTED",
+        "is_primary_training_data": false,
+        "leagues_supported": ["PL", "La Liga", "Serie A", "Bundesliga", "Ligue 1", "UCL", "EFL Championship", "Segunda Div", "Serie B", "2. Bundesliga", "Ligue 2"],
+        "seasons": "Current season live data",
+        "match_count": "On-demand (not in training pipeline)",
+        "fields_available": ["live scores", "team info (name, logo, venue, record)", "league news (headline, description, URL, image)", "match status"],
+        "fields_actually_used": ["Live scores", "team names/logos"],
+        "fields_unused": ["News articles", "team records/standings"],
+        "update_frequency": "On-demand HTTP request",
+        "reliability": "Medium (public, unauthenticated, can change without notice)",
+        "provenance": "site.api.espn.com",
+        "api_requirements": "None",
+        "licensing": "Public API, no key required",
+        "granularity": "Match-level (live/recent), team info, news articles"
+      },
+      {
+        "name": "The Odds API",
+        "type": "REST API (async)",
+        "status": "IMPLEMENTED",
+        "is_primary_training_data": false,
+        "leagues_supported": ["soccer_epl", "soccer_la_liga", "soccer_serie_a", "soccer_bundesliga", "soccer_ligue_one", "soccer_champions_league"],
+        "seasons": "Current odds only",
+        "match_count": "On-demand (not in training pipeline)",
+        "fields_available": ["current odds (h2h, spreads, totals)", "historical odds per fixture", "multiple bookmakers"],
+        "fields_actually_used": ["Current odds", "market signal detection (steam, RLM, sharp action)"],
+        "fields_unused": ["Historical odds (endpoint exists but not systematically collected)", "spreads", "totals"],
+        "update_frequency": "On-demand HTTP request",
+        "reliability": "High (paid tier)",
+        "provenance": "api.the-odds-api.com/v4",
+        "api_requirements": "ODDS_API_KEY query param, 15s timeout",
+        "licensing": "Freemium (500 req/month free, paid tiers)",
+        "granularity": "Match-level odds from multiple bookmakers"
+      },
+      {
+        "name": "football-data.org",
+        "type": "REST API",
+        "status": "SCAFFOLDED (env var exists, no service file)",
+        "is_primary_training_data": false,
+        "leagues_supported": "Configurable",
+        "seasons": "Unknown",
+        "match_count": 0,
+        "fields_available": ["matches", "teams", "standings"],
+        "fields_actually_used": [],
+        "fields_unused": ["matches", "teams", "standings"],
+        "update_frequency": "Never fetched (status: never_fetched in DB seed)",
+        "reliability": "Unknown",
+        "provenance": "api.football-data.org",
+        "api_requirements": "FOOTBALL_DATA_ORG_API_KEY",
+        "licensing": "Free tier: 10 req/min",
+        "granularity": "Unknown"
+      },
+      {
+        "name": "StatsBomb",
+        "type": "Event-level data (open data)",
+        "status": "NOT INTEGRATED (referenced in frontend for demo match only)",
+        "is_primary_training_data": false,
+        "leagues_supported": "2022 World Cup, 2023 Women's World Cup, select leagues (open data)",
+        "seasons": "Limited open datasets",
+        "match_count": "Single demo match (3869151) in ELASTICO frontend",
+        "fields_available": ["shot coordinates", "xG per shot", "pass events", "carry events", "pressure events", "defensive actions", "spatial data"],
+        "fields_actually_used": [],
+        "fields_unused": ["All event-level fields"],
+        "update_frequency": "Static open datasets",
+        "reliability": "Gold standard for event data",
+        "provenance": "statsbomb.com open data",
+        "api_requirements": "None for open data; API for full access requires enterprise agreement",
+        "licensing": "Open data: CC-BY-SA; full data: commercial license required",
+        "granularity": "Event-level (every touch, shot, pass, pressure with x/y coordinates)"
+      },
+      {
+        "name": "Understat",
+        "type": "Web scraping / API",
+        "status": "NOT INTEGRATED",
+        "is_primary_training_data": false,
+        "leagues_supported": ["PL", "La Liga", "Serie A", "Bundesliga", "Ligue 1", "EFL Championship"],
+        "seasons": "2014-present",
+        "match_count": 0,
+        "fields_available": ["xG per match", "xGA per match", "shot data", "player xG rankings", "team xG rankings"],
+        "fields_actually_used": [],
+        "fields_unused": ["All fields"],
+        "update_frequency": "Updated during match weeks",
+        "reliability": "Medium (unofficial, can break)",
+        "provenance": "understat.com",
+        "api_requirements": "None officially (unofficial API / scraping)",
+        "licensing": "Unclear (unofficial aggregation)",
+        "granularity": "Match-level and player-level xG"
+      }
+    ]
+  },
+  "current_feature_inventory": {
+    "schema_version": "1.0.0",
+    "total_features": 50,
+    "by_category": {
+      "elo": {
+        "count": 5,
+        "features": ["elo_home", "elo_away", "elo_diff", "elo_home_advantage_adjusted", "elo_form_trend"],
+        "data_quality": {"missing_pct": "0.8-4.1%", "source": "Computed from match results", "type": "DERIVED", "provenance": "Phase 2 ELO computation"}
+      },
+      "goals": {
+        "count": 10,
+        "features": ["avg_goals_scored_home", "avg_goals_scored_away", "avg_goals_conceded_home", "avg_goals_conceded_away", "avg_goals_scored", "avg_goals_conceded", "goal_difference", "xg_for_home", "xg_for_away", "xg_diff"],
+        "data_quality": {"missing_pct": "0.8-1.7%", "source": "Match results (goals) + shots_on_target proxy for xG", "type": "DERIVED + PROXY", "critical_note": "xg_for_home/away/diff are PROXY values (shots_on_target * 0.1), NOT real xG"}
+      },
+      "form": {
+        "count": 8,
+        "features": ["last_5_form_points_home", "last_5_form_points_away", "form_points_diff", "win_streak_home", "win_streak_away", "unbeaten_streak_home", "unbeaten_streak_away", "goals_per_game_trend"],
+        "data_quality": {"missing_pct": "0.8-1.7%", "source": "Match results", "type": "DERIVED"}
+      },
+      "h2h": {
+        "count": 4,
+        "features": ["h2h_home_win_pct", "h2h_away_win_pct", "h2h_draw_pct", "h2h_avg_goals"],
+        "data_quality": {"missing_pct": "19.1% (first meetings)", "source": "Historical match results", "type": "DERIVED"}
+      },
+      "venue_splits": {
+        "count": 4,
+        "features": ["home_win_pct", "away_win_pct", "home_goals_avg", "away_goals_avg"],
+        "data_quality": {"missing_pct": "0.9-1.7%", "source": "Match results", "type": "DERIVED"}
+      },
+      "market": {
+        "count": 4,
+        "features": ["implied_prob_home", "implied_prob_draw", "implied_prob_away", "overround"],
+        "data_quality": {"missing_pct": "0.0% (2 rows)", "source": "Pinnacle closing odds (fallback Bet365)", "type": "REAL", "provenance": "football-data.co.uk CSVs, normalized overround"}
+      },
+      "temporal": {
+        "count": 5,
+        "features": ["day_of_week", "month", "is_weekend", "days_since_last_match_home", "days_since_last_match_away"],
+        "data_quality": {"missing_pct": "0.8%", "source": "Match dates", "type": "DERIVED"}
+      },
+      "advanced": {
+        "count": 10,
+        "features": ["attacking_strength_home", "attacking_strength_away", "defensive_strength_home", "defensive_strength_away", "poisson_lambda_home", "poisson_lambda_away", "shot_conversion_rate_home", "shot_conversion_rate_away", "clean_sheet_pct_home", "clean_sheet_pct_away"],
+        "data_quality": {"missing_pct": "0.8%", "source": "Match results + shots data", "type": "DERIVED"}
+      }
+    },
+    "proxy_features": {
+      "xg_for_home": {"current_source": "shots_on_target_avg * 0.1 (last 5 matches)", "real_source_needed": "Opta/StatsBomb/Understat event-level xG", "impact": "HIGH - xG is fundamental to modern football analytics"},
+      "xg_for_away": {"current_source": "shots_on_target_avg * 0.1 (last 5 matches)", "real_source_needed": "Opta/StatsBomb/Understat event-level xG", "impact": "HIGH"},
+      "xg_diff": {"current_source": "xg_for_home - xg_for_away (both proxies)", "real_source_needed": "Real xG difference", "impact": "HIGH"}
+    }
+  },
+  "feature_information_gap": [
+    {
+      "category": "EXPECTED PERFORMANCE",
+      "currently_available": ["xG_PROXY (shots_on_target * 0.1)", "shot_conversion_rate", "attacking_strength (goals-based)", "defensive_strength (goals-based)", "poisson_lambda (goals-based)", "avg_goals_scored/conceded"],
+      "missing": ["Real xG (from Opta/StatsBomb/Understat)", "xGA (expected goals against)", "xA (expected assists)", "xG per shot (shot quality)", "xG by shot location/zone", "Chance creation rate", "PPDA (Passes Allowed Per Defensive Action)", "Post-shot xG (quality of shots on target)", "xT (Expected Threat from territorial control)", "Progressive passes/carries counts"],
+      "potential_value": "HIGH",
+      "independence_from_market": "HIGH - real xG is a different information source from bookmaker odds",
+      "rationale": "Real xG is the single most impactful missing data. The current proxy (SOT * 0.1) has no theoretical basis. Real xG measures chance quality, which bookmakers use internally but don't expose. Independent xG could provide genuine football intelligence the market doesn't fully reveal."
+    },
+    {
+      "category": "PLAYER",
+      "currently_available": [],
+      "missing": ["Injuries (who is out, doubtful, returning)", "Suspensions (yellow card accumulation, red cards)", "Expected lineup (pre-match predicted XI)", "Confirmed lineup (at kickoff)", "Player ratings (per-match performance scores)", "Player availability %", "Minutes played (fatigue indicator)", "Player form (recent individual performance)", "Substitution patterns", "Squad depth/injuries by position", "Key player absence impact"],
+      "potential_value": "VERY HIGH",
+      "independence_from_market": "VERY HIGH - injury news breaks after initial odds are set, creating timing advantage",
+      "rationale": "Injuries are arguably the highest-value missing data. When a star player is ruled out 24-48 hours before kickoff, this information moves the market. If ELASTICO can ingest injury data EARLIER or more comprehensively than bookmakers incorporate it, this creates a genuine information advantage. The frontend already has an InjuryAdjustment system in the prediction engine, but no automated data feed."
+    },
+    {
+      "category": "TACTICAL",
+      "currently_available": [],
+      "missing": ["Formation (4-3-3, 3-5-2, etc.)", "Formation changes (manager tactical shifts)", "Pressing intensity (PPDA)", "Defensive line height", "Possession structures", "Passing networks", "Spatial control zones", "Build-up patterns", "Defensive actions distribution", "Set piece efficiency"],
+      "potential_value": "MEDIUM",
+      "independence_from_market": "MEDIUM - tactical info partially reflected in odds",
+      "rationale": "Tactical information is interesting but hard to quantify and partially captured by form/goal statistics. Formation changes and pressing style can affect outcomes, but bookmakers likely account for this in their models. Value is primarily in detecting tactical shifts early."
+    },
+    {
+      "category": "CONTEXT",
+      "currently_available": ["day_of_week", "month", "is_weekend", "days_since_last_match_home/away"],
+      "missing": ["Rest days differential (absolute and relative)", "Travel distance (for away teams in Europe)", "Fixture congestion (matches in last 7/14/30 days)", "Competition importance (league vs cup vs dead rubber)", "Home advantage magnitude (crowd size, stadium familiarity)", "Weather conditions (temperature, wind, rain)", "Referee identity and tendencies", "Managerial changes (new manager bounce)", "Motivation/context (relegation battle, title race, mid-table)", "International break impact (return from national team duty)"],
+      "potential_value": "MEDIUM",
+      "independence_from_market": "MEDIUM-HIGH - some context factors are underweighted by bookmakers",
+      "rationale": "Rest days and fixture congestion are known to affect performance. Referee tendencies (cards, penalties) are publicly available but not systematically used. Managerial changes create short-term unpredictability. Weather is available from weather APIs. These are moderate-value additions that are easy to acquire."
+    },
+    {
+      "category": "MATCH EVENT",
+      "currently_available": ["shots (total)", "shots_on_target", "corners", "fouls", "cards (yellow/red)"],
+      "missing": ["Shot coordinates (x, y)", "Shot type (header, foot, set piece)", "Pass coordinates and types", "Carry events and distances", "Pressure events and locations", "Defensive actions (interceptions, blocks, tackles) by zone", "Set piece details (type, outcome, zone)", "Goal kick / throw-in patterns", "Possession chains"],
+      "potential_value": "MEDIUM",
+      "independence_from_market": "MEDIUM-HIGH - event-level data is not directly visible in odds",
+      "rationale": "Event-level data enables computing real xG, xT, PPDA, and other advanced metrics. The frontend already has shot map and xT visualizations scaffolded (for StatsBomb demo data). This is the raw material needed for the EXPECTED PERFORMANCE and TACTICAL categories. Without event data, most advanced metrics are impossible."
+    },
+    {
+      "category": "MARKET TIMING",
+      "currently_available": ["Closing odds (Pinnacle/B365)", "overround"],
+      "missing": ["Opening odds (initial line)", "Odds movement timeline (odds at T-7d, T-3d, T-1d, T-6h)", "Line movement magnitude and direction", "Bookmaker disagreement (variance across bookmakers)", "Market timing signals (early vs late moves)", "Steam move detection (systematic, not just on-demand)", "Public bet percentages", "Sharp vs public money indicators"],
+      "potential_value": "HIGH",
+      "independence_from_market": "LOW - this IS market data, but with temporal dimension",
+      "rationale": "The current system only uses CLOSING odds. Opening vs closing odds movement is a powerful feature. Steam moves and sharp action detection code EXISTS in odds_service.py and market_signals.py but is never used in training. If historical opening odds were available, this could create time-series features showing how the market reacts to information, which is a different kind of intelligence."
+    },
+    {
+      "category": "NEWS/SENTIMENT",
+      "currently_available": ["ESPN news headlines (not piped to training)"],
+      "missing": ["Injury news (timing, severity, expected return)", "Manager news (pressure, contract, tactics)", "Squad news (call-ups, returns from injury)", "Transfer news (new signing impact, departure impact)", "Pre-match press conference sentiment", "Social media sentiment (Twitter/X fan sentiment)", "Late-breaking information (within 24h of kickoff)", "Motivation signals (player interviews, manager quotes)"],
+      "potential_value": "MEDIUM-HIGH",
+      "independence_from_market": "HIGH - news timing creates genuine information asymmetry",
+      "rationale": "News is the primary driver of late odds movement. If ELASTICO can systematically capture and encode news sentiment, it could detect information shifts before they're fully reflected in odds. However, NLP-based sentiment features are noisy and hard to validate. Best approach: structured injury/lineup news first, unstructured sentiment later."
+    }
+  ],
+  "data_source_capability_matrix": [
+    {
+      "source": "API-Football (v3)",
+      "can_provide": {
+        "real_xg": false,
+        "injuries": true,
+        "lineups": true,
+        "form": true,
+        "player_stats": true,
+        "h2h": true,
+        "match_stats": true,
+        "opening_odds": false,
+        "odds_movement": false,
+        "news": false
+      },
+      "already_integrated": true,
+      "data_in_training_pipeline": false,
+      "integration_gap": "Service exists but data is never piped into the ML training pipeline. Adding pipeline integration is moderate effort."
+    },
+    {
+      "source": "Understat",
+      "can_provide": {
+        "real_xg": true,
+        "xga": true,
+        "player_xg": true,
+        "team_xg": true,
+        "shot_data": true
+      },
+      "already_integrated": false,
+      "data_in_training_pipeline": false,
+      "integration_gap": "No code exists. Requires web scraping or unofficial API. Reliability is uncertain. But provides FREE historical xG data for 5 major leagues 2014-present."
+    },
+    {
+      "source": "StatsBomb Open Data",
+      "can_provide": {
+        "event_level_data": true,
+        "shot_coordinates": true,
+        "real_xg_per_shot": true,
+        "pass_events": true,
+        "spatial_data": true
+      },
+      "already_integrated": false,
+      "data_in_training_pipeline": false,
+      "integration_gap": "Frontend has demo code for one match. Open data is limited to specific tournaments. Full access requires enterprise license."
+    },
+    {
+      "source": "The Odds API",
+      "can_provide": {
+        "current_odds": true,
+        "historical_odds": true,
+        "multiple_bookmakers": true,
+        "odds_movement": true,
+        "market_signals": true
+      },
+      "already_integrated": true,
+      "data_in_training_pipeline": false,
+      "integration_gap": "Service and signal detection exist. Historical odds endpoint exists but is not systematically collected or stored. No historical odds in training data."
+    },
+    {
+      "source": "football-data.co.uk (enhanced)",
+      "can_provide": {
+        "opening_odds": true,
+        "closing_odds": true,
+        "multiple_bookmaker_odds": true,
+        "half_time_stats": true,
+        "referee": true
+      },
+      "already_integrated": true,
+      "data_in_training_pipeline": true,
+      "integration_gap": "CSVs already contain opening odds (B365, WH, etc.) and referee data that are NOT currently used. Can be extracted in Phase 2 pipeline without new API integration."
+    },
+    {
+      "source": "ESPN Public API",
+      "can_provide": {
+        "live_scores": true,
+        "team_info": true,
+        "news": true,
+        "injuries": true
+      },
+      "already_integrated": true,
+      "data_in_training_pipeline": false,
+      "integration_gap": "Injuries endpoint exists in ESPN API but is not called by the service. News is fetched but not used in training."
+    },
+    {
+      "source": "fbref / Sports Reference",
+      "can_provide": {
+        "real_xg": true,
+        "xga": true,
+        "squad_data": true,
+        "player_stats": true,
+        "tactical_data": true
+      },
+      "already_integrated": false,
+      "data_in_training_pipeline": false,
+      "integration_gap": "No code exists. Requires web scraping. Data is free and comprehensive. Historical depth is excellent."
+    }
+  ],
+  "prioritized_data_gaps": [
+    {
+      "rank": 1,
+      "data_type": "Player Injuries & Suspensions",
+      "category": "PLAYER",
+      "independence_from_market": "VERY HIGH",
+      "expected_predictive_value": "VERY HIGH",
+      "implementation_difficulty": "LOW-MEDIUM",
+      "estimated_cost": "FREE (API-Football already has endpoint)",
+      "historical_availability": "2+ seasons via API-Football",
+      "data_quality": "High (API-Football structured data)",
+      "coverage": "12 leagues",
+      "rationale": "API-Football already has an injuries endpoint that is fully implemented but not called. This is the lowest-hanging fruit with highest potential value. Injury news creates market movement, and if captured systematically, could provide genuine independent signal. The frontend already has an InjuryAdjustment system waiting for real data.",
+      "experiment_design": {
+        "baseline": "Current best model (Raw Market LL 0.959)",
+        "treatment": "Market + Football features + Injury features (key_player_absent_binary, squad_strength_pct, days_until_return_for_doubtful)",
+        "metrics": ["log_loss", "brier_score", "ece", "accuracy"],
+        "methodology": "Temporal out-of-sample, same 5 windows as Phase 3.5/5",
+        "success_criterion": "LL improvement > 0.01 over Raw Market in at least 3/5 windows"
+      }
+    },
+    {
+      "rank": 2,
+      "data_type": "Real xG (Expected Goals)",
+      "category": "EXPECTED PERFORMANCE",
+      "independence_from_market": "HIGH",
+      "expected_predictive_value": "HIGH",
+      "implementation_difficulty": "MEDIUM",
+      "estimated_cost": "FREE (Understat) to PAID (StatsBomb/Opta)",
+      "historical_availability": "5+ seasons (Understat), 10+ seasons (fbref scraping)",
+      "data_quality": "High (Understat) to Gold standard (StatsBomb/Opta)",
+      "coverage": "5 major leagues (Understat), broader (fbref)",
+      "rationale": "Current xG proxy (SOT * 0.1) has no theoretical validation. Real xG measures chance quality, which is a genuinely different signal from goals scored. Understat provides free historical xG for all 5 current leagues. This is the most impactful data quality improvement possible.",
+      "experiment_design": {
+        "baseline": "Current best model (Raw Market LL 0.959)",
+        "treatment_1": "Replace xG_PROXY with Understat real xG in all xG-dependent features",
+        "treatment_2": "Add xGA features (expected goals against)",
+        "metrics": ["log_loss", "brier_score", "ece", "accuracy"],
+        "methodology": "Temporal out-of-sample, same 5 windows. Compare Football-only XGB with proxy xG vs real xG. Then compare Combined (with market) vs Market-only.",
+        "success_criterion": "Football-only model with real xG must beat Football-only with proxy xG by > 0.02 LL. Then Combined must beat Raw Market in at least 2/5 windows."
+      }
+    },
+    {
+      "rank": 3,
+      "data_type": "Opening vs Closing Odds Movement",
+      "category": "MARKET TIMING",
+      "independence_from_market": "LOW (IS market data, but temporal)",
+      "expected_predictive_value": "HIGH",
+      "implementation_difficulty": "LOW",
+      "estimated_cost": "FREE (already in CSVs for some bookmakers)",
+      "historical_availability": "5 seasons in existing CSVs (B365, PS, WH opening vs closing)",
+      "data_quality": "High (from football-data.co.uk)",
+      "coverage": "5 major leagues, 5 seasons",
+      "rationale": "The CSV files already contain both opening and closing odds for multiple bookmakers (B365H/B365CH, PSH/PSCH, etc.). These are currently IGNORED. The Odds API has historical odds endpoints. Market signal detection code EXISTS in odds_service.py. This requires zero new API integrations — just feature engineering from existing data.",
+      "experiment_design": {
+        "baseline": "Current best model (Raw Market LL 0.959, using closing odds only)",
+        "treatment_1": "Add odds_movement_pp (closing - opening implied prob) as features",
+        "treatment_2": "Add bookmaker_disagreement (std dev across bookmakers) as feature",
+        "treatment_3": "Replace closing odds with opening odds and let model learn movement",
+        "metrics": ["log_loss", "brier_score", "ece", "accuracy"],
+        "methodology": "Temporal OOS, same 5 windows. Critical: odds movement features must be computed BEFORE match time (no lookahead).",
+        "success_criterion": "Combined model with odds movement must beat Raw Market closing odds in at least 2/5 windows."
+      }
+    },
+    {
+      "rank": 4,
+      "data_type": "Pre-Match Lineups & Squad News",
+      "category": "PLAYER",
+      "independence_from_market": "HIGH",
+      "expected_predictive_value": "MEDIUM-HIGH",
+      "implementation_difficulty": "MEDIUM",
+      "estimated_cost": "FREE (API-Football lineups endpoint)",
+      "historical_availability": "Current season only (API-Football)",
+      "data_quality": "Medium (lineups only confirmed ~1h before kickoff)",
+      "coverage": "12 leagues",
+      "rationale": "Knowing the starting XI allows computing pre-match squad strength metrics (sum of player ratings, absence of key positions). API-Football has a lineups endpoint. However, lineups are only confirmed close to kickoff, limiting pre-match prediction utility. Expected lineups (from news) are more useful for pre-match prediction.",
+      "experiment_design": {
+        "baseline": "Best model after Injuries + xG experiments",
+        "treatment": "Add expected/confirmed lineup features (squad_strength_ratio, key_position_filled, formation_matchup)",
+        "metrics": ["log_loss", "brier_score", "ece", "accuracy"],
+        "methodology": "Temporal OOS. Limit to matches where lineup data is available >2h before kickoff.",
+        "success_criterion": "LL improvement > 0.005 over baseline in at least 2/5 windows"
+      }
+    },
+    {
+      "rank": 5,
+      "data_type": "Referee Identity & Tendencies",
+      "category": "CONTEXT",
+      "independence_from_market": "MEDIUM-HIGH",
+      "expected_predictive_value": "MEDIUM",
+      "implementation_difficulty": "VERY LOW",
+      "estimated_cost": "FREE (already in CSVs for 2019-2023)",
+      "historical_availability": "4 seasons in existing CSVs (Referee column)",
+      "data_quality": "High (official referee assignments)",
+      "coverage": "5 leagues, 4 seasons (missing from 2324 format)",
+      "rationale": "Referee data is ALREADY in the CSV files (2019-2023) but completely unused. Different referees have statistically significant tendencies for cards, penalties, and fouls which can affect match outcomes. This is the easiest possible data addition — just read an existing column.",
+      "experiment_design": {
+        "baseline": "Current Football-only XGB",
+        "treatment": "Add referee identity (encoded) + referee historical card/penalty rate",
+        "metrics": ["log_loss", "accuracy"],
+        "methodology": "Temporal OOS, windows where referee data is available",
+        "success_criterion": "Any LL improvement in Football-only model"
+      }
+    },
+    {
+      "rank": 6,
+      "data_type": "Fixture Congestion & Rest Days",
+      "category": "CONTEXT",
+      "independence_from_market": "MEDIUM-HIGH",
+      "expected_predictive_value": "MEDIUM",
+      "implementation_difficulty": "VERY LOW",
+      "estimated_cost": "FREE (derivable from match dates)",
+      "historical_availability": "All seasons in training data",
+      "data_quality": "High (computed from match dates)",
+      "coverage": "All matches",
+      "rationale": "days_since_last_match exists but is a crude proxy. A team playing 3 matches in 7 days (Champions League + League) is at a disadvantage vs a rested opponent. Fixture congestion can be computed from the existing date data. The current feature only captures the LAST match gap, not cumulative fatigue.",
+      "experiment_design": {
+        "baseline": "Current Football-only XGB",
+        "treatment": "Replace days_since_last_match with: matches_in_last_7d, matches_in_last_14d, rest_days_vs_opponent, cumulative_minutes_estimate",
+        "metrics": ["log_loss", "accuracy"],
+        "methodology": "Temporal OOS, same 5 windows",
+        "success_criterion": "LL improvement > 0.005 in Football-only model"
+      }
+    },
+    {
+      "rank": 7,
+      "data_type": "Event-Level Shot Data (xG computation)",
+      "category": "MATCH EVENT",
+      "independence_from_market": "MEDIUM-HIGH",
+      "expected_predictive_value": "MEDIUM",
+      "implementation_difficulty": "HIGH",
+      "estimated_cost": "FREE (StatsBomb open) to VERY HIGH (Opta enterprise)",
+      "historical_availability": "Limited (StatsBomb open data: specific tournaments only)",
+      "data_quality": "Gold standard (StatsBomb/Opta)",
+      "coverage": "Limited open data; enterprise requires license",
+      "rationale": "Event-level data is the foundation for computing real xG, xT, PPDA, and all advanced metrics. However, free historical coverage is limited. This is a long-term investment rather than a quick win. Understat provides match-level xG which is a practical intermediate step.",
+      "experiment_design": {
+        "baseline": "Best model after Understat xG integration",
+        "treatment": "Replace Understat xG with StatsBomb/Opta event-level computed xG",
+        "metrics": ["log_loss", "brier_score", "accuracy"],
+        "methodology": "Temporal OOS on available data only",
+        "success_criterion": "LL improvement > 0.005 over Understat-based model"
+      }
+    },
+    {
+      "rank": 8,
+      "data_type": "Weather Data",
+      "category": "CONTEXT",
+      "independence_from_market": "MEDIUM",
+      "expected_predictive_value": "LOW-MEDIUM",
+      "implementation_difficulty": "LOW",
+      "estimated_cost": "FREE (OpenWeatherMap, etc.)",
+      "historical_availability": "Requires backfill via weather API",
+      "data_quality": "High (meteorological services)",
+      "coverage": "All matches (needs venue coordinates + timestamps)",
+      "rationale": "Weather affects playing conditions (rain, wind, extreme temperatures). However, bookmakers likely account for weather, and the effect size is small. Low priority but easy to implement once venue coordinates are available.",
+      "experiment_design": {
+        "baseline": "Best model after higher-priority experiments",
+        "treatment": "Add temperature, wind_speed, precipitation_binary at kickoff time",
+        "metrics": ["log_loss", "accuracy"],
+        "methodology": "Temporal OOS",
+        "success_criterion": "Any measurable LL improvement"
+      }
+    }
+  ],
+  "recommended_acquisition_order": [
+    {
+      "phase": "Phase 7A",
+      "title": "Extract Unused CSV Data",
+      "data": ["Opening odds (B365, PS, WH opening columns)", "Referee (already in CSV)", "Half-time results (HTR, HTHG, HTAG)", "Multiple bookmaker odds for disagreement features"],
+      "source": "Existing football-data.co.uk CSVs",
+      "effort": "1-2 days",
+      "new_api_needed": false,
+      "expected_impact": "Enables odds movement and referee experiments"
+    },
+    {
+      "phase": "Phase 7B",
+      "title": "Real xG from Understat",
+      "data": ["Team xG per match", "Team xGA per match", "Player xG rankings"],
+      "source": "Understat (scraping or unofficial API)",
+      "effort": "3-5 days",
+      "new_api_needed": true,
+      "expected_impact": "Replace xG_PROXY with real xG; add xGA features"
+    },
+    {
+      "phase": "Phase 7C",
+      "title": "Injury & Suspension Data",
+      "data": ["Player injuries (out, doubtful, questionable)", "Suspensions (card accumulation, red cards)", "Expected return dates"],
+      "source": "API-Football injuries endpoint (already integrated)",
+      "effort": "2-3 days",
+      "new_api_needed": false,
+      "expected_impact": "Add key_player_absent, squad_availability features"
+    },
+    {
+      "phase": "Phase 7D",
+      "title": "Enhanced Context Features",
+      "data": ["Fixture congestion metrics", "Competition importance flags", "Managerial change detection"],
+      "source": "Derived from existing match date data + API-Football",
+      "effort": "2-3 days",
+      "new_api_needed": false,
+      "expected_impact": "Add rest/fatigue and context features"
+    },
+    {
+      "phase": "Phase 7E",
+      "title": "Lineup & Squad Data",
+      "data": ["Expected lineups", "Squad strength metrics", "Formation data"],
+      "source": "API-Football lineups/statistics endpoint",
+      "effort": "3-5 days",
+      "new_api_needed": false,
+      "expected_impact": "Add pre-match squad quality features"
+    },
+    {
+      "phase": "Phase 7F",
+      "title": "Odds Movement Historical Collection",
+      "data": ["Historical opening/closing odds", "Intra-week odds snapshots", "Bookmaker disagreement time series"],
+      "source": "The Odds API historical endpoint + football-data.co.uk CSV columns",
+      "effort": "3-5 days",
+      "new_api_needed": false,
+      "expected_impact": "Add temporal market features (odds movement, steam detection)"
+    },
+    {
+      "phase": "Phase 7G (future)",
+      "title": "Event-Level Data Integration",
+      "data": ["Shot coordinates and types", "Pass events", "Spatial data", "xT computation"],
+      "source": "StatsBomb (open data + potential enterprise) or Opta",
+      "effort": "2-4 weeks",
+      "new_api_needed": true,
+      "expected_impact": "Enable advanced metric computation (PPDA, xT, build-up analysis)"
+    },
+    {
+      "phase": "Phase 7H (future)",
+      "title": "News & Sentiment Pipeline",
+      "data": ["Injury news timing", "Manager quotes", "Transfer news", "Sentiment scores"],
+      "source": "ESPN news API + potential NLP pipeline",
+      "effort": "1-2 weeks",
+      "new_api_needed": true,
+      "expected_impact": "Add pre-match information timing features"
+    }
+  ],
+  "data_quality_contract": {
+    "version": "1.0.0",
+    "principle": "NO FABRICATION. Every feature must have traceable provenance.",
+    "feature_states": {
+      "REAL": "Directly measured or officially recorded value (e.g., goals scored, Pinnacle closing odds, referee name)",
+      "PROXY": "Derived from a correlated but different measurement (e.g., xG_PROXY = shots_on_target * 0.1). MUST be labeled with _PROXY suffix and MUST NEVER be presented as the real metric.",
+      "DERIVED": "Computed from REAL data using a defensible method (e.g., ELO rating, attacking_strength, form_points). Method must be documented.",
+      "MISSING": "Data point is not available. Must be represented as null/NaN, never imputed silently. Model must handle missing values explicitly.",
+      "STALE": "Data is available but older than the freshness threshold (e.g., injury data from 3 weeks ago). Must carry staleness timestamp.",
+      "UNAVAILABLE": "Data source does not provide this field for this match/league/season. Distinct from MISSING (which implies the field exists but is absent for a specific observation)."
+    },
+    "required_metadata_per_feature": {
+      "source": "The data source or computation method that produced this value",
+      "timestamp": "When the value was recorded or computed",
+      "observation_time": "The time period the value represents (e.g., 'last 10 matches before 2024-03-15')",
+      "freshness": "Time between observation and prediction time",
+      "provenance": "Chain of derivation from raw data to feature value",
+      "quality_state": "One of: REAL, PROXY, DERIVED, MISSING, STALE, UNAVAILABLE"
+    },
+    "proxy_labeling_rule": "A proxy feature MUST include _PROXY in its name. Example: xG_PROXY (current), not xG. When real xG is acquired, the proxy feature is retired and the real feature takes the canonical name xG.",
+    "missing_data_rule": "Missing values MUST be represented as null/NaN. Default imputation is FORBIDDEN without explicit documentation of the method and its justification. Tree-based models can handle NaN natively.",
+    "historical_reproducibility_rule": "Any feature used in training must be reproducible from raw data. No ad-hoc adjustments. The Phase 2 pipeline is the canonical feature computation path."
+  },
+  "predictive_value_experiment_protocol": {
+    "core_principle": "Do not assume data improves prediction. Measure it.",
+    "required_experiments_per_data_addition": [
+      {
+        "name": "football_only_incremental",
+        "description": "Add new data to football-only features, measure against football-only baseline",
+        "baseline": "XGBoost Football-Only (46 features)",
+        "treatment": "XGBoost Football-Only + new data features",
+        "metrics": ["log_loss", "brier_score", "ece", "accuracy"]
+      },
+      {
+        "name": "combined_incremental",
+        "description": "Add new data to combined features, measure against combined baseline",
+        "baseline": "XGBoost Combined (50 features)",
+        "treatment": "XGBoost Combined + new data features",
+        "metrics": ["log_loss", "brier_score", "ece", "accuracy"]
+      },
+      {
+        "name": "market_comparison",
+        "description": "The critical test: does the new data help beat the market?",
+        "baseline": "Raw Market (normalized closing odds)",
+        "treatment": "Best model configuration with new data",
+        "metrics": ["log_loss", "brier_score", "ece", "accuracy"],
+        "success_criterion": "Must beat market in at least 3/5 temporal windows on log loss"
+      }
+    ],
+    "methodology": {
+      "temporal_windows": "Same 5 windows from Phase 3.5/5 (W1-W5)",
+      "xgboost_params": "Same hyperparameters as Phase 3.5 (max_depth=5, eta=0.05, subsample=0.8, colsample_bytree=0.8, min_child_weight=5, gamma=0.1, lambda=1.5, alpha=0.1, early_stopping_rounds=100)",
+      "leakage_prevention": "STRICT: all features for match at date T must use only data from dates < T. New data sources must be backfilled with correct temporal ordering.",
+      "class_weights": "total / (3 * class_count) per class",
+      "early_stopping": "100 rounds on validation set"
+    },
+    "retention_criterion": "A data source is only retained if it demonstrates meaningful out-of-sample improvement (LL > 0.005) over the baseline in at least 2/5 temporal windows, OR provides another clearly justified product capability (e.g., displaying real xG in the UI even if it doesn't improve LL)."
+  },
+  "data_architecture": {
+    "future_flow": [
+      "EXTERNAL SOURCES (API-Football, Understat, Odds API, ESPN, football-data.co.uk, weather APIs)",
+      "-> INGESTION (scheduled + on-demand collectors, rate limiting, error handling)",
+      "-> RAW STORAGE (PostgreSQL: matches, odds, injuries, events tables)",
+      "-> NORMALIZATION (team name mapping, league mapping, date standardization)",
+      "-> PROVENANCE (source, timestamp, quality state, observation_time for every data point)",
+      "-> FEATURE STORE (canonical 50+ features with full metadata per Data Quality Contract)",
+      "-> MODEL FEATURES (features selected for each model, with feature_states documented)",
+      "-> PREDICTION (ELO + Poisson + XGBoost + Market -> calibration)",
+      "-> ELASTICO (API response with full provenance chain)",
+      "-> USER (probability display, market edge, confidence, data quality indicators)"
+    ],
+    "current_gap": "The current system jumps from EXTERNAL SOURCES directly to MODEL FEATURES with no intermediate storage, provenance tracking, or quality control. The database schema exists (14 tables) but is completely unwired."
+  },
+  "risks": [
+    {
+      "risk": "Understat reliability",
+      "description": "Understat is an unofficial source that could change or disappear without notice. Scraping may break.",
+      "mitigation": "Cache all scraped data locally. Have fbref as backup source. Design feature pipeline to handle source failures gracefully.",
+      "severity": "MEDIUM"
+    },
+    {
+      "risk": "API-Football rate limits",
+      "description": "Free tier allows 100 requests/day. Historical backfill for injuries across 5 leagues x 5 seasons requires thousands of requests.",
+      "mitigation": "Use paid tier for backfill, free tier for ongoing. Implement caching and batch requests.",
+      "severity": "MEDIUM"
+    },
+    {
+      "risk": "Data leakage with new features",
+      "description": "Injury news, lineups, and odds movement data have timing components. Using post-match injury data or closing odds movement as pre-match features would introduce leakage.",
+      "mitigation": "Every new feature must pass the temporal leakage test: feature value at time T must only use information available at time T. Document observation_time for every feature.",
+      "severity": "HIGH"
+    },
+    {
+      "risk": "Overfitting with more features",
+      "description": "Adding more features to XGBoost may increase overfitting (as seen in Phase 3.5 where 46 football features underperformed 4 market features).",
+      "mitigation": "Each feature addition must be tested incrementally. Use strict temporal OOS. If new features hurt, remove them. Feature selection is part of the experiment protocol.",
+      "severity": "HIGH"
+    },
+    {
+      "risk": "Diminishing returns",
+      "description": "Even with perfect data, bookmaker closing odds may still be superior. The efficient market hypothesis suggests the market already incorporates most available information.",
+      "mitigation": "The goal is not guaranteed market-beating predictions but a defensible, empirically-validated system. If data additions improve calibration or provide product value (UI display) even without beating the market, they may still be worthwhile.",
+      "severity": "HIGH (strategic)",
+      "note": "This is the core strategic risk. Phase 5 showed the market LL is 0.959. Beating this requires genuinely new information."
+    },
+    {
+      "risk": "No improvement even after data additions",
+      "description": "If experiments show that even with real xG + injuries + lineups, ELASTICO still cannot beat raw market odds, the project must accept that the market is the best available predictor.",
+      "mitigation": "This is a valid outcome. ELASTICO can still provide value by: (1) displaying calibrated market probabilities, (2) showing football analysis (real xG, ELO, form) alongside market odds, (3) detecting market timing signals, (4) providing a comprehensive analytics platform. Not beating the market is not the same as having no value.",
+      "severity": "HIGH (existential)"
+    }
+  ],
+  "recommended_phase_7": {
+    "title": "Data Advantage Execution",
+    "approach": "Stop model development. Acquire and integrate data. Test each addition empirically.",
+    "first_experiment": "Extract unused CSV data (opening odds, referee) and test odds movement + referee features",
+    "second_experiment": "Integrate Understat xG and replace xG_PROXY. Test with Football-only and Combined models.",
+    "third_experiment": "Wire API-Football injuries endpoint. Test injury features.",
+    "success_gate": "Only proceed to next data addition if the current one shows measurable OOS improvement.",
+    "failure_mode": "If no data addition beats the market after 3 experiments, accept market-calibrated display as the product's prediction backbone and focus on analytics/UX value.",
+    "do_not": [
+      "Train new model architectures",
+      "Build ensembles from existing models",
+      "Deploy predictions to ELASTICO",
+      "Modify ELASTICO frontend",
+      "Fabricate or proxy any new features",
+      "Reconnect the failed LSTM"
+    ]
+  }
+}
