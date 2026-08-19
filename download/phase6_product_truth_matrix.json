@@ -47,7 +47,7 @@
         "state": "REAL",
         "source": "ESPN public API via GET /api/live → football-data.ts",
         "file": "src/components/elastico/dashboard-view.tsx",
-        "line": 176-178,
+        "line": "176-178",
         "notes": "Ticker prefers ESPN live data (line 80), falls back to DB matches (line 92)"
       },
       {
@@ -80,7 +80,7 @@
         "state": "REAL",
         "source": "ESPN API via GET /api/live",
         "file": "src/components/elastico/dashboard-view.tsx",
-        "line": 227-253,
+        "line": "227-253",
         "notes": "Card badge says 'ESPN Live' (line 221)"
       },
       {
@@ -102,7 +102,7 @@
         "state": "REAL",
         "source": "DB Match record via GET /api/matches → Prisma",
         "file": "src/components/elastico/dashboard-view.tsx",
-        "line": 278-284,
+        "line": "278-284",
         "notes": null
       },
       {
@@ -193,7 +193,7 @@
         "state": "REAL",
         "source": "ESPN API liveMatches",
         "file": "src/components/elastico/dashboard-view.tsx",
-        "line": 517-521,
+        "line": "517-521",
         "notes": null
       },
       {
@@ -309,7 +309,7 @@
         "state": "REAL",
         "source": "ESPN API (status=finished filter)",
         "file": "src/components/elastico/dashboard-view.tsx",
-        "line": 369-380,
+        "line": "369-380",
         "notes": null
       },
       {
@@ -401,7 +401,7 @@
         "state": "REAL",
         "source": "ESPN API via GET /api/live",
         "file": "src/components/elastico/dashboard-view.tsx",
-        "line": 599-611,
+        "line": "599-611",
         "notes": null
       },
       {
@@ -443,10 +443,12 @@
         "widget": "12. Trending News",
         "widget_lines": "616-637",
         "data_point": "Category badges (from seed news)",
-        "state": "PROXY",
-        "source": "Hand-assigned category labels in seed data",
+        "state": "FABRICATED",
+        "source": "Hand-assigned category labels for fabricated news articles",
         "file": "prisma/seed.ts",
         "line": "46-50",
+        "reclassified_from": "PROXY",
+        "reclassified_reason": "Propagation rule: category labels are attributes of fabricated seed news articles (DASH-035). A real label on a fake article is still fake.",
         "notes": "Categories like 'match', 'transfer', 'tactical', 'injury' are hand-assigned, not from an external taxonomy."
       },
       {
@@ -544,15 +546,16 @@
       }
     ],
     "state_counts": {
-      "REAL": 15,
-      "PROXY": 5,
+      "REAL": 20,
+      "PROXY": 1,
       "DERIVED": 2,
-      "FABRICATED": 10,
+      "FABRICATED": 19,
       "MISSING": 0,
       "STALE": 0,
       "UNAVAILABLE": 2,
       "DEMO": 0,
-      "total": 34
+      "total": 44,
+      "granularity_note": "Each visible data point, UI label, and claim gets its own entry. A single widget like 'Model Probabilities' generates 6 entries (title claim, subtitle claim, hP, dP, aP, match list). The markdown audit counts at a higher level (34 analytical data points) where such a widget is one item with multiple fabrication aspects."
     },
     "four_state_compliance": {
       "loading_implemented": false,

@@ -29,7 +29,7 @@
 
 | # | View | Status | Fabrications Found | Date |
 |---|------|--------|-------------------|------|
-| 1 | Dashboard | **COMPLETE** | 10 | 2026-08-19 |
+| 1 | Dashboard | **COMPLETE** | 11 | 2026-08-19 |
 | 2 | Live Match | PENDING | — | — |
 | 3 | Predictions | PENDING | — | — |
 | 4 | Tactical | PENDING | — | — |
@@ -277,7 +277,7 @@
 | News titles, categories, dates (when from ESPN) | REAL | ESPN API, `src/app/api/news/route.ts` lines 56–83 |
 | News titles, categories, dates (when from Newsdata.io) | REAL | Newsdata.io API, `src/app/api/news/route.ts` lines 85–107 |
 | News titles, categories, dates (when from DB fallback) | **FABRICATED** | 5 hand-crafted articles in `prisma/seed.ts` lines 45–51. Titles like "Argentina confirmed as World Cup 2026 top seeds" with `source: 'FIFA.com'` — the source attribution may not correspond to a real article at that URL. The `category: 'match'` / `'transfer'` / `'tactical'` / `'injury'` labels add taxonomy credibility. These are presented identically to real ESPN/Newsdata articles with no DEMO badge. |
-| Category badges (line 627) | PROXY | Derived from `n.category`. When news is from seed, the categories are hand-assigned labels, not from any external taxonomy. |
+| Category badges (line 627) | **FABRICATED** | Hand-assigned labels for seed news articles (`prisma/seed.ts` lines 46–50). Reclassified from PROXY by propagation rule: the articles they label are FABRICATED (DASH-035), so the category labels inherit FABRICATED. A real taxonomy label on a fake article is still fake. |
 
 **States implemented:** SUCCESS (renders up to 5 items), EMPTY (returns `[]` if no source has data — **silent empty**)  
 **States missing:** LOADING, ERROR, explicit EMPTY  
@@ -334,12 +334,14 @@
 
 ### Dashboard Summary Statistics
 
+**Granularity:** This table counts 34 analytical data points (a widget with 3 fabrication aspects = 1 data point with 3 aspects noted). The JSON matrix (`phase6_product_truth_matrix.json`) breaks each aspect into its own entry, yielding 44 granular entries (REAL=20, PROXY=1, DERIVED=2, FABRICATED=19, UNAVAILABLE=2). Both counts are valid; they differ in granularity. The JSON `state_counts` block reflects the 44-entry granularity.
+
 | State | Count | Data Points |
 |-------|-------|-------------|
 | REAL | 15 | ESPN scores/status/competition, DB user stats (accuracy/total/correct/streak/bestStreak), DB xG values, honest empty states, navigation targets |
-| PROXY | 5 | ESPN team colors, seed match probabilities (ELO-derived from fabricated inputs), seed team colors, seed news categories, seed news source attributions |
+| PROXY | 1 | ESPN team colors (DASH-003). Note: 4 items previously listed here were reclassified — 3 were already counted under FABRICATED (seed match probabilities via DASH-008, seed news source attributions via DASH-035) and 1 was reclassified to FABRICATED by propagation rule (seed news categories, DASH-036: a real label on a fake article is still fake). |
 | DERIVED | 2 | xG chart filtering (real xG > 0), accuracy ring SVG calculation |
-| FABRICATED | 10 | (1) hashCode "Model Probabilities" widget 6, (2) hashCode card title/subtitle claiming ensemble, (3) Asian Handicap 55% hardcoded widget 5, (4) Asian Handicap subtitle claiming model output, (5) Quick Predict confidence: 75, (6) "AI Insight" label + static strings widget 15, (7) "72% of the time" fabricated statistic widget 15, (8) Seed team ELO values presented as current widgets 7+10, (9) ELO Rankings sort order widget 7 [reclassified from DERIVED per propagation rule], (10) Team Rankings ELO sort order widget 10 [reclassified from DERIVED per propagation rule] |
+| FABRICATED | 11 | (1) hashCode "Model Probabilities" widget 6, (2) hashCode card title/subtitle claiming ensemble, (3) Asian Handicap 55% hardcoded widget 5, (4) Asian Handicap subtitle claiming model output, (5) Quick Predict confidence: 75, (6) "AI Insight" label + static strings widget 15, (7) "72% of the time" fabricated statistic widget 15, (8) Seed team ELO values presented as current widgets 7+10, (9) ELO Rankings sort order widget 7 [reclassified from DERIVED per propagation rule], (10) Team Rankings ELO sort order widget 10 [reclassified from DERIVED per propagation rule], (11) Seed news category badges [reclassified from PROXY per propagation rule — labels on fabricated articles] |
 | MISSING | 0 | — |
 | STALE | 0 | — |
 | UNAVAILABLE | 2 | xG honest empty message, Next Match "No model prediction" message |
