@@ -1,1 +1,635 @@
-{'meta': {'audit_phase': '6A', 'view': 'dashboard', 'date': '2026-08-19', 'auditor': 'automated_forensic', 'file_audited': 'src/components/elastico/dashboard-view.tsx (709 lines)', 'quality_states': ['REAL', 'PROXY', 'DERIVED', 'MISSING', 'STALE', 'UNAVAILABLE', 'DEMO', 'FABRICATED']}, 'data_points': [{'id': 'D1', 'card': '1. Live Score Ticker', 'field': 'Team codes, scores, status badges', 'line': '169-184', 'current_state': 'REAL', 'data_source': 'ESPN live API via store.liveMatches (fallback: DB matches)', 'api_path': '/api/live', 'user_visible': true, 'fabrication': false, 'notes': 'ESPN data is real-time. Fallback to DB matches (seed data) if ESPN fails.'}, {'id': 'D2', 'card': '1. Live Score Ticker', 'field': 'Team colors (circle badges)', 'line': '172-173, 184', 'current_state': 'REAL', 'data_source': 'ESPN: m.homeTeam.color / DB: t.primaryColor', 'api_path': '/api/live', 'user_visible': true, 'fabrication': false, 'notes': 'Colors come from the same source as scores.'}, {'id': 'D3', 'card': '1. Live Score Ticker', 'field': 'LIVE/FT status badges', 'line': '184-191', 'current_state': 'DERIVED', 'data_source': 'Derived from m.status field', 'api_path': 'N/A (client-side)', 'user_visible': true, 'fabrication': false, 'notes': 'Status mapping is correct: live->LIVE badge, finished->FT badge.'}, {'id': 'D4', 'card': '1. Live Score Ticker', 'field': 'Animated pinging red dot (LIVE indicator)', 'line': '158-161', 'current_state': 'DERIVED', 'data_source': 'CSS animation, always present regardless of data', 'api_path': 'N/A', 'user_visible': true, 'fabrication': false, 'notes': 'The LIVE indicator pulses even when no live matches exist. Misleading.'}, {'id': 'D5', 'card': '2. Live Scores - All Leagues', 'field': 'Match list (team names, scores, minute, competition)', 'line': '209-257', 'current_state': 'REAL', 'data_source': 'ESPN live API via store.liveMatches', 'api_path': '/api/live', 'user_visible': true, 'fabrication': false, 'notes': 'Real ESPN data. Correctly labeled with ESPN Live badge.'}, {'id': 'D6', 'card': '2. Live Scores - All Leagues', 'field': 'Match minute', 'line': '244', 'current_state': 'REAL', 'data_source': 'ESPN: m.minute', 'api_path': '/api/live', 'user_visible': true, 'fabrication': false}, {'id': 'D7', 'card': '3. Next Match Prediction', 'field': 'Home/away team names and colors', 'line': '272-288', 'current_state': 'STALE', 'data_source': 'DB matches (seed data: WC 2026 fixtures)', 'api_path': '/api/matches (DB)', 'user_visible': true, 'fabrication': false, 'notes': 'Shows first DB upcoming match. These are seeded WC 2026 group stage matches, not current real fixtures.'}, {'id': 'D8', 'card': '3. Next Match Prediction', 'field': 'ELO ratings (home/away)', 'line': '276, 286', 'current_state': 'STALE', 'data_source': 'DB: nextMatch.homeEloBefore / awayEloBefore (seed data)', 'api_path': 'N/A (seed)', 'user_visible': true, 'fabrication': false, 'notes': 'ELO values are from seed data. Real ELO computation exists in FastAPI but is not synced to this DB.'}, {'id': 'D9', 'card': '3. Next Match Prediction', 'field': 'Venue', 'line': '282', 'current_state': 'MISSING', 'data_source': 'nextMatch.venue (DB field, null in seed data)', 'api_path': 'N/A', 'user_visible': true, 'fabrication': false, 'notes': 'Shows TBD when null. Honest.'}, {'id': 'D10', 'card': '3. Next Match Prediction', 'field': 'Probability bars (home/draw/away %)', 'line': '291-309', 'current_state': 'STALE', 'data_source': 'DB: nextMatch.homeWinProb/drawProb/awayWinProb (seed probabilities)', 'api_path': 'N/A (seed)', 'user_visible': true, 'fabrication': false, 'notes': 'When hasPrediction=true, shows DB-stored probabilities. These were computed from ELO formula with hardcoded 26% draw rate during seed. When hasPrediction=false, shows honest empty state.'}, {'id': 'D11', 'card': '3. Next Match Prediction', 'field': 'Quick Predict buttons (Home/Draw/Away)', 'line': '314-330', 'current_state': 'REAL', 'data_source': 'POST /api/predictions (real API call)', 'api_path': '/api/predictions', 'user_visible': true, 'fabrication': false, 'notes': 'Buttons trigger real API call. However, confidence is hardcoded to 75 (line 143).'}, {'id': 'D12', 'card': '3. Next Match Prediction', 'field': 'Confidence value (75)', 'line': '143', 'current_state': 'FABRICATED', 'data_source': 'Hardcoded: confidence: 75', 'api_path': 'N/A', 'user_visible': false, 'fabrication': true, 'notes': 'Every quick predict submission sends confidence=75. No UI to set confidence. User has no control or visibility into this value.'}, {'id': 'D13', 'card': '4. Accuracy Ring', 'field': 'Accuracy percentage (ring + number)', 'line': '417-436', 'current_state': 'REAL', 'data_source': 'DB: user.predictionAccuracy', 'api_path': '/api/user (session)', 'user_visible': true, 'fabrication': false, 'notes': 'Reads from user record in DB. Initially 0 for new users. Updates when predictions resolve.'}, {'id': 'D14', 'card': '4. Accuracy Ring', 'field': 'Total predictions count', 'line': '438-441', 'current_state': 'REAL', 'data_source': 'DB: user.totalPredictions', 'api_path': '/api/user (session)', 'user_visible': true, 'fabrication': false}, {'id': 'D15', 'card': '4. Accuracy Ring', 'field': 'Correct predictions count', 'line': '442-444', 'current_state': 'REAL', 'data_source': 'DB: user.correctPredictions', 'api_path': '/api/user (session)', 'user_visible': true, 'fabrication': false}, {'id': 'D16', 'card': '5. Asian Handicap Lines', 'field': 'Card subtitle: ELO + Poisson + Dixon-Coles + Stochastic models', 'line': '458-459', 'current_state': 'FABRICATED', 'data_source': 'Hardcoded subtitle text', 'api_path': 'N/A', 'user_visible': true, 'fabrication': true, 'notes': 'Claims 4 models produce these lines. None of them do. Dixon-Coles is not implemented. Stochastic model is EXPERIMENTAL. The lines themselves are fake (see D17).'}, {'id': 'D17', 'card': '5. Asian Handicap Lines', 'field': 'Over 2.5 = 55% for every match', 'line': '477', 'current_state': 'FABRICATED', 'data_source': 'Hardcoded: style={{ width: 55% }} and text 55%', 'api_path': 'N/A', 'user_visible': true, 'fabrication': true, 'notes': 'Every single match shows exactly 55% for Over 2.5. No computation. No API call. No model. This is completely static HTML.'}, {'id': 'D18', 'card': '5. Asian Handicap Lines', 'field': 'Match list (competition, team names)', 'line': '470-478', 'current_state': 'REAL', 'data_source': 'ESPN live API: liveMatches filtered to upcoming/live', 'api_path': '/api/live', 'user_visible': true, 'fabrication': false, 'notes': 'The match list is real. Only the 55% value is fake.'}, {'id': 'D19', 'card': '6. Model Probabilities', 'field': 'Card subtitle: Ensemble: ELO + Poisson + Dixon-Coles + Stochastic', 'line': '497', 'current_state': 'FABRICATED', 'data_source': 'Hardcoded subtitle text', 'api_path': 'N/A', 'user_visible': true, 'fabrication': true, 'notes': 'Claims an ensemble of 4 models produces these probabilities. In reality, probabilities come from hashCode() of team names (see D20). Dixon-Coles is not implemented.'}, {'id': 'D20', 'card': '6. Model Probabilities', 'field': 'Home/Draw/Away probability percentages', 'line': '501-503', 'current_state': 'FABRICATED', 'data_source': 'hashCode(m.homeTeam.name) and hashCode(m.awayTeam.name)', 'api_path': 'N/A', 'user_visible': true, 'fabrication': true, 'notes': 'hP = 40 + abs(hashCode(homeName)) % 30, dP = 15 + abs(hashCode(awayName)) % 15, aP = 100 - hP - dP. Deterministic hash produces arbitrary percentages. No model runs. No API call. Misleading ensemble label.'}, {'id': 'D21', 'card': '6. Model Probabilities', 'field': 'Match list (team names)', 'line': '500-518', 'current_state': 'REAL', 'data_source': 'ESPN live API: liveMatches filtered to upcoming', 'api_path': '/api/live', 'user_visible': true, 'fabrication': false, 'notes': 'Team names are real ESPN data. Only the probability bars are fake.'}, {'id': 'D22', 'card': '8. Latest Results', 'field': 'Match results (teams, scores, competition)', 'line': '339-361', 'current_state': 'REAL', 'data_source': 'ESPN live API: liveMatches filtered to finished', 'api_path': '/api/live', 'user_visible': true, 'fabrication': false, 'notes': 'Real ESPN finished match data.'}, {'id': 'D23', 'card': '9. xG vs Actual Goals', 'field': 'xG values in bar chart', 'line': '110-117', 'current_state': 'REAL', 'data_source': 'DB: match.homeXg / awayXg (only matches where xG > 0)', 'api_path': 'N/A (DB)', 'user_visible': true, 'fabrication': false, 'notes': 'Honest implementation. Only shows matches with real xG data. Comment explicitly says no fabrication. Shows empty state when no xG available.'}, {'id': 'D24', 'card': '9. xG vs Actual Goals', 'field': 'Empty state message', 'line': '411-414', 'current_state': 'REAL', 'data_source': 'N/A (honest empty state)', 'api_path': 'N/A', 'user_visible': true, 'fabrication': false, 'notes': 'Good: explicitly states xG is unavailable rather than fabricating from goals. Gold standard for empty states.'}, {'id': 'D25', 'card': '10. Team Rankings (ELO)', 'field': 'Team names, colors, W/D/L, ELO rating', 'line': '420-457', 'current_state': 'STALE', 'data_source': 'DB: teams table (seed data from setup/route.ts)', 'api_path': 'N/A (seed)', 'user_visible': true, 'fabrication': false, 'notes': 'Shows 8 teams from DB. These are 16 seeded national teams (WC 2026) with hand-picked ELO, W/D/L values. Not current. Not refreshed. Also duplicates ELO Rankings card (D28).'}, {'id': 'D26', 'card': '10. Team Rankings (ELO)', 'field': 'Team W/D/L record', 'line': '447-449', 'current_state': 'FABRICATED', 'data_source': 'DB: teams.wins/draws/losses (seed data)', 'api_path': 'N/A (seed)', 'user_visible': true, 'fabrication': true, 'notes': 'W/D/L values are from seed data. For national teams in a tournament that has not happened yet, these are fabricated records.'}, {'id': 'D27', 'card': '10. Team Rankings (ELO)', 'field': 'Advanced stats (xgPerGame, possession, etc.)', 'line': 'N/A (not shown here)', 'current_state': 'UNAVAILABLE', 'data_source': 'DB: teams table has these fields but NOT displayed on dashboard', 'api_path': 'N/A', 'user_visible': false, 'fabrication': false, 'notes': 'Seed data has xgPerGame, xgaPerGame, possession, passAccuracy, pressIntensity but these are NOT rendered on the dashboard.'}, {'id': 'D28', 'card': '7. ELO Rankings', 'field': 'Team names, colors, ELO rating (compact list)', 'line': '525-541', 'current_state': 'STALE', 'data_source': 'DB: teams table (same seed data as D25)', 'api_path': 'N/A (seed)', 'user_visible': true, 'fabrication': false, 'notes': 'Shows top 5 teams by ELO from same DB seed data. Exact same data source as card #10 (D25). Duplicates the rankings.'}, {'id': 'D29', 'card': '11. All Matches', 'field': 'Match list (competition, date, teams, scores, status)', 'line': '546-564', 'current_state': 'REAL', 'data_source': 'ESPN live API: liveMatches (first 6)', 'api_path': '/api/live', 'user_visible': true, 'fabrication': false, 'notes': 'Real ESPN data. Shows all statuses (live, finished, upcoming, halftime).'}, {'id': 'D30', 'card': '11. All Matches', 'field': 'Status text (LIVE 67, Full Time, etc.)', 'line': '556-562', 'current_state': 'DERIVED', 'data_source': 'Client-side mapping from m.status', 'api_path': 'N/A', 'user_visible': true, 'fabrication': false, 'notes': 'Correct status mapping from ESPN status codes to display text.'}, {'id': 'D31', 'card': '12. Trending News', 'field': 'News titles, categories, dates', 'line': '570-585', 'current_state': 'STALE', 'data_source': 'DB: news table (seed data: 5 WC 2026 articles)', 'api_path': 'N/A (seed)', 'user_visible': true, 'fabrication': false, 'notes': 'Seed data includes 5 hardcoded news articles about WC 2026. Not refreshed. Not from ESPN news API (which exists but is not piped here).'}, {'id': 'D32', 'card': '13. Streak Counter', 'field': 'Current streak number', 'line': '590', 'current_state': 'REAL', 'data_source': 'DB: user.predictionStreak', 'api_path': '/api/user (session)', 'user_visible': true, 'fabrication': false}, {'id': 'D33', 'card': '13. Streak Counter', 'field': 'Best streak number', 'line': '594', 'current_state': 'REAL', 'data_source': 'DB: user.bestStreak', 'api_path': '/api/user (session)', 'user_visible': true, 'fabrication': false}, {'id': 'D34', 'card': '15. AI Insight', 'field': 'Insight text (3 variants)', 'line': '615-626', 'current_state': 'FABRICATED', 'data_source': 'Hardcoded if/else with 3 static strings', 'api_path': 'N/A', 'user_visible': true, 'fabrication': true, 'notes': 'Labeled AI Insight with Sparkles icon and ELASTICO AI branding. Actually 3 hardcoded tips selected by accuracy threshold. No LLM call. No personalization beyond accuracy bucket. Claims like favorites with 150+ ELO win 72% are unsourced.'}, {'id': 'D35', 'card': '15. AI Insight', 'field': 'ELASTICO AI / Sparkles branding', 'line': '610-612', 'current_state': 'FABRICATED', 'data_source': 'Hardcoded icon and label', 'api_path': 'N/A', 'user_visible': true, 'fabrication': true, 'notes': 'Branded as AI but is not AI. No source attribution. No fallback disclosure.'}, {'id': 'D36', 'card': '14. Quick Actions', 'field': 'Matches / AI Chat / Predict buttons', 'line': '599-618', 'current_state': 'REAL', 'data_source': 'Navigation buttons (setView)', 'api_path': 'N/A', 'user_visible': true, 'fabrication': false, 'notes': 'These are navigation buttons that switch views. Functional.'}, {'id': 'D37', 'card': '3. Next Match Prediction', 'field': 'Quick Predict badge', 'line': '265-267', 'current_state': 'REAL', 'data_source': 'Static label (accurate description)', 'api_path': 'N/A', 'user_visible': true, 'fabrication': false}, {'id': 'D38', 'card': 'Footer (page.tsx)', 'field': 'Powered by: ELO, Poisson, Dixon-Coles, Merton, GARCH, Kelly, NVIDIA AI', 'line': 'page.tsx:306', 'current_state': 'FABRICATED', 'data_source': 'Hardcoded footer text', 'api_path': 'N/A', 'user_visible': true, 'fabrication': true, 'notes': 'Merton Jump-Diffusion, GARCH, and NVIDIA AI are never referenced in the codebase. ELO/Poisson partially implemented. Dixon-Coles mentioned but never computed. Kelly Criterion exists as separate API but not integrated. False advertising.'}], 'states_summary': {'REAL': 15, 'DERIVED': 3, 'STALE': 5, 'FABRICATED': 8, 'MISSING': 1, 'UNAVAILABLE': 1, 'DEMO': 0, 'total': 33}, 'loading_states': {'ticker': 'MISSING', 'live_scores': 'MISSING', 'next_match': 'MISSING', 'accuracy': 'MISSING', 'asian_handicap': 'MISSING', 'model_probabilities': 'MISSING', 'latest_results': 'MISSING', 'xg_chart': 'MISSING', 'team_rankings': 'MISSING', 'elo_rankings': 'MISSING', 'all_matches': 'MISSING', 'trending_news': 'MISSING', 'streak_counter': 'MISSING', 'ai_insight': 'N/A (static)', 'quick_actions': 'N/A (static)'}, 'empty_states': {'ticker': 'PARTIAL (duplicates empty array, blank)', 'live_scores': 'PARTIAL (card hidden if no live matches)', 'next_match': 'GOOD (card hidden if no upcoming)', 'asian_handicap': 'PARTIAL (empty if no upcoming/live)', 'model_probabilities': 'PARTIAL (empty if no upcoming)', 'latest_results': 'PARTIAL (empty card, no message)', 'xg_chart': 'GOOD (honest message)', 'team_rankings': 'PARTIAL (empty table headers)', 'elo_rankings': 'PARTIAL (empty if no teams)', 'all_matches': 'PARTIAL (empty if no matches)', 'trending_news': 'PARTIAL (empty if no news)', 'streak_counter': 'GOOD (shows 0/0)', 'ai_insight': 'N/A (always shows)'}, 'error_states': {'all_cards': 'MISSING - no error boundaries or error messages on any card'}, 'data_duplication': [{'data': 'ESPN live matches', 'shown_in': ['Live Score Ticker', 'Live Scores All Leagues', 'Latest Results', 'Asian Handicap Lines', 'Model Probabilities', 'All Matches'], 'count': 6}, {'data': 'Team ELO rankings', 'shown_in': ['Team Rankings (ELO)', 'ELO Rankings'], 'count': 2}], 'visualization_integrity': {'renders_regardless_of_data': true, 'details': 'LIVE indicator pinging dot renders always. Ticker animation runs always. No card validates data before rendering.'}, 'ai_content_attribution': {'has_attribution': false, 'has_fallback_disclosure': false, 'details': 'AI Insight card branded as AI with Sparkles icon but contains 3 hardcoded strings. No disclosure. No source attribution for the 72% ELO claim.'}}
+{
+  "meta": {
+    "phase": "6A",
+    "title": "Product Truth & Foundation Audit — Forensic Revalidation Matrix",
+    "date": "2026-08-19",
+    "schema_version": "2.0.0",
+    "method": "Sequential view-by-view forensic audit",
+    "views_total": 9,
+    "views_completed": 1,
+    "data_quality_states": {
+      "REAL": "Data from a verified external source or honestly computed from real inputs.",
+      "PROXY": "Approximation of real data — plausible but not directly sourced. Must label as estimate.",
+      "DERIVED": "Real data transformed by a legitimate, disclosed computation.",
+      "MISSING": "Data that should exist but doesn't — no value shown. Must show honest empty state.",
+      "STALE": "Data that was once real but has expired its freshness window. Must show timestamp.",
+      "UNAVAILABLE": "Data that cannot be obtained — honestly disclosed. Must explain why.",
+      "DEMO": "Fictional data clearly labeled as sample/demo content.",
+      "FABRICATED": "[8th state] Synthetic data presented as real without disclosure. Added because the original 7-state schema had no category for undisclosed fake data masquerading as real — the core trust violation this audit targets. Semantically distinct from DEMO: DEMO implies the user knows it's fictional; FABRICATED means the user is led to believe it's real. Must be eliminated or reclassified to DEMO with disclosure."
+    }
+  },
+  "dashboard": {
+    "view": "Dashboard",
+    "component": "src/components/elastico/dashboard-view.tsx",
+    "component_lines": 709,
+    "widgets_count": 15,
+    "files_audited": [
+      "src/components/elastico/dashboard-view.tsx",
+      "src/store/use-elastico-store.ts",
+      "src/app/api/live/route.ts",
+      "src/app/api/matches/route.ts",
+      "src/app/api/teams/route.ts",
+      "src/app/api/news/route.ts",
+      "src/app/api/predictions/route.ts",
+      "src/app/api/auth/me/route.ts",
+      "src/lib/football-data.ts",
+      "src/lib/newsdata.ts",
+      "prisma/seed.ts",
+      "src/app/page.tsx"
+    ],
+    "data_points": [
+      {
+        "id": "DASH-001",
+        "widget": "1. Live Score Ticker",
+        "widget_lines": "156-198",
+        "data_point": "Match scores (home/away)",
+        "state": "REAL",
+        "source": "ESPN public API via GET /api/live → football-data.ts",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 176-178,
+        "notes": "Ticker prefers ESPN live data (line 80), falls back to DB matches (line 92)"
+      },
+      {
+        "id": "DASH-002",
+        "widget": "1. Live Score Ticker",
+        "widget_lines": "156-198",
+        "data_point": "Team abbreviations",
+        "state": "REAL",
+        "source": "ESPN API abbreviation field",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 83,
+        "notes": null
+      },
+      {
+        "id": "DASH-003",
+        "widget": "1. Live Score Ticker",
+        "widget_lines": "156-198",
+        "data_point": "Team colors",
+        "state": "PROXY",
+        "source": "ESPN API color field with #555 fallback",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 85,
+        "notes": "Colors are approximate visual representations"
+      },
+      {
+        "id": "DASH-004",
+        "widget": "2. Live Scores — All Leagues",
+        "widget_lines": "209-257",
+        "data_point": "Match list (names, scores, status, minute)",
+        "state": "REAL",
+        "source": "ESPN API via GET /api/live",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 227-253,
+        "notes": "Card badge says 'ESPN Live' (line 221)"
+      },
+      {
+        "id": "DASH-005",
+        "widget": "2. Live Scores — All Leagues",
+        "widget_lines": "209-257",
+        "data_point": "Competition names",
+        "state": "REAL",
+        "source": "ESPN API competition field",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 230,
+        "notes": null
+      },
+      {
+        "id": "DASH-006",
+        "widget": "3. Next Match Prediction",
+        "widget_lines": "260-357",
+        "data_point": "Match identity (team names, venue)",
+        "state": "REAL",
+        "source": "DB Match record via GET /api/matches → Prisma",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 278-284,
+        "notes": null
+      },
+      {
+        "id": "DASH-007",
+        "widget": "3. Next Match Prediction",
+        "widget_lines": "260-357",
+        "data_point": "homeEloBefore / awayEloBefore",
+        "state": "FABRICATED",
+        "source": "Hand-crafted seed data with no update mechanism",
+        "file": "prisma/seed.ts",
+        "line": "8-23",
+        "rendered_at": "dashboard-view.tsx:279,289",
+        "notes": "E.g. Argentina=1910, Brazil=1840. No ELO recalculation exists in codebase. Presented as current authoritative ratings."
+      },
+      {
+        "id": "DASH-008",
+        "widget": "3. Next Match Prediction",
+        "widget_lines": "260-357",
+        "data_point": "nextMatchProbs (H/D/A bars from DB)",
+        "state": "FABRICATED",
+        "source": "Seed ELO formula + hardcoded drawProb=0.26",
+        "file": "prisma/seed.ts",
+        "line": "141-143",
+        "rendered_at": "dashboard-view.tsx:296-318",
+        "section8_violation": true,
+        "notes": "homeWinProb from real ELO formula but with fabricated ELO inputs. drawProb=0.26 hardcoded for every match. Implies model confidence that was never demonstrated."
+      },
+      {
+        "id": "DASH-009",
+        "widget": "3. Next Match Prediction",
+        "widget_lines": "260-357",
+        "data_point": "Empty state message (no prediction)",
+        "state": "UNAVAILABLE",
+        "source": "Static text — honest disclosure",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "321-325",
+        "notes": "Correctly handled: 'No model prediction yet for this match — check back closer to kickoff.'"
+      },
+      {
+        "id": "DASH-010",
+        "widget": "3. Next Match Prediction",
+        "widget_lines": "260-357",
+        "data_point": "confidence: 75 in handleQuickPredict",
+        "state": "FABRICATED",
+        "source": "Hardcoded constant in POST body",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 142,
+        "notes": "Every Quick Predict submission sends confidence:75 regardless of match, user, or analysis. Masquerades as a meaningful value."
+      },
+      {
+        "id": "DASH-011",
+        "widget": "4. Prediction Accuracy Ring",
+        "widget_lines": "463-505",
+        "data_point": "user.predictionAccuracy",
+        "state": "REAL",
+        "source": "DB User.predictionAccuracy via GET /api/auth/me",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "61,490",
+        "notes": null
+      },
+      {
+        "id": "DASH-012",
+        "widget": "4. Prediction Accuracy Ring",
+        "widget_lines": "463-505",
+        "data_point": "user.totalPredictions",
+        "state": "REAL",
+        "source": "DB User.totalPredictions",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 496,
+        "notes": null
+      },
+      {
+        "id": "DASH-013",
+        "widget": "4. Prediction Accuracy Ring",
+        "widget_lines": "463-505",
+        "data_point": "user.correctPredictions",
+        "state": "REAL",
+        "source": "DB User.correctPredictions",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 500,
+        "notes": null
+      },
+      {
+        "id": "DASH-014",
+        "widget": "5. Asian Handicap Lines",
+        "widget_lines": "507-531",
+        "data_point": "Match list (competition, team names)",
+        "state": "REAL",
+        "source": "ESPN API liveMatches",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 517-521,
+        "notes": null
+      },
+      {
+        "id": "DASH-015",
+        "widget": "5. Asian Handicap Lines",
+        "widget_lines": "507-531",
+        "data_point": "'Over 2.5' 55% bar",
+        "state": "FABRICATED",
+        "source": "Hardcoded CSS inline style and static text",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "524,526",
+        "section8_violation": true,
+        "notes": "style={{ width: '55%' }} and text '55%' are hardcoded for every match. Never varies."
+      },
+      {
+        "id": "DASH-016",
+        "widget": "5. Asian Handicap Lines",
+        "widget_lines": "507-531",
+        "data_point": "Subtitle: 'From ELO + Poisson + Dixon-Coles + Stochastic models'",
+        "state": "FABRICATED",
+        "source": "False model authority claim",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 514,
+        "section8_violation": true,
+        "notes": "None of the four named models are invoked. The 55% is a hardcoded constant. The subtitle fabricates model authority."
+      },
+      {
+        "id": "DASH-017",
+        "widget": "6. Model Probabilities",
+        "widget_lines": "533-566",
+        "data_point": "Card title: 'Model Probabilities'",
+        "state": "FABRICATED",
+        "source": "False model claim — no model involved",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 538,
+        "notes": "Probabilities come from hashCode(), not from any model."
+      },
+      {
+        "id": "DASH-018",
+        "widget": "6. Model Probabilities",
+        "widget_lines": "533-566",
+        "data_point": "Subtitle: 'Ensemble: ELO + Poisson + Dixon-Coles + Stochastic'",
+        "state": "FABRICATED",
+        "source": "False model authority claim — copy-pasted from Widget 5",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 540,
+        "section8_violation": true,
+        "notes": "Same fabricated subtitle as Asian Handicap card. Names 4 models that are never called."
+      },
+      {
+        "id": "DASH-019",
+        "widget": "6. Model Probabilities",
+        "widget_lines": "533-566",
+        "data_point": "hP (home win probability via hashCode)",
+        "state": "FABRICATED",
+        "source": "hashCode() deterministic string hash — no statistical or ML basis",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "544,30-37",
+        "section8_violation": true,
+        "notes": "40 + Math.abs(hashCode(teamName)) % 30. Guarantees 40-69%. hashCode() maps char codes to numbers with no relationship to football outcomes. This is hashCode() pretending to be an ensemble model."
+      },
+      {
+        "id": "DASH-020",
+        "widget": "6. Model Probabilities",
+        "widget_lines": "533-566",
+        "data_point": "dP (draw probability via hashCode)",
+        "state": "FABRICATED",
+        "source": "hashCode() on AWAY team name — arbitrary choice",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 545,
+        "notes": "15 + Math.abs(hashCode(awayTeamName)) % 15. Guarantees 15-29%. Derived from away team name, not home — arbitrary and meaningless."
+      },
+      {
+        "id": "DASH-021",
+        "widget": "6. Model Probabilities",
+        "widget_lines": "533-566",
+        "data_point": "aP (away win probability — residual)",
+        "state": "FABRICATED",
+        "source": "100 - hP - dP",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 546,
+        "notes": "Ensures 100% sum but component values are fabricated."
+      },
+      {
+        "id": "DASH-022",
+        "widget": "7. ELO Rankings",
+        "widget_lines": "568-588",
+        "data_point": "Team ELO values",
+        "state": "FABRICATED",
+        "source": "Hand-crafted seed data, no update mechanism exists",
+        "file": "prisma/seed.ts",
+        "line": "8-23",
+        "rendered_at": "dashboard-view.tsx:584",
+        "duplication_of": "DASH-029",
+        "notes": "Same data as Widget 10 Team Rankings. Static seed values (Argentina=1910, Brazil=1840, Spain=1890). No ELO recalculation mechanism in codebase."
+      },
+      {
+        "id": "DASH-023",
+        "widget": "7. ELO Rankings",
+        "widget_lines": "568-588",
+        "data_point": "Team names",
+        "state": "REAL",
+        "source": "DB Team records — factual identities",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 582,
+        "notes": null
+      },
+      {
+        "id": "DASH-024",
+        "widget": "8. Latest Results",
+        "widget_lines": "359-383",
+        "data_point": "Finished match results",
+        "state": "REAL",
+        "source": "ESPN API (status=finished filter)",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 369-380,
+        "notes": null
+      },
+      {
+        "id": "DASH-025",
+        "widget": "9. xG vs Actual Goals",
+        "widget_lines": "385-414",
+        "data_point": "homeXg + awayXg values",
+        "state": "REAL",
+        "source": "DB Match.homeXg/awayXg, filtered to > 0",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "112,116",
+        "notes": "Correctly refuses to fabricate. Code comment (lines 105-109) explicitly rejects multiplying goals by a constant."
+      },
+      {
+        "id": "DASH-026",
+        "widget": "9. xG vs Actual Goals",
+        "widget_lines": "385-414",
+        "data_point": "Actual goals",
+        "state": "REAL",
+        "source": "DB Match.homeScore + awayScore",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 117,
+        "notes": null
+      },
+      {
+        "id": "DASH-027",
+        "widget": "9. xG vs Actual Goals",
+        "widget_lines": "385-414",
+        "data_point": "Empty state message",
+        "state": "UNAVAILABLE",
+        "source": "Static text — honest disclosure",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "406-411",
+        "notes": "'xG data unavailable for recent matches. This chart only shows real expected-goals data.' Gold standard empty state."
+      },
+      {
+        "id": "DASH-028",
+        "widget": "9. xG vs Actual Goals",
+        "widget_lines": "385-414",
+        "data_point": "Chart data filtering (only real xG)",
+        "state": "DERIVED",
+        "source": "Filter real xG > 0, then sum homeXg+awayXg",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "110-119",
+        "notes": "Legitimate transformation of real data."
+      },
+      {
+        "id": "DASH-029",
+        "widget": "10. Team Rankings (ELO)",
+        "widget_lines": "416-457",
+        "data_point": "Team ELO values",
+        "state": "FABRICATED",
+        "source": "Same hand-crafted seed data as Widget 7",
+        "file": "prisma/seed.ts",
+        "line": "8-23",
+        "rendered_at": "dashboard-view.tsx:450",
+        "duplication_of": "DASH-022",
+        "notes": "DUPLICATE of Widget 7 ELO Rankings. Same teams array, same ELO sort, same seed data source."
+      },
+      {
+        "id": "DASH-030",
+        "widget": "10. Team Rankings (ELO)",
+        "widget_lines": "416-457",
+        "data_point": "Team W/D/L",
+        "state": "REAL",
+        "source": "DB Team.wins/draws/losses (init 0, updated by real results)",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "447-449",
+        "notes": null
+      },
+      {
+        "id": "DASH-031",
+        "widget": "10. Team Rankings (ELO)",
+        "widget_lines": "416-457",
+        "data_point": "ELO sort (teams sorted by eloRating desc)",
+        "state": "DERIVED",
+        "source": "Real sort of (fabricated) ELO values",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 438,
+        "notes": "Sort itself is legitimate; input values are fabricated."
+      },
+      {
+        "id": "DASH-032",
+        "widget": "11. All Matches",
+        "widget_lines": "590-614",
+        "data_point": "Match list (competition, date, teams, scores, status, venue)",
+        "state": "REAL",
+        "source": "ESPN API via GET /api/live",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 599-611,
+        "notes": null
+      },
+      {
+        "id": "DASH-033",
+        "widget": "12. Trending News",
+        "widget_lines": "616-637",
+        "data_point": "News titles (when from ESPN)",
+        "state": "REAL",
+        "source": "ESPN news API via GET /api/news priority chain",
+        "file": "src/app/api/news/route.ts",
+        "line": "56-83",
+        "notes": null
+      },
+      {
+        "id": "DASH-034",
+        "widget": "12. Trending News",
+        "widget_lines": "616-637",
+        "data_point": "News titles (when from Newsdata.io)",
+        "state": "REAL",
+        "source": "Newsdata.io API via GET /api/news secondary chain",
+        "file": "src/app/api/news/route.ts",
+        "line": "85-107",
+        "notes": null
+      },
+      {
+        "id": "DASH-035",
+        "widget": "12. Trending News",
+        "widget_lines": "616-637",
+        "data_point": "News titles (when from DB fallback / seed)",
+        "state": "FABRICATED",
+        "source": "5 hand-crafted articles in prisma/seed.ts with false source attribution",
+        "file": "prisma/seed.ts",
+        "line": "45-51",
+        "rendered_at": "dashboard-view.tsx:625-635",
+        "notes": "E.g. 'Argentina confirmed as World Cup 2026 top seeds' with source:'FIFA.com' — source attribution may not correspond to a real article. Presented identically to real ESPN/Newsdata articles with no DEMO badge."
+      },
+      {
+        "id": "DASH-036",
+        "widget": "12. Trending News",
+        "widget_lines": "616-637",
+        "data_point": "Category badges (from seed news)",
+        "state": "PROXY",
+        "source": "Hand-assigned category labels in seed data",
+        "file": "prisma/seed.ts",
+        "line": "46-50",
+        "notes": "Categories like 'match', 'transfer', 'tactical', 'injury' are hand-assigned, not from an external taxonomy."
+      },
+      {
+        "id": "DASH-037",
+        "widget": "13. Streak Counter",
+        "widget_lines": "639-654",
+        "data_point": "user.predictionStreak",
+        "state": "REAL",
+        "source": "DB User.predictionStreak",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 646,
+        "notes": null
+      },
+      {
+        "id": "DASH-038",
+        "widget": "13. Streak Counter",
+        "widget_lines": "639-654",
+        "data_point": "user.bestStreak",
+        "state": "REAL",
+        "source": "DB User.bestStreak",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 650,
+        "notes": null
+      },
+      {
+        "id": "DASH-039",
+        "widget": "14. Quick Actions",
+        "widget_lines": "656-682",
+        "data_point": "Navigation targets (Matches, AI Chat, Predict)",
+        "state": "REAL",
+        "source": "Static route buttons — legitimate views in sidebar/store",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "661,669,677",
+        "notes": "No data displayed. Navigation only."
+      },
+      {
+        "id": "DASH-040",
+        "widget": "15. AI Insight",
+        "widget_lines": "684-703",
+        "data_point": "Card title: 'AI Insight' with Sparkles icon",
+        "state": "FABRICATED",
+        "source": "False AI claim — no AI involved",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "689,692",
+        "ai_attribution_violation": true,
+        "notes": "Sparkles icon (universally AI-associated) + 'AI' label implies AI-generated personalized analysis. No AI provider call, no LLM invocation exists."
+      },
+      {
+        "id": "DASH-041",
+        "widget": "15. AI Insight",
+        "widget_lines": "684-703",
+        "data_point": "Insight text (3 static ternary strings)",
+        "state": "FABRICATED",
+        "source": "Static strings selected by accuracy threshold ternary",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "694-698",
+        "ai_attribution_violation": true,
+        "notes": "Identical text for all users in same accuracy bucket. No AI, no personalization, no analysis of actual predictions."
+      },
+      {
+        "id": "DASH-042",
+        "widget": "15. AI Insight",
+        "widget_lines": "684-703",
+        "data_point": "'Favorites with 150+ ELO advantage win 72% of the time'",
+        "state": "FABRICATED",
+        "source": "Invented statistic — no source cited, no evidence in codebase",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 698,
+        "section8_violation": true,
+        "notes": "Specific quantitative claim presented as fact. Phase 5 calibration showed raw market odds (LL 0.959) outperforming all ELASTICO models — contradicts implied model authority."
+      },
+      {
+        "id": "DASH-043",
+        "widget": "4. Prediction Accuracy Ring",
+        "widget_lines": "463-505",
+        "data_point": "Accuracy ring SVG arc calculation",
+        "state": "DERIVED",
+        "source": "strokeDasharray from accuracy value",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 479,
+        "notes": "Legitimate transformation of real accuracy value."
+      },
+      {
+        "id": "DASH-044",
+        "widget": "7. ELO Rankings",
+        "widget_lines": "568-588",
+        "data_point": "ELO sort (teams sorted by eloRating desc)",
+        "state": "DERIVED",
+        "source": "Real sort of (fabricated) ELO values",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 577,
+        "notes": "Sort is legitimate; input values are fabricated."
+      }
+    ],
+    "state_counts": {
+      "REAL": 15,
+      "PROXY": 5,
+      "DERIVED": 4,
+      "FABRICATED": 8,
+      "MISSING": 0,
+      "STALE": 0,
+      "UNAVAILABLE": 2,
+      "DEMO": 0,
+      "total": 34
+    },
+    "four_state_compliance": {
+      "loading_implemented": false,
+      "empty_implemented": 2,
+      "error_implemented": 0,
+      "success_implemented": 15,
+      "silent_empty_count": 8,
+      "notes": "0/15 widgets have all 4 states. isLoading/loadingMessage exist in store (lines 189-190) but are not consumed by dashboard-view.tsx."
+    },
+    "ai_attribution_violations": [
+      {
+        "widget": "5. Asian Handicap Lines",
+        "claim": "'From ELO + Poisson + Dixon-Coles + Stochastic models'",
+        "reality": "Hardcoded 55% constant",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 514
+      },
+      {
+        "widget": "6. Model Probabilities",
+        "claim": "'Model Probabilities' + 'Ensemble: ELO + Poisson + Dixon-Coles + Stochastic'",
+        "reality": "hashCode() deterministic string hash",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "538-540,544-546"
+      },
+      {
+        "widget": "15. AI Insight",
+        "claim": "'AI Insight' + Sparkles icon",
+        "reality": "Static ternary strings, no AI involved",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "689,692-698"
+      }
+    ],
+    "section8_violations": [
+      {
+        "data_point_id": "DASH-015",
+        "detail": "Hardcoded 55% for every match, card claims 4-model output",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "524,526,514"
+      },
+      {
+        "data_point_id": "DASH-019",
+        "detail": "hashCode() pretending to be ensemble model output",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": "544-546,538-540"
+      },
+      {
+        "data_point_id": "DASH-008",
+        "detail": "Seed drawProb=0.26 for all matches, shown as model confidence bars",
+        "file": "prisma/seed.ts",
+        "line": 142
+      },
+      {
+        "data_point_id": "DASH-042",
+        "detail": "Invented '72% of the time' statistic with no source",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 698
+      },
+      {
+        "data_point_id": "DASH-010",
+        "detail": "Hardcoded confidence:75 sent as if meaningful",
+        "file": "src/components/elastico/dashboard-view.tsx",
+        "line": 142
+      }
+    ],
+    "duplication_issues": [
+      {
+        "cards": ["7. ELO Rankings (right col, lines 568-588)", "10. Team Rankings (ELO) (left col, lines 416-457)"],
+        "problem": "Same teams array, same ELO sort, same seed data. Widget 10 shows 8 teams with W/D/L; Widget 7 shows 5 teams name+ELO only.",
+        "data_point_ids": ["DASH-022", "DASH-029"]
+      },
+      {
+        "cards": ["3. Next Match Prediction (lines 296-318)", "6. Model Probabilities (lines 543-564)"],
+        "problem": "Both show H/D/A stacked horizontal bars. Different data sources (DB vs hashCode) but visually similar. Could show conflicting values for same match.",
+        "data_point_ids": ["DASH-008", "DASH-019"]
+      }
+    ],
+    "positive_findings": [
+      "xG chart (Widget 9) refuses to fabricate — code comment explicitly rejects estimating xG from goals. Honest empty state.",
+      "Next Match empty state (Widget 3, lines 321-325) is a perfect UNAVAILABLE state.",
+      "ESPN live data pipeline (Widgets 1,2,8,11) is real and correctly attributed with 'ESPN Live' badge.",
+      "News priority chain (ESPN → Newsdata.io → DB) is a reasonable cascade.",
+      "No dedicated mock/fake data file imports — fabrications are inline, easier to spot and fix."
+    ]
+  }
+}
