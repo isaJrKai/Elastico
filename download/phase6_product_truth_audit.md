@@ -21,13 +21,15 @@
 | DEMO | Fictional data clearly labeled as sample/demo content | Must have visible DEMO badge/label |
 | FABRICATED | **[8th state — added this audit]** Synthetic data presented as real without disclosure. Semantically distinct from DEMO: DEMO implies the user knows it's fictional; FABRICATED means the user is led to believe it's real. This state exists because the Phase 6 data-quality contract's original 7-state schema had no category for "undisclosed fake data masquerading as real" — which is the core trust violation this audit was designed to find. | Must be eliminated or reclassified to DEMO with disclosure |
 
+**Propagation rule:** FABRICATED propagates upward through all transformations. If *any* input to a DERIVED or PROXY computation is FABRICATED, the output inherits FABRICATED state — regardless of whether the computation itself is legitimate. Rationale: a real method applied to fake inputs produces fake outputs (garbage in, garbage out). The "highest violation" state always wins. This rule applies retroactively to all 9 views in this audit.
+
 ---
 
 ## Audit Status
 
 | # | View | Status | Fabrications Found | Date |
 |---|------|--------|-------------------|------|
-| 1 | Dashboard | **COMPLETE** | 8 | 2026-08-19 |
+| 1 | Dashboard | **COMPLETE** | 10 | 2026-08-19 |
 | 2 | Live Match | PENDING | — | — |
 | 3 | Predictions | PENDING | — | — |
 | 4 | Tactical | PENDING | — | — |
@@ -190,6 +192,7 @@
 | Team ELO values (line 584: `Math.round(t.eloRating)`) | **FABRICATED** | Values originate from hand-crafted seed data (`prisma/seed.ts` lines 8–23). E.g. Argentina=1910, Brazil=1840, Spain=1890. No ELO recalculation mechanism exists in the codebase. These are static seed values presented as current rankings. |
 | Team names | REAL | Factual team identities |
 | Team colors | PROXY | Seed `primaryColor` values — approximate visual representations |
+| ELO sort order (line 577) | **FABRICATED** | Reclassified from DERIVED under propagation rule: the sort is a legitimate computation, but its input (seed ELO values) is FABRICATED, so the sorted order is also FABRICATED. A correct ranking of incorrect values is still incorrect. |
 
 **Duplication note:** This card is a **duplicate of Widget 10 (Team Rankings ELO)**. Both display teams sorted by ELO rating from the same `teams` array. Widget 10 (left column) shows 8 teams with W/D/L columns; Widget 7 (right column) shows 5 teams with name + ELO only. The same data appears twice in the same view, violating the dashboard hierarchy principle — the user sees two "ELO ranking" cards and may assume they represent different data.
 
@@ -241,6 +244,7 @@
 | Team W/D/L (lines 447–449) | REAL | DB `Team.wins/draws/losses`. Initialized to 0 in seed (line 125–126), updated by real match results. |
 | Team names | REAL | Factual team identities |
 | Team colors | PROXY | Seed `primaryColor` — approximate visual representation |
+| ELO sort order (line 438) | **FABRICATED** | Reclassified from DERIVED under propagation rule: sort is legitimate but input ELO values are FABRICATED, so the sorted ranking order is also FABRICATED. |
 
 **Duplication note:** This is a **duplicate of Widget 7 (ELO Rankings)**. See Widget 7 duplication note above. Two cards in the same view show the same ELO-sorted team list from the same data source. **Specific cards duplicated:** "Team Rankings (ELO)" (left column, lines 416–457, shows 8 teams with W/D/L) and "ELO Rankings" (right column, lines 568–588, shows 5 teams name+ELO only).
 
@@ -334,8 +338,8 @@
 |-------|-------|-------------|
 | REAL | 15 | ESPN scores/status/competition, DB user stats (accuracy/total/correct/streak/bestStreak), DB xG values, honest empty states, navigation targets |
 | PROXY | 5 | ESPN team colors, seed match probabilities (ELO-derived from fabricated inputs), seed team colors, seed news categories, seed news source attributions |
-| DERIVED | 4 | xG chart filtering (real xG > 0), accuracy ring SVG calculation, ELO rankings sort, team rankings sort |
-| FABRICATED | 8 | (1) hashCode "Model Probabilities" widget 6, (2) hashCode card title/subtitle claiming ensemble, (3) Asian Handicap 55% hardcoded widget 5, (4) Asian Handicap subtitle claiming model output, (5) Quick Predict confidence: 75, (6) "AI Insight" label + static strings widget 15, (7) "72% of the time" fabricated statistic widget 15, (8) Seed team ELO values presented as current widgets 7+10 |
+| DERIVED | 2 | xG chart filtering (real xG > 0), accuracy ring SVG calculation |
+| FABRICATED | 10 | (1) hashCode "Model Probabilities" widget 6, (2) hashCode card title/subtitle claiming ensemble, (3) Asian Handicap 55% hardcoded widget 5, (4) Asian Handicap subtitle claiming model output, (5) Quick Predict confidence: 75, (6) "AI Insight" label + static strings widget 15, (7) "72% of the time" fabricated statistic widget 15, (8) Seed team ELO values presented as current widgets 7+10, (9) ELO Rankings sort order widget 7 [reclassified from DERIVED per propagation rule], (10) Team Rankings ELO sort order widget 10 [reclassified from DERIVED per propagation rule] |
 | MISSING | 0 | — |
 | STALE | 0 | — |
 | UNAVAILABLE | 2 | xG honest empty message, Next Match "No model prediction" message |

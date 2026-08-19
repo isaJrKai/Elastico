@@ -3,7 +3,7 @@
     "phase": "6A",
     "title": "Product Truth & Foundation Audit — Forensic Revalidation Matrix",
     "date": "2026-08-19",
-    "schema_version": "2.0.0",
+    "schema_version": "2.1.0",
     "method": "Sequential view-by-view forensic audit",
     "views_total": 9,
     "views_completed": 1,
@@ -16,7 +16,8 @@
       "UNAVAILABLE": "Data that cannot be obtained — honestly disclosed. Must explain why.",
       "DEMO": "Fictional data clearly labeled as sample/demo content.",
       "FABRICATED": "[8th state] Synthetic data presented as real without disclosure. Added because the original 7-state schema had no category for undisclosed fake data masquerading as real — the core trust violation this audit targets. Semantically distinct from DEMO: DEMO implies the user knows it's fictional; FABRICATED means the user is led to believe it's real. Must be eliminated or reclassified to DEMO with disclosure."
-    }
+    },
+    "propagation_rule": "FABRICATED propagates upward through all transformations. If any input to a DERIVED or PROXY computation is FABRICATED, the output inherits FABRICATED state — regardless of whether the computation itself is legitimate. Rationale: a real method applied to fake inputs produces fake outputs (garbage in, garbage out). The 'highest violation' state always wins. Applied retroactively to all 9 views."
   },
   "dashboard": {
     "view": "Dashboard",
@@ -383,11 +384,13 @@
         "id": "DASH-031",
         "widget": "10. Team Rankings (ELO)",
         "widget_lines": "416-457",
-        "data_point": "ELO sort (teams sorted by eloRating desc)",
-        "state": "DERIVED",
-        "source": "Real sort of (fabricated) ELO values",
+        "data_point": "ELO sort order (teams sorted by eloRating desc)",
+        "state": "FABRICATED",
+        "source": "Real sort of fabricated ELO values",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": 438,
+        "reclassified_from": "DERIVED",
+        "reclassified_reason": "Propagation rule: sort is legitimate but input ELO values are FABRICATED, so the sorted ranking order is also FABRICATED. A correct ranking of incorrect values is still incorrect.",
         "notes": "Sort itself is legitimate; input values are fabricated."
       },
       {
@@ -530,19 +533,21 @@
         "id": "DASH-044",
         "widget": "7. ELO Rankings",
         "widget_lines": "568-588",
-        "data_point": "ELO sort (teams sorted by eloRating desc)",
-        "state": "DERIVED",
-        "source": "Real sort of (fabricated) ELO values",
+        "data_point": "ELO sort order (teams sorted by eloRating desc)",
+        "state": "FABRICATED",
+        "source": "Real sort of fabricated ELO values",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": 577,
+        "reclassified_from": "DERIVED",
+        "reclassified_reason": "Propagation rule: sort is legitimate but input ELO values are FABRICATED, so the sorted ranking order is also FABRICATED.",
         "notes": "Sort is legitimate; input values are fabricated."
       }
     ],
     "state_counts": {
       "REAL": 15,
       "PROXY": 5,
-      "DERIVED": 4,
-      "FABRICATED": 8,
+      "DERIVED": 2,
+      "FABRICATED": 10,
       "MISSING": 0,
       "STALE": 0,
       "UNAVAILABLE": 2,
