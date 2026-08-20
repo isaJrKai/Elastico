@@ -1,0 +1,505 @@
+    50→### File Inventory (files that feed Dashboard data)
+    51→
+    52→| File | Lines | Role | Contains Fabrication? |
+    53→|------|-------|------|---------------------|
+    54→| `src/components/elastico/dashboard-view.tsx` | 709 | Main dashboard — all 15 widgets | **YES** (4 instances) |
+    55→| `src/store/use-elastico-store.ts` | 447 | Zustand store — types, state, fetch actions | No |
+    56→| `src/app/api/live/route.ts` | 126 | ESPN live scores → `liveMatches` | No |
+    57→| `src/app/api/matches/route.ts` | 79 | DB matches → `matches` | No (but serves seed data) |
+    58→| `src/app/api/teams/route.ts` | 44 | DB teams → `teams` | No (but serves seed data) |
+    59→| `src/app/api/news/route.ts` | 148 | ESPN → Newsdata.io → DB fallback → `news` | No (but DB fallback serves seed news) |
+    60→| `src/app/api/predictions/route.ts` | 108 | Quick Predict POST target | No (receives fabricated confidence) |
+    61→| `src/app/api/auth/me/route.ts` | 18 | User session → `user` | No |
+    62→| `src/lib/football-data.ts` | 535 | ESPN API client | No |
+    63→| `src/lib/newsdata.ts` | 122 | Newsdata.io client | No |
+    64→| `prisma/seed.ts` | 202 | Initial DB population | **YES** (hand-crafted data) |
+    65→| `prisma/schema.prisma` | 337 | DB schema | No |
+    66→
+    67→---
+    68→
+    69→### Widget-by-Widget Audit
+    70→
+    71→#### Widget 1: Live Score Ticker (lines 156–198)
+    72→
+    73→**Data source:** `liveMatches` (ESPN) with `matches` (DB) fallback (line 78–103)  
+    74→**Data chain:** `GET /api/live` → ESPN public API → `football-data.ts` → store `liveMatches`
+    75→
+    76→| Data Point | State | Evidence |
+    77→|-----------|-------|----------|
+    78→| Match scores (home/away) | REAL | ESPN public API, `src/lib/football-data.ts` lines 1–535. Badge on card says "ESPN Live" (line 221) |
+    79→| Match status (live/finished) | REAL | ESPN API `status` field |
+    80→| Team abbreviations | REAL | ESPN API `abbreviation` field (line 83) |
+    81→| Team colors | PROXY | ESPN API `color` field or `#555` fallback (line 85). Colors are approximate representations |
+    82→
+    83→**States implemented:** SUCCESS (normal render), EMPTY (ticker renders empty if no data — no explicit empty message, just blank)  
+    84→**States missing:** LOADING (no skeleton/spinner), ERROR (no error display)  
+    85→**AI attribution:** N/A  
+    86→
+    87→---
+    88→
+    89→#### Widget 2: Live Scores — All Leagues (lines 209–257)
+    90→
+    91→**Data source:** `liveMatches` filtered to all (line 227)  
+    92→**Data chain:** Same as Widget 1 — ESPN
+    93→
+    94→| Data Point | State | Evidence |
+    95→|-----------|-------|----------|
+    96→| Match list (home/away names, scores, status, minute) | REAL | ESPN API. Card badge says "ESPN Live" (line 221) |
+    97→| Competition names | REAL | ESPN API `competition` field (line 230) |
+    98→| Match minute (live) | REAL | ESPN API `minute` field (line 242) |
+    99→
+   100→**Conditional rendering:** `{liveMatches && liveMatches.length > 0 && (...)}` (line 209) — entire card hidden if no live data. No explicit empty state message.
+   101→
+   102→**States implemented:** SUCCESS (normal render), EMPTY (card hidden entirely — **silent empty**, no user-facing message)  
+   103→**States missing:** LOADING, ERROR  
+   104→**AI attribution:** N/A
+   105→
+   106→---
+   107→
+   108→#### Widget 3: Next Match Prediction (lines 260–357)
+   109→
+   110→**Data source:** `nextMatch` (first upcoming match from DB, line 59) + user click → `POST /api/predictions`  
+   111→**Data chain:** `matches` store → `GET /api/matches` → Prisma DB → seeded via `prisma/seed.ts`
+   112→
+   113→| Data Point | State | Evidence |
+   114→|-----------|-------|----------|
+   115→| Match identity (home/away team names, venue) | REAL | DB `Match` record. `homeTeam?.name` (line 278), `venue` (line 284) |
+   116→| `homeEloBefore` / `awayEloBefore` (line 279, 289) | **FABRICATED** | Shown as "ELO {value}" with no disclosure. Values originate from hand-crafted seed data (`prisma/seed.ts` lines 8–23, e.g. Argentina=1910, Brazil=1840). No ELO update mechanism exists in the codebase after seeding. Presented as current, authoritative ELO ratings. |
+   117→| `nextMatchProbs.home/draw/away` (lines 296–318) | **FABRICATED** | When `hasPrediction` is true, shows probability bars from DB. These were computed in `seed.ts` line 141–143: `homeWinProb` from a real ELO formula but with fabricated input ELO, and `drawProb = 0.26` **hardcoded for every match** regardless of teams. The bar visualization implies model confidence that was never demonstrated by any actual model. |
+   118→| Empty state message (lines 321–325) | REAL | Honestly states: "No model prediction yet for this match — check back closer to kickoff." This is a correctly handled UNAVAILABLE state. |
+   119→| `confidence: 75` in `handleQuickPredict` (line 142) | **FABRICATED** | Every Quick Predict submission sends `confidence: 75` to `POST /api/predictions` regardless of match, user, or any analysis. This is a hardcoded constant masquerading as a user-assessed or model-derived confidence value. |
+   120→
+   121→**Section 8 violation:** The probability bars (lines 300–318) show `nextMatchProbs.home/draw/away` as definitive model output. When these values come from seed data where `drawProb = 0.26` is hardcoded for all matches, the visualization implies a level of model precision that doesn't exist. This directly violates the rule about never implying model confidence that wasn't demonstrated.
+   122→
+   123→**States implemented:** SUCCESS (with probabilities), UNAVAILABLE (honest empty state at lines 321–325)  
+   124→**States missing:** LOADING, ERROR  
+   125→**AI attribution:** N/A
+   126→
+   127→---
+   128→
+   129→#### Widget 4: Prediction Accuracy Ring (lines 463–505)
+   130→
+   131→**Data source:** `user` object from Zustand store → `GET /api/auth/me` → Prisma DB  
+   132→
+   133→| Data Point | State | Evidence |
+   134→|-----------|-------|----------|
+   135→| `user.predictionAccuracy` (line 61, rendered line 490) | REAL | DB `User.predictionAccuracy`, computed from actual prediction results |
+   136→| `user.totalPredictions` (line 496) | REAL | DB `User.totalPredictions` |
+   137→| `user.correctPredictions` (line 500) | REAL | DB `User.correctPredictions` |
+   138→
+   139→**Observation:** When `totalPredictions` is 0, the ring shows "0% Accuracy" with "Total: 0" beneath it. This is technically honest but potentially misleading — a new user might interpret "0%" as "the system is inaccurate" rather than "you haven't made predictions yet." A better empty state would distinguish "no data yet" from "0% accuracy with N predictions."
+   140→
+   141→**States implemented:** SUCCESS  
+   142→**States missing:** LOADING, EMPTY (0 predictions looks like a success state with 0%), ERROR  
+   143→**AI attribution:** N/A
+   144→
+   145→---
+   146→
+   147→#### Widget 5: Asian Handicap Lines (lines 507–531)
+   148→
+   149→**Data source:** `liveMatches` filtered to upcoming/live (line 517)  
+   150→
+   151→| Data Point | State | Evidence |
+   152→|-----------|-------|----------|
+   153→| Match list (competition, home/away names) | REAL | ESPN API data |
+   154→| "Over 2.5" badge + 55% bar (lines 522–526) | **FABRICATED** | Every match shows exactly `width: '55%'` and `55%` text (line 524, 526). This is a hardcoded CSS inline style and static text, not computed from any model. The value never varies regardless of match, teams, or context. |
+   155→| Card subtitle: "From ELO + Poisson + Dixon-Coles + Stochastic models" (line 514) | **FABRICATED CLAIM** | None of these four models are invoked for this card. The 55% is a hardcoded constant. The subtitle fabricates model authority to make the number appear credible. |
+   156→
+   157→**Section 8 violation:** The subtitle claims output from four named models. The 55% is hardcoded for every match. This is a direct violation of the rule about never implying model confidence that wasn't demonstrated. The card labels itself as model-derived quantitative analysis when it is a static constant.
+   158→
+   159→**States implemented:** SUCCESS (renders matches), EMPTY (`.map()` on empty array renders nothing — **silent empty**)  
+   160→**States missing:** LOADING, ERROR, explicit EMPTY  
+   161→**AI attribution:** N/A (but claims model authority)
+   162→
+   163→---
+   164→
+   165→#### Widget 6: Model Probabilities (lines 533–566)
+   166→
+   167→**Data source:** `liveMatches` filtered to upcoming (line 543), with runtime `hashCode()` computation  
+   168→
+   169→| Data Point | State | Evidence |
+   170→|-----------|-------|----------|
+   171→| Card title: "Model Probabilities" (line 538) | **FABRICATED CLAIM** | No model is involved. Probabilities are generated by a deterministic string hash (see below). |
+   172→| Card subtitle: "Ensemble: ELO + Poisson + Dixon-Coles + Stochastic" (line 540) | **FABRICATED CLAIM** | Same claim as Widget 5. None of these four models are called. The subtitle is copy-pasted to create false authority. |
+   173→| `hP = 40 + Math.abs(hashCode(m.homeTeam?.name || '')) % 30` (line 544) | **FABRICATED** | `hashCode()` (lines 30–37) is a simple deterministic string hash function (Java-style `hash = ((hash << 5) - hash) + charCode`). It produces consistent but entirely meaningless numbers — there is no statistical or machine learning relationship between a team name's character codes and their win probability. The formula guarantees home probability between 40–69%, draw 15–29%, and away the remainder. These ranges look plausible but are not derived from any model. |
+   174→| `dP = 15 + Math.abs(hashCode(m.awayTeam?.name || '')) % 15` (line 545) | **FABRICATED** | Same `hashCode()` fabrication. Note: draw probability is derived from the *away* team's name hash, not the home team's — an arbitrary and meaningless choice. |
+   175→| `aP = 100 - hP - dP` (line 546) | **FABRICATED** | Residual calculation. Ensures probabilities sum to 100% but the component values are fabricated. |
+   176→| Match list (home/away names from ESPN) | REAL | ESPN API data |
+   177→
+   178→**Section 8 violation:** This is the most severe fabrication on the dashboard. The card explicitly claims "Model Probabilities" and names four specific models in the subtitle, but the values are generated by hashing team name strings. This is `hashCode()` pretending to be an ensemble model. A user who sees "Ensemble: ELO + Poisson + Dixon-Coles + Stochastic" would reasonably believe these probabilities come from running those models. They do not.
+   179→
+   180→**States implemented:** SUCCESS (renders 3 matches), EMPTY (`.map()` on empty array — **silent empty**)  
+   181→**States missing:** LOADING, ERROR, explicit EMPTY  
+   182→**AI attribution:** Claims model authority (4 named models). None are real.
+   183→
+   184→---
+   185→
+   186→#### Widget 7: ELO Rankings (lines 568–588)
+   187→
+   188→**Data source:** `teams` store → `GET /api/teams` → Prisma DB → seeded via `prisma/seed.ts`
+   189→
+   190→| Data Point | State | Evidence |
+   191→|-----------|-------|----------|
+   192→| Team ELO values (line 584: `Math.round(t.eloRating)`) | **FABRICATED** | Values originate from hand-crafted seed data (`prisma/seed.ts` lines 8–23). E.g. Argentina=1910, Brazil=1840, Spain=1890. No ELO recalculation mechanism exists in the codebase. These are static seed values presented as current rankings. |
+   193→| Team names | REAL | Factual team identities |
+   194→| Team colors | PROXY | Seed `primaryColor` values — approximate visual representations |
+   195→| ELO sort order (line 577) | **FABRICATED** | Reclassified from DERIVED under propagation rule: the sort is a legitimate computation, but its input (seed ELO values) is FABRICATED, so the sorted order is also FABRICATED. A correct ranking of incorrect values is still incorrect. |
+   196→
+   197→**Duplication note:** This card is a **duplicate of Widget 10 (Team Rankings ELO)**. Both display teams sorted by ELO rating from the same `teams` array. Widget 10 (left column) shows 8 teams with W/D/L columns; Widget 7 (right column) shows 5 teams with name + ELO only. The same data appears twice in the same view, violating the dashboard hierarchy principle — the user sees two "ELO ranking" cards and may assume they represent different data.
+   198→
+   199→**States implemented:** SUCCESS  
+   200→**States missing:** LOADING, EMPTY, ERROR  
+   201→**AI attribution:** N/A
+   202→
+   203→---
+   204→
+   205→#### Widget 8: Latest Results (lines 359–383)
+   206→
+   207→**Data source:** `liveMatches` filtered to `status === 'finished'` (line 369)  
+   208→
+   209→| Data Point | State | Evidence |
+   210→|-----------|-------|----------|
+   211→| Finished match results (scores, team names, competition) | REAL | ESPN API data. FT badge (line 372) correctly marks finished status. |
+   212→
+   213→**States implemented:** SUCCESS, EMPTY (`.map()` on empty filtered array — **silent empty**)  
+   214→**States missing:** LOADING, ERROR, explicit EMPTY  
+   215→**AI attribution:** N/A
+   216→
+   217→---
+   218→
+   219→#### Widget 9: xG vs Actual Goals (lines 385–414)
+   220→
+   221→**Data source:** `finishedMatches` filtered to matches where `homeXg > 0 || awayXg > 0` (line 112)  
+   222→
+   223→| Data Point | State | Evidence |
+   224→|-----------|-------|----------|
+   225→| `homeXg` + `awayXg` values (line 116) | REAL | DB `Match.homeXg/awayXg`. Only shown when > 0 (line 112 filter). Comment at lines 105–109 explicitly states: "We intentionally do NOT fabricate xG from final score — a previous version multiplied goals by a constant and labeled it xG, which is misleading." This is the correct approach. |
+   226→| Actual goals (line 117) | REAL | DB `Match.homeScore + awayScore` |
+   227→| Empty state message (lines 406–411) | REAL | Honestly states: "xG data unavailable for recent matches. This chart only shows real expected-goals data — it never estimates xG from the final score." |
+   228→
+   229→**Positive finding:** This widget is the best-implemented data honesty example on the dashboard. It refuses to fabricate, explicitly documents why in code comments, and shows a clear empty state with explanation.
+   230→
+   231→**States implemented:** SUCCESS (with chart), UNAVAILABLE (honest message at lines 406–411)  
+   232→**States missing:** LOADING, ERROR  
+   233→**AI attribution:** N/A
+   234→
+   235→---
+   236→
+   237→#### Widget 10: Team Rankings (ELO) (lines 416–457)
+   238→
+   239→**Data source:** `teams` store → `GET /api/teams` → Prisma DB → seeded via `prisma/seed.ts`
+   240→
+   241→| Data Point | State | Evidence |
+   242→|-----------|-------|----------|
+   243→| Team ELO values (line 450: `Math.round(t.eloRating)`) | **FABRICATED** | Same hand-crafted seed values as Widget 7. E.g. Argentina=1910 from `seed.ts` line 11. |
+   244→| Team W/D/L (lines 447–449) | REAL | DB `Team.wins/draws/losses`. Initialized to 0 in seed (line 125–126), updated by real match results. |
+   245→| Team names | REAL | Factual team identities |
+   246→| Team colors | PROXY | Seed `primaryColor` — approximate visual representation |
+   247→| ELO sort order (line 438) | **FABRICATED** | Reclassified from DERIVED under propagation rule: sort is legitimate but input ELO values are FABRICATED, so the sorted ranking order is also FABRICATED. |
+   248→
+   249→**Duplication note:** This is a **duplicate of Widget 7 (ELO Rankings)**. See Widget 7 duplication note above. Two cards in the same view show the same ELO-sorted team list from the same data source. **Specific cards duplicated:** "Team Rankings (ELO)" (left column, lines 416–457, shows 8 teams with W/D/L) and "ELO Rankings" (right column, lines 568–588, shows 5 teams name+ELO only).
+   250→
+   251→**States implemented:** SUCCESS  
+   252→**States missing:** LOADING, EMPTY, ERROR  
+   253→**AI attribution:** N/A
+   254→
+   255→---
+   256→
+   257→#### Widget 11: All Matches (lines 590–614)
+   258→
+   259→**Data source:** `liveMatches` unfiltered (line 599)  
+   260→
+   261→| Data Point | State | Evidence |
+   262→|-----------|-------|----------|
+   263→| Match list (competition, date, teams, scores, status, venue) | REAL | ESPN API data |
+   264→
+   265→**States implemented:** SUCCESS, EMPTY (`.map()` on empty array — **silent empty**)  
+   266→**States missing:** LOADING, ERROR, explicit EMPTY  
+   267→**AI attribution:** N/A
+   268→
+   269→---
+   270→
+   271→#### Widget 12: Trending News (lines 616–637)
+   272→
+   273→**Data source:** `news` store → `GET /api/news?limit=30` → ESPN → Newsdata.io → DB fallback  
+   274→
+   275→| Data Point | State | Evidence |
+   276→|-----------|-------|----------|
+   277→| News titles, categories, dates (when from ESPN) | REAL | ESPN API, `src/app/api/news/route.ts` lines 56–83 |
+   278→| News titles, categories, dates (when from Newsdata.io) | REAL | Newsdata.io API, `src/app/api/news/route.ts` lines 85–107 |
+   279→| News titles, categories, dates (when from DB fallback) | **FABRICATED** | 5 hand-crafted articles in `prisma/seed.ts` lines 45–51. Titles like "Argentina confirmed as World Cup 2026 top seeds" with `source: 'FIFA.com'` — the source attribution may not correspond to a real article at that URL. The `category: 'match'` / `'transfer'` / `'tactical'` / `'injury'` labels add taxonomy credibility. These are presented identically to real ESPN/Newsdata articles with no DEMO badge. |
+   280→| Category badges (line 627) | **FABRICATED** | Hand-assigned labels for seed news articles (`prisma/seed.ts` lines 46–50). Reclassified from PROXY by propagation rule: the articles they label are FABRICATED (DASH-035), so the category labels inherit FABRICATED. A real taxonomy label on a fake article is still fake. |
+   281→
+   282→**States implemented:** SUCCESS (renders up to 5 items), EMPTY (returns `[]` if no source has data — **silent empty**)  
+   283→**States missing:** LOADING, ERROR, explicit EMPTY  
+   284→**AI attribution:** N/A
+   285→
+   286→---
+   287→
+   288→#### Widget 13: Streak Counter (lines 639–654)
+   289→
+   290→**Data source:** `user` object from store → `GET /api/auth/me` → Prisma DB  
+   291→
+   292→| Data Point | State | Evidence |
+   293→|-----------|-------|----------|
+   294→| `user.predictionStreak` (line 646) | REAL | DB `User.predictionStreak` |
+   295→| `user.bestStreak` (line 650) | REAL | DB `User.bestStreak` |
+   296→
+   297→**States implemented:** SUCCESS  
+   298→**States missing:** LOADING, EMPTY, ERROR  
+   299→**AI attribution:** N/A
+   300→
+   301→---
+   302→
+   303→#### Widget 14: Quick Actions (lines 656–682)
+   304→
+   305→**Data source:** None — navigation buttons only  
+   306→
+   307→| Data Point | State | Evidence |
+   308→|-----------|-------|----------|
+   309→| Navigation targets (Matches, AI Chat, Predict) | REAL | These are legitimate routes in the sidebar/store |
+   310→
+   311→**States implemented:** N/A (static buttons)  
+   312→**States missing:** N/A  
+   313→**AI attribution:** N/A
+   314→
+   315→---
+   316→
+   317→#### Widget 15: Personalized Insight / "AI Insight" (lines 684–703)
+   318→
+   319→**Data source:** None — static conditional strings  
+   320→
+   321→| Data Point | State | Evidence |
+   322→|-----------|-------|----------|
+   323→| Card title: "AI Insight" (line 692) | **FABRICATED CLAIM** | The `Sparkles` icon (line 689) and "AI" label imply AI-generated personalized analysis. No AI is involved. |
+   324→| Insight text (lines 694–698) | **FABRICATED** | Three static strings selected by a simple ternary on `accuracy` threshold (>70, >50, else). No AI model, no personalization beyond the accuracy bucket, no analysis of the user's actual predictions. The text is identical for all users in the same accuracy bucket. |
+   325→| "Favorites with a 150+ ELO advantage win 72% of the time" (line 698) | **FABRICATED STATISTIC** | This specific claim ("72% of the time") is presented as authoritative data. No source is cited. No evidence in the codebase supports this number. If it came from the Phase 5 calibration data, that data showed raw market odds (LL 0.959) outperforming all ELASTICO models — not a simple ELO-threshold rule. This statistic appears invented for the insight text. |
+   326→
+   327→**AI attribution violation:** This widget commits the most explicit AI trust violation on the dashboard. It uses the `Sparkles` icon (universally associated with AI features) and the label "AI Insight" for content that is entirely deterministic (three static strings behind a ternary). There is no AI provider call, no LLM invocation, no model inference. The user is told "AI Insight" when no AI is involved.
+   328→
+   329→**States implemented:** SUCCESS (always renders one of three strings)  
+   330→**States missing:** LOADING, EMPTY, ERROR  
+   331→**AI attribution:** **VIOLATION** — Claims AI involvement. None exists.
+   332→
+   333→---
+   334→
+   335→### Dashboard Summary Statistics
+   336→
+   337→**Granularity:** This table counts 34 analytical data points (a widget with 3 fabrication aspects = 1 data point with 3 aspects noted). The JSON matrix (`phase6_product_truth_matrix.json`) breaks each aspect into its own entry, yielding 44 granular entries (REAL=20, PROXY=1, DERIVED=2, FABRICATED=19, UNAVAILABLE=2). Both counts are valid; they differ in granularity. The JSON `state_counts` block reflects the 44-entry granularity.
+   338→
+   339→| State | Count | Data Points |
+   340→|-------|-------|-------------|
+   341→| REAL | 15 | ESPN scores/status/competition, DB user stats (accuracy/total/correct/streak/bestStreak), DB xG values, honest empty states, navigation targets |
+   342→| PROXY | 1 | ESPN team colors (DASH-003). Note: 4 items previously listed here were reclassified — 3 were already counted under FABRICATED (seed match probabilities via DASH-008, seed news source attributions via DASH-035) and 1 was reclassified to FABRICATED by propagation rule (seed news categories, DASH-036: a real label on a fake article is still fake). |
+   343→| DERIVED | 2 | xG chart filtering (real xG > 0), accuracy ring SVG calculation |
+   344→| FABRICATED | 11 | (1) hashCode "Model Probabilities" widget 6, (2) hashCode card title/subtitle claiming ensemble, (3) Asian Handicap 55% hardcoded widget 5, (4) Asian Handicap subtitle claiming model output, (5) Quick Predict confidence: 75, (6) "AI Insight" label + static strings widget 15, (7) "72% of the time" fabricated statistic widget 15, (8) Seed team ELO values presented as current widgets 7+10, (9) ELO Rankings sort order widget 7 [reclassified from DERIVED per propagation rule], (10) Team Rankings ELO sort order widget 10 [reclassified from DERIVED per propagation rule], (11) Seed news category badges [reclassified from PROXY per propagation rule — labels on fabricated articles] |
+   345→| MISSING | 0 | — |
+   346→| STALE | 0 | — |
+   347→| UNAVAILABLE | 2 | xG honest empty message, Next Match "No model prediction" message |
+   348→| DEMO | 0 | — |
+   349→| **TOTAL** | **34** | |
+   350→
+   351→---
+   352→
+   353→### 4-State Compliance (LOADING / SUCCESS / EMPTY / ERROR)
+   354→
+   355→| Widget | LOADING | SUCCESS | EMPTY | ERROR | Notes |
+   356→|--------|---------|---------|-------|-------|-------|
+   357→| 1. Ticker | Missing | Yes | Silent | Missing | No skeleton, no error boundary |
+   358→| 2. Live Scores | Missing | Yes | Silent (card hidden) | Missing | Conditional render hides entire card |
+   359→| 3. Next Match | Missing | Yes | Yes (honest) | Missing | Best empty state on dashboard |
+   360→| 4. Accuracy Ring | Missing | Yes | Missing (0% looks like data) | Missing | 0 predictions shows "0%" without explanation |
+   361→| 5. Asian Handicap | Missing | Yes | Silent | Missing | No loading, no error, no empty message |
+   362→| 6. Model Probabilities | Missing | Yes | Silent | Missing | Same issues as Widget 5 |
+   363→| 7. ELO Rankings | Missing | Yes | Missing | Missing | — |
+   364→| 8. Latest Results | Missing | Yes | Silent | Missing | — |
+   365→| 9. xG Chart | Missing | Yes | Yes (honest) | Missing | Best empty state on dashboard |
+   366→| 10. Team Rankings | Missing | Yes | Missing | Missing | — |
+   367→| 11. All Matches | Missing | Yes | Silent | Missing | — |
+   368→| 12. News | Missing | Yes | Silent | Missing | — |
+   369→| 13. Streak Counter | Missing | Yes | Missing | Missing | — |
+   370→| 14. Quick Actions | N/A | N/A | N/A | N/A | Static buttons |
+   371→| 15. AI Insight | Missing | Yes | Missing | Missing | Always renders one of 3 strings |
+   372→
+   373→**Summary:** 0/15 widgets have all 4 states. 2/15 have an explicit EMPTY state (Widgets 3, 9). 13/15 have silent empty behavior (card hidden or blank). 0/15 have LOADING skeletons. 0/15 have ERROR states. The `isLoading` and `loadingMessage` fields exist in the Zustand store (lines 189–190) but are **not consumed** by `dashboard-view.tsx`.
+   374→
+   375→---
+   376→
+   377→### Duplication Issues
+   378→
+   379→| Duplication | Cards | Problem |
+   380→|-------------|-------|---------|
+   381→| **ELO Rankings shown twice** | Widget 7 "ELO Rankings" (right col, lines 568–588) + Widget 10 "Team Rankings (ELO)" (left col, lines 416–457) | Same `teams` array, same ELO sort, same data source. Widget 10 shows 8 teams with W/D/L; Widget 7 shows 5 teams name+ELO. User sees two "ranking" cards and may assume different data. |
+   382→| **Probability bars shown twice** | Widget 3 "Next Match Prediction" (lines 296–318) + Widget 6 "Model Probabilities" (lines 543–564) | Both show H/D/A stacked horizontal bars. Different data sources (DB vs hashCode) but visually similar. If the same match appeared in both, the user would see two conflicting probability values. |
+   383→
+   384→---
+   385→
+   386→### AI Attribution Audit
+   387→
+   388→| Widget | Claims AI/Model? | Actually Uses AI/Model? | Violation? |
+   389→|--------|-----------------|----------------------|----------|
+   390→| Widget 5 (Asian Handicap) | Yes — subtitle names 4 models | No — hardcoded 55% | **YES** |
+   391→| Widget 6 (Model Probabilities) | Yes — title + subtitle name 4 models | No — `hashCode()` | **YES** (most severe) |
+   392→| Widget 15 (AI Insight) | Yes — "AI" label + Sparkles icon | No — static ternary strings | **YES** |
+   393→| Widget 3 (Next Match) | Implicit — shows probability bars from DB | Partial — DB probs from seed ELO formula + hardcoded 0.26 draw | **Partial** — no model claim in UI, but bars imply model output |
+   394→
+   395→---
+   396→
+   397→### Section 8 Compliance (Model Confidence)
+   398→
+   399→**Rule:** Never imply model confidence that wasn't demonstrated.
+   400→
+   401→| Violation | Location | Detail |
+   402→|-----------|----------|--------|
+   403→| Asian Handicap 55% | `dashboard-view.tsx:524` | `style={{ width: '55%' }}` — hardcoded for every match. Card subtitle claims 4-model output. No model ran. |
+   404→| Model Probabilities hashCode | `dashboard-view.tsx:544-546` | `hashCode()` produces deterministic but meaningless numbers. Card claims "Ensemble" output. |
+   405→| Seed drawProb = 0.26 | `prisma/seed.ts:142` | Hardcoded for all 10 seeded matches. Shown in Widget 3 probability bars when `hasPrediction` is true. |
+   406→| "72% of the time" | `dashboard-view.tsx:698` | Fabricated statistic in AI Insight. No source, no evidence in codebase. |
+   407→| Quick Predict confidence: 75 | `dashboard-view.tsx:142` | Hardcoded constant sent as if it were a meaningful confidence value. |
+   408→
+   409→---
+   410→
+   411→### Positive Findings (What's Done Right)
+   412→
+   413→1. **xG Chart honesty** (Widget 9, lines 105–109, 406–411): The code comment explicitly rejects fabricating xG from scores. The empty state is clear and honest. This is the gold standard for how every widget should handle missing data.
+   414→2. **Next Match empty state** (Widget 3, lines 321–325): "No model prediction yet for this match — check back closer to kickoff" is a perfect UNAVAILABLE state.
+   415→3. **ESPN data pipeline** (Widgets 1, 2, 8, 11): Live scores from ESPN are real and correctly attributed ("ESPN Live" badge). The API client in `football-data.ts` is well-structured.
+   416→4. **News priority chain** (Widget 12, `api/news/route.ts`): ESPN → Newsdata.io → DB fallback is a reasonable cascade. When external sources work, data is real.
+   417→5. **No mock data file imports**: The dashboard doesn't import from any dedicated mock/fake data file. Fabrications are inline, making them easier to spot and fix.
+   418→
+   419→---
+   420→
+   421→### Recommendations (for Phase 6B+ — not executed now)
+   422→
+   423→These are recorded for the restoration phase. No code changes in this audit phase.
+   424→
+   425→1. **Eliminate Widget 6 entirely** or replace with real model output. The `hashCode()` fabrication pretending to be an ensemble is the single worst trust violation on the dashboard.
+   426→2. **Eliminate Widget 5** or replace with real model output. The hardcoded 55% with false model claims is the second worst.
+   427→3. **Remove or re-label Widget 15.** Either connect to a real AI provider or rename to "Tips" without the Sparkles icon.
+   428→4. **Remove fabricated model claims** from card subtitles ("Ensemble: ELO + Poisson + Dixon-Coles + Stochastic").
+   429→5. **Resolve ELO duplication** — keep one ranking card, remove the other, or differentiate them (e.g. one for DB teams, one for ESPN live league tables).
+   430→6. **Add LOADING skeletons** for at minimum the 4 most visible widgets (Ticker, Live Scores, xG Chart, Team Rankings).
+   431→7. **Add ERROR states** — at minimum a generic "Failed to load data. Tap to retry." for API-fed widgets.
+   432→8. **Fix seed ELO values** — either add a real ELO update mechanism or label the rankings as "Seed ELO (not yet updated)".
+   433→9. **Fix seed news** — add a `isSeed: true` flag and show a DEMO badge on seed-sourced news articles.
+   434→10. **Fix seed match probabilities** — remove the hardcoded `drawProb = 0.26` or mark matches with seed-derived probabilities as estimates.
+   435→
+   436→---
+   437→
+   438→## Backend & Prediction Engine Audit
+   439→
+   440→**Scope:** FastAPI backend at `/home/z/my-project/football-prediction-mega/` (18,176 lines Python across 38 files). Covers API endpoints, prediction engines, ML models, training pipeline, and data services.
+   441→
+   442→**Files audited:** All `.py` files in `config/`, `src/`, `scripts/`, `tests/`. All JSON files in `saved_models/`. All data files in `data/`.
+   443→
+   444→---
+   445→
+   446→### B1. xG Features Are Fabricated (CRITICAL)
+   447→
+   448→The XGBoost model (`xgboost_v1.json`, 1.5 MB) includes 3 xG features in its 50-feature schema: `xg_for_home`, `xg_for_away`, `xg_diff`. The model's own metadata (`saved_models/xgboost_v1_metadata.json`, line 335) states:
+   449→
+   450→> `"xg_note": "PROXY: shots_on_target x 0.1. Not real expected goals. football-data.co.uk does not provide xG."`
+   451→
+   452→The fabrication occurs in `scripts/phase2_data_foundation.py`:
+   453→
+   454→| Data Point | State | File | Line | Evidence |
+   455→|-----------|-------|------|------|----------|
+   456→| `xg_for_home` = mean(recent_SOT) × 0.1 | **FABRICATED** | `scripts/phase2_data_foundation.py` | 363 | Comment on line 360: `# xG proxy: recent SOT * 0.1`. No xG source exists in football-data.co.uk CSVs. The multiplier 0.1 is not calibrated. |
+   457→| `xg_for_away` = mean(recent_SOT) × 0.1 | **FABRICATED** | `scripts/phase2_data_foundation.py` | 381 | Same fabrication method as home. |
+   458→| `xg_diff` = xg_for_home − xg_for_away | **FABRICATED** | `scripts/phase2_data_foundation.py` | 392 | Propagation rule: derived from fabricated inputs. |
+   459→| `xg_note` in model metadata | REAL | `saved_models/xgboost_v1_metadata.json` | 335 | Honestly discloses the proxy. But the frontend (Dashboard Widget 9) does not surface this disclosure. |
+   460→| Feature schema labels `xg_for_home` as "Home team expected goals (xG) per match" | **FABRICATED CLAIM** | `src/ml/features.py` | 88 | Schema describes it as real xG. It is not. |
+   461→
+   462→**Propagation impact:** The trained XGBoost model was trained with fabricated xG features. Any inference using this model produces predictions influenced by fake xG. The model's feature importance (`xgboost_v1_metadata.json` lines 286–288) shows xG features have importance ~2.5 — roughly average among the 50 features, so they do influence predictions.
+   463→
+   464→---
+   465→
+   466→### B2. LSTM Model Self-Rated as FAILED — Still in Ensemble
+   467→
+   468→| Data Point | State | File | Line | Evidence |
+   469→|-----------|-------|------|------|----------|
+   470→| LSTM model classification | REAL | `saved_models/lstm_v1_metadata.json` | 274 | `"classification": "D. FAILED"` |
+   471→| LSTM recommendation | REAL | `saved_models/lstm_v1_metadata.json` | 284 | `"Do NOT include LSTM in the final ensemble."` |
+   472→| LSTM test accuracy | REAL | `saved_models/lstm_v1_metadata.json` | 269 | ECE: 0.30 (vs XGB 0.048). Log-loss: 3.48 (vs XGB 0.995). |
+   473→| LSTM ensemble weight (default) | **FABRICATED** | `config/settings.py` | 40 | `ensemble_weight_lstm: float = 0.15` — despite explicit recommendation to exclude |
+   474→| LSTM ensemble weight (EnsembleConfig) | **FABRICATED** | `src/engines/ensemble.py` | 60 | `"lstm": 0.15` — duplicates settings.py default |
+   475→
+   476→The LSTM model has 15% weight in the default ensemble. Its own metadata says it should not be included. The ensemble silently degrades predictions by mixing in a failed model.
+   477→
+   478→---
+   479→
+   480→### B3. Ensemble Weights Are Fabricated
+   481→
+   482→| Data Point | State | File | Line | Evidence |
+   483→|-----------|-------|------|------|----------|
+   484→| Ensemble weights (6-model) | **FABRICATED** | `src/engines/ensemble.py` | 54–61 | `elo: 0.15, poisson: 0.15, dixon_coles: 0.15, stochastic: 0.20, xgboost: 0.20, lstm: 0.15`. Not calibrated from validation performance. |
+   485→| Ensemble weights (config duplicate) | **FABRICATED** | `config/settings.py` | 35–40 | Same values, duplicated. No calibration source cited. |
+   486→| Confidence thresholds (0.55, 0.42) | **FABRICATED** | `src/engines/ensemble.py` | 566–570 | Hardcoded thresholds with no calibration evidence. |
+   487→| ELO signal thresholds (150, -150, 80) | **FABRICATED** | `src/engines/ensemble.py` | 602–607 | Hardcoded. |
+   488→| xG signal multiplier (1.3) | **FABRICATED** | `src/engines/ensemble.py` | 611–614 | Hardcoded. |
+   489→| ELO even match threshold (30) | **FABRICATED** | `src/engines/ensemble.py` | 640 | Hardcoded. |
+   490→| Draw risk threshold (0.32) | **FABRICATED** | `src/engines/ensemble.py` | 648 | Hardcoded. |
+   491→| Home advantage constant (+65) | **FABRICATED** | `src/engines/ensemble.py` | 707 | `home_elo + 65.0` — hardcoded. Same value in `config/settings.py` line 24. |
+   492→| Fallback probabilities (1/3 each) | **FABRICATED** | `src/engines/ensemble.py` | 466 | When prediction fails, returns `1/3, 1/3, 1/3` as if it were a real estimate. No "unavailable" signal. |
+   493→| Fallback probabilities (empty weights) | **FABRICATED** | `src/engines/ensemble.py` | 536 | Second fallback path, same 1/3 uniform. |
+   494→
+   495→---
+   496→
+   497→### B4. Stochastic Engine Parameters Are Fabricated
+   498→
+   499→| Data Point | State | File | Line | Evidence |
+   500→|-----------|-------|------|------|----------|
+   501→| GARCH ω (omega) = 0.02 | **FABRICATED** | `src/engines/stochastic.py` | 38 | Default parameter. `calibrate_garch()` exists but is not called in the main prediction path. |
+   502→| GARCH α (alpha) = 0.12 | **FABRICATED** | `src/engines/stochastic.py` | 39 | Same — not calibrated in production. |
+   503→| GARCH β (beta) = 0.85 | **FABRICATED** | `src/engines/stochastic.py` | 40 | Same. |
+   504→| Jump intensity λ = 0.1 | **FABRICATED** | `src/engines/stochastic.py` | 64 | `JumpDiffusionParams.jump_intensity`. |
+   505→| Jump mean μ_J = 0.0 | **FABRICATED** | `src/engines/stochastic.py` | 65 | `JumpDiffusionParams.jump_mean`. |
+   506→| Jump std σ_J = 0.3 | **FABRICATED** | `src/engines/stochastic.py` | 66 | `JumpDiffusionParams.jump_std`. |
+   507→| Home-away correlation = 0.15 | **FABRICATED** | `src/engines/stochastic.py` | 77–78 | Hardcoded. |
+   508→| League average goals = 1.3 | **FABRICATED** | `src/engines/stochastic.py` | 286 | Hardcoded. |
+   509→| GARCH fallback (var*0.05, 0.10, 0.85, 0.80) | **FABRICATED** | `src/engines/stochastic.py` | 187–191 | Used when calibration fails. |
+   510→| Jump fallback (0.05, 0.0, 0.2) | **FABRICATED** | `src/engines/stochastic.py` | 234–238 | Used when <2 jumps found. |
+   511→| ELO factor mapping formula | **FABRICATED** | `src/engines/stochastic.py` | 304–305 | `0.8 + 0.4 * ...` — arbitrary mapping. |
+   512→| Volatility normalization (/2.0 * 100) | **FABRICATED** | `src/engines/stochastic.py` | 402–403 | Arbitrary scaling. |
+   513→| Confidence thresholds (0.55, 0.42) | **FABRICATED** | `src/engines/stochastic.py` | 409–414 | Same as ensemble — duplicated. |
+   514→
+   515→---
+   516→
+   517→### B5. Market Signal Parameters Are Fabricated
+   518→
+   519→| Data Point | State | File | Line | Evidence |
+   520→|-----------|-------|------|------|----------|
+   521→| Steam threshold "strong" = 0.12 | **FABRICATED** | `src/engines/market_signals.py` | 59 | Hardcoded. No citation. |
+   522→| Steam threshold "moderate" = 0.06 | **FABRICATED** | `src/engines/market_signals.py` | 60 | Hardcoded. |
+   523→| Steam threshold "weak" = 0.03 | **FABRICATED** | `src/engines/market_signals.py` | 61 | Hardcoded. |
+   524→| RLM odds drift threshold = 0.04 | **FABRICATED** | `src/engines/market_signals.py` | 69 | Hardcoded. |
+   525→| Sharp probability shift = 0.05 | **FABRICATED** | `src/engines/market_signals.py` | 72 | Hardcoded. |
+   526→| Sharp odds velocity = 0.08 | **FABRICATED** | `src/engines/market_signals.py` | 73 | Hardcoded. |
+   527→| Covariance base variance = 0.25 | **FABRICATED** | `src/engines/market_signals.py` | 156 | Hardcoded. |
+   528→| Same-match correlation = −0.20 | **FABRICATED** | `src/engines/market_signals.py` | 170 | Hardcoded. |
+   529→| Cross-match correlation = 0.02 | **FABRICATED** | `src/engines/market_signals.py` | 178 | Hardcoded. |
+   530→| Marginal risk multipliers (1.2, 0.95) | **FABRICATED** | `src/engines/market_signals.py` | 314–315 | Hardcoded. |
+   531→| Kelly base variance = 0.25 | **FABRICATED** | `src/engines/kelly.py` | 156 | Hardcoded diagonal of covariance matrix. |
+   532→
+   533→---
+   534→
+   535→### B6. Hardcoded Database Credentials
+   536→
+   537→| Data Point | State | File | Line | Evidence |
+   538→|-----------|-------|------|------|----------|
+   539→| `database_url` with embedded password | **FABRICATED** (security) | `config/settings.py` | 15 | `postgresql://neondb_owner:npg_8zPlbIK5NwaR@ep-late-sunset-...`. Should be in `.env` only. The class has `Config.env_file = ".env"` but the default value in the field definition means it works even without `.env`. |
+   540→
+   541→---
+   542→
+   543→### B7. Placeholder Endpoints Returning Fabricated Data
+   544→
+   545→| Endpoint | File | Line | Returns | State |
+   546→|----------|------|------|---------|-------|
+   547→| `GET /api/stats/team/{team_id}` | `src/api/routes/stats.py` | 84–88 | Raises `NotImplementedError` | MISSING |
+   548→| `GET /api/stats/headtohead` | `src/api/routes/stats.py` | 91–102 | All zeros: `total_matches=0, home_wins=0, draws=0, away_wins=0, avg_home_goals=0.0, avg_away_goals=0.0, recent_results=[]` | **FABRICATED** (zeros presented as a valid response, not as "unavailable") |
+   549→| `GET /api/stats/form/{team_id}` | `src/api/routes/stats.py` | 105–113 | All zeros: `last_5=[], goals_scored_per_game=0.0, goals_conceded_per_game=0.0, clean_sheets_pct=0.0, btts_pct=0.0, over_25_pct=0.0` | **FABRICATED** |
+   550→| `GET /api/stats/brier` | `src/api/routes/stats.py` | 116–130 | All zeros: `total_predictions=0, brier_score=None, brier_skill_score=None, bins=[]` | **FABRICATED** |
+   551→| `GET /api/admin/calibration` | `src/api/routes/admin.py` | 127–148 | All zeros: `total_evaluated=0, brier_score=0.0, log_loss=0.0, accuracy=0.0, reliability_bins=[]` | **FABRICATED** |
+   552→| `POST /api/admin/backtest` | `src/api/routes/admin.py` | 151–179 | All zeros: `total_predictions=0, correct=0, accuracy=0.0, brier_score=0.0, log_loss=0.0, roi=None, confidence_breakdown={high/medium/low: all zeros}` | **FABRICATED** |
+   553→| `GET /api/admin/models` | `src/api/routes/admin.py` | 182–193 | Static hardcoded list of 5 model names. Does not check `saved_models/` directory. | **FABRICATED** |
+   554→| `GET /api/admin/system/health` | `src/api/routes/admin.py` | 196–208 | `"database": "connected"` (line 201, comment: `# Would check actual connection`), `"data_freshness": {"matches": "unknown", "odds": "unknown", "elo_ratings": "initial"}` (lines 203–206) | **FABRICATED** — claims "connected" without checking; claims "initial" for ELO freshness. |

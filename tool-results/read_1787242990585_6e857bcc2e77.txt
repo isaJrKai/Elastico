@@ -1,0 +1,797 @@
+    65→// ── Data honesty note ─────────────────────────────────────────────────────────
+    66→// This view fetches players from /api/players (DB-backed).
+    67→// FIFA-style radar attributes (Pace/Shooting/Passing/Defending/Physical/Dribbling)
+    68→// and per-match form ratings are NOT computed by ELASTICO's engine and have no
+    69→// real data source. These sections show honest empty states instead of
+    70→// fabricating plausible-looking numbers.
+    71→// ─────────────────────────────────────────────────────────────────────────────
+    72→
+    73→// ── Component ──────────────────────────────────────────────────────────────────
+    74→
+    75→export function PlayerView() {
+    76→  const teams = useElasticoStore(s => s.teams)
+    77→  const token = useElasticoStore(s => s.token)
+    78→  const [players, setPlayers] = useState<EnhancedPlayer[]>([])
+    79→  const [isLoading, setIsLoading] = useState(true)
+    80→  const [search, setSearch] = useState('')
+    81→  const [positionFilter, setPositionFilter] = useState<string>('all')
+    82→  const [teamFilter, setTeamFilter] = useState<string>('all')
+    83→  const [sortBy, setSortBy] = useState<string>('rating')
+    84→  const [selectedPlayer, setSelectedPlayer] = useState<EnhancedPlayer | null>(null)
+    85→  const [comparePlayer, setComparePlayer] = useState<EnhancedPlayer | null>(null)
+    86→  const [page, setPage] = useState(0)
+    87→  const perPage = 12
+    88→
+    89→  // Fetch players from API
+    90→  useEffect(() => {
+    91→    async function fetchPlayers() {
+    92→      setIsLoading(true)
+    93→      try {
+    94→        const headers: Record<string, string> = {}
+    95→        if (token) headers['Authorization'] = `Bearer ${token}`
+    96→        const params = new URLSearchParams()
+    97→        if (sortBy) params.set('sortBy', sortBy)
+    98→        if (positionFilter !== 'all') params.set('position', positionFilter)
+    99→        if (search) params.set('search', search)
+   100→        params.set('limit', '200')
+   101→        const res = await fetch(`/api/players?${params}`, { headers })
+   102→        if (res.ok) {
+   103→          const data = await res.json()
+   104→          if (data.players && data.players.length > 0) {
+   105→            setPlayers(data.players.map((p: Record<string, unknown>) => ({
+   106→              ...p,
+   107→              teamName: (p.team as Record<string, unknown>)?.name as string || p.teamName,
+   108→              teamCode: (p.team as Record<string, unknown>)?.code as string || p.teamCode,
+   109→              teamColor: (p.team as Record<string, unknown>)?.primaryColor as string || '#00e676',
+   110→              nationality: (p as Record<string, unknown>).nationality as string || undefined,
+   111→              appearances: (p as Record<string, unknown>).appearances as number || undefined,
+   112→              minutesPlayed: (p as Record<string, unknown>).minutesPlayed as number || undefined,
+   113→            } as EnhancedPlayer)))
+   114→          }
+   115→        }
+   116→      } catch {
+   117→        // API unavailable — players remains empty, empty state will show
+   118→      } finally {
+   119→        setIsLoading(false)
+   120→      }
+   121→    }
+   122→    fetchPlayers()
+   123→  }, [token, sortBy, positionFilter, search])
+   124→
+   125→  // Derived data
+   126→  const filteredPlayers = useMemo(() => {
+   127→    let result = [...players]
+   128→    if (search) result = result.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+   129→    if (positionFilter !== 'all') result = result.filter(p => p.position === positionFilter)
+   130→    if (teamFilter !== 'all') result = result.filter(p => p.teamName === teamFilter)
+   131→    result.sort((a, b) => {
+   132→      if (sortBy === 'rating') return b.rating - a.rating
+   133→      if (sortBy === 'goals') return b.goals - a.goals
+   134→      if (sortBy === 'assists') return b.assists - a.assists
+   135→      if (sortBy === 'name') return a.name.localeCompare(b.name)
+   136→      if (sortBy === 'age') return (a.age || 0) - (b.age || 0)
+   137→      if (sortBy === 'marketValue') return (b.marketValue || 0) - (a.marketValue || 0)
+   138→      return 0
+   139→    })
+   140→    return result
+   141→  }, [players, search, positionFilter, teamFilter, sortBy])
+   142→
+   143→  const pagedPlayers = filteredPlayers.slice(page * perPage, (page + 1) * perPage)
+   144→  const totalPages = Math.ceil(filteredPlayers.length / perPage)
+   145→
+   146→  const topScorers = useMemo(() => [...players].sort((a, b) => b.goals - a.goals).slice(0, 10), [players])
+   147→  const topByValue = useMemo(() => [...players].filter(p => p.marketValue).sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0)).slice(0, 10), [players])
+   148→
+   149→  const positionalGroups = useMemo(() => {
+   150→    const groups: Record<string, EnhancedPlayer[]> = {}
+   151→    for (const p of players) {
+   152→      if (!groups[p.position]) groups[p.position] = []
+   153→      groups[p.position].push(p)
+   154→    }
+   155→    return groups
+   156→  }, [players])
+   157→
+   158→  const ageData = useMemo(() => {
+   159→    const buckets: Record<string, number> = { '18-21': 0, '22-25': 0, '26-29': 0, '30-33': 0, '34+': 0 }
+   160→    for (const p of players) {
+   161→      const age = p.age || 25
+   162→      if (age <= 21) buckets['18-21']++
+   163→      else if (age <= 25) buckets['22-25']++
+   164→      else if (age <= 29) buckets['26-29']++
+   165→      else if (age <= 33) buckets['30-33']++
+   166→      else buckets['34+']++
+   167→    }
+   168→    return Object.entries(buckets).map(([range, count]) => ({ range, count }))
+   169→  }, [players])
+   170→
+   171→  const nationalities = useMemo(() => {
+   172→    const map: Record<string, number> = {}
+   173→    for (const p of players) {
+   174→      const nat = p.nationality || 'Unknown'
+   175→      map[nat] = (map[nat] || 0) + 1
+   176→    }
+   177→    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10)
+   178→  }, [players])
+   179→
+   180→  const uniqueTeams = useMemo(() => [...new Set(players.map(p => p.teamName).filter(Boolean))], [players])
+   181→
+   182→  // Similar players — based on real stat proximity (goals, assists, rating, age)
+   183→  // Not based on fabricated radar attributes
+   184→  const similarPlayers = useMemo(() => {
+   185→    if (!selectedPlayer || players.length === 0) return []
+   186→    return players
+   187→      .filter(p => p.id !== selectedPlayer.id && p.position === selectedPlayer.position)
+   188→      .map(p => {
+   189→        // Normalized difference across real metrics
+   190→        const maxGoals = Math.max(selectedPlayer.goals, p.goals, 1)
+   191→        const maxAssists = Math.max(selectedPlayer.assists, p.assists, 1)
+   192→        const goalDiff = Math.abs(selectedPlayer.goals - p.goals) / maxGoals
+   193→        const assistDiff = Math.abs(selectedPlayer.assists - p.assists) / maxAssists
+   194→        const ratingDiff = Math.abs(selectedPlayer.rating - p.rating) / 10
+   195→        const ageDiff = Math.abs((selectedPlayer.age || 25) - (p.age || 25)) / 20
+   196→        const totalDiff = goalDiff + assistDiff + ratingDiff + ageDiff
+   197→        return { player: p, similarity: Math.max(0, Math.round(100 - (totalDiff / 4) * 100)) }
+   198→      })
+   199→      .sort((a, b) => b.similarity - a.similarity)
+   200→      .slice(0, 5)
+   201→  }, [selectedPlayer, players])
+   202→
+   203→  // CSV Export
+   204→  const exportCSV = useCallback(() => {
+   205→    const headers = ['Name', 'Position', 'Team', 'Age', 'Goals', 'Assists', 'Rating', 'Market Value (€M)', 'Yellow Cards', 'Red Cards', 'Nationality']
+   206→    const rows = filteredPlayers.map(p => [
+   207→      p.name, p.position, p.teamName || '', p.age || '', p.goals, p.assists, p.rating, p.marketValue || '', p.yellowCards, p.redCards, p.nationality || ''
+   208→    ])
+   209→    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n')
+   210→    const blob = new Blob([csv], { type: 'text/csv' })
+   211→    const url = URL.createObjectURL(blob)
+   212→    const a = document.createElement('a')
+   213→    a.href = url
+   214→    a.download = 'elastico-players.csv'
+   215→    a.click()
+   216→    URL.revokeObjectURL(url)
+   217→    toast.success('Players exported to CSV')
+   218→  }, [filteredPlayers])
+   219→
+   220→  const getPositionColor = (pos: string) => {
+   221→    switch (pos) {
+   222→      case 'GK': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
+   223→      case 'DEF': return 'text-blue-400 bg-blue-400/10 border-blue-400/30'
+   224→      case 'MID': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
+   225→      case 'FWD': return 'text-red-400 bg-red-400/10 border-red-400/30'
+   226→      default: return ''
+   227→    }
+   228→  }
+   229→
+   230→  const getRatingColor = (r: number) => {
+   231→    if (r >= 8.0) return 'text-emerald-400'
+   232→    if (r >= 7.0) return 'text-emerald-300'
+   233→    if (r >= 6.0) return 'text-yellow-400'
+   234→    return 'text-red-400'
+   235→  }
+   236→
+   237→  return (
+   238→    <motion.div
+   239→      initial={{ opacity: 0, y: 20 }}
+   240→      animate={{ opacity: 1, y: 0 }}
+   241→      className="space-y-6"
+   242→    >
+   243→      {/* Header */}
+   244→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   245→        <div>
+   246→          <h1 className="text-2xl font-bold flex items-center gap-2">
+   247→            <Users className="text-primary" /> Player Analytics
+   248→          </h1>
+   249→          <p className="text-muted-foreground text-sm mt-1">Search, analyze, and compare football players</p>
+   250→        </div>
+   251→        <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
+   252→          <Download className="size-4" /> Export CSV
+   253→        </Button>
+   254→      </div>
+   255→
+   256→      {/* Search & Filters */}
+   257→      <div className="flex flex-col sm:flex-row gap-3">
+   258→        <div className="relative flex-1">
+   259→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   260→          <Input
+   261→            placeholder="Search players..."
+   262→            value={search}
+   263→            onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+   264→            className="pl-9"
+   265→          />
+   266→        </div>
+   267→        <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0) }}>
+   268→          <SelectTrigger className="w-full sm:w-36">
+   269→            <SelectValue placeholder="Position" />
+   270→          </SelectTrigger>
+   271→          <SelectContent>
+   272→            <SelectItem value="all">All Positions</SelectItem>
+   273→            <SelectItem value="GK">GK</SelectItem>
+   274→            <SelectItem value="DEF">DEF</SelectItem>
+   275→            <SelectItem value="MID">MID</SelectItem>
+   276→            <SelectItem value="FWD">FWD</SelectItem>
+   277→          </SelectContent>
+   278→        </Select>
+   279→        <Select value={teamFilter} onValueChange={(v) => { setTeamFilter(v); setPage(0) }}>
+   280→          <SelectTrigger className="w-full sm:w-40">
+   281→            <SelectValue placeholder="Team" />
+   282→          </SelectTrigger>
+   283→          <SelectContent>
+   284→            <SelectItem value="all">All Teams</SelectItem>
+   285→            {uniqueTeams.map(t => (
+   286→              <SelectItem key={t} value={t!}>{t}</SelectItem>
+   287→            ))}
+   288→          </SelectContent>
+   289→        </Select>
+   290→        <Select value={sortBy} onValueChange={setSortBy}>
+   291→          <SelectTrigger className="w-full sm:w-36">
+   292→            <SelectValue placeholder="Sort by" />
+   293→          </SelectTrigger>
+   294→          <SelectContent>
+   295→            <SelectItem value="rating">Rating</SelectItem>
+   296→            <SelectItem value="goals">Goals</SelectItem>
+   297→            <SelectItem value="assists">Assists</SelectItem>
+   298→            <SelectItem value="marketValue">Market Value</SelectItem>
+   299→            <SelectItem value="age">Age</SelectItem>
+   300→            <SelectItem value="name">Name</SelectItem>
+   301→          </SelectContent>
+   302→        </Select>
+   303→      </div>
+   304→
+   305→      <Tabs defaultValue="grid" className="space-y-4">
+   306→        <TabsList className="flex flex-wrap gap-1 h-auto bg-card/50 p-1 rounded-lg">
+   307→          <TabsTrigger value="grid" className="text-xs">Player Grid</TabsTrigger>
+   308→          <TabsTrigger value="leaderboard" className="text-xs">Top Scorers</TabsTrigger>
+   309→          <TabsTrigger value="radar" className="text-xs">Radar Charts</TabsTrigger>
+   310→          <TabsTrigger value="compare" className="text-xs">Compare</TabsTrigger>
+   311→          <TabsTrigger value="value" className="text-xs">Market Value</TabsTrigger>
+   312→          <TabsTrigger value="positions" className="text-xs">By Position</TabsTrigger>
+   313→          <TabsTrigger value="age" className="text-xs">Age Dist.</TabsTrigger>
+   314→          <TabsTrigger value="nationality" className="text-xs">Nationality</TabsTrigger>
+   315→          <TabsTrigger value="cards" className="text-xs">Cards</TabsTrigger>
+   316→          <TabsTrigger value="subs" className="text-xs">Substitutions</TabsTrigger>
+   317→          <TabsTrigger value="similar" className="text-xs">Similar</TabsTrigger>
+   318→          <TabsTrigger value="form" className="text-xs">Form</TabsTrigger>
+   319→        </TabsList>
+   320→
+   321→        {/* Player Cards Grid */}
+   322→        <TabsContent value="grid">
+   323→          {isLoading ? (
+   324→            <Card className="glass-card"><CardContent className="p-12 text-center text-muted-foreground">Loading players...</CardContent></Card>
+   325→          ) : pagedPlayers.length === 0 ? (
+   326→            <Card className="glass-card"><CardContent className="p-12 text-center">
+   327→              <Users className="size-8 mx-auto text-muted-foreground/50 mb-3" />
+   328→              <p className="text-sm text-muted-foreground">No players found in the database.</p>
+   329→              <p className="text-xs text-muted-foreground mt-1">Player data is populated when teams and matches are synced. Use the admin panel or /api/sync to load data.</p>
+   330→            </CardContent></Card>
+   331→          ) : (
+   332→          <>
+   333→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+   334→            {pagedPlayers.map((player) => (
+   335→              <motion.div
+   336→                key={player.id}
+   337→                whileHover={{ scale: 1.02, y: -4 }}
+   338→                whileTap={{ scale: 0.98 }}
+   339→                className="cursor-pointer"
+   340→                onClick={() => setSelectedPlayer(player)}
+   341→              >
+   342→                <Card className="glass-card h-full overflow-hidden">
+   343→                  <div className="h-2" style={{ backgroundColor: player.teamColor || '#00e676' }} />
+   344→                  <CardContent className="p-4">
+   345→                    <div className="flex items-start gap-3">
+   346→                      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold shrink-0 border-2 border-border">
+   347→                        {player.number}
+   348→                      </div>
+   349→                      <div className="min-w-0 flex-1">
+   350→                        <h3 className="text-sm font-semibold truncate">{player.name}</h3>
+   351→                        <div className="flex items-center gap-2 mt-1">
+   352→                          <Badge variant="outline" className={cn('text-[10px]', getPositionColor(player.position))}>
+   353→                            {player.position}
+   354→                          </Badge>
+   355→                          <span className="text-[10px] text-muted-foreground truncate">{player.teamName}</span>
+   356→                        </div>
+   357→                      </div>
+   358→                      <div className={cn('text-xl font-bold', getRatingColor(player.rating ?? 0))}>
+   359→                        {(player.rating ?? 0).toFixed(1)}
+   360→                      </div>
+   361→                    </div>
+   362→                    <div className="grid grid-cols-3 gap-2 mt-4">
+   363→                      <div className="text-center">
+   364→                        <div className="text-lg font-bold text-primary">{player.goals}</div>
+   365→                        <div className="text-[10px] text-muted-foreground">Goals</div>
+   366→                      </div>
+   367→                      <div className="text-center">
+   368→                        <div className="text-lg font-bold text-primary">{player.assists}</div>
+   369→                        <div className="text-[10px] text-muted-foreground">Assists</div>
+   370→                      </div>
+   371→                      <div className="text-center">
+   372→                        <div className="text-lg font-bold text-primary">{player.yellowCards + player.redCards}</div>
+   373→                        <div className="text-[10px] text-muted-foreground">Cards</div>
+   374→                      </div>
+   375→                    </div>
+   376→                    {player.marketValue && (
+   377→                      <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-1">
+   378→                        <TrendingUp className="size-3 text-muted-foreground" />
+   379→                        <span className="text-xs text-muted-foreground">€{player.marketValue}M</span>
+   380→                      </div>
+   381→                    )}
+   382→                  </CardContent>
+   383→                </Card>
+   384→              </motion.div>
+   385→            ))}
+   386→          </div>
+   387→          {/* Pagination */}
+   388→          {totalPages > 1 && (
+   389→            <div className="flex items-center justify-center gap-2 mt-4">
+   390→              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}>
+   391→                <ChevronLeft className="size-4" />
+   392→              </Button>
+   393→              <span className="text-sm text-muted-foreground">{page + 1} / {totalPages}</span>
+   394→              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}>
+   395→                <ChevronRight className="size-4" />
+   396→              </Button>
+   397→            </div>
+   398→          )}
+   399→          </>
+   400→          )}
+   401→        </TabsContent>
+   402→
+   403→        {/* Top Scorers Leaderboard */}
+   404→        <TabsContent value="leaderboard">
+   405→          <Card className="glass-card">
+   406→            <CardHeader className="pb-2">
+   407→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   408→                <Star className="size-4 text-yellow-400" /> Top Scorers Leaderboard
+   409→              </CardTitle>
+   410→            </CardHeader>
+   411→            <CardContent>
+   412→              <div className="max-h-96 overflow-y-auto">
+   413→                <Table>
+   414→                  <TableHeader>
+   415→                    <TableRow>
+   416→                      <TableHead className="w-10">#</TableHead>
+   417→                      <TableHead>Player</TableHead>
+   418→                      <TableHead className="text-center">Goals</TableHead>
+   419→                      <TableHead className="text-center">Assists</TableHead>
+   420→                      <TableHead className="text-center">Mins</TableHead>
+   421→                      <TableHead className="text-center">G/90</TableHead>
+   422→                      <TableHead className="text-center">Rating</TableHead>
+   423→                    </TableRow>
+   424→                  </TableHeader>
+   425→                  <TableBody>
+   426→                    {topScorers.map((p, i) => (
+   427→                      <TableRow key={p.id} className="cursor-pointer hover:bg-accent/50" onClick={() => setSelectedPlayer(p)}>
+   428→                        <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
+   429→                        <TableCell>
+   430→                          <div className="flex items-center gap-2">
+   431→                            <span className="text-sm font-medium">{p.name}</span>
+   432→                            <Badge variant="outline" className={cn('text-[9px]', getPositionColor(p.position))}>{p.position}</Badge>
+   433→                          </div>
+   434→                          <span className="text-[10px] text-muted-foreground">{p.teamName}</span>
+   435→                        </TableCell>
+   436→                        <TableCell className="text-center font-bold text-primary">{p.goals}</TableCell>
+   437→                        <TableCell className="text-center">{p.assists}</TableCell>
+   438→                        <TableCell className="text-center text-muted-foreground">{p.minutesPlayed || (p.appearances || 0) * 90}</TableCell>
+   439→                        <TableCell className="text-center font-medium">
+   440→                          {((p.goals || 0) / Math.max(1, ((p.minutesPlayed || (p.appearances || 0) * 90) / 90))).toFixed(2)}
+   441→                        </TableCell>
+   442→                        <TableCell className={cn('text-center font-bold', getRatingColor(p.rating ?? 0))}>{(p.rating ?? 0).toFixed(1)}</TableCell>
+   443→                      </TableRow>
+   444→                    ))}
+   445→                  </TableBody>
+   446→                </Table>
+   447→              </div>
+   448→            </CardContent>
+   449→          </Card>
+   450→        </TabsContent>
+   451→
+   452→        {/* Player Radar Chart */}
+   453→        <TabsContent value="radar">
+   454→          <Card className="glass-card">
+   455→            <CardHeader className="pb-2">
+   456→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   457→                <Award className="size-4 text-primary" /> Player Radar Charts
+   458→              </CardTitle>
+   459→            </CardHeader>
+   460→            <CardContent>
+   461→              <div className="p-8 text-center">
+   462→                <Award className="size-8 mx-auto text-muted-foreground/50 mb-3" />
+   463→                <p className="text-sm text-muted-foreground">FIFA-style attribute radars (Pace, Shooting, Passing, Defending, Physical, Dribbling) are not a metric ELASTICO computes.</p>
+   464→                <p className="text-xs text-muted-foreground mt-1">This feature requires an external attribute data source. Showing real stats (goals, assists, rating) instead — see the Player Grid and Leaderboard tabs.</p>
+   465→              </div>
+   466→            </CardContent>
+   467→          </Card>
+   468→        </TabsContent>
+   469→
+   470→        {/* Player Comparison */}
+   471→        <TabsContent value="compare">
+   472→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   473→            <Card className="glass-card">
+   474→              <CardHeader className="pb-2">
+   475→                <CardTitle className="text-sm font-medium">Select Player 1</CardTitle>
+   476→              </CardHeader>
+   477→              <CardContent className="max-h-64 overflow-y-auto">
+   478→                {players.slice(0, 10).map(p => (
+   479→                  <button
+   480→                    key={p.id}
+   481→                    onClick={() => setSelectedPlayer(p)}
+   482→                    className={cn(
+   483→                      'w-full flex items-center gap-3 p-2 rounded-lg text-left text-sm transition-colors',
+   484→                      selectedPlayer?.id === p.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent'
+   485→                    )}
+   486→                  >
+   487→                    <span className="font-medium">{p.name}</span>
+   488→                    <Badge variant="outline" className={cn('text-[9px] ml-auto', getPositionColor(p.position))}>{p.position}</Badge>
+   489→                  </button>
+   490→                ))}
+   491→              </CardContent>
+   492→            </Card>
+   493→            <Card className="glass-card">
+   494→              <CardHeader className="pb-2">
+   495→                <CardTitle className="text-sm font-medium">Select Player 2</CardTitle>
+   496→              </CardHeader>
+   497→              <CardContent className="max-h-64 overflow-y-auto">
+   498→                {players.slice(0, 10).map(p => (
+   499→                  <button
+   500→                    key={p.id}
+   501→                    onClick={() => setComparePlayer(p)}
+   502→                    className={cn(
+   503→                      'w-full flex items-center gap-3 p-2 rounded-lg text-left text-sm transition-colors',
+   504→                      comparePlayer?.id === p.id ? 'bg-orange-500/10 text-orange-400' : 'hover:bg-accent'
+   505→                    )}
+   506→                  >
+   507→                    <span className="font-medium">{p.name}</span>
+   508→                    <Badge variant="outline" className={cn('text-[9px] ml-auto', getPositionColor(p.position))}>{p.position}</Badge>
+   509→                  </button>
+   510→                ))}
+   511→              </CardContent>
+   512→            </Card>
+   513→          </div>
+   514→          {selectedPlayer && comparePlayer ? (
+   515→            <Card className="glass-card mt-4">
+   516→              <CardHeader className="pb-2">
+   517→                <CardTitle className="text-sm font-medium text-center">
+   518→                  {selectedPlayer.name} vs {comparePlayer.name}
+   519→                </CardTitle>
+   520→              </CardHeader>
+   521→              <CardContent className="space-y-3">
+   522→                {[
+   523→                  { label: 'Rating', home: selectedPlayer.rating, away: comparePlayer.rating, suffix: '' },
+   524→                  { label: 'Goals', home: selectedPlayer.goals, away: comparePlayer.goals, suffix: '' },
+   525→                  { label: 'Assists', home: selectedPlayer.assists, away: comparePlayer.assists, suffix: '' },
+   526→                  { label: 'Appearances', home: selectedPlayer.appearances || 0, away: comparePlayer.appearances || 0, suffix: '' },
+   527→                  { label: 'Minutes Played', home: selectedPlayer.minutesPlayed || 0, away: comparePlayer.minutesPlayed || 0, suffix: '' },
+   528→                  { label: 'Yellow Cards', home: selectedPlayer.yellowCards, away: comparePlayer.yellowCards, suffix: '' },
+   529→                  { label: 'Market Value (€M)', home: selectedPlayer.marketValue || 0, away: comparePlayer.marketValue || 0, suffix: '' },
+   530→                ].map((item) => {
+   531→                  const total = item.home + item.away || 1
+   532→                  const homePct = Math.round((item.home / total) * 100)
+   533→                  return (
+   534→                    <div key={item.label} className="space-y-1">
+   535→                      <div className="flex justify-between text-xs text-muted-foreground">
+   536→                        <span>{item.label}</span>
+   537→                        <span>{item.home}{item.suffix} — {item.away}{item.suffix}</span>
+   538→                      </div>
+   539→                      <div className="flex h-3 rounded-full overflow-hidden bg-muted/50">
+   540→                        <div className="bg-primary rounded-l-full transition-all duration-500" style={{ width: `${homePct}%` }} />
+   541→                        <div className="bg-orange-500/70 rounded-r-full transition-all duration-500" style={{ width: `${100 - homePct}%` }} />
+   542→                      </div>
+   543→                    </div>
+   544→                  )
+   545→                })}
+   546→                <div className="flex items-center justify-between pt-2">
+   547→                  <Badge variant="outline" className="text-primary border-primary/30">{selectedPlayer.name}</Badge>
+   548→                  <span className="text-xs text-muted-foreground">vs</span>
+   549→                  <Badge variant="outline" className="text-orange-400 border-orange-400/30">{comparePlayer.name}</Badge>
+   550→                </div>
+   551→                <p className="text-[10px] text-muted-foreground text-center pt-1">
+   552→                  Comparison uses real recorded stats (goals, assists, rating, appearances). FIFA-style radar attributes are not available — ELASTICO does not compute them.
+   553→                </p>
+   554→              </CardContent>
+   555→            </Card>
+   556→          ) : (
+   557→            <Card className="glass-card mt-4"><CardContent className="p-8 text-center text-sm text-muted-foreground">Select two players above to compare their real stats.</CardContent></Card>
+   558→          )}
+   559→        </TabsContent>
+   560→
+   561→        {/* Market Value Tracker */}
+   562→        <TabsContent value="value">
+   563→          <Card className="glass-card">
+   564→            <CardHeader className="pb-2">
+   565→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   566→                <TrendingUp className="size-4 text-primary" /> Market Value Tracker (€M)
+   567→              </CardTitle>
+   568→            </CardHeader>
+   569→            <CardContent>
+   570→              <div className="h-72">
+   571→                <ResponsiveContainer width="100%" height="100%">
+   572→                  <BarChart data={topByValue} layout="vertical" barSize={18}>
+   573→                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+   574→                    <XAxis type="number" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" unit="M" />
+   575→                    <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={110} />
+   576→                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `€${v}M`} />
+   577→                    <Bar dataKey="marketValue" fill="#00e676" radius={[0, 4, 4, 0]} />
+   578→                  </BarChart>
+   579→                </ResponsiveContainer>
+   580→              </div>
+   581→            </CardContent>
+   582→          </Card>
+   583→        </TabsContent>
+   584→
+   585→        {/* Positional Breakdown */}
+   586→        <TabsContent value="positions">
+   587→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   588→            {Object.entries(positionalGroups).map(([pos, group]) => {
+   589→              const avgRating = (group.reduce((s, p) => s + (p.rating ?? 0), 0) / Math.max(1, group.length)).toFixed(1)
+   590→              const totalGoals = group.reduce((s, p) => s + p.goals, 0)
+   591→              const totalAssists = group.reduce((s, p) => s + p.assists, 0)
+   592→              return (
+   593→                <Card key={pos} className="glass-card">
+   594→                  <CardHeader className="pb-2">
+   595→                    <Badge variant="outline" className={cn('w-fit', getPositionColor(pos))}>{pos}</Badge>
+   596→                    <span className="text-xs text-muted-foreground">{group.length} players</span>
+   597→                  </CardHeader>
+   598→                  <CardContent className="space-y-2">
+   599→                    <div className="flex justify-between text-sm">
+   600→                      <span className="text-muted-foreground">Avg Rating</span>
+   601→                      <span className={cn('font-bold', getRatingColor(parseFloat(avgRating)))}>{avgRating}</span>
+   602→                    </div>
+   603→                    <div className="flex justify-between text-sm">
+   604→                      <span className="text-muted-foreground">Total Goals</span>
+   605→                      <span className="font-bold">{totalGoals}</span>
+   606→                    </div>
+   607→                    <div className="flex justify-between text-sm">
+   608→                      <span className="text-muted-foreground">Total Assists</span>
+   609→                      <span className="font-bold">{totalAssists}</span>
+   610→                    </div>
+   611→                  </CardContent>
+   612→                </Card>
+   613→              )
+   614→            })}
+   615→          </div>
+   616→        </TabsContent>
+   617→
+   618→        {/* Age Distribution */}
+   619→        <TabsContent value="age">
+   620→          <Card className="glass-card">
+   621→            <CardHeader className="pb-2">
+   622→              <CardTitle className="text-sm font-medium">Age Distribution</CardTitle>
+   623→            </CardHeader>
+   624→            <CardContent>
+   625→              <div className="h-64">
+   626→                <ResponsiveContainer width="100%" height="100%">
+   627→                  <BarChart data={ageData} barSize={40}>
+   628→                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+   629→                    <XAxis dataKey="range" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+   630→                    <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+   631→                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
+   632→                    <Bar dataKey="count" fill="#00e676" radius={[4, 4, 0, 0]} name="Players" />
+   633→                  </BarChart>
+   634→                </ResponsiveContainer>
+   635→              </div>
+   636→            </CardContent>
+   637→          </Card>
+   638→        </TabsContent>
+   639→
+   640→        {/* Nationality Mix */}
+   641→        <TabsContent value="nationality">
+   642→          <Card className="glass-card">
+   643→            <CardHeader className="pb-2">
+   644→              <CardTitle className="text-sm font-medium">Nationality Distribution</CardTitle>
+   645→            </CardHeader>
+   646→            <CardContent className="space-y-3 max-h-96 overflow-y-auto">
+   647→              {nationalities.map(([nat, count]) => (
+   648→                <div key={nat} className="flex items-center gap-3">
+   649→                  <span className="text-sm w-24 shrink-0 truncate">{nat}</span>
+   650→                  <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden">
+   651→                    <motion.div
+   652→                      initial={{ width: 0 }}
+   653→                      animate={{ width: `${(count / players.length) * 100}%` }}
+   654→                      className="h-full bg-primary/70 rounded-full"
+   655→                      transition={{ duration: 0.5 }}
+   656→                    />
+   657→                  </div>
+   658→                  <span className="text-xs text-muted-foreground w-8 text-right">{count}</span>
+   659→                </div>
+   660→              ))}
+   661→            </CardContent>
+   662→          </Card>
+   663→        </TabsContent>
+   664→
+   665→        {/* Card Accumulation */}
+   666→        <TabsContent value="cards">
+   667→          <Card className="glass-card">
+   668→            <CardHeader className="pb-2">
+   669→              <CardTitle className="text-sm font-medium">Card Accumulation</CardTitle>
+   670→            </CardHeader>
+   671→            <CardContent>
+   672→              <div className="max-h-96 overflow-y-auto">
+   673→                <Table>
+   674→                  <TableHeader>
+   675→                    <TableRow>
+   676→                      <TableHead>Player</TableHead>
+   677→                      <TableHead className="text-center">Yellow</TableHead>
+   678→                      <TableHead className="text-center">Red</TableHead>
+   679→                      <TableHead className="text-center">Total</TableHead>
+   680→                    </TableRow>
+   681→                  </TableHeader>
+   682→                  <TableBody>
+   683→                    {[...players].sort((a, b) => (b.yellowCards + b.redCards) - (a.yellowCards + a.redCards)).slice(0, 15).map(p => (
+   684→                      <TableRow key={p.id}>
+   685→                        <TableCell className="text-sm">{p.name}</TableCell>
+   686→                        <TableCell className="text-center"><Badge variant="outline" className="text-yellow-400 border-yellow-400/30">{p.yellowCards}</Badge></TableCell>
+   687→                        <TableCell className="text-center"><Badge variant="outline" className="text-red-400 border-red-400/30">{p.redCards}</Badge></TableCell>
+   688→                        <TableCell className="text-center font-bold">{p.yellowCards + p.redCards}</TableCell>
+   689→                      </TableRow>
+   690→                    ))}
+   691→                  </TableBody>
+   692→                </Table>
+   693→              </div>
+   694→            </CardContent>
+   695→          </Card>
+   696→        </TabsContent>
+   697→
+   698→        {/* Substitution Frequency */}
+   699→        <TabsContent value="subs">
+   700→          <Card className="glass-card">
+   701→            <CardHeader className="pb-2">
+   702→              <CardTitle className="text-sm font-medium">Substitution Frequency</CardTitle>
+   703→            </CardHeader>
+   704→            <CardContent>
+   705→              <div className="space-y-3">
+   706→                {players.slice(0, 10).map(p => {
+   707→                  const startPct = 75
+   708→                  const subPct = 100 - startPct
+   709→                  return (
+   710→                    <div key={p.id} className="space-y-1">
+   711→                      <div className="flex justify-between text-xs">
+   712→                        <span className="truncate">{p.name}</span>
+   713→                        <span className="text-muted-foreground">{startPct}% starter</span>
+   714→                      </div>
+   715→                      <div className="flex h-2 rounded-full overflow-hidden bg-muted/50">
+   716→                        <div className="bg-primary/70" style={{ width: `${startPct}%` }} />
+   717→                        <div className="bg-orange-500/60" style={{ width: `${subPct}%` }} />
+   718→                      </div>
+   719→                    </div>
+   720→                  )
+   721→                })}
+   722→              </div>
+   723→            </CardContent>
+   724→          </Card>
+   725→        </TabsContent>
+   726→
+   727→        {/* Player Similarity Finder */}
+   728→        <TabsContent value="similar">
+   729→          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   730→            <Card className="glass-card lg:col-span-1">
+   731→              <CardHeader className="pb-2">
+   732→                <CardTitle className="text-sm font-medium">Select Player</CardTitle>
+   733→              </CardHeader>
+   734→              <CardContent className="max-h-64 overflow-y-auto">
+   735→                {players.map(p => (
+   736→                  <button
+   737→                    key={p.id}
+   738→                    onClick={() => setSelectedPlayer(p)}
+   739→                    className={cn(
+   740→                      'w-full flex items-center gap-2 p-2 rounded text-left text-sm transition-colors',
+   741→                      selectedPlayer?.id === p.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent'
+   742→                    )}
+   743→                  >
+   744→                    <span className="truncate">{p.name}</span>
+   745→                    <Badge variant="outline" className={cn('text-[9px] ml-auto shrink-0', getPositionColor(p.position))}>{p.position}</Badge>
+   746→                  </button>
+   747→                ))}
+   748→              </CardContent>
+   749→            </Card>
+   750→            <Card className="glass-card lg:col-span-2">
+   751→              <CardHeader className="pb-2">
+   752→                <CardTitle className="text-sm font-medium">Similar Players</CardTitle>
+   753→              </CardHeader>
+   754→              <CardContent>
+   755→                {selectedPlayer ? (
+   756→                  <div className="space-y-3">
+   757→                    {similarPlayers.length > 0 ? similarPlayers.map(({ player, similarity }) => (
+   758→                      <div key={player.id} className="flex items-center gap-4 p-3 rounded-lg bg-card/50 border border-border/30">
+   759→                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold text-sm">{player.number}</div>
+   760→                        <div className="flex-1">
+   761→                          <div className="text-sm font-medium">{player.name}</div>
+   762→                          <div className="text-[10px] text-muted-foreground">{player.position} · {player.teamName}</div>
+   763→                        </div>
+   764→                        <div className="text-right">
+   765→                          <div className="text-lg font-bold text-primary">{similarity}%</div>
+   766→                          <div className="text-[10px] text-muted-foreground">similar</div>
+   767→                        </div>
+   768→                      </div>
+   769→                    )) : (
+   770→                      <p className="text-sm text-muted-foreground text-center py-8">No similar players found</p>
+   771→                    )}
+   772→                  </div>
+   773→                ) : (
+   774→                  <p className="text-sm text-muted-foreground text-center py-8">Select a player to find similar profiles</p>
+   775→                )}
+   776→              </CardContent>
+   777→            </Card>
+   778→          </div>
+   779→        </TabsContent>
+   780→
+   781→        {/* Player Form Chart */}
+   782→        <TabsContent value="form">
+   783→          <Card className="glass-card">
+   784→            <CardHeader className="pb-2">
+   785→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   786→                <TrendingUp className="size-4 text-primary" /> Player Form (Recent Matches)
+   787→              </CardTitle>
+   788→            </CardHeader>
+   789→            <CardContent>
+   790→              <div className="p-8 text-center">
+   791→                <TrendingUp className="size-8 mx-auto text-muted-foreground/50 mb-3" />
+   792→                <p className="text-sm text-muted-foreground">Per-match form ratings are not available.</p>
+   793→                <p className="text-xs text-muted-foreground mt-1">This feature requires match-level player rating data, which ELASTICO does not currently store. The overall player rating (shown in the grid) is the best available metric.</p>
+   794→              </div>
+   795→            </CardContent>
+   796→          </Card>
+   797→        </TabsContent>
+   798→      </Tabs>
+   799→
+   800→      {/* Player Detail Panel (Slide-over) */}
+   801→      <AnimatePresence>
+   802→        {selectedPlayer && (
+   803→          <motion.div
+   804→            initial={{ opacity: 0, x: 300 }}
+   805→            animate={{ opacity: 1, x: 0 }}
+   806→            exit={{ opacity: 0, x: 300 }}
+   807→            className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-background border-l border-border z-50 overflow-y-auto shadow-2xl"
+   808→          >
+   809→            <div className="p-6 space-y-6">
+   810→              <div className="flex items-center justify-between">
+   811→                <h2 className="text-lg font-bold">Player Detail</h2>
+   812→                <Button variant="ghost" size="icon" onClick={() => setSelectedPlayer(null)}>
+   813→                  <X className="size-4" />
+   814→                </Button>
+   815→              </div>
+   816→
+   817→              <div className="text-center space-y-3">
+   818→                <div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center text-3xl font-bold border-4 border-primary/30" style={{ borderColor: selectedPlayer.teamColor }}>
+   819→                  {selectedPlayer.number}
+   820→                </div>
+   821→                <div>
+   822→                  <h3 className="text-xl font-bold">{selectedPlayer.name}</h3>
+   823→                  <p className="text-sm text-muted-foreground">{selectedPlayer.teamName} · {selectedPlayer.position}</p>
+   824→                  <p className="text-xs text-muted-foreground mt-1">{selectedPlayer.nationality} · Age {selectedPlayer.age}</p>
+   825→                </div>
+   826→              </div>
+   827→
+   828→              <div className="grid grid-cols-2 gap-3">
+   829→                {[
+   830→                  { label: 'Rating', value: (selectedPlayer.rating ?? 0).toFixed(1), color: getRatingColor(selectedPlayer.rating ?? 0) },
+   831→                  { label: 'Goals', value: selectedPlayer.goals, color: 'text-primary' },
+   832→                  { label: 'Assists', value: selectedPlayer.assists, color: 'text-primary' },
+   833→                  { label: 'Appearances', value: selectedPlayer.appearances || '-', color: 'text-foreground' },
+   834→                  { label: 'Minutes', value: selectedPlayer.minutesPlayed || '-', color: 'text-foreground' },
+   835→                  { label: 'Market Value', value: selectedPlayer.marketValue ? `€${selectedPlayer.marketValue}M` : '-', color: 'text-primary' },
+   836→                ].map(item => (
+   837→                  <Card key={item.label} className="glass-card">
+   838→                    <CardContent className="p-3 text-center">
+   839→                      <div className="text-[10px] text-muted-foreground">{item.label}</div>
+   840→                      <div className={cn('text-xl font-bold', item.color)}>{item.value}</div>
+   841→                    </CardContent>
+   842→                  </Card>
+   843→                ))}
+   844→              </div>
+   845→
+   846→              <div className="h-24 flex items-center justify-center">
+   847→                <p className="text-xs text-muted-foreground text-center">FIFA-style attribute radar is not available — ELASTICO does not compute these attributes.</p>
+   848→              </div>
+   849→
+   850→              <Button variant="outline" className="w-full gap-2" onClick={() => { setSelectedPlayer(null); setComparePlayer(selectedPlayer) }}>
+   851→                <ArrowUpDown className="size-4" /> Use for Comparison
+   852→              </Button>
+   853→            </div>
+   854→          </motion.div>
+   855→        )}
+   856→      </AnimatePresence>
+   857→    </motion.div>
+   858→  )
+   859→}
+   860→
+   861→export default PlayerView
