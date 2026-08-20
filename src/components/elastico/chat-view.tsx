@@ -25,17 +25,17 @@ import {
   ChevronDown,
   Cpu,
   Wifi,
-  WifiOff,
+  AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 // ── Model Options ──────────────────────────────────────────────────────────────
+// "ELASTICO Local (Offline Mode)" removed — no local model exists.
 
 const MODEL_OPTIONS = [
   { value: 'pro', label: 'ELASTICO Pro (Best Quality)', icon: Cpu },
   { value: 'fast', label: 'ELASTICO Fast (Low Latency)', icon: Cpu },
-  { value: 'local', label: 'ELASTICO Local (Offline Mode)', icon: WifiOff },
 ] as const
 
 type ModelKey = (typeof MODEL_OPTIONS)[number]['value']
@@ -59,13 +59,11 @@ function parseMarkdown(text: string) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
-    // Close list if we were in one and current line is not a list item
     if (inList && !line.startsWith('- ') && !line.match(/^\d+\.\s/)) {
       elements.push(<ul key={`list-end-${i}`} className="ml-4 mb-2 list-disc space-y-0.5" />)
       inList = false
     }
 
-    // Headers (## style)
     if (line.startsWith('## ')) {
       elements.push(
         <h3 key={i} className="mb-2 mt-3 text-sm font-semibold text-foreground">
@@ -75,7 +73,6 @@ function parseMarkdown(text: string) {
       continue
     }
 
-    // Bold text: **text**
     const renderInline = (str: string) => {
       const parts = str.split(/(\*\*[^*]+\*\*)/g)
       return parts.map((part, j) => {
@@ -90,11 +87,8 @@ function parseMarkdown(text: string) {
       })
     }
 
-    // List items
     if (line.startsWith('- ')) {
-      if (!inList) {
-        inList = true
-      }
+      if (!inList) inList = true
       elements.push(
         <li key={i} className="ml-4 list-disc text-sm text-muted-foreground">
           {renderInline(line.slice(2))}
@@ -103,12 +97,9 @@ function parseMarkdown(text: string) {
       continue
     }
 
-    // Numbered list
     const numMatch = line.match(/^(\d+)\.\s(.*)$/)
     if (numMatch) {
-      if (!inList) {
-        inList = true
-      }
+      if (!inList) inList = true
       elements.push(
         <li key={i} className="ml-4 list-decimal text-sm text-muted-foreground">
           {renderInline(numMatch[2])}
@@ -117,13 +108,11 @@ function parseMarkdown(text: string) {
       continue
     }
 
-    // Empty line
     if (line.trim() === '') {
       elements.push(<div key={i} className="h-2" />)
       continue
     }
 
-    // Regular text
     elements.push(
       <p key={i} className="text-sm leading-relaxed text-muted-foreground">
         {renderInline(line)}
@@ -140,13 +129,14 @@ function parseMarkdown(text: string) {
 
 // ── Chat View Component ───────────────────────────────────────────────────────
 
+type ViewState = 'loading' | 'empty' | 'error' | 'success'
+
 export default function ChatView() {
   const chatMessages = useElasticoStore(s => s.chatMessages)
   const addChatMessage = useElasticoStore(s => s.addChatMessage)
   const updateChatMessage = useElasticoStore(s => s.updateChatMessage)
   const clearChat = useElasticoStore(s => s.clearChat)
   const matches = useElasticoStore(s => s.matches)
-  const user = useElasticoStore(s => s.user)
   const token = useElasticoStore(s => s.token)
 
   const [input, setInput] = useState('')
@@ -154,11 +144,43 @@ export default function ChatView() {
   const [selectedMatchId, setSelectedMatchId] = useState<string>('none')
   const [selectedModel, setSelectedModel] = useState<ModelKey>('pro')
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null)
+  const [isMockMode, setIsMockMode] = useState(false)
+  const [providerName, setProviderName] = useState<string | null>(null)
+  const [initState, setInitState] = useState<ViewState>('loading')
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Auto-scroll to bottom on new message
+  // Check provider status on mount
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ message: '__status_check__', model: 'pro', stream: false }),
+        })
+        const data = await res.json()
+        if (data.model === 'pro') {
+          setIsMockMode(false)
+          setProviderName('NVIDIA NIM (LLaMA 3.1)')
+        } else if (data.model === 'mock-fallback') {
+          setIsMockMode(true)
+          setProviderName(null)
+        } else {
+          setIsMockMode(false)
+          setProviderName(data.model || 'AI Provider')
+        }
+      } catch {
+        setIsMockMode(true)
+        setProviderName(null)
+      } finally {
+        setInitState('success')
+      }
+    }
+    checkStatus()
+  }, [])
+
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -169,12 +191,11 @@ export default function ChatView() {
     scrollToBottom()
   }, [chatMessages, isLoading, scrollToBottom])
 
-  // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
-  // ── Send Message (with streaming support) ─────────────────────────────────
+  // ── Send Message ─────────────────────────────────────────────────────────
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim()
@@ -191,9 +212,6 @@ export default function ChatView() {
     setInput('')
     setIsLoading(true)
 
-    const isLocal = selectedModel === 'local'
-
-    // Create placeholder AI message for streaming
     const aiMsgId = crypto.randomUUID()
     const aiMsg: ChatMessage = {
       id: aiMsgId,
@@ -208,7 +226,7 @@ export default function ChatView() {
       const body: Record<string, unknown> = {
         message: trimmed,
         model: selectedModel,
-        stream: !isLocal, // Only stream for NVIDIA models
+        stream: true,
       }
 
       if (selectedMatchId && selectedMatchId !== 'none') {
@@ -230,8 +248,12 @@ export default function ChatView() {
 
       if (!res.ok) throw new Error('Failed to get response')
 
-      // ── Handle streaming response ─────────────────────────────────────────
-      if (!isLocal && res.headers.get('content-type')?.includes('text/plain')) {
+      // Detect mock-fallback from response
+      if (res.headers.get('x-mock-mode') === 'true') {
+        setIsMockMode(true)
+      }
+
+      if (res.headers.get('content-type')?.includes('text/plain')) {
         const reader = res.body?.getReader()
         if (!reader) throw new Error('No response body')
 
@@ -247,16 +269,11 @@ export default function ChatView() {
           const lines = chunk.split('\n')
 
           for (const line of lines) {
-            // First line is the JSON header with metadata
             if (!headerParsed && line.startsWith('{')) {
               headerParsed = true
               continue
             }
-
-            // Empty line signals end of stream
             if (line.trim() === '') continue
-
-            // Append token to content
             accumulated += line
             updateChatMessage(aiMsgId, { content: accumulated })
           }
@@ -266,8 +283,10 @@ export default function ChatView() {
           updateChatMessage(aiMsgId, { content: 'No response received. Please try again.' })
         }
       } else {
-        // ── Handle JSON response (mock / non-streaming) ─────────────────────
         const data = await res.json()
+        if (data.model === 'mock-fallback') {
+          setIsMockMode(true)
+        }
         updateChatMessage(aiMsgId, { content: data.response || 'Sorry, I could not generate a response.' })
       }
     } catch {
@@ -294,12 +313,9 @@ export default function ChatView() {
 
   const handleExport = useCallback(() => {
     if (chatMessages.length === 0) {
-      toast.info('Nothing to export', {
-        description: 'Chat is empty.',
-      })
+      toast.info('Nothing to export', { description: 'Chat is empty.' })
       return
     }
-
     const text = chatMessages
       .map((msg) => {
         const time = new Date(msg.timestamp).toLocaleTimeString()
@@ -307,29 +323,15 @@ export default function ChatView() {
         return `[${time}] ${role}: ${msg.content}`
       })
       .join('\n\n')
-
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).then(() => {
-        toast.success('Copied to clipboard', {
-          description: 'Chat exported successfully.',
-        })
-      })
-    } else {
-      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
-      toast.success('Copied to clipboard', {
-        description: 'Chat exported successfully.',
-      })
-    }
+    navigator.clipboard?.writeText(text).then(() => {
+      toast.success('Copied to clipboard', { description: 'Chat exported successfully.' })
+    })
   }, [chatMessages])
-
-  // ── Suggestion Click ─────────────────────────────────────────────────────
 
   const handleSuggestionClick = useCallback((prompt: string) => {
     setInput(prompt)
     inputRef.current?.focus()
   }, [])
-
-  // ── Key Down Handler ─────────────────────────────────────────────────────
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -341,19 +343,30 @@ export default function ChatView() {
     [handleSend],
   )
 
-  // ── Format Time ──────────────────────────────────────────────────────────
-
   const formatTime = (ts: number) => {
-    return new Date(ts).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
-  // ── Determine active model info ──────────────────────────────────────────
-
   const activeModel = MODEL_OPTIONS.find((m) => m.value === selectedModel) || MODEL_OPTIONS[0]
-  const isLocal = selectedModel === 'local'
+
+  // ── LOADING STATE ───────────────────────────────────────────────────────
+  if (initState === 'loading') {
+    return (
+      <div className="flex h-full flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-primary/15">
+            <Bot className="size-5 text-primary" />
+          </div>
+          <p className="text-xs text-muted-foreground">Loading AI assistant...</p>
+        </div>
+        <Card className="glass-card-premium card-hover-lift rounded-xl flex flex-1 overflow-hidden">
+          <CardContent className="flex flex-1 items-center justify-center">
+            <Loader2 className="size-6 animate-spin text-primary" />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -365,31 +378,38 @@ export default function ChatView() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-{/* AI Provider Badge */}
+              {/* Dynamic AI Provider Badge */}
               <Badge
                 variant="outline"
-                className="gap-1.5 border-primary/30 bg-primary/5 px-2 py-0 text-[10px] font-medium text-primary"
+                className={cn(
+                  'gap-1.5 px-2 py-0 text-[10px] font-medium',
+                  isMockMode
+                    ? 'border-amber-500/30 bg-amber-500/5 text-amber-400'
+                    : 'border-primary/30 bg-primary/5 text-primary',
+                )}
               >
                 <Cpu className="size-3" />
-                Powered by Multi-Provider AI Gateway
+                {isMockMode
+                  ? 'Template Mode (no AI provider)'
+                  : providerName
+                    ? `Powered by ${providerName}`
+                    : 'Powered by AI Provider'}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              {isLocal ? 'Offline mode — local analysis engine' : 'Real-time LLM football analysis'}
+              {isMockMode
+                ? 'Template-based responses — not from a language model'
+                : 'Real-time LLM football analysis'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Model Selector */}
+          {/* Model Selector — no "Local" option */}
           <Select value={selectedModel} onValueChange={(v) => setSelectedModel(v as ModelKey)}>
-            <SelectTrigger className="h-9 w-[230px] text-xs glass-card border-border">
+            <SelectTrigger className="h-9 w-[210px] text-xs glass-card border-border">
               <div className="flex items-center gap-1.5 truncate">
-                {isLocal ? (
-                  <WifiOff className="size-3 shrink-0 text-muted-foreground" />
-                ) : (
-                  <Wifi className="size-3 shrink-0 text-primary" />
-                )}
+                <Wifi className="size-3 shrink-0 text-primary" />
                 <SelectValue placeholder="Select AI model" />
               </div>
             </SelectTrigger>
@@ -397,7 +417,7 @@ export default function ChatView() {
               {MODEL_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   <div className="flex items-center gap-2">
-                    <opt.icon className={cn('size-3.5', isLocal ? 'text-muted-foreground' : 'text-primary')} />
+                    <opt.icon className="size-3.5 text-primary" />
                     <span>{opt.label}</span>
                   </div>
                 </SelectItem>
@@ -442,6 +462,20 @@ export default function ChatView() {
           </Button>
         </div>
       </div>
+
+      {/* ── Mock-fallback Banner ──────────────────────────────────────────── */}
+      {isMockMode && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" />
+          <div>
+            <p className="text-xs font-medium text-amber-400">AI provider not configured</p>
+            <p className="text-[11px] leading-relaxed text-muted-foreground mt-0.5">
+              Responses are template-based, not from a language model. Configure an AI provider
+              in <span className="font-medium text-foreground">Settings → AI & NVIDIA Integration</span> for real analysis.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Chat Messages Area ──────────────────────────────────────────────── */}
       <Card className="glass-card flex flex-1 overflow-hidden border-border">
@@ -496,7 +530,6 @@ export default function ChatView() {
                   msg.role === 'user' ? 'flex-row-reverse' : 'flex-row',
                 )}
               >
-                {/* Avatar */}
                 <div
                   className={cn(
                     'flex size-8 shrink-0 items-center justify-center rounded-full',
@@ -505,14 +538,9 @@ export default function ChatView() {
                       : 'bg-secondary text-primary',
                   )}
                 >
-                  {msg.role === 'user' ? (
-                    <User className="size-4" />
-                  ) : (
-                    <Bot className="size-4" />
-                  )}
+                  {msg.role === 'user' ? <User className="size-4" /> : <Bot className="size-4" />}
                 </div>
 
-                {/* Message Bubble */}
                 <div
                   className={cn(
                     'max-w-[80%] rounded-2xl px-4 py-3',
@@ -521,7 +549,6 @@ export default function ChatView() {
                       : 'bg-secondary text-secondary-foreground rounded-bl-md',
                   )}
                 >
-                  {/* Content */}
                   <div className="space-y-1">
                     {msg.role === 'assistant' ? (
                       msg.content ? (
@@ -538,7 +565,6 @@ export default function ChatView() {
                     )}
                   </div>
 
-                  {/* Timestamp */}
                   {msg.content && (
                     <p
                       className={cn(

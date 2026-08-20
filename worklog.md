@@ -217,3 +217,34 @@ Stage Summary:
 - Truth Map (categories A-I) present in audit MD lines 1156-1319
 - All deliverables at /home/z/my-project/download/phase6_product_truth_audit.md and phase6_product_truth_matrix.json
 - **AUDIT GATE COMPLETE** — ready for BUILD PHASE per 28-section directive
+
+---
+Task ID: build-phase-1
+Agent: Main (3 parallel fullstack-dev subagents)
+Task: Phase 6 BUILD — Truthful rebuild of 7 ELASTICO views + page.tsx cleanup
+
+Work Log:
+- Fixed DB config: PostgreSQL → SQLite for dev environment (both root and elastico-work schemas)
+- Created .env with DATABASE_URL=file:/home/z/my-project/db/custom.db
+- Deployed 3 parallel build agents to rewrite views simultaneously:
+  - Agent 1: dashboard-view.tsx (709→629 lines) — removed 11 fabricated widgets, kept 3 real + 1 nav prompt
+  - Agent 2: matches-view.tsx (505→585 lines) — removed fake xG/probabilities/attendance/filters/sorts
+  - Agent 3: predictions-view.tsx (434→895 lines) — removed MOCK_MODEL_COMPARISON, MOCK_CALENDAR, fixed confidence, added user score input, added GET endpoint
+  - Agent 3b: compare-view.tsx — removed 13 fabrications (H2H mock, random squad, fake charts, template summary)
+  - Agent 3c: chat-view.tsx — added mock-fallback detection banner, removed fake Local model option
+  - Agent 3d: news-view.tsx — removed fake Related Teams, dead reaction buttons
+  - Agent 3e: settings-view.tsx — corrected 6-model claim to honest 3-model description
+- Fixed page.tsx footer: removed GARCH/Kelly/Merton J-D claims, corrected data sources
+- Fixed page.tsx: removed hardcoded cron secret from sync call, gated on isAuthenticated
+- Verified: TypeScript compilation passes (tsc --noEmit)
+- Verified: Next.js dev server compiles successfully, serves 48,950 bytes HTML with 200 status
+- Verified: Login page renders correctly (unauthenticated state)
+- Agent-browser verification: not possible due to network sandboxing (connection refused on localhost), but curl confirms server works
+
+Stage Summary:
+- 7 view files rewritten with zero fabricated data
+- 63 fabrication points from audit addressed
+- 4 states (LOADING/EMPTY/ERROR/SUCCESS) added to all rewritten views
+- Footer and page.tsx cleaned of false model claims
+- Server compiles and serves correctly
+- Known limitation: agent-browser cannot reach localhost in this sandbox environment

@@ -17,9 +17,6 @@ import {
 import {
   Search,
   Newspaper,
-  Flame,
-  ThumbsUp,
-  Brain,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -28,10 +25,11 @@ import {
   ChevronDown,
   Zap,
   RefreshCw,
+  AlertCircle,
+  Loader2,
+  Inbox,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
-import { DataState } from '@/components/elastico/primitives'
 
 // ── Categories ────────────────────────────────────────────────────────────────
 
@@ -101,24 +99,9 @@ function getRelativeTime(dateStr: string | null): string {
   })
 }
 
-// ── Parse Reactions ───────────────────────────────────────────────────────────
+// ── View States ───────────────────────────────────────────────────────────────
 
-function parseReactions(reactionsStr: string): {
-  like: number
-  fire: number
-  think: number
-} {
-  try {
-    const parsed = JSON.parse(reactionsStr)
-    return {
-      like: parsed.like || 0,
-      fire: parsed.fire || 0,
-      think: parsed.think || 0,
-    }
-  } catch {
-    return { like: 0, fire: 0, think: 0 }
-  }
-}
+type ViewState = 'loading' | 'empty' | 'error' | 'success'
 
 // ── News View Component ───────────────────────────────────────────────────────
 
@@ -126,19 +109,23 @@ export default function NewsView() {
   const setNews = useElasticoStore(s => s.setNews)
 
   const [newsItems, setNewsItems] = useState<NewsItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [fetchError, setFetchError] = useState(false)
+  const [viewState, setViewState] = useState<ViewState>('loading')
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null)
+  const [isAppending, setIsAppending] = useState(false)
 
   // ── Fetch News ───────────────────────────────────────────────────────────
 
   const fetchNews = useCallback(
     async (pageNum: number, reset = false) => {
-      setIsLoading(true)
+      if (reset) {
+        setViewState('loading')
+      } else {
+        setIsAppending(true)
+      }
       try {
         const params = new URLSearchParams({ page: String(pageNum), limit: '12' })
         if (activeCategory) params.set('category', activeCategory)
@@ -152,6 +139,7 @@ export default function NewsView() {
 
         if (reset) {
           setNewsItems(items)
+          setViewState(items.length === 0 ? 'empty' : 'success')
         } else {
           setNewsItems((prev) => [...prev, ...items])
         }
@@ -159,9 +147,9 @@ export default function NewsView() {
         setTotalPages(data.pagination?.totalPages || 1)
         setPage(pageNum)
       } catch {
-        setFetchError(true)
+        if (reset) setViewState('error')
       } finally {
-        setIsLoading(false)
+        setIsAppending(false)
       }
     },
     [activeCategory, search, setNews],
@@ -171,17 +159,18 @@ export default function NewsView() {
   useEffect(() => {
     const params = new URLSearchParams({ page: '1', limit: '12' })
     if (activeCategory) params.set('category', activeCategory)
-    setIsLoading(true)
+    setViewState('loading')
     fetch(`/api/news?${params}`)
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data) => {
-        setNewsItems(data.news || [])
+        const items = data.news || []
+        setNewsItems(items)
         setTotalPages(data.pagination?.totalPages || 1)
         setPage(1)
+        setViewState(items.length === 0 ? 'empty' : 'success')
         if (data.news) setNews(data.news)
       })
-      .catch(() => { setFetchError(true) })
-      .finally(() => setIsLoading(false))
+      .catch(() => { setViewState('error') })
   }, [activeCategory, setNews])
 
   // Debounced search
@@ -190,17 +179,18 @@ export default function NewsView() {
       const params = new URLSearchParams({ page: '1', limit: '12' })
       if (activeCategory) params.set('category', activeCategory)
       if (search.trim()) params.set('search', search.trim())
-      setIsLoading(true)
+      setViewState('loading')
       fetch(`/api/news?${params}`)
         .then((res) => (res.ok ? res.json() : Promise.reject()))
         .then((data) => {
-          setNewsItems(data.news || [])
+          const items = data.news || []
+          setNewsItems(items)
           setTotalPages(data.pagination?.totalPages || 1)
           setPage(1)
+          setViewState(items.length === 0 ? 'empty' : 'success')
           if (data.news) setNews(data.news)
         })
-        .catch(() => { setFetchError(true) })
-        .finally(() => setIsLoading(false))
+        .catch(() => { setViewState('error') })
     }, 400)
     return () => clearTimeout(timer)
   }, [search, activeCategory, setNews])
@@ -211,13 +201,13 @@ export default function NewsView() {
     fetchNews(page + 1, false)
   }, [fetchNews, page])
 
-  // ── Category Click ───────────────────────────────────────────────────────
-
   const handleCategoryClick = useCallback((value: string) => {
     setActiveCategory(value)
   }, [])
 
-  // ── Format Date ──────────────────────────────────────────────────────────
+  const handleRefresh = useCallback(() => {
+    fetchNews(1, true)
+  }, [fetchNews])
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Unknown date'
@@ -238,27 +228,31 @@ export default function NewsView() {
           <div className="flex size-10 items-center justify-center rounded-lg bg-primary/15">
             <Newspaper className="size-5 text-primary" />
           </div>
-          <div>
-<p className="text-xs text-muted-foreground">
-              Latest football news and analysis
-            </p>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Latest football news and analysis
+          </p>
         </div>
       </div>
 
       {/* ── Search Bar ──────────────────────────────────────────────────────── */}
       <div className="flex gap-2">
         <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search news..."
-          className="h-10 pl-10 glass-card border-border bg-secondary/30 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-primary/30"
-        />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search news..."
+            className="h-10 pl-10 glass-card border-border bg-secondary/30 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-primary/30"
+          />
         </div>
-        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 border-border bg-secondary/50 hover:bg-accent" onClick={() => { setFetchError(false); fetchNews(1, true) }} disabled={isLoading}>
-          <RefreshCw className={cn('size-4', isLoading && 'animate-spin')} />
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 shrink-0 border-border bg-secondary/50 hover:bg-accent"
+          onClick={handleRefresh}
+          disabled={viewState === 'loading'}
+        >
+          <RefreshCw className={cn('size-4', viewState === 'loading' && 'animate-spin')} />
         </Button>
       </div>
 
@@ -280,16 +274,13 @@ export default function NewsView() {
         ))}
       </div>
 
-      {/* ── News Grid ───────────────────────────────────────────────────────── */}
+      {/* ── News Content ──────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
-        {isLoading && newsItems.length === 0 ? (
-          // Loading Skeletons
+        {/* LOADING STATE */}
+        {viewState === 'loading' && newsItems.length === 0 && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Card
-                key={i}
-                className="glass-card border-border overflow-hidden"
-              >
+              <Card key={i} className="glass-card-premium card-hover-lift rounded-xl border-border overflow-hidden">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Skeleton className="h-5 w-16 rounded-full" />
@@ -305,13 +296,30 @@ export default function NewsView() {
               </Card>
             ))}
           </div>
-        ) : fetchError && newsItems.length === 0 ? (
-          <DataState type="error" message="Failed to load news. Check your connection and try again." />
-        ) : newsItems.length === 0 ? (
-          // Empty State
-          <div className="flex flex-col items-center justify-center gap-4 py-16">
-            <div className="flex size-16 items-center justify-center rounded-2xl bg-secondary">
-              <Newspaper className="size-8 text-muted-foreground" />
+        )}
+
+        {/* ERROR STATE */}
+        {viewState === 'error' && newsItems.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <div className="size-16 rounded-full bg-red-500/10 flex items-center justify-center">
+              <AlertCircle className="size-8 text-red-400" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-sm font-medium text-foreground">Failed to load news</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Check your connection and try again.</p>
+            </div>
+            <Button variant="outline" size="sm" className="mt-2 border-border text-xs" onClick={handleRefresh}>
+              <RefreshCw className="size-3 mr-1.5" />
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {/* EMPTY STATE */}
+        {viewState === 'empty' && newsItems.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <div className="size-16 rounded-full bg-secondary flex items-center justify-center">
+              <Inbox className="size-8 text-muted-foreground" />
             </div>
             <div className="text-center">
               <h3 className="text-sm font-medium text-foreground">No news found</h3>
@@ -320,12 +328,13 @@ export default function NewsView() {
               </p>
             </div>
           </div>
-        ) : (
+        )}
+
+        {/* SUCCESS STATE */}
+        {(viewState === 'success' || newsItems.length > 0) && (
           <>
-            {/* Masonry-like Grid */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {newsItems.map((item, index) => {
-                const reactions = parseReactions(item.reactions)
+              {newsItems.map((item) => {
                 const sentiment = sentimentConfig[item.sentiment || 'neutral']
                 const SentimentIcon = sentiment.icon
 
@@ -334,7 +343,7 @@ export default function NewsView() {
                     key={item.id}
                     onClick={() => setSelectedNews(item)}
                     className={cn(
-                      'glass-card glass-card-hover cursor-pointer overflow-hidden transition-all duration-200',
+                      'glass-card-premium card-hover-lift rounded-xl cursor-pointer overflow-hidden transition-all duration-200',
                       item.isBreaking && 'border-red-500/50 border-2',
                     )}
                   >
@@ -345,12 +354,10 @@ export default function NewsView() {
                           variant="outline"
                           className={cn(
                             'h-5 rounded-md px-2 text-[10px] font-semibold',
-                            categoryBadgeConfig[item.category] ||
-                              categoryBadgeConfig.general,
+                            categoryBadgeConfig[item.category] || categoryBadgeConfig.general,
                           )}
                         >
-                          {item.category.charAt(0).toUpperCase() +
-                            item.category.slice(1)}
+                          {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
                         </Badge>
 
                         {item.isBreaking && (
@@ -388,7 +395,7 @@ export default function NewsView() {
                         </p>
                       )}
 
-                      {/* Bottom Row: Source, Time, Reactions */}
+                      {/* Bottom Row: Source, Time */}
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                           {item.source && (
@@ -401,28 +408,6 @@ export default function NewsView() {
                             <Clock className="size-3" />
                             {getRelativeTime(item.publishedAt)}
                           </span>
-                        </div>
-
-                        {/* Reaction Counts */}
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                          {reactions.like > 0 && (
-                            <span className="flex items-center gap-0.5">
-                              <ThumbsUp className="size-3" />
-                              {reactions.like}
-                            </span>
-                          )}
-                          {reactions.fire > 0 && (
-                            <span className="flex items-center gap-0.5">
-                              <Flame className="size-3" />
-                              {reactions.fire}
-                            </span>
-                          )}
-                          {reactions.think > 0 && (
-                            <span className="flex items-center gap-0.5">
-                              <Brain className="size-3" />
-                              {reactions.think}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -437,12 +422,12 @@ export default function NewsView() {
                 <Button
                   variant="outline"
                   onClick={handleLoadMore}
-                  disabled={isLoading}
+                  disabled={isAppending}
                   className="glass-card border-border text-sm text-muted-foreground hover:text-foreground"
                 >
-                  {isLoading ? (
+                  {isAppending ? (
                     <span className="flex items-center gap-2">
-                      <span className="size-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+                      <Loader2 className="size-4 animate-spin" />
                       Loading...
                     </span>
                   ) : (
@@ -472,12 +457,10 @@ export default function NewsView() {
                     variant="outline"
                     className={cn(
                       'h-5 rounded-md px-2 text-[10px] font-semibold',
-                      categoryBadgeConfig[selectedNews.category] ||
-                        categoryBadgeConfig.general,
+                      categoryBadgeConfig[selectedNews.category] || categoryBadgeConfig.general,
                     )}
                   >
-                    {selectedNews.category.charAt(0).toUpperCase() +
-                      selectedNews.category.slice(1)}
+                    {selectedNews.category.charAt(0).toUpperCase() + selectedNews.category.slice(1)}
                   </Badge>
 
                   {selectedNews.isBreaking && (
@@ -537,90 +520,6 @@ export default function NewsView() {
                     {selectedNews.content}
                   </div>
                 )}
-
-                {/* Related Teams — extracted from news content when available */}
-                {selectedNews.content && (() => {
-                  const content = selectedNews.title + ' ' + (selectedNews.content || '') + ' ' + (selectedNews.summary || '')
-                  const teamPatterns = content.match(/[A-Z][a-z]+\s+(?:FC|United|City|Town|County|Rovers|Athletic|Wanderers|Albion|Hotspur|Forest|Palace|Villa|Ham|Wolves|Burnley|Boro)|[A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/g)
-                  const teams = teamPatterns ? [...new Set(teamPatterns)].slice(0, 4) : []
-                  if (teams.length === 0) return null
-                  return (
-                    <div className="pt-3 border-t border-border/50">
-                      <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Related Teams
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {teams.map((team) => (
-                          <Badge
-                            key={team}
-                            variant="outline"
-                            className="rounded-md border-primary/30 text-primary text-xs"
-                          >
-                            {team}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                {/* Reaction Buttons */}
-                <div className="flex items-center gap-3 pt-3 border-t border-border/50">
-                  <span className="text-xs text-muted-foreground mr-1">
-                    Reactions:
-                  </span>
-                  {[
-                    {
-                      icon: ThumbsUp,
-                      label: 'Like',
-                      type: 'like' as const,
-                      count: parseReactions(selectedNews.reactions).like,
-                    },
-                    {
-                      icon: Flame,
-                      label: 'Fire',
-                      type: 'fire' as const,
-                      count: parseReactions(selectedNews.reactions).fire,
-                    },
-                    {
-                      icon: Brain,
-                      label: 'Think',
-                      type: 'think' as const,
-                      count: parseReactions(selectedNews.reactions).think,
-                    },
-                  ].map((reaction) => (
-                    <button
-                      key={reaction.label}
-                      onClick={async () => {
-                        // Optimistic update
-                        const currentReactions = parseReactions(selectedNews.reactions)
-                        const updatedReactions = { ...currentReactions, [reaction.type]: currentReactions[reaction.type] + 1 }
-                        setSelectedNews({ ...selectedNews, reactions: JSON.stringify(updatedReactions) })
-                        try {
-                          const res = await fetch(`/api/news/${selectedNews.id}/react`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ type: reaction.type }),
-                          })
-                          if (!res.ok) throw new Error('Failed')
-                        } catch {
-                          // Revert optimistic update
-                          setSelectedNews({ ...selectedNews, reactions: JSON.stringify(currentReactions) })
-                          toast.info('Coming soon', { description: 'Reactions will be available soon!' })
-                        }
-                      }}
-                      className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
-                    >
-                      <reaction.icon className="size-3.5" />
-                      {reaction.label}
-                      {reaction.count > 0 && (
-                        <span className="font-semibold text-foreground">
-                          {reaction.count}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
               </div>
             </>
           )}

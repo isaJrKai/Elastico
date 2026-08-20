@@ -1,0 +1,500 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useMemo } from 'react'
+     4→     4→import { motion } from 'framer-motion'
+     5→     5→import {
+     6→     6→  GitCompareArrows,
+     7→     7→  Trophy,
+     8→     8→  TrendingUp,
+     9→     9→  Users,
+    10→    10→  Shield,
+    11→    11→  Swords,
+    12→    12→  Gauge,
+    13→    13→  BarChart3,
+    14→    14→  Brain,
+    15→    15→  ArrowRight,
+    16→    16→} from 'lucide-react'
+    17→    17→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    18→    18→import { Badge } from '@/components/ui/badge'
+    19→    19→import { Progress } from '@/components/ui/progress'
+    20→    20→import {
+    21→    21→  Select,
+    22→    22→  SelectContent,
+    23→    23→  SelectItem,
+    24→    24→  SelectTrigger,
+    25→    25→  SelectValue,
+    26→    26→} from '@/components/ui/select'
+    27→    27→import {
+    28→    28→  LineChart,
+    29→    29→  Line,
+    30→    30→  XAxis,
+    31→    31→  YAxis,
+    32→    32→  CartesianGrid,
+    33→    33→  Tooltip,
+    34→    34→  ResponsiveContainer,
+    35→    35→  BarChart,
+    36→    36→  Bar,
+    37→    37→  Legend,
+    38→    38→} from 'recharts'
+    39→    39→import { useElasticoStore, type Team } from '@/store/use-elastico-store'
+    40→    40→import { cn } from '@/lib/utils'
+    41→    41→import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, legendProps, chartColor } from '@/lib/chart-theme'
+    42→    42→import { TeamCrest } from '@/components/elastico/primitives/team-crest'
+    43→    43→import { StatusBadge } from '@/components/elastico/primitives/status-badge'
+    44→    44→import { SectionHeader } from '@/components/elastico/primitives/section-header'
+    45→    45→
+    46→    46→// ── Helpers ────────────────────────────────────────────────────────────────────
+    47→    47→
+    48→    48→function getEloProb(eloA: number, eloB: number) {
+    49→    49→  const eA = 1 / (1 + Math.pow(10, (eloB - eloA) / 400))
+    50→    50→  return { home: +(eA * 100).toFixed(1), away: +((1 - eA) * 100).toFixed(1), draw: +(Math.min(eA, 1 - eA) * 30).toFixed(1) }
+    51→    51→}
+    52→    52→
+    53→    53→// ── Component ──────────────────────────────────────────────────────────────────
+    54→    54→
+    55→    55→export function CompareView() {
+    56→    56→  const teams = useElasticoStore(s => s.teams)
+    57→    57→  const [homeTeamId, setHomeTeamId] = useState<string>('')
+    58→    58→  const [awayTeamId, setAwayTeamId] = useState<string>('')
+    59→    59→
+    60→    60→  const homeTeam = useMemo(() => teams.find(t => t.id === homeTeamId), [teams, homeTeamId])
+    61→    61→  const awayTeam = useMemo(() => teams.find(t => t.id === awayTeamId), [teams, awayTeamId])
+    62→    62→
+    63→    63→  // Head-to-head — requires match history between the two teams
+    64→    64→  const h2h: { date: string; homeGoals: number; awayGoals: number; result: string }[] = []
+    65→    65→
+    66→    66→  const h2hRecord = useMemo(() => {
+    67→    67→    const home = h2h.filter(m => m.result === 'H').length
+    68→    68→    const draws = h2h.filter(m => m.result === 'D').length
+    69→    69→    const away = h2h.filter(m => m.result === 'A').length
+    70→    70→    return { home, draws, away }
+    71→    71→  }, [h2h])
+    72→    72→
+    73→    73→  // Win probability
+    74→    74→  const winProb = useMemo(() => {
+    75→    75→    if (!homeTeam || !awayTeam) return { home: 50, draw: 25, away: 25 }
+    76→    76→    return getEloProb(homeTeam.eloRating, awayTeam.eloRating)
+    77→    77→  }, [homeTeam, awayTeam])
+    78→    78→
+    79→    79→  // ELO history — requires historical ELO data from API
+    80→    80→  const eloHistory: { month: string; home: number; away: number }[] = []
+    81→    81→
+    82→    82→  // Form badges
+    83→    83→  const homeForm = homeTeam?.form ? JSON.parse(homeTeam.form) as string[] : []
+    84→    84→  const awayForm = awayTeam?.form ? JSON.parse(awayTeam.form) as string[] : []
+    85→    85→
+    86→    86→  // Scoring trends — requires match-by-match data from API
+    87→    87→  const scoringTrends: { match: string; homeScored: number; homeConceded: number; awayScored: number; awayConceded: number }[] = []
+    88→    88→
+    89→    89→  // Stat comparisons
+    90→    90→  const statComparisons = useMemo(() => {
+    91→    91→    if (!homeTeam || !awayTeam) return []
+    92→    92→    return [
+    93→    93→      { label: 'ELO Rating', home: homeTeam.eloRating ?? 1500, away: awayTeam.eloRating ?? 1500, higher: 'higher' },
+    94→    94→      { label: 'xG per Game', home: homeTeam.xgPerGame ?? 0, away: awayTeam.xgPerGame ?? 0, higher: 'higher' },
+    95→    95→      { label: 'xGA per Game', home: homeTeam.xgaPerGame ?? 0, away: awayTeam.xgaPerGame ?? 0, higher: 'lower' },
+    96→    96→      { label: 'Possession %', home: homeTeam.possession ?? 50, away: awayTeam.possession ?? 50, higher: 'higher' },
+    97→    97→      { label: 'Pass Accuracy %', home: homeTeam.passAccuracy ?? 0, away: awayTeam.passAccuracy ?? 0, higher: 'higher' },
+    98→    98→      { label: 'Press Intensity', home: homeTeam.pressIntensity ?? 0, away: awayTeam.pressIntensity ?? 0, higher: 'higher' },
+    99→    99→      { label: 'Goals For', home: homeTeam.goalsFor ?? 0, away: awayTeam.goalsFor ?? 0, higher: 'higher' },
+   100→   100→      { label: 'Goals Against', home: homeTeam.goalsAgainst ?? 0, away: awayTeam.goalsAgainst ?? 0, higher: 'lower' },
+   101→   101→      { label: 'Wins', home: homeTeam.wins, away: awayTeam.wins, higher: 'higher' },
+   102→   102→      { label: 'Draws', home: homeTeam.draws, away: awayTeam.draws, higher: 'neutral' },
+   103→   103→      { label: 'Losses', home: homeTeam.losses, away: awayTeam.losses, higher: 'lower' },
+   104→   104→      { label: 'GD', home: homeTeam.goalsFor - homeTeam.goalsAgainst, away: awayTeam.goalsFor - awayTeam.goalsAgainst, higher: 'higher' },
+   105→   105→      { label: 'Avg Goals/Game', home: +(homeTeam.goalsFor / Math.max(1, homeTeam.wins + homeTeam.draws + homeTeam.losses)).toFixed(2), away: +(awayTeam.goalsFor / Math.max(1, awayTeam.wins + awayTeam.draws + awayTeam.losses)).toFixed(2), higher: 'higher' },
+   106→   106→      { label: 'Win Rate %', home: homeTeam.wins + homeTeam.draws + homeTeam.losses > 0 ? (homeTeam.wins / (homeTeam.wins + homeTeam.draws + homeTeam.losses)) * 100 : 0, away: awayTeam.wins + awayTeam.draws + awayTeam.losses > 0 ? (awayTeam.wins / (awayTeam.wins + awayTeam.draws + awayTeam.losses)) * 100 : 0, higher: 'higher' },
+   107→   107→    ]
+   108→   108→  }, [homeTeam, awayTeam])
+   109→   109→
+   110→   110→  // Style matchup — derived from real team data
+   111→   111→  const styleMatchup = useMemo(() => {
+   112→   112→    if (!homeTeam || !awayTeam) return []
+   113→   113→    return [
+   114→   114→      { label: 'Attacking vs Defensive', home: homeTeam.style || 'balanced', away: awayTeam.style || 'balanced', icon: Swords },
+   115→   115→      { label: 'High Press vs Low Block', home: (homeTeam.pressIntensity ?? 0) > 60 ? 'High Press' : 'Standard', away: (awayTeam.pressIntensity ?? 0) > 60 ? 'High Press' : 'Standard', icon: Shield },
+   116→   116→      { label: 'Possession vs Direct', home: (homeTeam.possession ?? 50) > 55 ? 'Possession' : 'Direct', away: (awayTeam.possession ?? 50) > 55 ? 'Possession' : 'Direct', icon: BarChart3 },
+   117→   117→    ]
+   118→   118→  }, [homeTeam, awayTeam])
+   119→   119→
+   120→   120→  // Tactical edge
+   121→   121→  const tacticalEdge = useMemo(() => {
+   122→   122→    if (!homeTeam || !awayTeam) return []
+   123→   123→    const hXg = homeTeam.xgPerGame ?? 0, aXg = awayTeam.xgPerGame ?? 0
+   124→   124→    const hPoss = homeTeam.possession ?? 50, aPoss = awayTeam.possession ?? 50
+   125→   125→    const hXga = homeTeam.xgaPerGame ?? 0, aXga = awayTeam.xgaPerGame ?? 0
+   126→   126→    const hPress = homeTeam.pressIntensity ?? 0, aPress = awayTeam.pressIntensity ?? 0
+   127→   127→    const hPass = homeTeam.passAccuracy ?? 0, aPass = awayTeam.passAccuracy ?? 0
+   128→   128→    return [
+   129→   129→      { phase: 'Attack', home: hXg > aXg, margin: Math.abs(hXg - aXg).toFixed(2) },
+   130→   130→      { phase: 'Midfield Control', home: hPoss > aPoss, margin: Math.abs(hPoss - aPoss).toFixed(0) },
+   131→   131→      { phase: 'Defensive Solidity', home: hXga < aXga, margin: Math.abs(hXga - aXga).toFixed(2) },
+   132→   132→      { phase: 'Pressing', home: hPress > aPress, margin: Math.abs(hPress - aPress).toFixed(0) },
+   133→   133→      { phase: 'Passing', home: hPass > aPass, margin: Math.abs(hPass - aPass).toFixed(0) },
+   134→   134→    ]
+   135→   135→  }, [homeTeam, awayTeam])
+   136→   136→
+   137→   137→  const getFormBadge = (r: string) => {
+   138→   138→    if (r === 'W' || r === 'D' || r === 'L') return <StatusBadge variant="form" value={r} />
+   139→   139→    return <StatusBadge variant="custom" value="-" />
+   140→   140→  }
+   141→   141→
+   142→   142→  return (
+   143→   143→    <motion.div
+   144→   144→      initial={{ opacity: 0, y: 20 }}
+   145→   145→      animate={{ opacity: 1, y: 0 }}
+   146→   146→      className="space-y-6"
+   147→   147→    >
+   148→   148→      {/* Header */}
+   149→   149→      <div>
+   150→   150→        <p className="text-muted-foreground text-sm">Compare two teams across all metrics</p>
+   151→   151→      </div>
+   152→   152→
+   153→   153→      {/* Team Selectors */}
+   154→   154→      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+   155→   155→        <div>
+   156→   156→          <label className="text-xs text-muted-foreground mb-1 block">Home Team</label>
+   157→   157→          <Select value={homeTeamId} onValueChange={setHomeTeamId}>
+   158→   158→            <SelectTrigger>
+   159→   159→              <SelectValue placeholder="Select team..." />
+   160→   160→            </SelectTrigger>
+   161→   161→            <SelectContent>
+   162→   162→              {teams.filter(t => t.id !== awayTeamId).map(t => (
+   163→   163→                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+   164→   164→              ))}
+   165→   165→            </SelectContent>
+   166→   166→          </Select>
+   167→   167→        </div>
+   168→   168→        <div className="flex items-center justify-center">
+   169→   169→          <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+   170→   170→            <Swords className="size-5 text-primary" />
+   171→   171→          </div>
+   172→   172→        </div>
+   173→   173→        <div>
+   174→   174→          <label className="text-xs text-muted-foreground mb-1 block">Away Team</label>
+   175→   175→          <Select value={awayTeamId} onValueChange={setAwayTeamId}>
+   176→   176→            <SelectTrigger>
+   177→   177→              <SelectValue placeholder="Select team..." />
+   178→   178→            </SelectTrigger>
+   179→   179→            <SelectContent>
+   180→   180→              {teams.filter(t => t.id !== homeTeamId).map(t => (
+   181→   181→                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+   182→   182→              ))}
+   183→   183→            </SelectContent>
+   184→   184→          </Select>
+   185→   185→        </div>
+   186→   186→      </div>
+   187→   187→
+   188→   188→      {!homeTeam || !awayTeam ? (
+   189→   189→        <Card className="glass-card">
+   190→   190→          <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+   191→   191→            <GitCompareArrows className="size-12 mb-4 opacity-30" />
+   192→   192→            <p className="text-sm">Select two teams above to start comparing</p>
+   193→   193→          </CardContent>
+   194→   194→        </Card>
+   195→   195→      ) : (
+   196→   196→        <div className="space-y-4">
+   197→   197→          {/* Form & Win Probability Row */}
+   198→   198→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   199→   199→            {/* Form Comparison */}
+   200→   200→            <Card className="glass-card">
+   201→   201→              <CardHeader className="pb-2">
+   202→   202→                <CardTitle className="text-sm font-medium flex items-center gap-2">
+   203→   203→                  <TrendingUp className="size-4 text-primary" /> Recent Form
+   204→   204→                </CardTitle>
+   205→   205→              </CardHeader>
+   206→   206→              <CardContent className="space-y-4">
+   207→   207→                <div className="flex items-center justify-between">
+   208→   208→                  <span className="text-sm font-medium text-primary">{homeTeam.name}</span>
+   209→   209→                  <div className="flex gap-1">{homeForm.slice(0, 5).map((r, i) => <span key={i}>{getFormBadge(r)}</span>)}</div>
+   210→   210→                </div>
+   211→   211→                <div className="flex items-center justify-between">
+   212→   212→                  <span className="text-sm font-medium text-orange-400">{awayTeam.name}</span>
+   213→   213→                  <div className="flex gap-1">{awayForm.slice(0, 5).map((r, i) => <span key={i}>{getFormBadge(r)}</span>)}</div>
+   214→   214→                </div>
+   215→   215→                <div className="pt-2 border-t border-border/50 text-center">
+   216→   216→                  <span className="text-xs text-muted-foreground">Last 5 matches — W=Win D=Draw L=Loss</span>
+   217→   217→                </div>
+   218→   218→              </CardContent>
+   219→   219→            </Card>
+   220→   220→
+   221→   221→            {/* Win Probability */}
+   222→   222→            <Card className="glass-card">
+   223→   223→              <CardHeader className="pb-2">
+   224→   224→                <CardTitle className="text-sm font-medium flex items-center gap-2">
+   225→   225→                  <Gauge className="size-4 text-primary" /> Win Probability (ELO-based)
+   226→   226→                </CardTitle>
+   227→   227→              </CardHeader>
+   228→   228→              <CardContent className="space-y-4">
+   229→   229→                <div className="space-y-2">
+   230→   230→                  <div className="flex justify-between text-sm">
+   231→   231→                    <span className="text-primary font-medium">{homeTeam.name}</span>
+   232→   232→                    <div className="flex items-center gap-1">
+   233→   233→                      <span className="font-bold text-primary">{winProb.home}%</span>
+   234→   234→                      <StatusBadge variant="dataclass" value="DERIVED" />
+   235→   235→                    </div>
+   236→   236→                  </div>
+   237→   237→                  <Progress value={winProb.home} className="h-3" />
+   238→   238→                </div>
+   239→   239→                <div className="space-y-2">
+   240→   240→                  <div className="flex justify-between text-sm">
+   241→   241→                    <span className="text-muted-foreground">Draw</span>
+   242→   242→                    <div className="flex items-center gap-1">
+   243→   243→                      <span className="font-bold">{winProb.draw}%</span>
+   244→   244→                      <StatusBadge variant="dataclass" value="DERIVED" />
+   245→   245→                    </div>
+   246→   246→                  </div>
+   247→   247→                  <Progress value={winProb.draw} className="h-3" />
+   248→   248→                </div>
+   249→   249→                <div className="space-y-2">
+   250→   250→                  <div className="flex justify-between text-sm">
+   251→   251→                    <span className="text-orange-400 font-medium">{awayTeam.name}</span>
+   252→   252→                    <div className="flex items-center gap-1">
+   253→   253→                      <span className="font-bold text-orange-400">{winProb.away}%</span>
+   254→   254→                      <StatusBadge variant="dataclass" value="DERIVED" />
+   255→   255→                    </div>
+   256→   256→                  </div>
+   257→   257→                  <Progress value={winProb.away} className="h-3" />
+   258→   258→                </div>
+   259→   259→                <div className="text-center pt-2 border-t border-border/50">
+   260→   260→                  <Badge variant="outline" className="text-xs">
+   261→   261→                    {winProb.home > winProb.away ? homeTeam.name : awayTeam.name} favored by {Math.abs(winProb.home - winProb.away).toFixed(1)}%
+   262→   262→                  </Badge>
+   263→   263→                </div>
+   264→   264→              </CardContent>
+   265→   265→            </Card>
+   266→   266→          </div>
+   267→   267→
+   268→   268→          {/* Stat Comparison Bars */}
+   269→   269→          <Card className="glass-card">
+   270→   270→            <CardHeader className="pb-2">
+   271→   271→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   272→   272→                <BarChart3 className="size-4 text-primary" /> Full Stat Comparison
+   273→   273→              </CardTitle>
+   274→   274→            </CardHeader>
+   275→   275→            <CardContent className="max-h-[500px] overflow-y-auto pr-1">
+   276→   276→              <div className="space-y-2.5">
+   277→   277→                {statComparisons.map((stat) => {
+   278→   278→                  const total = Math.max(stat.home + stat.away, 0.01)
+   279→   279→                  const homePct = Math.round((stat.home / total) * 100)
+   280→   280→                  const homeWins = stat.higher === 'higher' ? stat.home > stat.away : stat.higher === 'lower' ? stat.home < stat.away : true
+   281→   281→                  return (
+   282→   282→                    <div key={stat.label} className="flex items-center gap-3">
+   283→   283→                      <span className={cn('text-xs font-medium w-16 text-right shrink-0', homeWins ? 'text-primary' : 'text-muted-foreground')}>
+   284→   284→                        {typeof stat.home === 'number' ? (Number.isInteger(stat.home) ? stat.home : stat.home.toFixed(1)) : stat.home}
+   285→   285→                      </span>
+   286→   286→                      <div className="flex-1">
+   287→   287→                        <div className="flex h-2.5 rounded-full overflow-hidden bg-muted/50">
+   288→   288→                          <div className={cn('rounded-l-full transition-all duration-500', homeWins ? 'bg-primary' : 'bg-primary/40')} style={{ width: `${homePct}%` }} />
+   289→   289→                          <div className={cn('rounded-r-full transition-all duration-500', !homeWins ? 'bg-orange-500' : 'bg-orange-500/40')} style={{ width: `${100 - homePct}%` }} />
+   290→   290→                        </div>
+   291→   291→                      </div>
+   292→   292→                      <span className={cn('text-xs font-medium w-16 shrink-0', !homeWins ? 'text-orange-400' : 'text-muted-foreground')}>
+   293→   293→                        {typeof stat.away === 'number' ? (Number.isInteger(stat.away) ? stat.away : stat.away.toFixed(1)) : stat.away}
+   294→   294→                      </span>
+   295→   295→                      <span className="text-[10px] text-muted-foreground w-28 shrink-0 hidden lg:block">{stat.label}</span>
+   296→   296→                    </div>
+   297→   297→                  )
+   298→   298→                })}
+   299→   299→              </div>
+   300→   300→            </CardContent>
+   301→   301→          </Card>
+   302→   302→
+   303→   303→          {/* ELO History & Scoring Trends */}
+   304→   304→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   305→   305→            <Card className="glass-card">
+   306→   306→              <CardHeader className="pb-2">
+   307→   307→                <CardTitle className="text-sm font-medium">ELO Rating History</CardTitle>
+   308→   308→              </CardHeader>
+   309→   309→              <CardContent>
+   310→   310→                {eloHistory.length > 0 ? (
+   311→   311→                  <div className="h-56">
+   312→   312→                    <ResponsiveContainer width="100%" height="100%">
+   313→   313→                      <LineChart data={eloHistory}>
+   314→   314→                        <CartesianGrid {...cartesianGridProps} />
+   315→   315→                        <XAxis dataKey="month" {...axisProps} />
+   316→   316→                        <YAxis {...axisProps} />
+   317→   317→                        <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+   318→   318→                        <Legend {...legendProps} />
+   319→   319→                        <Line type="monotone" dataKey="home" stroke={chartColor(0)} strokeWidth={2} dot={{ r: 3 }} name={homeTeam.name} />
+   320→   320→                        <Line type="monotone" dataKey="away" stroke={chartColor(1)} strokeWidth={2} dot={{ r: 3 }} name={awayTeam.name} />
+   321→   321→                      </LineChart>
+   322→   322→                    </ResponsiveContainer>
+   323→   323→                  </div>
+   324→   324→                ) : (
+   325→   325→                  <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">Historical ELO data not yet available</div>
+   326→   326→                )}
+   327→   327→              </CardContent>
+   328→   328→            </Card>
+   329→   329→
+   330→   330→            <Card className="glass-card">
+   331→   331→              <CardHeader className="pb-2">
+   332→   332→                <CardTitle className="text-sm font-medium">Scoring Trends</CardTitle>
+   333→   333→              </CardHeader>
+   334→   334→              <CardContent>
+   335→   335→                {scoringTrends.length > 0 ? (
+   336→   336→                  <div className="h-56">
+   337→   337→                    <ResponsiveContainer width="100%" height="100%">
+   338→   338→                      <BarChart data={scoringTrends}>
+   339→   339→                        <CartesianGrid {...cartesianGridProps} />
+   340→   340→                        <XAxis dataKey="match" {...axisProps} />
+   341→   341→                        <YAxis {...axisProps} />
+   342→   342→                        <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+   343→   343→                        <Legend {...legendProps} />
+   344→   344→                        <Bar dataKey="homeScored" fill={chartColor(0)} radius={[2, 2, 0, 0]} name={`${homeTeam.name} Scored`} />
+   345→   345→                        <Bar dataKey="homeConceded" fill={chartColor(0)} fillOpacity={0.25} radius={[2, 2, 0, 0]} name={`${homeTeam.name} Conceded`} />
+   346→   346→                        <Bar dataKey="awayScored" fill={chartColor(4)} radius={[2, 2, 0, 0]} name={`${awayTeam.name} Scored`} />
+   347→   347→                        <Bar dataKey="awayConceded" fill={chartColor(4)} fillOpacity={0.25} radius={[2, 2, 0, 0]} name={`${awayTeam.name} Conceded`} />
+   348→   348→                      </BarChart>
+   349→   349→                    </ResponsiveContainer>
+   350→   350→                  </div>
+   351→   351→                ) : (
+   352→   352→                  <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">Match-by-match scoring data not yet available</div>
+   353→   353→                )}
+   354→   354→              </CardContent>
+   355→   355→            </Card>
+   356→   356→          </div>
+   357→   357→
+   358→   358→          {/* Head-to-Head & Tactical Edge & Squad Depth & Key Players */}
+   359→   359→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   360→   360→            {/* Head-to-Head */}
+   361→   361→            <Card className="glass-card">
+   362→   362→              <CardHeader className="pb-2">
+   363→   363→                <CardTitle className="text-sm font-medium flex items-center gap-2">
+   364→   364→                  <Trophy className="size-4 text-primary" /> Head-to-Head Record
+   365→   365→                </CardTitle>
+   366→   366→              </CardHeader>
+   367→   367→              <CardContent>
+   368→   368→                {h2h.length > 0 ? (
+   369→   369→                  <div className="space-y-4">
+   370→   370→                    <div className="flex items-center justify-center gap-4">
+   371→   371→                      <div className="text-center">
+   372→   372→                        <div className="text-3xl font-bold text-primary">{h2hRecord.home}</div>
+   373→   373→                        <div className="text-[10px] text-muted-foreground">{homeTeam.code} Wins</div>
+   374→   374→                      </div>
+   375→   375→                      <div className="text-center">
+   376→   376→                        <div className="text-3xl font-bold text-muted-foreground">{h2hRecord.draws}</div>
+   377→   377→                        <div className="text-[10px] text-muted-foreground">Draws</div>
+   378→   378→                      </div>
+   379→   379→                      <div className="text-center">
+   380→   380→                        <div className="text-3xl font-bold text-orange-400">{h2hRecord.away}</div>
+   381→   381→                        <div className="text-[10px] text-muted-foreground">{awayTeam.code} Wins</div>
+   382→   382→                      </div>
+   383→   383→                    </div>
+   384→   384→                    <div className="space-y-2">
+   385→   385→                      {h2h.map((m, i) => (
+   386→   386→                        <div key={i} className="flex items-center justify-between p-2 rounded bg-card/50 border border-border/30 text-sm">
+   387→   387→                          <span className="text-xs text-muted-foreground">{m.date}</span>
+   388→   388→                          <div className="flex items-center gap-2">
+   389→   389→                            <span className={cn('font-bold', m.result === 'H' ? 'text-primary' : '')}>{m.homeGoals}</span>
+   390→   390→                            <span className="text-muted-foreground">-</span>
+   391→   391→                            <span className={cn('font-bold', m.result === 'A' ? 'text-orange-400' : '')}>{m.awayGoals}</span>
+   392→   392→                          </div>
+   393→   393→                        </div>
+   394→   394→                      ))}
+   395→   395→                    </div>
+   396→   396→                  </div>
+   397→   397→                ) : (
+   398→   398→                  <div className="py-8 text-center text-sm text-muted-foreground">Head-to-head history requires shared match data</div>
+   399→   399→                )}
+   400→   400→              </CardContent>
+   401→   401→            </Card>
+   402→   402→
+   403→   403→            {/* Tactical Edge */}
+   404→   404→            <Card className="glass-card">
+   405→   405→              <CardHeader className="pb-2">
+   406→   406→                <CardTitle className="text-sm font-medium flex items-center gap-2">
+   407→   407→                  <Shield className="size-4 text-primary" /> Tactical Edge Indicators
+   408→   408→                </CardTitle>
+   409→   409→              </CardHeader>
+   410→   410→              <CardContent className="space-y-3">
+   411→   411→                {tacticalEdge.map(({ phase, home, margin }) => (
+   412→   412→                  <div key={phase} className="flex items-center justify-between p-2.5 rounded-lg bg-card/50 border border-border/30">
+   413→   413→                    <span className="text-sm">{phase}</span>
+   414→   414→                    <div className="flex items-center gap-2">
+   415→   415→                      <ArrowRight className={cn('size-4', home ? 'text-primary' : 'text-orange-400 rotate-180')} />
+   416→   416→                      <div className="flex items-center gap-1">
+   417→   417→                        <Badge variant="outline" className={cn('text-[10px]', home ? 'text-primary border-primary/30' : 'text-orange-400 border-orange-400/30')}>
+   418→   418→                          {home ? homeTeam.code : awayTeam.code} +{margin}
+   419→   419→                        </Badge>
+   420→   420→                        <StatusBadge variant="dataclass" value="DERIVED" />
+   421→   421→                      </div>
+   422→   422→                    </div>
+   423→   423→                  </div>
+   424→   424→                ))}
+   425→   425→              </CardContent>
+   426→   426→            </Card>
+   427→   427→
+   428→   428→            {/* Squad Depth */}
+   429→   429→            <Card className="glass-card">
+   430→   430→              <CardHeader className="pb-2">
+   431→   431→                <CardTitle className="text-sm font-medium flex items-center gap-2">
+   432→   432→                  <Users className="size-4 text-primary" /> Squad Depth
+   433→   433→                </CardTitle>
+   434→   434→              </CardHeader>
+   435→   435→              <CardContent>
+   436→   436→                <div className="py-8 text-center text-sm text-muted-foreground">Squad depth data requires player roster information</div>
+   437→   437→              </CardContent>
+   438→   438→            </Card>
+   439→   439→
+   440→   440→            {/* Key Player Matchups */}
+   441→   441→            <Card className="glass-card">
+   442→   442→              <CardHeader className="pb-2">
+   443→   443→                <CardTitle className="text-sm font-medium flex items-center gap-2">
+   444→   444→                  <Users className="size-4 text-primary" /> Key Player Matchups
+   445→   445→                </CardTitle>
+   446→   446→              </CardHeader>
+   447→   447→              <CardContent>
+   448→   448→                <div className="py-8 text-center text-sm text-muted-foreground">Player matchup data requires detailed player statistics</div>
+   449→   449→              </CardContent>
+   450→   450→            </Card>
+   451→   451→          </div>
+   452→   452→
+   453→   453→          {/* Style Matchup */}
+   454→   454→          <Card className="glass-card">
+   455→   455→            <CardHeader className="pb-2">
+   456→   456→              <CardTitle className="text-sm font-medium">Style Matchup Analysis</CardTitle>
+   457→   457→            </CardHeader>
+   458→   458→            <CardContent>
+   459→   459→              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   460→   460→                {styleMatchup.map((item) => {
+   461→   461→                  const Icon = item.icon
+   462→   462→                  return (
+   463→   463→                    <div key={item.label} className="glass-card p-4 rounded-lg border border-border/30 text-center space-y-2">
+   464→   464→                      <Icon className="size-5 text-primary mx-auto" />
+   465→   465→                      <div className="text-[10px] text-muted-foreground">{item.label}</div>
+   466→   466→                      <div className="flex items-center justify-center gap-2">
+   467→   467→                        <Badge variant="outline" className="text-[10px] text-primary border-primary/30">{item.home}</Badge>
+   468→   468→                        <span className="text-[10px] text-muted-foreground">vs</span>
+   469→   469→                        <Badge variant="outline" className="text-[10px] text-orange-400 border-orange-400/30">{item.away}</Badge>
+   470→   470→                      </div>
+   471→   471→                    </div>
+   472→   472→                  )
+   473→   473→                })}
+   474→   474→              </div>
+   475→   475→            </CardContent>
+   476→   476→          </Card>
+   477→   477→
+   478→   478→          {/* AI Summary */}
+   479→   479→          <Card className="glass-card border-primary/20 bg-primary/5">
+   480→   480→            <CardHeader className="pb-2">
+   481→   481→              <CardTitle className="text-sm font-medium flex items-center gap-2">
+   482→   482→                <Brain className="size-4 text-primary" /> Comparison Summary
+   483→   483→              </CardTitle>
+   484→   484→            </CardHeader>
+   485→   485→            <CardContent>
+   486→   486→              <p className="text-sm leading-relaxed text-foreground/90">
+   487→   487→                {homeTeam.name} ({(homeTeam.eloRating ?? 1500).toFixed(0)} ELO) enters this matchup as {winProb.home > 50 ? 'the favorite' : 'the underdog'} with a {winProb.home}% win probability.
+   488→   488→                Their attacking output ({homeTeam.xgPerGame ?? 0} xG/game) compares {(homeTeam.xgPerGame ?? 0) > (awayTeam.xgPerGame ?? 0) ? 'favorably' : 'unfavorably'} to {awayTeam.name}&apos;s ({awayTeam.xgPerGame ?? 0} xG/game).
+   489→   489→                The tactical edge lies in {(homeTeam.possession ?? 50) > (awayTeam.possession ?? 50) ? homeTeam.name : awayTeam.name}&apos;s superior possession game ({Math.max(homeTeam.possession ?? 50, awayTeam.possession ?? 50)}% vs {Math.min(homeTeam.possession ?? 50, awayTeam.possession ?? 50)}%).
+   490→   490→                Key battleground: the midfield transition zone, where {(homeTeam.pressIntensity ?? 0) > (awayTeam.pressIntensity ?? 0) ? homeTeam.name : awayTeam.name}&apos;s pressing could prove decisive.
+   491→   491→              </p>
+   492→   492→            </CardContent>
+   493→   493→          </Card>
+   494→   494→        </div>
+   495→   495→      )}
+   496→   496→    </motion.div>
+   497→   497→  )
+   498→   498→}
+   499→   499→
+   500→   500→export default CompareView

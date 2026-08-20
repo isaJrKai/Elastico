@@ -89,12 +89,12 @@ export default function Home() {
   }, [])
 
   // Trigger initial data sync (populates DB from ESPN/API-Sports)
+  // Note: sync endpoint requires authentication in production
   useEffect(() => {
-    fetch('/api/cron/sync', {
-      method: 'POST',
-      headers: { 'x-cron-secret': 'elastico-cron-2026-secret' },
-    }).catch(() => {}) // fire-and-forget, failures are silent
-  }, [])
+    if (isAuthenticated) {
+      fetch('/api/sync', { method: 'POST' }).catch(() => {})
+    }
+  }, [isAuthenticated])
 
   // Fetch ESPN live scores immediately (no auth needed)
   useEffect(() => {
@@ -202,9 +202,9 @@ export default function Home() {
           <footer className="shrink-0 border-t border-border px-6 md:px-8 py-2.5 flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="font-mono tabular-nums">2026 ELASTICO</span>
             <div className="hidden sm:flex items-center gap-4">
-              <span className="truncate">ELO / Poisson / Dixon-Coles / Merton J-D / GARCH / Kelly</span>
+              <span className="truncate">ELO / Poisson / Dixon-Coles</span>
               <span className="text-muted-foreground/40">|</span>
-              <span className="text-muted-foreground/60">Data: ESPN · TheSportsDB · flagcdn</span>
+              <span className="text-muted-foreground/60">Data: ESPN · football-data.org</span>
             </div>
           </footer>
         </div>

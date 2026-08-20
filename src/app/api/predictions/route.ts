@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
+/** GET /api/predictions — return authenticated user's predictions (newest first) */
+export async function GET(req: NextRequest) {
+  try {
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
+    const { user } = auth
+
+    const predictions = await db.prediction.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+
+    return NextResponse.json({ predictions })
+  } catch (error) {
+    console.error('Fetch predictions error:', error)
+    return NextResponse.json({ error: 'Failed to fetch predictions' }, { status: 500 })
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req)
