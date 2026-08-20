@@ -1,0 +1,1191 @@
+     1→     1→{
+     2→     2→  "meta": {
+     3→     3→    "phase": "6A",
+     4→     4→    "title": "Product Truth & Foundation Audit \u2014 Forensic Revalidation Matrix",
+     5→     5→    "date": "2026-08-19",
+     6→     6→    "schema_version": "2.1.0",
+     7→     7→    "method": "Sequential view-by-view forensic audit",
+     8→     8→    "views_total": 9,
+     9→     9→    "views_completed": 1,
+    10→    10→    "data_quality_states": {
+    11→    11→      "REAL": "Data from a verified external source or honestly computed from real inputs.",
+    12→    12→      "PROXY": "Approximation of real data \u2014 plausible but not directly sourced. Must label as estimate.",
+    13→    13→      "DERIVED": "Real data transformed by a legitimate, disclosed computation.",
+    14→    14→      "MISSING": "Data that should exist but doesn't \u2014 no value shown. Must show honest empty state.",
+    15→    15→      "STALE": "Data that was once real but has expired its freshness window. Must show timestamp.",
+    16→    16→      "UNAVAILABLE": "Data that cannot be obtained \u2014 honestly disclosed. Must explain why.",
+    17→    17→      "DEMO": "Fictional data clearly labeled as sample/demo content.",
+    18→    18→      "FABRICATED": "[8th state] Synthetic data presented as real without disclosure. Added because the original 7-state schema had no category for undisclosed fake data masquerading as real \u2014 the core trust violation this audit targets. Semantically distinct from DEMO: DEMO implies the user knows it's fictional; FABRICATED means the user is led to believe it's real. Must be eliminated or reclassified to DEMO with disclosure."
+    19→    19→    },
+    20→    20→    "propagation_rule": "FABRICATED propagates upward through all transformations. If any input to a DERIVED or PROXY computation is FABRICATED, the output inherits FABRICATED state \u2014 regardless of whether the computation itself is legitimate. Rationale: a real method applied to fake inputs produces fake outputs (garbage in, garbage out). The 'highest violation' state always wins. Applied retroactively to all 9 views."
+    21→    21→  },
+    22→    22→  "dashboard": {
+    23→    23→    "view": "Dashboard",
+    24→    24→    "component": "src/components/elastico/dashboard-view.tsx",
+    25→    25→    "component_lines": 709,
+    26→    26→    "widgets_count": 15,
+    27→    27→    "files_audited": [
+    28→    28→      "src/components/elastico/dashboard-view.tsx",
+    29→    29→      "src/store/use-elastico-store.ts",
+    30→    30→      "src/app/api/live/route.ts",
+    31→    31→      "src/app/api/matches/route.ts",
+    32→    32→      "src/app/api/teams/route.ts",
+    33→    33→      "src/app/api/news/route.ts",
+    34→    34→      "src/app/api/predictions/route.ts",
+    35→    35→      "src/app/api/auth/me/route.ts",
+    36→    36→      "src/lib/football-data.ts",
+    37→    37→      "src/lib/newsdata.ts",
+    38→    38→      "prisma/seed.ts",
+    39→    39→      "src/app/page.tsx"
+    40→    40→    ],
+    41→    41→    "data_points": [
+    42→    42→      {
+    43→    43→        "id": "DASH-001",
+    44→    44→        "widget": "1. Live Score Ticker",
+    45→    45→        "widget_lines": "156-198",
+    46→    46→        "data_point": "Match scores (home/away)",
+    47→    47→        "state": "REAL",
+    48→    48→        "source": "ESPN public API via GET /api/live \u2192 football-data.ts",
+    49→    49→        "file": "src/components/elastico/dashboard-view.tsx",
+    50→    50→        "line": "176-178",
+    51→    51→        "notes": "Ticker prefers ESPN live data (line 80), falls back to DB matches (line 92)"
+    52→    52→      },
+    53→    53→      {
+    54→    54→        "id": "DASH-002",
+    55→    55→        "widget": "1. Live Score Ticker",
+    56→    56→        "widget_lines": "156-198",
+    57→    57→        "data_point": "Team abbreviations",
+    58→    58→        "state": "REAL",
+    59→    59→        "source": "ESPN API abbreviation field",
+    60→    60→        "file": "src/components/elastico/dashboard-view.tsx",
+    61→    61→        "line": 83,
+    62→    62→        "notes": null
+    63→    63→      },
+    64→    64→      {
+    65→    65→        "id": "DASH-003",
+    66→    66→        "widget": "1. Live Score Ticker",
+    67→    67→        "widget_lines": "156-198",
+    68→    68→        "data_point": "Team colors",
+    69→    69→        "state": "PROXY",
+    70→    70→        "source": "ESPN API color field with #555 fallback",
+    71→    71→        "file": "src/components/elastico/dashboard-view.tsx",
+    72→    72→        "line": 85,
+    73→    73→        "notes": "Colors are approximate visual representations"
+    74→    74→      },
+    75→    75→      {
+    76→    76→        "id": "DASH-004",
+    77→    77→        "widget": "2. Live Scores \u2014 All Leagues",
+    78→    78→        "widget_lines": "209-257",
+    79→    79→        "data_point": "Match list (names, scores, status, minute)",
+    80→    80→        "state": "REAL",
+    81→    81→        "source": "ESPN API via GET /api/live",
+    82→    82→        "file": "src/components/elastico/dashboard-view.tsx",
+    83→    83→        "line": "227-253",
+    84→    84→        "notes": "Card badge says 'ESPN Live' (line 221)"
+    85→    85→      },
+    86→    86→      {
+    87→    87→        "id": "DASH-005",
+    88→    88→        "widget": "2. Live Scores \u2014 All Leagues",
+    89→    89→        "widget_lines": "209-257",
+    90→    90→        "data_point": "Competition names",
+    91→    91→        "state": "REAL",
+    92→    92→        "source": "ESPN API competition field",
+    93→    93→        "file": "src/components/elastico/dashboard-view.tsx",
+    94→    94→        "line": 230,
+    95→    95→        "notes": null
+    96→    96→      },
+    97→    97→      {
+    98→    98→        "id": "DASH-006",
+    99→    99→        "widget": "3. Next Match Prediction",
+   100→   100→        "widget_lines": "260-357",
+   101→   101→        "data_point": "Match identity (team names, venue)",
+   102→   102→        "state": "REAL",
+   103→   103→        "source": "DB Match record via GET /api/matches \u2192 Prisma",
+   104→   104→        "file": "src/components/elastico/dashboard-view.tsx",
+   105→   105→        "line": "278-284",
+   106→   106→        "notes": null
+   107→   107→      },
+   108→   108→      {
+   109→   109→        "id": "DASH-007",
+   110→   110→        "widget": "3. Next Match Prediction",
+   111→   111→        "widget_lines": "260-357",
+   112→   112→        "data_point": "homeEloBefore / awayEloBefore",
+   113→   113→        "state": "FABRICATED",
+   114→   114→        "source": "Hand-crafted seed data with no update mechanism",
+   115→   115→        "file": "prisma/seed.ts",
+   116→   116→        "line": "8-23",
+   117→   117→        "rendered_at": "dashboard-view.tsx:279,289",
+   118→   118→        "notes": "E.g. Argentina=1910, Brazil=1840. No ELO recalculation exists in codebase. Presented as current authoritative ratings."
+   119→   119→      },
+   120→   120→      {
+   121→   121→        "id": "DASH-008",
+   122→   122→        "widget": "3. Next Match Prediction",
+   123→   123→        "widget_lines": "260-357",
+   124→   124→        "data_point": "nextMatchProbs (H/D/A bars from DB)",
+   125→   125→        "state": "FABRICATED",
+   126→   126→        "source": "Seed ELO formula + hardcoded drawProb=0.26",
+   127→   127→        "file": "prisma/seed.ts",
+   128→   128→        "line": "141-143",
+   129→   129→        "rendered_at": "dashboard-view.tsx:296-318",
+   130→   130→        "section8_violation": true,
+   131→   131→        "notes": "homeWinProb from real ELO formula but with fabricated ELO inputs. drawProb=0.26 hardcoded for every match. Implies model confidence that was never demonstrated."
+   132→   132→      },
+   133→   133→      {
+   134→   134→        "id": "DASH-009",
+   135→   135→        "widget": "3. Next Match Prediction",
+   136→   136→        "widget_lines": "260-357",
+   137→   137→        "data_point": "Empty state message (no prediction)",
+   138→   138→        "state": "UNAVAILABLE",
+   139→   139→        "source": "Static text \u2014 honest disclosure",
+   140→   140→        "file": "src/components/elastico/dashboard-view.tsx",
+   141→   141→        "line": "321-325",
+   142→   142→        "notes": "Correctly handled: 'No model prediction yet for this match \u2014 check back closer to kickoff.'"
+   143→   143→      },
+   144→   144→      {
+   145→   145→        "id": "DASH-010",
+   146→   146→        "widget": "3. Next Match Prediction",
+   147→   147→        "widget_lines": "260-357",
+   148→   148→        "data_point": "confidence: 75 in handleQuickPredict",
+   149→   149→        "state": "FABRICATED",
+   150→   150→        "source": "Hardcoded constant in POST body",
+   151→   151→        "file": "src/components/elastico/dashboard-view.tsx",
+   152→   152→        "line": 142,
+   153→   153→        "notes": "Every Quick Predict submission sends confidence:75 regardless of match, user, or analysis. Masquerades as a meaningful value."
+   154→   154→      },
+   155→   155→      {
+   156→   156→        "id": "DASH-011",
+   157→   157→        "widget": "4. Prediction Accuracy Ring",
+   158→   158→        "widget_lines": "463-505",
+   159→   159→        "data_point": "user.predictionAccuracy",
+   160→   160→        "state": "REAL",
+   161→   161→        "source": "DB User.predictionAccuracy via GET /api/auth/me",
+   162→   162→        "file": "src/components/elastico/dashboard-view.tsx",
+   163→   163→        "line": "61,490",
+   164→   164→        "notes": null
+   165→   165→      },
+   166→   166→      {
+   167→   167→        "id": "DASH-012",
+   168→   168→        "widget": "4. Prediction Accuracy Ring",
+   169→   169→        "widget_lines": "463-505",
+   170→   170→        "data_point": "user.totalPredictions",
+   171→   171→        "state": "REAL",
+   172→   172→        "source": "DB User.totalPredictions",
+   173→   173→        "file": "src/components/elastico/dashboard-view.tsx",
+   174→   174→        "line": 496,
+   175→   175→        "notes": null
+   176→   176→      },
+   177→   177→      {
+   178→   178→        "id": "DASH-013",
+   179→   179→        "widget": "4. Prediction Accuracy Ring",
+   180→   180→        "widget_lines": "463-505",
+   181→   181→        "data_point": "user.correctPredictions",
+   182→   182→        "state": "REAL",
+   183→   183→        "source": "DB User.correctPredictions",
+   184→   184→        "file": "src/components/elastico/dashboard-view.tsx",
+   185→   185→        "line": 500,
+   186→   186→        "notes": null
+   187→   187→      },
+   188→   188→      {
+   189→   189→        "id": "DASH-014",
+   190→   190→        "widget": "5. Asian Handicap Lines",
+   191→   191→        "widget_lines": "507-531",
+   192→   192→        "data_point": "Match list (competition, team names)",
+   193→   193→        "state": "REAL",
+   194→   194→        "source": "ESPN API liveMatches",
+   195→   195→        "file": "src/components/elastico/dashboard-view.tsx",
+   196→   196→        "line": "517-521",
+   197→   197→        "notes": null
+   198→   198→      },
+   199→   199→      {
+   200→   200→        "id": "DASH-015",
+   201→   201→        "widget": "5. Asian Handicap Lines",
+   202→   202→        "widget_lines": "507-531",
+   203→   203→        "data_point": "'Over 2.5' 55% bar",
+   204→   204→        "state": "FABRICATED",
+   205→   205→        "source": "Hardcoded CSS inline style and static text",
+   206→   206→        "file": "src/components/elastico/dashboard-view.tsx",
+   207→   207→        "line": "524,526",
+   208→   208→        "section8_violation": true,
+   209→   209→        "notes": "style={{ width: '55%' }} and text '55%' are hardcoded for every match. Never varies."
+   210→   210→      },
+   211→   211→      {
+   212→   212→        "id": "DASH-016",
+   213→   213→        "widget": "5. Asian Handicap Lines",
+   214→   214→        "widget_lines": "507-531",
+   215→   215→        "data_point": "Subtitle: 'From ELO + Poisson + Dixon-Coles + Stochastic models'",
+   216→   216→        "state": "FABRICATED",
+   217→   217→        "source": "False model authority claim",
+   218→   218→        "file": "src/components/elastico/dashboard-view.tsx",
+   219→   219→        "line": 514,
+   220→   220→        "section8_violation": true,
+   221→   221→        "notes": "None of the four named models are invoked. The 55% is a hardcoded constant. The subtitle fabricates model authority."
+   222→   222→      },
+   223→   223→      {
+   224→   224→        "id": "DASH-017",
+   225→   225→        "widget": "6. Model Probabilities",
+   226→   226→        "widget_lines": "533-566",
+   227→   227→        "data_point": "Card title: 'Model Probabilities'",
+   228→   228→        "state": "FABRICATED",
+   229→   229→        "source": "False model claim \u2014 no model involved",
+   230→   230→        "file": "src/components/elastico/dashboard-view.tsx",
+   231→   231→        "line": 538,
+   232→   232→        "notes": "Probabilities come from hashCode(), not from any model."
+   233→   233→      },
+   234→   234→      {
+   235→   235→        "id": "DASH-018",
+   236→   236→        "widget": "6. Model Probabilities",
+   237→   237→        "widget_lines": "533-566",
+   238→   238→        "data_point": "Subtitle: 'Ensemble: ELO + Poisson + Dixon-Coles + Stochastic'",
+   239→   239→        "state": "FABRICATED",
+   240→   240→        "source": "False model authority claim \u2014 copy-pasted from Widget 5",
+   241→   241→        "file": "src/components/elastico/dashboard-view.tsx",
+   242→   242→        "line": 540,
+   243→   243→        "section8_violation": true,
+   244→   244→        "notes": "Same fabricated subtitle as Asian Handicap card. Names 4 models that are never called."
+   245→   245→      },
+   246→   246→      {
+   247→   247→        "id": "DASH-019",
+   248→   248→        "widget": "6. Model Probabilities",
+   249→   249→        "widget_lines": "533-566",
+   250→   250→        "data_point": "hP (home win probability via hashCode)",
+   251→   251→        "state": "FABRICATED",
+   252→   252→        "source": "hashCode() deterministic string hash \u2014 no statistical or ML basis",
+   253→   253→        "file": "src/components/elastico/dashboard-view.tsx",
+   254→   254→        "line": "544,30-37",
+   255→   255→        "section8_violation": true,
+   256→   256→        "notes": "40 + Math.abs(hashCode(teamName)) % 30. Guarantees 40-69%. hashCode() maps char codes to numbers with no relationship to football outcomes. This is hashCode() pretending to be an ensemble model."
+   257→   257→      },
+   258→   258→      {
+   259→   259→        "id": "DASH-020",
+   260→   260→        "widget": "6. Model Probabilities",
+   261→   261→        "widget_lines": "533-566",
+   262→   262→        "data_point": "dP (draw probability via hashCode)",
+   263→   263→        "state": "FABRICATED",
+   264→   264→        "source": "hashCode() on AWAY team name \u2014 arbitrary choice",
+   265→   265→        "file": "src/components/elastico/dashboard-view.tsx",
+   266→   266→        "line": 545,
+   267→   267→        "notes": "15 + Math.abs(hashCode(awayTeamName)) % 15. Guarantees 15-29%. Derived from away team name, not home \u2014 arbitrary and meaningless."
+   268→   268→      },
+   269→   269→      {
+   270→   270→        "id": "DASH-021",
+   271→   271→        "widget": "6. Model Probabilities",
+   272→   272→        "widget_lines": "533-566",
+   273→   273→        "data_point": "aP (away win probability \u2014 residual)",
+   274→   274→        "state": "FABRICATED",
+   275→   275→        "source": "100 - hP - dP",
+   276→   276→        "file": "src/components/elastico/dashboard-view.tsx",
+   277→   277→        "line": 546,
+   278→   278→        "notes": "Ensures 100% sum but component values are fabricated."
+   279→   279→      },
+   280→   280→      {
+   281→   281→        "id": "DASH-022",
+   282→   282→        "widget": "7. ELO Rankings",
+   283→   283→        "widget_lines": "568-588",
+   284→   284→        "data_point": "Team ELO values",
+   285→   285→        "state": "FABRICATED",
+   286→   286→        "source": "Hand-crafted seed data, no update mechanism exists",
+   287→   287→        "file": "prisma/seed.ts",
+   288→   288→        "line": "8-23",
+   289→   289→        "rendered_at": "dashboard-view.tsx:584",
+   290→   290→        "duplication_of": "DASH-029",
+   291→   291→        "notes": "Same data as Widget 10 Team Rankings. Static seed values (Argentina=1910, Brazil=1840, Spain=1890). No ELO recalculation mechanism in codebase."
+   292→   292→      },
+   293→   293→      {
+   294→   294→        "id": "DASH-023",
+   295→   295→        "widget": "7. ELO Rankings",
+   296→   296→        "widget_lines": "568-588",
+   297→   297→        "data_point": "Team names",
+   298→   298→        "state": "REAL",
+   299→   299→        "source": "DB Team records \u2014 factual identities",
+   300→   300→        "file": "src/components/elastico/dashboard-view.tsx",
+   301→   301→        "line": 582,
+   302→   302→        "notes": null
+   303→   303→      },
+   304→   304→      {
+   305→   305→        "id": "DASH-024",
+   306→   306→        "widget": "8. Latest Results",
+   307→   307→        "widget_lines": "359-383",
+   308→   308→        "data_point": "Finished match results",
+   309→   309→        "state": "REAL",
+   310→   310→        "source": "ESPN API (status=finished filter)",
+   311→   311→        "file": "src/components/elastico/dashboard-view.tsx",
+   312→   312→        "line": "369-380",
+   313→   313→        "notes": null
+   314→   314→      },
+   315→   315→      {
+   316→   316→        "id": "DASH-025",
+   317→   317→        "widget": "9. xG vs Actual Goals",
+   318→   318→        "widget_lines": "385-414",
+   319→   319→        "data_point": "homeXg + awayXg values",
+   320→   320→        "state": "REAL",
+   321→   321→        "source": "DB Match.homeXg/awayXg, filtered to > 0",
+   322→   322→        "file": "src/components/elastico/dashboard-view.tsx",
+   323→   323→        "line": "112,116",
+   324→   324→        "notes": "Correctly refuses to fabricate. Code comment (lines 105-109) explicitly rejects multiplying goals by a constant."
+   325→   325→      },
+   326→   326→      {
+   327→   327→        "id": "DASH-026",
+   328→   328→        "widget": "9. xG vs Actual Goals",
+   329→   329→        "widget_lines": "385-414",
+   330→   330→        "data_point": "Actual goals",
+   331→   331→        "state": "REAL",
+   332→   332→        "source": "DB Match.homeScore + awayScore",
+   333→   333→        "file": "src/components/elastico/dashboard-view.tsx",
+   334→   334→        "line": 117,
+   335→   335→        "notes": null
+   336→   336→      },
+   337→   337→      {
+   338→   338→        "id": "DASH-027",
+   339→   339→        "widget": "9. xG vs Actual Goals",
+   340→   340→        "widget_lines": "385-414",
+   341→   341→        "data_point": "Empty state message",
+   342→   342→        "state": "UNAVAILABLE",
+   343→   343→        "source": "Static text \u2014 honest disclosure",
+   344→   344→        "file": "src/components/elastico/dashboard-view.tsx",
+   345→   345→        "line": "406-411",
+   346→   346→        "notes": "'xG data unavailable for recent matches. This chart only shows real expected-goals data.' Gold standard empty state."
+   347→   347→      },
+   348→   348→      {
+   349→   349→        "id": "DASH-028",
+   350→   350→        "widget": "9. xG vs Actual Goals",
+   351→   351→        "widget_lines": "385-414",
+   352→   352→        "data_point": "Chart data filtering (only real xG)",
+   353→   353→        "state": "DERIVED",
+   354→   354→        "source": "Filter real xG > 0, then sum homeXg+awayXg",
+   355→   355→        "file": "src/components/elastico/dashboard-view.tsx",
+   356→   356→        "line": "110-119",
+   357→   357→        "notes": "Legitimate transformation of real data."
+   358→   358→      },
+   359→   359→      {
+   360→   360→        "id": "DASH-029",
+   361→   361→        "widget": "10. Team Rankings (ELO)",
+   362→   362→        "widget_lines": "416-457",
+   363→   363→        "data_point": "Team ELO values",
+   364→   364→        "state": "FABRICATED",
+   365→   365→        "source": "Same hand-crafted seed data as Widget 7",
+   366→   366→        "file": "prisma/seed.ts",
+   367→   367→        "line": "8-23",
+   368→   368→        "rendered_at": "dashboard-view.tsx:450",
+   369→   369→        "duplication_of": "DASH-022",
+   370→   370→        "notes": "DUPLICATE of Widget 7 ELO Rankings. Same teams array, same ELO sort, same seed data source."
+   371→   371→      },
+   372→   372→      {
+   373→   373→        "id": "DASH-030",
+   374→   374→        "widget": "10. Team Rankings (ELO)",
+   375→   375→        "widget_lines": "416-457",
+   376→   376→        "data_point": "Team W/D/L",
+   377→   377→        "state": "REAL",
+   378→   378→        "source": "DB Team.wins/draws/losses (init 0, updated by real results)",
+   379→   379→        "file": "src/components/elastico/dashboard-view.tsx",
+   380→   380→        "line": "447-449",
+   381→   381→        "notes": null
+   382→   382→      },
+   383→   383→      {
+   384→   384→        "id": "DASH-031",
+   385→   385→        "widget": "10. Team Rankings (ELO)",
+   386→   386→        "widget_lines": "416-457",
+   387→   387→        "data_point": "ELO sort order (teams sorted by eloRating desc)",
+   388→   388→        "state": "FABRICATED",
+   389→   389→        "source": "Real sort of fabricated ELO values",
+   390→   390→        "file": "src/components/elastico/dashboard-view.tsx",
+   391→   391→        "line": 438,
+   392→   392→        "reclassified_from": "DERIVED",
+   393→   393→        "reclassified_reason": "Propagation rule: sort is legitimate but input ELO values are FABRICATED, so the sorted ranking order is also FABRICATED. A correct ranking of incorrect values is still incorrect.",
+   394→   394→        "notes": "Sort itself is legitimate; input values are fabricated."
+   395→   395→      },
+   396→   396→      {
+   397→   397→        "id": "DASH-032",
+   398→   398→        "widget": "11. All Matches",
+   399→   399→        "widget_lines": "590-614",
+   400→   400→        "data_point": "Match list (competition, date, teams, scores, status, venue)",
+   401→   401→        "state": "REAL",
+   402→   402→        "source": "ESPN API via GET /api/live",
+   403→   403→        "file": "src/components/elastico/dashboard-view.tsx",
+   404→   404→        "line": "599-611",
+   405→   405→        "notes": null
+   406→   406→      },
+   407→   407→      {
+   408→   408→        "id": "DASH-033",
+   409→   409→        "widget": "12. Trending News",
+   410→   410→        "widget_lines": "616-637",
+   411→   411→        "data_point": "News titles (when from ESPN)",
+   412→   412→        "state": "REAL",
+   413→   413→        "source": "ESPN news API via GET /api/news priority chain",
+   414→   414→        "file": "src/app/api/news/route.ts",
+   415→   415→        "line": "56-83",
+   416→   416→        "notes": null
+   417→   417→      },
+   418→   418→      {
+   419→   419→        "id": "DASH-034",
+   420→   420→        "widget": "12. Trending News",
+   421→   421→        "widget_lines": "616-637",
+   422→   422→        "data_point": "News titles (when from Newsdata.io)",
+   423→   423→        "state": "REAL",
+   424→   424→        "source": "Newsdata.io API via GET /api/news secondary chain",
+   425→   425→        "file": "src/app/api/news/route.ts",
+   426→   426→        "line": "85-107",
+   427→   427→        "notes": null
+   428→   428→      },
+   429→   429→      {
+   430→   430→        "id": "DASH-035",
+   431→   431→        "widget": "12. Trending News",
+   432→   432→        "widget_lines": "616-637",
+   433→   433→        "data_point": "News titles (when from DB fallback / seed)",
+   434→   434→        "state": "FABRICATED",
+   435→   435→        "source": "5 hand-crafted articles in prisma/seed.ts with false source attribution",
+   436→   436→        "file": "prisma/seed.ts",
+   437→   437→        "line": "45-51",
+   438→   438→        "rendered_at": "dashboard-view.tsx:625-635",
+   439→   439→        "notes": "E.g. 'Argentina confirmed as World Cup 2026 top seeds' with source:'FIFA.com' \u2014 source attribution may not correspond to a real article. Presented identically to real ESPN/Newsdata articles with no DEMO badge."
+   440→   440→      },
+   441→   441→      {
+   442→   442→        "id": "DASH-036",
+   443→   443→        "widget": "12. Trending News",
+   444→   444→        "widget_lines": "616-637",
+   445→   445→        "data_point": "Category badges (from seed news)",
+   446→   446→        "state": "FABRICATED",
+   447→   447→        "source": "Hand-assigned category labels for fabricated news articles",
+   448→   448→        "file": "prisma/seed.ts",
+   449→   449→        "line": "46-50",
+   450→   450→        "reclassified_from": "PROXY",
+   451→   451→        "reclassified_reason": "Propagation rule: category labels are attributes of fabricated seed news articles (DASH-035). A real label on a fake article is still fake.",
+   452→   452→        "notes": "Categories like 'match', 'transfer', 'tactical', 'injury' are hand-assigned, not from an external taxonomy."
+   453→   453→      },
+   454→   454→      {
+   455→   455→        "id": "DASH-037",
+   456→   456→        "widget": "13. Streak Counter",
+   457→   457→        "widget_lines": "639-654",
+   458→   458→        "data_point": "user.predictionStreak",
+   459→   459→        "state": "REAL",
+   460→   460→        "source": "DB User.predictionStreak",
+   461→   461→        "file": "src/components/elastico/dashboard-view.tsx",
+   462→   462→        "line": 646,
+   463→   463→        "notes": null
+   464→   464→      },
+   465→   465→      {
+   466→   466→        "id": "DASH-038",
+   467→   467→        "widget": "13. Streak Counter",
+   468→   468→        "widget_lines": "639-654",
+   469→   469→        "data_point": "user.bestStreak",
+   470→   470→        "state": "REAL",
+   471→   471→        "source": "DB User.bestStreak",
+   472→   472→        "file": "src/components/elastico/dashboard-view.tsx",
+   473→   473→        "line": 650,
+   474→   474→        "notes": null
+   475→   475→      },
+   476→   476→      {
+   477→   477→        "id": "DASH-039",
+   478→   478→        "widget": "14. Quick Actions",
+   479→   479→        "widget_lines": "656-682",
+   480→   480→        "data_point": "Navigation targets (Matches, AI Chat, Predict)",
+   481→   481→        "state": "REAL",
+   482→   482→        "source": "Static route buttons \u2014 legitimate views in sidebar/store",
+   483→   483→        "file": "src/components/elastico/dashboard-view.tsx",
+   484→   484→        "line": "661,669,677",
+   485→   485→        "notes": "No data displayed. Navigation only."
+   486→   486→      },
+   487→   487→      {
+   488→   488→        "id": "DASH-040",
+   489→   489→        "widget": "15. AI Insight",
+   490→   490→        "widget_lines": "684-703",
+   491→   491→        "data_point": "Card title: 'AI Insight' with Sparkles icon",
+   492→   492→        "state": "FABRICATED",
+   493→   493→        "source": "False AI claim \u2014 no AI involved",
+   494→   494→        "file": "src/components/elastico/dashboard-view.tsx",
+   495→   495→        "line": "689,692",
+   496→   496→        "ai_attribution_violation": true,
+   497→   497→        "notes": "Sparkles icon (universally AI-associated) + 'AI' label implies AI-generated personalized analysis. No AI provider call, no LLM invocation exists."
+   498→   498→      },
+   499→   499→      {
+   500→   500→        "id": "DASH-041",
+   501→   501→        "widget": "15. AI Insight",
+   502→   502→        "widget_lines": "684-703",
+   503→   503→        "data_point": "Insight text (3 static ternary strings)",
+   504→   504→        "state": "FABRICATED",
+   505→   505→        "source": "Static strings selected by accuracy threshold ternary",
+   506→   506→        "file": "src/components/elastico/dashboard-view.tsx",
+   507→   507→        "line": "694-698",
+   508→   508→        "ai_attribution_violation": true,
+   509→   509→        "notes": "Identical text for all users in same accuracy bucket. No AI, no personalization, no analysis of actual predictions."
+   510→   510→      },
+   511→   511→      {
+   512→   512→        "id": "DASH-042",
+   513→   513→        "widget": "15. AI Insight",
+   514→   514→        "widget_lines": "684-703",
+   515→   515→        "data_point": "'Favorites with 150+ ELO advantage win 72% of the time'",
+   516→   516→        "state": "FABRICATED",
+   517→   517→        "source": "Invented statistic \u2014 no source cited, no evidence in codebase",
+   518→   518→        "file": "src/components/elastico/dashboard-view.tsx",
+   519→   519→        "line": 698,
+   520→   520→        "section8_violation": true,
+   521→   521→        "notes": "Specific quantitative claim presented as fact. Phase 5 calibration showed raw market odds (LL 0.959) outperforming all ELASTICO models \u2014 contradicts implied model authority."
+   522→   522→      },
+   523→   523→      {
+   524→   524→        "id": "DASH-043",
+   525→   525→        "widget": "4. Prediction Accuracy Ring",
+   526→   526→        "widget_lines": "463-505",
+   527→   527→        "data_point": "Accuracy ring SVG arc calculation",
+   528→   528→        "state": "DERIVED",
+   529→   529→        "source": "strokeDasharray from accuracy value",
+   530→   530→        "file": "src/components/elastico/dashboard-view.tsx",
+   531→   531→        "line": 479,
+   532→   532→        "notes": "Legitimate transformation of real accuracy value."
+   533→   533→      },
+   534→   534→      {
+   535→   535→        "id": "DASH-044",
+   536→   536→        "widget": "7. ELO Rankings",
+   537→   537→        "widget_lines": "568-588",
+   538→   538→        "data_point": "ELO sort order (teams sorted by eloRating desc)",
+   539→   539→        "state": "FABRICATED",
+   540→   540→        "source": "Real sort of fabricated ELO values",
+   541→   541→        "file": "src/components/elastico/dashboard-view.tsx",
+   542→   542→        "line": 577,
+   543→   543→        "reclassified_from": "DERIVED",
+   544→   544→        "reclassified_reason": "Propagation rule: sort is legitimate but input ELO values are FABRICATED, so the sorted ranking order is also FABRICATED.",
+   545→   545→        "notes": "Sort is legitimate; input values are fabricated."
+   546→   546→      }
+   547→   547→    ],
+   548→   548→    "state_counts": {
+   549→   549→      "REAL": 20,
+   550→   550→      "PROXY": 1,
+   551→   551→      "DERIVED": 2,
+   552→   552→      "FABRICATED": 19,
+   553→   553→      "MISSING": 0,
+   554→   554→      "STALE": 0,
+   555→   555→      "UNAVAILABLE": 2,
+   556→   556→      "DEMO": 0,
+   557→   557→      "total": 44,
+   558→   558→      "granularity_note": "Each visible data point, UI label, and claim gets its own entry. A single widget like 'Model Probabilities' generates 6 entries (title claim, subtitle claim, hP, dP, aP, match list). The markdown audit counts at a higher level (34 analytical data points) where such a widget is one item with multiple fabrication aspects."
+   559→   559→    },
+   560→   560→    "four_state_compliance": {
+   561→   561→      "loading_implemented": false,
+   562→   562→      "empty_implemented": 2,
+   563→   563→      "error_implemented": 0,
+   564→   564→      "success_implemented": 15,
+   565→   565→      "silent_empty_count": 8,
+   566→   566→      "notes": "0/15 widgets have all 4 states. isLoading/loadingMessage exist in store (lines 189-190) but are not consumed by dashboard-view.tsx."
+   567→   567→    },
+   568→   568→    "ai_attribution_violations": [
+   569→   569→      {
+   570→   570→        "widget": "5. Asian Handicap Lines",
+   571→   571→        "claim": "'From ELO + Poisson + Dixon-Coles + Stochastic models'",
+   572→   572→        "reality": "Hardcoded 55% constant",
+   573→   573→        "file": "src/components/elastico/dashboard-view.tsx",
+   574→   574→        "line": 514
+   575→   575→      },
+   576→   576→      {
+   577→   577→        "widget": "6. Model Probabilities",
+   578→   578→        "claim": "'Model Probabilities' + 'Ensemble: ELO + Poisson + Dixon-Coles + Stochastic'",
+   579→   579→        "reality": "hashCode() deterministic string hash",
+   580→   580→        "file": "src/components/elastico/dashboard-view.tsx",
+   581→   581→        "line": "538-540,544-546"
+   582→   582→      },
+   583→   583→      {
+   584→   584→        "widget": "15. AI Insight",
+   585→   585→        "claim": "'AI Insight' + Sparkles icon",
+   586→   586→        "reality": "Static ternary strings, no AI involved",
+   587→   587→        "file": "src/components/elastico/dashboard-view.tsx",
+   588→   588→        "line": "689,692-698"
+   589→   589→      }
+   590→   590→    ],
+   591→   591→    "section8_violations": [
+   592→   592→      {
+   593→   593→        "data_point_id": "DASH-015",
+   594→   594→        "detail": "Hardcoded 55% for every match, card claims 4-model output",
+   595→   595→        "file": "src/components/elastico/dashboard-view.tsx",
+   596→   596→        "line": "524,526,514"
+   597→   597→      },
+   598→   598→      {
+   599→   599→        "data_point_id": "DASH-019",
+   600→   600→        "detail": "hashCode() pretending to be ensemble model output",
+   601→   601→        "file": "src/components/elastico/dashboard-view.tsx",
+   602→   602→        "line": "544-546,538-540"
+   603→   603→      },
+   604→   604→      {
+   605→   605→        "data_point_id": "DASH-008",
+   606→   606→        "detail": "Seed drawProb=0.26 for all matches, shown as model confidence bars",
+   607→   607→        "file": "prisma/seed.ts",
+   608→   608→        "line": 142
+   609→   609→      },
+   610→   610→      {
+   611→   611→        "data_point_id": "DASH-042",
+   612→   612→        "detail": "Invented '72% of the time' statistic with no source",
+   613→   613→        "file": "src/components/elastico/dashboard-view.tsx",
+   614→   614→        "line": 698
+   615→   615→      },
+   616→   616→      {
+   617→   617→        "data_point_id": "DASH-010",
+   618→   618→        "detail": "Hardcoded confidence:75 sent as if meaningful",
+   619→   619→        "file": "src/components/elastico/dashboard-view.tsx",
+   620→   620→        "line": 142
+   621→   621→      }
+   622→   622→    ],
+   623→   623→    "duplication_issues": [
+   624→   624→      {
+   625→   625→        "cards": [
+   626→   626→          "7. ELO Rankings (right col, lines 568-588)",
+   627→   627→          "10. Team Rankings (ELO) (left col, lines 416-457)"
+   628→   628→        ],
+   629→   629→        "problem": "Same teams array, same ELO sort, same seed data. Widget 10 shows 8 teams with W/D/L; Widget 7 shows 5 teams name+ELO only.",
+   630→   630→        "data_point_ids": [
+   631→   631→          "DASH-022",
+   632→   632→          "DASH-029"
+   633→   633→        ]
+   634→   634→      },
+   635→   635→      {
+   636→   636→        "cards": [
+   637→   637→          "3. Next Match Prediction (lines 296-318)",
+   638→   638→          "6. Model Probabilities (lines 543-564)"
+   639→   639→        ],
+   640→   640→        "problem": "Both show H/D/A stacked horizontal bars. Different data sources (DB vs hashCode) but visually similar. Could show conflicting values for same match.",
+   641→   641→        "data_point_ids": [
+   642→   642→          "DASH-008",
+   643→   643→          "DASH-019"
+   644→   644→        ]
+   645→   645→      }
+   646→   646→    ],
+   647→   647→    "positive_findings": [
+   648→   648→      "xG chart (Widget 9) refuses to fabricate \u2014 code comment explicitly rejects estimating xG from goals. Honest empty state.",
+   649→   649→      "Next Match empty state (Widget 3, lines 321-325) is a perfect UNAVAILABLE state.",
+   650→   650→      "ESPN live data pipeline (Widgets 1,2,8,11) is real and correctly attributed with 'ESPN Live' badge.",
+   651→   651→      "News priority chain (ESPN \u2192 Newsdata.io \u2192 DB) is a reasonable cascade.",
+   652→   652→      "No dedicated mock/fake data file imports \u2014 fabrications are inline, easier to spot and fix."
+   653→   653→    ]
+   654→   654→  },
+   655→   655→  "backend": {
+   656→   656→    "view": "Backend & Prediction Engine",
+   657→   657→    "files_audited": 38,
+   658→   658→    "data_points": [
+   659→   659→      {
+   660→   660→        "id": "BE-045",
+   661→   661→        "widget": "B1. xG Features",
+   662→   662→        "widget_lines": "scripts/phase2_data_foundation.py",
+   663→   663→        "data_point": "xg_for_home = mean(recent_SOT) x 0.1",
+   664→   664→        "state": "FABRICATED",
+   665→   665→        "source": "shots_on_target x 0.1 proxy",
+   666→   666→        "file": "scripts/phase2_data_foundation.py",
+   667→   667→        "line": "363",
+   668→   668→        "section8_violation": true,
+   669→   669→        "notes": "No xG source in football-data.co.uk. Multiplier 0.1 not calibrated. Model trained with this."
+   670→   670→      },
+   671→   671→      {
+   672→   672→        "id": "BE-046",
+   673→   673→        "widget": "B1. xG Features",
+   674→   674→        "widget_lines": "scripts/phase2_data_foundation.py",
+   675→   675→        "data_point": "xg_for_away = mean(recent_SOT) x 0.1",
+   676→   676→        "state": "FABRICATED",
+   677→   677→        "source": "shots_on_target x 0.1 proxy",
+   678→   678→        "file": "scripts/phase2_data_foundation.py",
+   679→   679→        "line": "381"
+   680→   680→      },
+   681→   681→      {
+   682→   682→        "id": "BE-047",
+   683→   683→        "widget": "B1. xG Features",
+   684→   684→        "widget_lines": "scripts/phase2_data_foundation.py",
+   685→   685→        "data_point": "xg_diff = xg_for_home - xg_for_away",
+   686→   686→        "state": "FABRICATED",
+   687→   687→        "source": "Derived from fabricated inputs",
+   688→   688→        "file": "scripts/phase2_data_foundation.py",
+   689→   689→        "line": "392",
+   690→   690→        "reclassified_from": "DERIVED",
+   691→   691→        "reclassified_reason": "Propagation rule"
+   692→   692→      },
+   693→   693→      {
+   694→   694→        "id": "BE-048",
+   695→   695→        "widget": "B1. xG Features",
+   696→   696→        "widget_lines": "saved_models/xgboost_v1_metadata.json",
+   697→   697→        "data_point": "xg_note honestly discloses proxy",
+   698→   698→        "state": "REAL",
+   699→   699→        "source": "Model self-disclosure",
+   700→   700→        "file": "saved_models/xgboost_v1_metadata.json",
+   701→   701→        "line": "335"
+   702→   702→      },
+   703→   703→      {
+   704→   704→        "id": "BE-049",
+   705→   705→        "widget": "B1. xG Features",
+   706→   706→        "widget_lines": "src/ml/features.py",
+   707→   707→        "data_point": "Feature schema labels xg_for_home as real xG",
+   708→   708→        "state": "FABRICATED",
+   709→   709→        "source": "False label on fabricated feature",
+   710→   710→        "file": "src/ml/features.py",
+   711→   711→        "line": "88",
+   712→   712→        "ai_attribution_violation": true
+   713→   713→      },
+   714→   714→      {
+   715→   715→        "id": "BE-050",
+   716→   716→        "widget": "B2. LSTM in Ensemble",
+   717→   717→        "widget_lines": "saved_models/lstm_v1_metadata.json",
+   718→   718→        "data_point": "LSTM self-classification: D. FAILED",
+   719→   719→        "state": "REAL",
+   720→   720→        "source": "Model own metadata",
+   721→   721→        "file": "saved_models/lstm_v1_metadata.json",
+   722→   722→        "line": "274"
+   723→   723→      },
+   724→   724→      {
+   725→   725→        "id": "BE-051",
+   726→   726→        "widget": "B2. LSTM in Ensemble",
+   727→   727→        "widget_lines": "saved_models/lstm_v1_metadata.json",
+   728→   728→        "data_point": "LSTM recommendation: Do NOT include in ensemble",
+   729→   729→        "state": "REAL",
+   730→   730→        "source": "Model own metadata",
+   731→   731→        "file": "saved_models/lstm_v1_metadata.json",
+   732→   732→        "line": "284"
+   733→   733→      },
+   734→   734→      {
+   735→   735→        "id": "BE-052",
+   736→   736→        "widget": "B2. LSTM in Ensemble",
+   737→   737→        "widget_lines": "config/settings.py",
+   738→   738→        "data_point": "ensemble_weight_lstm = 0.15",
+   739→   739→        "state": "FABRICATED",
+   740→   740→        "source": "Hardcoded despite FAILED classification",
+   741→   741→        "file": "config/settings.py",
+   742→   742→        "line": "40",
+   743→   743→        "section8_violation": true
+   744→   744→      },
+   745→   745→      {
+   746→   746→        "id": "BE-053",
+   747→   747→        "widget": "B2. LSTM in Ensemble",
+   748→   748→        "widget_lines": "src/engines/ensemble.py",
+   749→   749→        "data_point": "lstm weight = 0.15 in EnsembleConfig",
+   750→   750→        "state": "FABRICATED",
+   751→   751→        "source": "Hardcoded despite FAILED classification",
+   752→   752→        "file": "src/engines/ensemble.py",
+   753→   753→        "line": "60"
+   754→   754→      },
+   755→   755→      {
+   756→   756→        "id": "BE-054",
+   757→   757→        "widget": "B3. Ensemble Config",
+   758→   758→        "widget_lines": "src/engines/ensemble.py",
+   759→   759→        "data_point": "6-model ensemble weights",
+   760→   760→        "state": "FABRICATED",
+   761→   761→        "source": "Not calibrated from validation",
+   762→   762→        "file": "src/engines/ensemble.py",
+   763→   763→        "line": "54-61",
+   764→   764→        "section8_violation": true
+   765→   765→      },
+   766→   766→      {
+   767→   767→        "id": "BE-055",
+   768→   768→        "widget": "B3. Ensemble Config",
+   769→   769→        "widget_lines": "config/settings.py",
+   770→   770→        "data_point": "Ensemble weights (config duplicate)",
+   771→   771→        "state": "FABRICATED",
+   772→   772→        "source": "Same values duplicated from ensemble.py",
+   773→   773→        "file": "config/settings.py",
+   774→   774→        "line": "35-40"
+   775→   775→      },
+   776→   776→      {
+   777→   777→        "id": "BE-056",
+   778→   778→        "widget": "B3. Ensemble Config",
+   779→   779→        "widget_lines": "src/engines/ensemble.py",
+   780→   780→        "data_point": "Confidence thresholds (0.55, 0.42)",
+   781→   781→        "state": "FABRICATED",
+   782→   782→        "source": "Hardcoded, no calibration",
+   783→   783→        "file": "src/engines/ensemble.py",
+   784→   784→        "line": "566-570"
+   785→   785→      },
+   786→   786→      {
+   787→   787→        "id": "BE-057",
+   788→   788→        "widget": "B3. Ensemble Config",
+   789→   789→        "widget_lines": "src/engines/ensemble.py",
+   790→   790→        "data_point": "ELO signal thresholds (150, -150, 80)",
+   791→   791→        "state": "FABRICATED",
+   792→   792→        "source": "Hardcoded",
+   793→   793→        "file": "src/engines/ensemble.py",
+   794→   794→        "line": "602-607"
+   795→   795→      },
+   796→   796→      {
+   797→   797→        "id": "BE-058",
+   798→   798→        "widget": "B3. Ensemble Config",
+   799→   799→        "widget_lines": "src/engines/ensemble.py",
+   800→   800→        "data_point": "xG signal multiplier (1.3)",
+   801→   801→        "state": "FABRICATED",
+   802→   802→        "source": "Hardcoded",
+   803→   803→        "file": "src/engines/ensemble.py",
+   804→   804→        "line": "611-614"
+   805→   805→      },
+   806→   806→      {
+   807→   807→        "id": "BE-059",
+   808→   808→        "widget": "B3. Ensemble Config",
+   809→   809→        "widget_lines": "src/engines/ensemble.py",
+   810→   810→        "data_point": "ELO even match threshold (30)",
+   811→   811→        "state": "FABRICATED",
+   812→   812→        "source": "Hardcoded",
+   813→   813→        "file": "src/engines/ensemble.py",
+   814→   814→        "line": "640"
+   815→   815→      },
+   816→   816→      {
+   817→   817→        "id": "BE-060",
+   818→   818→        "widget": "B3. Ensemble Config",
+   819→   819→        "widget_lines": "src/engines/ensemble.py",
+   820→   820→        "data_point": "Draw risk threshold (0.32)",
+   821→   821→        "state": "FABRICATED",
+   822→   822→        "source": "Hardcoded",
+   823→   823→        "file": "src/engines/ensemble.py",
+   824→   824→        "line": "648"
+   825→   825→      },
+   826→   826→      {
+   827→   827→        "id": "BE-061",
+   828→   828→        "widget": "B3. Ensemble Config",
+   829→   829→        "widget_lines": "src/engines/ensemble.py",
+   830→   830→        "data_point": "Home advantage +65.0",
+   831→   831→        "state": "FABRICATED",
+   832→   832→        "source": "Hardcoded",
+   833→   833→        "file": "src/engines/ensemble.py",
+   834→   834→        "line": "707"
+   835→   835→      },
+   836→   836→      {
+   837→   837→        "id": "BE-062",
+   838→   838→        "widget": "B3. Ensemble Config",
+   839→   839→        "widget_lines": "src/engines/ensemble.py",
+   840→   840→        "data_point": "Fallback 1/3 each (error path)",
+   841→   841→        "state": "FABRICATED",
+   842→   842→        "source": "Uniform presented as estimate",
+   843→   843→        "file": "src/engines/ensemble.py",
+   844→   844→        "line": "466",
+   845→   845→        "section8_violation": true
+   846→   846→      },
+   847→   847→      {
+   848→   848→        "id": "BE-063",
+   849→   849→        "widget": "B3. Ensemble Config",
+   850→   850→        "widget_lines": "src/engines/ensemble.py",
+   851→   851→        "data_point": "Fallback 1/3 each (empty weights)",
+   852→   852→        "state": "FABRICATED",
+   853→   853→        "source": "Uniform presented as estimate",
+   854→   854→        "file": "src/engines/ensemble.py",
+   855→   855→        "line": "536"
+   856→   856→      },
+   857→   857→      {
+   858→   858→        "id": "BE-064",
+   859→   859→        "widget": "B4. Stochastic Engine",
+   860→   860→        "widget_lines": "src/engines/stochastic.py",
+   861→   861→        "data_point": "GARCH omega=0.02",
+   862→   862→        "state": "FABRICATED",
+   863→   863→        "source": "Hardcoded default, not calibrated in production",
+   864→   864→        "file": "src/engines/stochastic.py",
+   865→   865→        "line": "38"
+   866→   866→      },
+   867→   867→      {
+   868→   868→        "id": "BE-065",
+   869→   869→        "widget": "B4. Stochastic Engine",
+   870→   870→        "widget_lines": "src/engines/stochastic.py",
+   871→   871→        "data_point": "GARCH alpha=0.12",
+   872→   872→        "state": "FABRICATED",
+   873→   873→        "source": "Hardcoded default, not calibrated in production",
+   874→   874→        "file": "src/engines/stochastic.py",
+   875→   875→        "line": "39"
+   876→   876→      },
+   877→   877→      {
+   878→   878→        "id": "BE-066",
+   879→   879→        "widget": "B4. Stochastic Engine",
+   880→   880→        "widget_lines": "src/engines/stochastic.py",
+   881→   881→        "data_point": "GARCH beta=0.85",
+   882→   882→        "state": "FABRICATED",
+   883→   883→        "source": "Hardcoded default, not calibrated in production",
+   884→   884→        "file": "src/engines/stochastic.py",
+   885→   885→        "line": "40"
+   886→   886→      },
+   887→   887→      {
+   888→   888→        "id": "BE-067",
+   889→   889→        "widget": "B4. Stochastic Engine",
+   890→   890→        "widget_lines": "src/engines/stochastic.py",
+   891→   891→        "data_point": "Jump intensity=0.1",
+   892→   892→        "state": "FABRICATED",
+   893→   893→        "source": "Hardcoded default, not calibrated in production",
+   894→   894→        "file": "src/engines/stochastic.py",
+   895→   895→        "line": "64"
+   896→   896→      },
+   897→   897→      {
+   898→   898→        "id": "BE-068",
+   899→   899→        "widget": "B4. Stochastic Engine",
+   900→   900→        "widget_lines": "src/engines/stochastic.py",
+   901→   901→        "data_point": "Jump mean=0.0",
+   902→   902→        "state": "FABRICATED",
+   903→   903→        "source": "Hardcoded default, not calibrated in production",
+   904→   904→        "file": "src/engines/stochastic.py",
+   905→   905→        "line": "65"
+   906→   906→      },
+   907→   907→      {
+   908→   908→        "id": "BE-069",
+   909→   909→        "widget": "B4. Stochastic Engine",
+   910→   910→        "widget_lines": "src/engines/stochastic.py",
+   911→   911→        "data_point": "Jump std=0.3",
+   912→   912→        "state": "FABRICATED",
+   913→   913→        "source": "Hardcoded default, not calibrated in production",
+   914→   914→        "file": "src/engines/stochastic.py",
+   915→   915→        "line": "66"
+   916→   916→      },
+   917→   917→      {
+   918→   918→        "id": "BE-070",
+   919→   919→        "widget": "B4. Stochastic Engine",
+   920→   920→        "widget_lines": "src/engines/stochastic.py",
+   921→   921→        "data_point": "Home-away correlation=0.15",
+   922→   922→        "state": "FABRICATED",
+   923→   923→        "source": "Hardcoded default, not calibrated in production",
+   924→   924→        "file": "src/engines/stochastic.py",
+   925→   925→        "line": "77-78"
+   926→   926→      },
+   927→   927→      {
+   928→   928→        "id": "BE-071",
+   929→   929→        "widget": "B4. Stochastic Engine",
+   930→   930→        "widget_lines": "src/engines/stochastic.py",
+   931→   931→        "data_point": "League avg goals=1.3",
+   932→   932→        "state": "FABRICATED",
+   933→   933→        "source": "Hardcoded default, not calibrated in production",
+   934→   934→        "file": "src/engines/stochastic.py",
+   935→   935→        "line": "286"
+   936→   936→      },
+   937→   937→      {
+   938→   938→        "id": "BE-072",
+   939→   939→        "widget": "B4. Stochastic Engine",
+   940→   940→        "widget_lines": "src/engines/stochastic.py",
+   941→   941→        "data_point": "GARCH fallback params",
+   942→   942→        "state": "FABRICATED",
+   943→   943→        "source": "Hardcoded default, not calibrated in production",
+   944→   944→        "file": "src/engines/stochastic.py",
+   945→   945→        "line": "187-191"
+   946→   946→      },
+   947→   947→      {
+   948→   948→        "id": "BE-073",
+   949→   949→        "widget": "B4. Stochastic Engine",
+   950→   950→        "widget_lines": "src/engines/stochastic.py",
+   951→   951→        "data_point": "Jump fallback params",
+   952→   952→        "state": "FABRICATED",
+   953→   953→        "source": "Hardcoded default, not calibrated in production",
+   954→   954→        "file": "src/engines/stochastic.py",
+   955→   955→        "line": "234-238"
+   956→   956→      },
+   957→   957→      {
+   958→   958→        "id": "BE-074",
+   959→   959→        "widget": "B4. Stochastic Engine",
+   960→   960→        "widget_lines": "src/engines/stochastic.py",
+   961→   961→        "data_point": "ELO factor mapping",
+   962→   962→        "state": "FABRICATED",
+   963→   963→        "source": "Hardcoded default, not calibrated in production",
+   964→   964→        "file": "src/engines/stochastic.py",
+   965→   965→        "line": "304-305"
+   966→   966→      },
+   967→   967→      {
+   968→   968→        "id": "BE-075",
+   969→   969→        "widget": "B4. Stochastic Engine",
+   970→   970→        "widget_lines": "src/engines/stochastic.py",
+   971→   971→        "data_point": "Volatility normalization",
+   972→   972→        "state": "FABRICATED",
+   973→   973→        "source": "Hardcoded default, not calibrated in production",
+   974→   974→        "file": "src/engines/stochastic.py",
+   975→   975→        "line": "402-403"
+   976→   976→      },
+   977→   977→      {
+   978→   978→        "id": "BE-076",
+   979→   979→        "widget": "B4. Stochastic Engine",
+   980→   980→        "widget_lines": "src/engines/stochastic.py",
+   981→   981→        "data_point": "Confidence thresholds (dup)",
+   982→   982→        "state": "FABRICATED",
+   983→   983→        "source": "Hardcoded default, not calibrated in production",
+   984→   984→        "file": "src/engines/stochastic.py",
+   985→   985→        "line": "409-414"
+   986→   986→      },
+   987→   987→      {
+   988→   988→        "id": "BE-077",
+   989→   989→        "widget": "B5. Market Signals",
+   990→   990→        "widget_lines": "src/engines/market_signals.py",
+   991→   991→        "data_point": "Steam threshold strong=0.12",
+   992→   992→        "state": "FABRICATED",
+   993→   993→        "source": "Hardcoded",
+   994→   994→        "file": "src/engines/market_signals.py",
+   995→   995→        "line": "59"
+   996→   996→      },
+   997→   997→      {
+   998→   998→        "id": "BE-078",
+   999→   999→        "widget": "B5. Market Signals",
+  1000→  1000→        "widget_lines": "src/engines/market_signals.py",
+  1001→  1001→        "data_point": "Steam threshold moderate=0.06",
+  1002→  1002→        "state": "FABRICATED",
+  1003→  1003→        "source": "Hardcoded",
+  1004→  1004→        "file": "src/engines/market_signals.py",
+  1005→  1005→        "line": "60"
+  1006→  1006→      },
+  1007→  1007→      {
+  1008→  1008→        "id": "BE-079",
+  1009→  1009→        "widget": "B5. Market Signals",
+  1010→  1010→        "widget_lines": "src/engines/market_signals.py",
+  1011→  1011→        "data_point": "Steam threshold weak=0.03",
+  1012→  1012→        "state": "FABRICATED",
+  1013→  1013→        "source": "Hardcoded",
+  1014→  1014→        "file": "src/engines/market_signals.py",
+  1015→  1015→        "line": "61"
+  1016→  1016→      },
+  1017→  1017→      {
+  1018→  1018→        "id": "BE-080",
+  1019→  1019→        "widget": "B5. Market Signals",
+  1020→  1020→        "widget_lines": "src/engines/market_signals.py",
+  1021→  1021→        "data_point": "RLM drift=0.04",
+  1022→  1022→        "state": "FABRICATED",
+  1023→  1023→        "source": "Hardcoded",
+  1024→  1024→        "file": "src/engines/market_signals.py",
+  1025→  1025→        "line": "69"
+  1026→  1026→      },
+  1027→  1027→      {
+  1028→  1028→        "id": "BE-081",
+  1029→  1029→        "widget": "B5. Market Signals",
+  1030→  1030→        "widget_lines": "src/engines/market_signals.py",
+  1031→  1031→        "data_point": "Sharp prob shift=0.05",
+  1032→  1032→        "state": "FABRICATED",
+  1033→  1033→        "source": "Hardcoded",
+  1034→  1034→        "file": "src/engines/market_signals.py",
+  1035→  1035→        "line": "72"
+  1036→  1036→      },
+  1037→  1037→      {
+  1038→  1038→        "id": "BE-082",
+  1039→  1039→        "widget": "B5. Market Signals",
+  1040→  1040→        "widget_lines": "src/engines/market_signals.py",
+  1041→  1041→        "data_point": "Sharp odds velocity=0.08",
+  1042→  1042→        "state": "FABRICATED",
+  1043→  1043→        "source": "Hardcoded",
+  1044→  1044→        "file": "src/engines/market_signals.py",
+  1045→  1045→        "line": "73"
+  1046→  1046→      },
+  1047→  1047→      {
+  1048→  1048→        "id": "BE-083",
+  1049→  1049→        "widget": "B5. Market Signals",
+  1050→  1050→        "widget_lines": "src/engines/market_signals.py",
+  1051→  1051→        "data_point": "Covariance base=0.25",
+  1052→  1052→        "state": "FABRICATED",
+  1053→  1053→        "source": "Hardcoded",
+  1054→  1054→        "file": "src/engines/market_signals.py",
+  1055→  1055→        "line": "156"
+  1056→  1056→      },
+  1057→  1057→      {
+  1058→  1058→        "id": "BE-084",
+  1059→  1059→        "widget": "B5. Market Signals",
+  1060→  1060→        "widget_lines": "src/engines/market_signals.py",
+  1061→  1061→        "data_point": "Same-match corr=-0.20",
+  1062→  1062→        "state": "FABRICATED",
+  1063→  1063→        "source": "Hardcoded",
+  1064→  1064→        "file": "src/engines/market_signals.py",
+  1065→  1065→        "line": "170"
+  1066→  1066→      },
+  1067→  1067→      {
+  1068→  1068→        "id": "BE-085",
+  1069→  1069→        "widget": "B5. Market Signals",
+  1070→  1070→        "widget_lines": "src/engines/market_signals.py",
+  1071→  1071→        "data_point": "Cross-match corr=0.02",
+  1072→  1072→        "state": "FABRICATED",
+  1073→  1073→        "source": "Hardcoded",
+  1074→  1074→        "file": "src/engines/market_signals.py",
+  1075→  1075→        "line": "178"
+  1076→  1076→      },
+  1077→  1077→      {
+  1078→  1078→        "id": "BE-086",
+  1079→  1079→        "widget": "B5. Market Signals",
+  1080→  1080→        "widget_lines": "src/engines/market_signals.py",
+  1081→  1081→        "data_point": "Marginal risk (1.2,0.95)",
+  1082→  1082→        "state": "FABRICATED",
+  1083→  1083→        "source": "Hardcoded",
+  1084→  1084→        "file": "src/engines/market_signals.py",
+  1085→  1085→        "line": "314-315"
+  1086→  1086→      },
+  1087→  1087→      {
+  1088→  1088→        "id": "BE-087",
+  1089→  1089→        "widget": "B5. Market Signals",
+  1090→  1090→        "widget_lines": "src/engines/kelly.py",
+  1091→  1091→        "data_point": "Kelly base variance=0.25",
+  1092→  1092→        "state": "FABRICATED",
+  1093→  1093→        "source": "Hardcoded",
+  1094→  1094→        "file": "src/engines/kelly.py",
+  1095→  1095→        "line": "156"
+  1096→  1096→      },
+  1097→  1097→      {
+  1098→  1098→        "id": "BE-088",
+  1099→  1099→        "widget": "B6. Security",
+  1100→  1100→        "widget_lines": "config/settings.py",
+  1101→  1101→        "data_point": "database_url with embedded password",
+  1102→  1102→        "state": "FABRICATED",
+  1103→  1103→        "source": "Credentials in source default",
+  1104→  1104→        "file": "config/settings.py",
+  1105→  1105→        "line": "15",
+  1106→  1106→        "notes": "Security issue. Default value in field def means it works without .env."
+  1107→  1107→      },
+  1108→  1108→      {
+  1109→  1109→        "id": "BE-089",
+  1110→  1110→        "widget": "B7. Placeholder Endpoints",
+  1111→  1111→        "widget_lines": "src/api/routes/stats.py",
+  1112→  1112→        "data_point": "GET /stats/team/{team_id} raises NotImplementedError",
+  1113→  1113→        "state": "MISSING",
+  1114→  1114→        "source": "No data, honest error",
+  1115→  1115→        "file": "src/api/routes/stats.py",
+  1116→  1116→        "line": "84-88"
+  1117→  1117→      },
+  1118→  1118→      {
+  1119→  1119→        "id": "BE-090",
+  1120→  1120→        "widget": "B7. Placeholder Endpoints",
+  1121→  1121→        "widget_lines": "src/api/routes/stats.py",
+  1122→  1122→        "data_point": "GET /stats/headtohead returns all zeros",
+  1123→  1123→        "state": "FABRICATED",
+  1124→  1124→        "source": "Zeros presented as valid response",
+  1125→  1125→        "file": "src/api/routes/stats.py",
+  1126→  1126→        "line": "91-102"
+  1127→  1127→      },
+  1128→  1128→      {
+  1129→  1129→        "id": "BE-091",
+  1130→  1130→        "widget": "B7. Placeholder Endpoints",
+  1131→  1131→        "widget_lines": "src/api/routes/stats.py",
+  1132→  1132→        "data_point": "GET /stats/form/{team_id} returns all zeros",
+  1133→  1133→        "state": "FABRICATED",
+  1134→  1134→        "source": "Zeros presented as valid response",
+  1135→  1135→        "file": "src/api/routes/stats.py",
+  1136→  1136→        "line": "105-113"
+  1137→  1137→      },
+  1138→  1138→      {
+  1139→  1139→        "id": "BE-092",
+  1140→  1140→        "widget": "B7. Placeholder Endpoints",
+  1141→  1141→        "widget_lines": "src/api/routes/stats.py",
+  1142→  1142→        "data_point": "GET /stats/brier returns zeros/None",
+  1143→  1143→        "state": "FABRICATED",
+  1144→  1144→        "source": "Zeros presented as valid response",
+  1145→  1145→        "file": "src/api/routes/stats.py",
+  1146→  1146→        "line": "116-130"
+  1147→  1147→      },
+  1148→  1148→      {
+  1149→  1149→        "id": "BE-093",
+  1150→  1150→        "widget": "B7. Placeholder Endpoints",
+  1151→  1151→        "widget_lines": "src/api/routes/admin.py",
+  1152→  1152→        "data_point": "GET /admin/calibration returns all zeros",
+  1153→  1153→        "state": "FABRICATED",
+  1154→  1154→        "source": "Zeros presented as valid response",
+  1155→  1155→        "file": "src/api/routes/admin.py",
+  1156→  1156→        "line": "127-148"
+  1157→  1157→      },
+  1158→  1158→      {
+  1159→  1159→        "id": "BE-094",
+  1160→  1160→        "widget": "B7. Placeholder Endpoints",
+  1161→  1161→        "widget_lines": "src/api/routes/admin.py",
+  1162→  1162→        "data_point": "POST /admin/backtest returns all zeros",
+  1163→  1163→        "state": "FABRICATED",
+  1164→  1164→        "source": "Zeros presented as valid response",
+  1165→  1165→        "file": "src/api/routes/admin.py",
+  1166→  1166→        "line": "151-179"
+  1167→  1167→      },
+  1168→  1168→      {
+  1169→  1169→        "id": "BE-095",
+  1170→  1170→        "widget": "B7. Placeholder Endpoints",
+  1171→  1171→        "widget_lines": "src/api/routes/admin.py",
+  1172→  1172→        "data_point": "GET /admin/models returns static list",
+  1173→  1173→        "state": "FABRICATED",
+  1174→  1174→        "source": "Hardcoded 5 names, not from saved_models/",
+  1175→  1175→        "file": "src/api/routes/admin.py",
+  1176→  1176→        "line": "182-193"
+  1177→  1177→      },
+  1178→  1178→      {
+  1179→  1179→        "id": "BE-096",
+  1180→  1180→        "widget": "B7. Placeholder Endpoints",
+  1181→  1181→        "widget_lines": "src/api/routes/admin.py",
+  1182→  1182→        "data_point": "GET /admin/system/health claims connected",
+  1183→  1183→        "state": "FABRICATED",
+  1184→  1184→        "source": "Does not check actual connection",
+  1185→  1185→        "file": "src/api/routes/admin.py",
+  1186→  1186→        "line": "196-208",
+  1187→  1187→        "notes": "Line 201: # Would check actual connection"
+  1188→  1188→      }
+  1189→  1189→    ]
+  1190→  1190→  }
+  1191→  1191→}
