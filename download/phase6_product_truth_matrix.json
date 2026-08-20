@@ -1,23 +1,23 @@
 {
   "meta": {
     "phase": "6A",
-    "title": "Product Truth & Foundation Audit \u2014 Forensic Revalidation Matrix",
-    "date": "2026-08-19",
+    "title": "Product Truth & Foundation Audit — Forensic Revalidation Matrix",
+    "date": "2026-08-20",
     "schema_version": "2.1.0",
     "method": "Sequential view-by-view forensic audit",
     "views_total": 9,
-    "views_completed": 1,
+    "views_completed": 9,
     "data_quality_states": {
       "REAL": "Data from a verified external source or honestly computed from real inputs.",
-      "PROXY": "Approximation of real data \u2014 plausible but not directly sourced. Must label as estimate.",
+      "PROXY": "Approximation of real data — plausible but not directly sourced. Must label as estimate.",
       "DERIVED": "Real data transformed by a legitimate, disclosed computation.",
-      "MISSING": "Data that should exist but doesn't \u2014 no value shown. Must show honest empty state.",
+      "MISSING": "Data that should exist but doesn't — no value shown. Must show honest empty state.",
       "STALE": "Data that was once real but has expired its freshness window. Must show timestamp.",
-      "UNAVAILABLE": "Data that cannot be obtained \u2014 honestly disclosed. Must explain why.",
+      "UNAVAILABLE": "Data that cannot be obtained — honestly disclosed. Must explain why.",
       "DEMO": "Fictional data clearly labeled as sample/demo content.",
-      "FABRICATED": "[8th state] Synthetic data presented as real without disclosure. Added because the original 7-state schema had no category for undisclosed fake data masquerading as real \u2014 the core trust violation this audit targets. Semantically distinct from DEMO: DEMO implies the user knows it's fictional; FABRICATED means the user is led to believe it's real. Must be eliminated or reclassified to DEMO with disclosure."
+      "FABRICATED": "[8th state] Synthetic data presented as real without disclosure. Added because the original 7-state schema had no category for undisclosed fake data masquerading as real — the core trust violation this audit targets. Semantically distinct from DEMO: DEMO implies the user knows it's fictional; FABRICATED means the user is led to believe it's real. Must be eliminated or reclassified to DEMO with disclosure."
     },
-    "propagation_rule": "FABRICATED propagates upward through all transformations. If any input to a DERIVED or PROXY computation is FABRICATED, the output inherits FABRICATED state \u2014 regardless of whether the computation itself is legitimate. Rationale: a real method applied to fake inputs produces fake outputs (garbage in, garbage out). The 'highest violation' state always wins. Applied retroactively to all 9 views."
+    "propagation_rule": "FABRICATED propagates upward through all transformations. If any input to a DERIVED or PROXY computation is FABRICATED, the output inherits FABRICATED state — regardless of whether the computation itself is legitimate. Rationale: a real method applied to fake inputs produces fake outputs (garbage in, garbage out). The 'highest violation' state always wins. Applied retroactively to all 9 views."
   },
   "dashboard": {
     "view": "Dashboard",
@@ -45,7 +45,7 @@
         "widget_lines": "156-198",
         "data_point": "Match scores (home/away)",
         "state": "REAL",
-        "source": "ESPN public API via GET /api/live \u2192 football-data.ts",
+        "source": "ESPN public API via GET /api/live → football-data.ts",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": "176-178",
         "notes": "Ticker prefers ESPN live data (line 80), falls back to DB matches (line 92)"
@@ -74,7 +74,7 @@
       },
       {
         "id": "DASH-004",
-        "widget": "2. Live Scores \u2014 All Leagues",
+        "widget": "2. Live Scores — All Leagues",
         "widget_lines": "209-257",
         "data_point": "Match list (names, scores, status, minute)",
         "state": "REAL",
@@ -85,7 +85,7 @@
       },
       {
         "id": "DASH-005",
-        "widget": "2. Live Scores \u2014 All Leagues",
+        "widget": "2. Live Scores — All Leagues",
         "widget_lines": "209-257",
         "data_point": "Competition names",
         "state": "REAL",
@@ -100,7 +100,7 @@
         "widget_lines": "260-357",
         "data_point": "Match identity (team names, venue)",
         "state": "REAL",
-        "source": "DB Match record via GET /api/matches \u2192 Prisma",
+        "source": "DB Match record via GET /api/matches → Prisma",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": "278-284",
         "notes": null
@@ -136,10 +136,10 @@
         "widget_lines": "260-357",
         "data_point": "Empty state message (no prediction)",
         "state": "UNAVAILABLE",
-        "source": "Static text \u2014 honest disclosure",
+        "source": "Static text — honest disclosure",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": "321-325",
-        "notes": "Correctly handled: 'No model prediction yet for this match \u2014 check back closer to kickoff.'"
+        "notes": "Correctly handled: 'No model prediction yet for this match — check back closer to kickoff.'"
       },
       {
         "id": "DASH-010",
@@ -226,7 +226,7 @@
         "widget_lines": "533-566",
         "data_point": "Card title: 'Model Probabilities'",
         "state": "FABRICATED",
-        "source": "False model claim \u2014 no model involved",
+        "source": "False model claim — no model involved",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": 538,
         "notes": "Probabilities come from hashCode(), not from any model."
@@ -237,7 +237,7 @@
         "widget_lines": "533-566",
         "data_point": "Subtitle: 'Ensemble: ELO + Poisson + Dixon-Coles + Stochastic'",
         "state": "FABRICATED",
-        "source": "False model authority claim \u2014 copy-pasted from Widget 5",
+        "source": "False model authority claim — copy-pasted from Widget 5",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": 540,
         "section8_violation": true,
@@ -249,7 +249,7 @@
         "widget_lines": "533-566",
         "data_point": "hP (home win probability via hashCode)",
         "state": "FABRICATED",
-        "source": "hashCode() deterministic string hash \u2014 no statistical or ML basis",
+        "source": "hashCode() deterministic string hash — no statistical or ML basis",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": "544,30-37",
         "section8_violation": true,
@@ -261,16 +261,16 @@
         "widget_lines": "533-566",
         "data_point": "dP (draw probability via hashCode)",
         "state": "FABRICATED",
-        "source": "hashCode() on AWAY team name \u2014 arbitrary choice",
+        "source": "hashCode() on AWAY team name — arbitrary choice",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": 545,
-        "notes": "15 + Math.abs(hashCode(awayTeamName)) % 15. Guarantees 15-29%. Derived from away team name, not home \u2014 arbitrary and meaningless."
+        "notes": "15 + Math.abs(hashCode(awayTeamName)) % 15. Guarantees 15-29%. Derived from away team name, not home — arbitrary and meaningless."
       },
       {
         "id": "DASH-021",
         "widget": "6. Model Probabilities",
         "widget_lines": "533-566",
-        "data_point": "aP (away win probability \u2014 residual)",
+        "data_point": "aP (away win probability — residual)",
         "state": "FABRICATED",
         "source": "100 - hP - dP",
         "file": "src/components/elastico/dashboard-view.tsx",
@@ -296,7 +296,7 @@
         "widget_lines": "568-588",
         "data_point": "Team names",
         "state": "REAL",
-        "source": "DB Team records \u2014 factual identities",
+        "source": "DB Team records — factual identities",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": 582,
         "notes": null
@@ -340,7 +340,7 @@
         "widget_lines": "385-414",
         "data_point": "Empty state message",
         "state": "UNAVAILABLE",
-        "source": "Static text \u2014 honest disclosure",
+        "source": "Static text — honest disclosure",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": "406-411",
         "notes": "'xG data unavailable for recent matches. This chart only shows real expected-goals data.' Gold standard empty state."
@@ -436,7 +436,7 @@
         "file": "prisma/seed.ts",
         "line": "45-51",
         "rendered_at": "dashboard-view.tsx:625-635",
-        "notes": "E.g. 'Argentina confirmed as World Cup 2026 top seeds' with source:'FIFA.com' \u2014 source attribution may not correspond to a real article. Presented identically to real ESPN/Newsdata articles with no DEMO badge."
+        "notes": "E.g. 'Argentina confirmed as World Cup 2026 top seeds' with source:'FIFA.com' — source attribution may not correspond to a real article. Presented identically to real ESPN/Newsdata articles with no DEMO badge."
       },
       {
         "id": "DASH-036",
@@ -479,7 +479,7 @@
         "widget_lines": "656-682",
         "data_point": "Navigation targets (Matches, AI Chat, Predict)",
         "state": "REAL",
-        "source": "Static route buttons \u2014 legitimate views in sidebar/store",
+        "source": "Static route buttons — legitimate views in sidebar/store",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": "661,669,677",
         "notes": "No data displayed. Navigation only."
@@ -490,7 +490,7 @@
         "widget_lines": "684-703",
         "data_point": "Card title: 'AI Insight' with Sparkles icon",
         "state": "FABRICATED",
-        "source": "False AI claim \u2014 no AI involved",
+        "source": "False AI claim — no AI involved",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": "689,692",
         "ai_attribution_violation": true,
@@ -514,11 +514,11 @@
         "widget_lines": "684-703",
         "data_point": "'Favorites with 150+ ELO advantage win 72% of the time'",
         "state": "FABRICATED",
-        "source": "Invented statistic \u2014 no source cited, no evidence in codebase",
+        "source": "Invented statistic — no source cited, no evidence in codebase",
         "file": "src/components/elastico/dashboard-view.tsx",
         "line": 698,
         "section8_violation": true,
-        "notes": "Specific quantitative claim presented as fact. Phase 5 calibration showed raw market odds (LL 0.959) outperforming all ELASTICO models \u2014 contradicts implied model authority."
+        "notes": "Specific quantitative claim presented as fact. Phase 5 calibration showed raw market odds (LL 0.959) outperforming all ELASTICO models — contradicts implied model authority."
       },
       {
         "id": "DASH-043",
@@ -645,11 +645,11 @@
       }
     ],
     "positive_findings": [
-      "xG chart (Widget 9) refuses to fabricate \u2014 code comment explicitly rejects estimating xG from goals. Honest empty state.",
+      "xG chart (Widget 9) refuses to fabricate — code comment explicitly rejects estimating xG from goals. Honest empty state.",
       "Next Match empty state (Widget 3, lines 321-325) is a perfect UNAVAILABLE state.",
       "ESPN live data pipeline (Widgets 1,2,8,11) is real and correctly attributed with 'ESPN Live' badge.",
-      "News priority chain (ESPN \u2192 Newsdata.io \u2192 DB) is a reasonable cascade.",
-      "No dedicated mock/fake data file imports \u2014 fabrications are inline, easier to spot and fix."
+      "News priority chain (ESPN → Newsdata.io → DB) is a reasonable cascade.",
+      "No dedicated mock/fake data file imports — fabrications are inline, easier to spot and fix."
     ]
   },
   "backend": {
@@ -1185,6 +1185,1313 @@
         "file": "src/api/routes/admin.py",
         "line": "196-208",
         "notes": "Line 201: # Would check actual connection"
+      }
+    ]
+  },
+  "matches": {
+    "view": "Live Matches",
+    "component": "src/components/elastico/matches-view.tsx",
+    "component_lines": 505,
+    "data_points": [
+      {
+        "id": "MATCH-001",
+        "widget": "Match Card — Match Data",
+        "data_point": "Match list (scores, teams, status, date, competition, venue)",
+        "state": "REAL",
+        "file": "matches-view.tsx",
+        "line": "346-359",
+        "evidence": "Fetched from /api/football-data?action=matches&competition=PL&status=... -> football-data.org API"
+      },
+      {
+        "id": "MATCH-002",
+        "widget": "Match Card — Match Data",
+        "data_point": "Team names",
+        "state": "REAL",
+        "file": "matches-view.tsx",
+        "line": "140, 158",
+        "evidence": "match.homeTeam?.name, match.awayTeam?.name from API response"
+      },
+      {
+        "id": "MATCH-003",
+        "widget": "Match Card — Match Data",
+        "data_point": "Team abbreviations (code)",
+        "state": "REAL",
+        "file": "matches-view.tsx",
+        "line": "137, 160",
+        "evidence": "match.homeTeam?.code from API response"
+      },
+      {
+        "id": "MATCH-004",
+        "widget": "Match Card — Match Data",
+        "data_point": "Competition badge",
+        "state": "REAL",
+        "file": "matches-view.tsx",
+        "line": "290",
+        "evidence": "match.competition from API response"
+      },
+      {
+        "id": "MATCH-005",
+        "widget": "Match Card — Match Data",
+        "data_point": "Status badge (LIVE/HT/FT/PPD/Upcoming)",
+        "state": "REAL",
+        "file": "matches-view.tsx",
+        "line": "46-54, 109-117",
+        "evidence": "Derived from match.status, honestly mapped"
+      },
+      {
+        "id": "MATCH-006",
+        "widget": "Match Card — Match Data",
+        "data_point": "Team colors (primaryColor)",
+        "state": "PROXY",
+        "file": "matches-view.tsx",
+        "line": "137, 160",
+        "evidence": "match.homeTeam?.primaryColor || '#555' — from football-data.org (approximate)"
+      },
+      {
+        "id": "MATCH-007",
+        "widget": "Match Card — Match Data",
+        "data_point": "xG comparison bars (homeXg, awayXg)",
+        "state": "FABRICATED",
+        "file": "matches-view.tsx",
+        "line": "167-176",
+        "evidence": "football-data.org does not provide xG. When shown, values come from seed data merged into match objects. No real xG source for PL matches from this API."
+      },
+      {
+        "id": "MATCH-008",
+        "widget": "Match Card — Match Data",
+        "data_point": "Probability bars (homeWinProb, drawProb, awayWinProb)",
+        "state": "FABRICATED",
+        "file": "matches-view.tsx",
+        "line": "179-191",
+        "evidence": "For seed matches: propagated from fabricated ELO. For football-data.org matches: likely undefined (hidden by conditional on line 179), but if present, source is unverified."
+      },
+      {
+        "id": "MATCH-009",
+        "widget": "Match Card — Match Data",
+        "data_point": "Quick Predict confidence",
+        "state": "FABRICATED",
+        "file": "matches-view.tsx",
+        "line": "81",
+        "evidence": "confidence: 70 — hardcoded for every prediction submission"
+      },
+      {
+        "id": "MATCH-010",
+        "widget": "Match Card — Match Data",
+        "data_point": "Expanded stats (possession, shots, corners, fouls)",
+        "state": "FABRICATED",
+        "file": "matches-view.tsx",
+        "line": "258-282",
+        "evidence": "football-data.org PL endpoint does not return these stats. If shown as non-zero, source is unknown. If shown as zero, presented as real stats."
+      },
+      {
+        "id": "MATCH-011",
+        "widget": "Match Card — Match Data",
+        "data_point": "Attendance 35,421",
+        "state": "FABRICATED",
+        "file": "matches-view.tsx",
+        "line": "217",
+        "evidence": "Hardcoded string shown for ALL finished matches regardless of actual attendance"
+      },
+      {
+        "id": "MATCH-012",
+        "widget": "Match Card — Match Data",
+        "data_point": "ELO diff display",
+        "state": "FABRICATED",
+        "file": "matches-view.tsx",
+        "line": "88, 220",
+        "evidence": "match.homeEloBefore ?? 0 — football-data.org doesn't provide ELO. Values are 0 or from seed."
+      },
+      {
+        "id": "MATCH-013",
+        "widget": "Match Card — Match Data",
+        "data_point": "Weather/temperature",
+        "state": "UNAVAILABLE",
+        "file": "matches-view.tsx",
+        "line": "201-210",
+        "evidence": "Conditional render (match.weather &&). football-data.org doesn't provide weather. Correctly hidden when unavailable."
+      },
+      {
+        "id": "MATCH-014",
+        "widget": "Group Quick-Buttons",
+        "data_point": "Group filter buttons (A-H)",
+        "state": "MISSING",
+        "file": "matches-view.tsx",
+        "line": "41, 437-446",
+        "evidence": "GROUPS constant lists A-H for tournament football. Data source is Premier League (competition=PL) which has no groups. Buttons never match any data."
+      },
+      {
+        "id": "MATCH-015",
+        "widget": "Stage Filter",
+        "data_point": "Stage filter dropdown",
+        "state": "MISSING",
+        "file": "matches-view.tsx",
+        "line": "41, 406-414",
+        "evidence": "STAGES constant lists tournament stages. PL data doesn't use these stages. Dropdown is always empty."
+      },
+      {
+        "id": "MATCH-016",
+        "widget": "Sort by ELO/xG",
+        "data_point": "Sort by ELO diff",
+        "state": "MISSING",
+        "file": "matches-view.tsx",
+        "line": "377",
+        "evidence": "football-data.org matches have no ELO, so all sort to 0."
+      },
+      {
+        "id": "MATCH-017",
+        "widget": "Sort by ELO/xG",
+        "data_point": "Sort by xG total",
+        "state": "MISSING",
+        "file": "matches-view.tsx",
+        "line": "378",
+        "evidence": "football-data.org matches have no xG, so all sort to 0."
+      },
+      {
+        "id": "MATCH-018",
+        "widget": "Bookmark Button",
+        "data_point": "Bookmark toggle",
+        "state": "MISSING",
+        "file": "matches-view.tsx",
+        "line": "122-129",
+        "evidence": "Local useState(false) only. No DB persistence. Appears functional but does nothing permanent."
+      },
+      {
+        "id": "MATCH-019",
+        "widget": "All Tab",
+        "data_point": "All tab fetches only FINISHED",
+        "state": "MISSING",
+        "file": "matches-view.tsx",
+        "line": "344",
+        "evidence": "activeTab === 'all' ? statusParam = 'FINISHED' — user expects All to show all statuses, but only fetches finished."
+      }
+    ]
+  },
+  "predictions": {
+    "view": "Predictions",
+    "component": "src/components/elastico/predictions-view.tsx",
+    "component_lines": 434,
+    "data_points": [
+      {
+        "id": "PRED-001",
+        "widget": "Accuracy Stats Cards",
+        "data_point": "Accuracy %",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "113, 233",
+        "evidence": "user?.predictionAccuracy ?? 0 from Zustand store -> /api/auth/me -> Prisma DB User record"
+      },
+      {
+        "id": "PRED-002",
+        "widget": "Accuracy Stats Cards",
+        "data_point": "Total Predictions count",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "116, 234",
+        "evidence": "user?.totalPredictions ?? 0 from Zustand store -> Prisma DB"
+      },
+      {
+        "id": "PRED-003",
+        "widget": "Accuracy Stats Cards",
+        "data_point": "Current Streak",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "114, 235",
+        "evidence": "user?.predictionStreak ?? 0 from Zustand store -> Prisma DB"
+      },
+      {
+        "id": "PRED-004",
+        "widget": "Accuracy Stats Cards",
+        "data_point": "Best Streak",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "115, 236",
+        "evidence": "user?.bestStreak ?? 0 from Zustand store -> Prisma DB"
+      },
+      {
+        "id": "PRED-005",
+        "widget": "Accuracy Stats Cards",
+        "data_point": "correctPredictions (dead variable)",
+        "state": "MISSING",
+        "file": "predictions-view.tsx",
+        "line": "117",
+        "evidence": "Declared but never rendered in JSX. Variable computed but discarded."
+      },
+      {
+        "id": "PRED-006",
+        "widget": "Leaderboard Position",
+        "data_point": "Leaderboard rank (#N)",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "85-90, 252",
+        "evidence": "Fetched from /api/leaderboard -> DB, entries.findIndex to locate user. Conditionally rendered when leaderboardPos > 0."
+      },
+      {
+        "id": "PRED-007",
+        "widget": "Leaderboard Position",
+        "data_point": "of X predictors label",
+        "state": "MISLEADING",
+        "file": "predictions-view.tsx",
+        "line": "253",
+        "evidence": "totalPredictions is the USER's own count, NOT the total number of leaderboard entries."
+      },
+      {
+        "id": "PRED-008",
+        "widget": "Leaderboard Position",
+        "data_point": "Card hidden when unranked",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "248",
+        "evidence": "Correctly hidden when leaderboardPos <= 0. No placeholder shown."
+      },
+      {
+        "id": "PRED-009",
+        "widget": "Quick Predict Panel",
+        "data_point": "Upcoming match list",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "64, 98",
+        "evidence": "matches from Zustand -> DB. Default deployment has seed data with fictional matchups."
+      },
+      {
+        "id": "PRED-010",
+        "widget": "Quick Predict Panel",
+        "data_point": "Team names/codes",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "280, 292",
+        "evidence": "From store match objects. Provenance depends on sync state. Default is seed (fabricated)."
+      },
+      {
+        "id": "PRED-011",
+        "widget": "Quick Predict Panel",
+        "data_point": "Team color dots",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "279, 293",
+        "evidence": "m.homeTeam?.primaryColor ?? '#555' — seed teams use fabricated colors."
+      },
+      {
+        "id": "PRED-012",
+        "widget": "Quick Predict Panel",
+        "data_point": "Match list truncated to 4",
+        "state": "MISSING",
+        "file": "predictions-view.tsx",
+        "line": "274",
+        "evidence": "upcomingMatches.slice(0, 4) — only first 4 shown. No pagination."
+      },
+      {
+        "id": "PRED-013",
+        "widget": "Quick Predict Panel",
+        "data_point": "Quick Predict confidence",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "155",
+        "evidence": "confidence: 70 — hardcoded for every Quick Predict submission."
+      },
+      {
+        "id": "PRED-014",
+        "widget": "Quick Predict Panel",
+        "data_point": "xG fallback is circular",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "151-152",
+        "evidence": "When xG is 0, invents goals FROM the prediction choice itself, not from any model — circular."
+      },
+      {
+        "id": "PRED-015",
+        "widget": "Quick Predict Panel",
+        "data_point": "xG source (when >0)",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "151",
+        "evidence": "xG on DB matches never populated by sync. Non-zero xG originates from seed data only."
+      },
+      {
+        "id": "PRED-016",
+        "widget": "Quick Predict Panel",
+        "data_point": "Existing prediction detection",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "275",
+        "evidence": "activePredictions.find correctly checks DB. Buttons disabled for already-predicted matches."
+      },
+      {
+        "id": "PRED-017",
+        "widget": "Mega Predict All",
+        "data_point": "API proxy call to /api/mega-predict",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "170-186",
+        "evidence": "POST to /api/mega-predict -> proxies to FastAPI backend. Real network call if env var set."
+      },
+      {
+        "id": "PRED-018",
+        "widget": "Mega Predict All",
+        "data_point": "Backend availability",
+        "state": "UNAVAILABLE",
+        "file": "mega-predict/route.ts",
+        "line": "4, 71-75",
+        "evidence": "MEGA_PREDICT_API_URL defaults to empty string. Returns 503 with honest message when empty."
+      },
+      {
+        "id": "PRED-019",
+        "widget": "Mega Predict All",
+        "data_point": "Batch limited to 4",
+        "state": "MISSING",
+        "file": "predictions-view.tsx",
+        "line": "162",
+        "evidence": ".slice(0, 4) — no user control over batch size."
+      },
+      {
+        "id": "PRED-020",
+        "widget": "Mega Predict All",
+        "data_point": "Fallback xG (1.4, 1.1)",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "168-169",
+        "evidence": "Arbitrary defaults used when match xG is 0. Presented as model input features."
+      },
+      {
+        "id": "PRED-021",
+        "widget": "Mega Predict All",
+        "data_point": "Fallback ELO (1600, 1500)",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "176-177",
+        "evidence": "Arbitrary defaults. Seed team ELO is also fabricated. Propagation applies."
+      },
+      {
+        "id": "PRED-022",
+        "widget": "Mega Predict All",
+        "data_point": "Fallback odds (2.1, 3.4, 3.5)",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "182-184",
+        "evidence": "Arbitrary defaults. No odds API called. DB matches from sync have no odds."
+      },
+      {
+        "id": "PRED-023",
+        "widget": "Mega Predict All",
+        "data_point": "Conceded multipliers (x0.9)",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "180-181",
+        "evidence": "home_avg_conceded: awayXg * 0.9 — arbitrary 0.9 multiplier with no statistical basis."
+      },
+      {
+        "id": "PRED-024",
+        "widget": "Mega Predict All",
+        "data_point": "Ensemble outcome",
+        "state": "DERIVED",
+        "file": "predictions-view.tsx",
+        "line": "191-192",
+        "evidence": "Legitimate argmax from ensemble probabilities. Inputs mostly fabricated — propagation applies."
+      },
+      {
+        "id": "PRED-025",
+        "widget": "Mega Predict All",
+        "data_point": "Ensemble confidence",
+        "state": "DERIVED",
+        "file": "predictions-view.tsx",
+        "line": "193",
+        "evidence": "Math.round(Math.max(probabilities) * 100) — legitimate computation. Propagation caveat."
+      },
+      {
+        "id": "PRED-026",
+        "widget": "Mega Predict All",
+        "data_point": "Stored model name mega-ensemble",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "203",
+        "evidence": "model: 'mega-ensemble' stored in DB via POST /api/predictions."
+      },
+      {
+        "id": "PRED-027",
+        "widget": "Mega Predict All",
+        "data_point": "Toast 6-model super-ensemble",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "213",
+        "evidence": "Hardcoded string. Backend GET lists 7 models not 6. Actual endpoint uses 3-model compute_ensemble. Internal contradictions."
+      },
+      {
+        "id": "PRED-028",
+        "widget": "Mega Predict All",
+        "data_point": "Silent per-match failure",
+        "state": "MISSING",
+        "file": "predictions-view.tsx",
+        "line": "209",
+        "evidence": "catch { /* skip failed match */ } — no user feedback on which match failed or why."
+      },
+      {
+        "id": "PRED-029",
+        "widget": "Mega Predict All",
+        "data_point": "Loading indicator",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "69, 268",
+        "evidence": "megaBatchLoading shows Loader2 spinner and disables button. Honest loading state."
+      },
+      {
+        "id": "PRED-030",
+        "widget": "Model Comparison Card",
+        "data_point": "MOCK_MODEL_COMPARISON probabilities",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "40-45",
+        "evidence": "Hardcoded: ELO (H45/D26/A29), Poisson (42/28/30), Dixon-Coles (47/25/28), Monte Carlo (44/27/29). No DEMO disclosure in UI."
+      },
+      {
+        "id": "PRED-031",
+        "widget": "Model Comparison Card",
+        "data_point": "MOCK accuracy values",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "41-44",
+        "evidence": "ELO 68%, Poisson 65%, Dixon-Coles 72%, Monte Carlo 70%. Static numbers unrelated to actual results."
+      },
+      {
+        "id": "PRED-032",
+        "widget": "Model Comparison Card",
+        "data_point": "Probability bars",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "379-381",
+        "evidence": "Rendered from MOCK values. Presented as if from live model outputs."
+      },
+      {
+        "id": "PRED-033",
+        "widget": "Model Comparison Card",
+        "data_point": "Percentage labels",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "383-384",
+        "evidence": "Same MOCK data rendered as text."
+      },
+      {
+        "id": "PRED-034",
+        "widget": "Model Comparison Card",
+        "data_point": "Accuracy badges per model",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "376",
+        "evidence": "Rendered from MOCK data."
+      },
+      {
+        "id": "PRED-035",
+        "widget": "Model Comparison Card",
+        "data_point": "Contradiction with Accuracy chart",
+        "state": "MISLEADING",
+        "file": "predictions-view.tsx",
+        "line": "372 vs 392",
+        "evidence": "Widget 5 shows fixed MOCK accuracy. Widget 8 computes real accuracy from DB. Both visible simultaneously — contradictory."
+      },
+      {
+        "id": "PRED-036",
+        "widget": "Activity Heatmap",
+        "data_point": "MOCK_CALENDAR data (56 cells)",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "47-56",
+        "evidence": "Hardcoded Record mapping row-col to fake prediction counts. Variable named MOCK but no DEMO disclosure."
+      },
+      {
+        "id": "PRED-037",
+        "widget": "Activity Heatmap",
+        "data_point": "Heatmap tooltips",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "421",
+        "evidence": "title shows fabricated count values on hover."
+      },
+      {
+        "id": "PRED-038",
+        "widget": "Activity Heatmap",
+        "data_point": "Heatmap cell colors",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "420",
+        "evidence": "Color class derived from fabricated count."
+      },
+      {
+        "id": "PRED-039",
+        "widget": "Activity Heatmap",
+        "data_point": "Day-of-week headers",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "57, 416",
+        "evidence": "Static UI labels ['Mon', 'Tue'...], not data."
+      },
+      {
+        "id": "PRED-040",
+        "widget": "Activity Heatmap",
+        "data_point": "Legend (Less/More)",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "424-427",
+        "evidence": "Static legend with fixed color swatches. UI chrome."
+      },
+      {
+        "id": "PRED-041",
+        "widget": "Prediction History Table",
+        "data_point": "Prediction records",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "79-82",
+        "evidence": "Fetched from /api/predictions -> Prisma DB prediction.findMany with match join."
+      },
+      {
+        "id": "PRED-042",
+        "widget": "Prediction History Table",
+        "data_point": "Model column values",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "349",
+        "evidence": "From DB prediction.model field. Values: user, mega-ensemble, or other."
+      },
+      {
+        "id": "PRED-043",
+        "widget": "Prediction History Table",
+        "data_point": "Confidence for Quick Predict rows",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "155, 350",
+        "evidence": "Quick Predict stores confidence: 70 for every prediction. All user rows show identical 70%."
+      },
+      {
+        "id": "PRED-044",
+        "widget": "Prediction History Table",
+        "data_point": "Model filter missing 'user' option",
+        "state": "MISSING",
+        "file": "predictions-view.tsx",
+        "line": "311-316",
+        "evidence": "Filter lists ELO/Poisson/Dixon-Coles/Monte Carlo/Mega Ensemble but no 'user'. Quick Predict predictions hidden with no way to view them alone."
+      },
+      {
+        "id": "PRED-045",
+        "widget": "Prediction History Table",
+        "data_point": "Result filter (correct/incorrect)",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "319-326",
+        "evidence": "Correctly filters p.isCorrect. Functional."
+      },
+      {
+        "id": "PRED-046",
+        "widget": "Prediction History Table",
+        "data_point": "Empty state",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "331-332",
+        "evidence": "No predictions found — honest empty state."
+      },
+      {
+        "id": "PRED-047",
+        "widget": "Accuracy by Model Chart",
+        "data_point": "accuracyByModel computation",
+        "state": "DERIVED",
+        "file": "predictions-view.tsx",
+        "line": "119-129",
+        "evidence": "Groups pastPredictions by model, computes accuracy %. Legitimate from real DB records."
+      },
+      {
+        "id": "PRED-048",
+        "widget": "Accuracy by Model Chart",
+        "data_point": "Chart hidden when empty",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "392",
+        "evidence": "Conditional render. Correctly hidden when no past predictions. No stale chart."
+      },
+      {
+        "id": "PRED-049",
+        "widget": "Export CSV",
+        "data_point": "CSV data",
+        "state": "DERIVED",
+        "file": "predictions-view.tsx",
+        "line": "131-142",
+        "evidence": "Transforms filteredPast (real DB predictions) into CSV rows. Provenance is real."
+      },
+      {
+        "id": "PRED-050",
+        "widget": "Export CSV",
+        "data_point": "Export includes fabricated confidence",
+        "state": "FABRICATED",
+        "file": "predictions-view.tsx",
+        "line": "137",
+        "evidence": "Quick Predict rows always show 70%. Fabricated values propagate into exported CSV."
+      },
+      {
+        "id": "PRED-051",
+        "widget": "Loading State",
+        "data_point": "Skeleton loader",
+        "state": "REAL",
+        "file": "predictions-view.tsx",
+        "line": "216",
+        "evidence": "Skeleton placeholders shown while loading. Honest loading state."
+      },
+      {
+        "id": "PRED-052",
+        "widget": "Error Handling",
+        "data_point": "Silent catch on fetchPredictions",
+        "state": "MISSING",
+        "file": "predictions-view.tsx",
+        "line": "92",
+        "evidence": "catch { /* silent */ } — no user-facing error message on prediction fetch failure."
+      }
+    ]
+  },
+  "tactical": {
+    "view": "Tactical",
+    "component": "src/components/elastico/tactical-view.tsx",
+    "component_lines": 0,
+    "data_points": [
+      {
+        "id": "TACT-001",
+        "widget": "Formation Display",
+        "data_point": "Formation templates",
+        "state": "REAL",
+        "file": "tactical-view.tsx",
+        "line": "31-88",
+        "evidence": "UI scaffolding with positional coordinates. File comment honestly states these are not match-specific data."
+      },
+      {
+        "id": "TACT-002",
+        "widget": "Formation Display",
+        "data_point": "Formation selector",
+        "state": "REAL",
+        "file": "tactical-view.tsx",
+        "line": "214-222",
+        "evidence": "Selects from FORMATIONS constant. UI control, not data."
+      },
+      {
+        "id": "TACT-003",
+        "widget": "Tactical Comparison",
+        "data_point": "Possession (55/45 fallback)",
+        "state": "FABRICATED",
+        "file": "tactical-view.tsx",
+        "line": "268",
+        "evidence": "homeTeam.possession || 55. Fallback shown without disclosure."
+      },
+      {
+        "id": "TACT-004",
+        "widget": "Tactical Comparison",
+        "data_point": "Press Intensity (72/58 fallback)",
+        "state": "FABRICATED",
+        "file": "tactical-view.tsx",
+        "line": "269",
+        "evidence": "Same — fabricated defaults shown without disclosure."
+      },
+      {
+        "id": "TACT-005",
+        "widget": "Tactical Comparison",
+        "data_point": "Pass Accuracy (87/82 fallback)",
+        "state": "FABRICATED",
+        "file": "tactical-view.tsx",
+        "line": "270",
+        "evidence": "Same — fabricated defaults."
+      },
+      {
+        "id": "TACT-006",
+        "widget": "Tactical Comparison",
+        "data_point": "xG per Game (1.5/1.1 fallback)",
+        "state": "FABRICATED",
+        "file": "tactical-view.tsx",
+        "line": "271",
+        "evidence": "Same — fabricated defaults."
+      },
+      {
+        "id": "TACT-007",
+        "widget": "Tactical Comparison",
+        "data_point": "ELO Rating (divided by 20)",
+        "state": "DERIVED",
+        "file": "tactical-view.tsx",
+        "line": "272",
+        "evidence": "From team ELO. For seed teams: FABRICATED by propagation."
+      },
+      {
+        "id": "TACT-008",
+        "widget": "Tactical Comparison",
+        "data_point": "Style Score (78/65)",
+        "state": "FABRICATED",
+        "file": "tactical-view.tsx",
+        "line": "273",
+        "evidence": "Entirely hardcoded for every match. No data source."
+      },
+      {
+        "id": "TACT-009",
+        "widget": "Pressing Heatmap",
+        "data_point": "Pressing intensity heatmap",
+        "state": "UNAVAILABLE",
+        "file": "tactical-view.tsx",
+        "line": "300-316",
+        "evidence": "Honest empty state explaining what data would be needed."
+      },
+      {
+        "id": "TACT-010",
+        "widget": "Pass Network",
+        "data_point": "Pass network",
+        "state": "UNAVAILABLE",
+        "file": "tactical-view.tsx",
+        "line": "318-334",
+        "evidence": "Honest empty state."
+      },
+      {
+        "id": "TACT-011",
+        "widget": "xG Timeline",
+        "data_point": "xG timeline (StatsBomb)",
+        "state": "REAL",
+        "file": "tactical-view.tsx",
+        "line": "345-372",
+        "evidence": "Computed from StatsBomb shot data — cumulative xG per minute."
+      },
+      {
+        "id": "TACT-012",
+        "widget": "xG Timeline",
+        "data_point": "xG timeline (no match)",
+        "state": "UNAVAILABLE",
+        "file": "tactical-view.tsx",
+        "line": "373-379",
+        "evidence": "Honest empty state."
+      },
+      {
+        "id": "TACT-013",
+        "widget": "Shot Map",
+        "data_point": "Shot locations (StatsBomb)",
+        "state": "REAL",
+        "file": "tactical-view.tsx",
+        "line": "384-449",
+        "evidence": "Real shot x/y coordinates from StatsBomb open data."
+      },
+      {
+        "id": "TACT-014",
+        "widget": "Shot Map",
+        "data_point": "Shot map (no match)",
+        "state": "UNAVAILABLE",
+        "file": "tactical-view.tsx",
+        "line": "438-445",
+        "evidence": "Honest empty state."
+      },
+      {
+        "id": "TACT-015",
+        "widget": "Shot Map",
+        "data_point": "StatsBomb competitions/matches",
+        "state": "REAL",
+        "file": "tactical-view.tsx",
+        "line": "89-103",
+        "evidence": "Fetched from /api/statsbomb -> StatsBomb open data API."
+      },
+      {
+        "id": "TACT-016",
+        "widget": "11 Empty Tabs",
+        "data_point": "Set Pieces, Substitutions, Momentum, etc.",
+        "state": "UNAVAILABLE",
+        "file": "tactical-view.tsx",
+        "line": "480-508",
+        "evidence": "All show honest empty states explaining what data would be needed."
+      },
+      {
+        "id": "TACT-017",
+        "widget": "Tactical AI Insight",
+        "data_point": "AI Insight removed honestly",
+        "state": "MISSING",
+        "file": "tactical-view.tsx",
+        "line": "510-526",
+        "evidence": "Previously fabricated content removed. Line 522 explicitly states: 'The previous content was fabricated tactical analysis presented as if from an AI model.'"
+      }
+    ]
+  },
+  "player": {
+    "view": "Player",
+    "component": "src/components/elastico/player-view.tsx",
+    "component_lines": 0,
+    "data_points": [
+      {
+        "id": "PLAYER-001",
+        "widget": "Player Grid",
+        "data_point": "Player list",
+        "state": "REAL",
+        "file": "player-view.tsx",
+        "line": "90-123",
+        "evidence": "Fetched from /api/players -> Prisma DB."
+      },
+      {
+        "id": "PLAYER-002",
+        "widget": "Player Grid",
+        "data_point": "Player name, position, team, rating, goals, assists",
+        "state": "REAL",
+        "file": "player-view.tsx",
+        "line": "105-113",
+        "evidence": "From API response -> DB."
+      },
+      {
+        "id": "PLAYER-003",
+        "widget": "Player Grid",
+        "data_point": "Team color",
+        "state": "PROXY",
+        "file": "player-view.tsx",
+        "line": "107-109",
+        "evidence": "From player's team relation. Color is approximate."
+      },
+      {
+        "id": "PLAYER-004",
+        "widget": "Player Grid",
+        "data_point": "Search, filter, sort",
+        "state": "REAL",
+        "file": "player-view.tsx",
+        "line": "126-134",
+        "evidence": "Client-side filtering of real data."
+      },
+      {
+        "id": "PLAYER-005",
+        "widget": "Radar Charts Tab",
+        "data_point": "FIFA-style radar attributes",
+        "state": "UNAVAILABLE",
+        "file": "player-view.tsx",
+        "line": "452-470",
+        "evidence": "Honest empty state: 'FIFA-style attribute radars are not a metric ELASTICO computes.'"
+      },
+      {
+        "id": "PLAYER-006",
+        "widget": "Player Comparison Radar",
+        "data_point": "Comparison radar",
+        "state": "UNAVAILABLE",
+        "file": "player-view.tsx",
+        "line": "552",
+        "evidence": "Honest empty state explaining ELASTICO does not compute FIFA-style attributes."
+      },
+      {
+        "id": "PLAYER-007",
+        "widget": "Form Ratings",
+        "data_point": "Per-match form ratings",
+        "state": "UNAVAILABLE",
+        "file": "player-view.tsx",
+        "line": "792",
+        "evidence": "Honest empty state."
+      },
+      {
+        "id": "PLAYER-008",
+        "widget": "Radar Placeholder",
+        "data_point": "Radar placeholder text",
+        "state": "UNAVAILABLE",
+        "file": "player-view.tsx",
+        "line": "847",
+        "evidence": "Honest empty state."
+      }
+    ]
+  },
+  "compare": {
+    "view": "Compare",
+    "component": "src/components/elastico/compare-view.tsx",
+    "component_lines": 0,
+    "data_points": [
+      {
+        "id": "COMP-001",
+        "widget": "Team Selectors",
+        "data_point": "Team list",
+        "state": "REAL",
+        "file": "compare-view.tsx",
+        "line": "51",
+        "evidence": "From store teams -> DB."
+      },
+      {
+        "id": "COMP-002",
+        "widget": "Recent Form",
+        "data_point": "Home form badges",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "97",
+        "evidence": "homeTeam?.form ? JSON.parse(homeTeam.form) : ['W','D','W','L','W'] — hardcoded fake form when null."
+      },
+      {
+        "id": "COMP-003",
+        "widget": "Recent Form",
+        "data_point": "Away form badges",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "98",
+        "evidence": "['L','W','D','W','L'] — hardcoded fake form."
+      },
+      {
+        "id": "COMP-004",
+        "widget": "Win Probability",
+        "data_point": "ELO-based probabilities",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "43-46, 78-81",
+        "evidence": "drawProb = (1 - eA) * 0.3 is arbitrary. Input ELO is from seed (FABRICATED). Propagation applies."
+      },
+      {
+        "id": "COMP-005",
+        "widget": "Full Stat Comparison",
+        "data_point": "ELO, xG, xGA, possession, pass accuracy, etc.",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "110-131",
+        "evidence": "For seed teams: all team stats originate from seed data. Propagation applies."
+      },
+      {
+        "id": "COMP-006",
+        "widget": "Full Stat Comparison",
+        "data_point": "Shots per Game (12.4, 10.8)",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "127",
+        "evidence": "Hardcoded for every team comparison."
+      },
+      {
+        "id": "COMP-007",
+        "widget": "Full Stat Comparison",
+        "data_point": "Corners per Game (6.2, 5.5)",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "128",
+        "evidence": "Hardcoded."
+      },
+      {
+        "id": "COMP-008",
+        "widget": "Full Stat Comparison",
+        "data_point": "Fouls per Game (11.3, 13.1)",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "129",
+        "evidence": "Hardcoded."
+      },
+      {
+        "id": "COMP-009",
+        "widget": "ELO Rating History",
+        "data_point": "12-month ELO history chart",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "84-94",
+        "evidence": "Math.sin(i/3)*30 + noise — synthetic curve, not real historical ELO."
+      },
+      {
+        "id": "COMP-010",
+        "widget": "Scoring Trends",
+        "data_point": "6-match scoring trends",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "101-107",
+        "evidence": "Hardcoded arrays [1,2,0,3,1,2] etc. Not from any real data source."
+      },
+      {
+        "id": "COMP-011",
+        "widget": "Head-to-Head Record",
+        "data_point": "H2H match results (5 matches)",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "59-67",
+        "evidence": "Comment line 58 says 'Head-to-head mock data'. Hardcoded results. No DEMO disclosure in UI."
+      },
+      {
+        "id": "COMP-012",
+        "widget": "Head-to-Head Record",
+        "data_point": "H2H record summary (3W,1D,1A)",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "70-75",
+        "evidence": "Computed from fake H2H data. Shown as large numbers without disclosure."
+      },
+      {
+        "id": "COMP-013",
+        "widget": "Tactical Edge",
+        "data_point": "Tactical edge indicators",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "140-149",
+        "evidence": "Derived from team stats that are fabricated for seed teams. Propagation."
+      },
+      {
+        "id": "COMP-014",
+        "widget": "Squad Depth",
+        "data_point": "Squad depth by position",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "134-137",
+        "evidence": "Math.floor(Math.random() * 2) — random on every render. Values change each re-render."
+      },
+      {
+        "id": "COMP-015",
+        "widget": "Key Player Matchups",
+        "data_point": "Player matchup labels",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "454-468",
+        "evidence": "team.name + generic role ('Best Striker'), not real player names. Implies real analysis."
+      },
+      {
+        "id": "COMP-016",
+        "widget": "Style Matchup",
+        "data_point": "Style labels",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "484",
+        "evidence": "Hardcoded 'Mixed' for every team. Other style labels derived from fabricated thresholds."
+      },
+      {
+        "id": "COMP-017",
+        "widget": "Comparison Summary",
+        "data_point": "Summary text",
+        "state": "FABRICATED",
+        "file": "compare-view.tsx",
+        "line": "503-519",
+        "evidence": "Template-generated text using Brain icon (implies AI). References fabricated H2H. Not AI-generated."
+      }
+    ]
+  },
+  "chat": {
+    "view": "AI Analyst / Chat",
+    "component": "src/components/elastico/chat-view.tsx",
+    "component_lines": 0,
+    "data_points": [
+      {
+        "id": "CHAT-001",
+        "widget": "AI Provider Badge",
+        "data_point": "Powered by Multi-Provider AI Gateway badge",
+        "state": "FABRICATED",
+        "file": "chat-view.tsx",
+        "line": "381",
+        "evidence": "Shown always. When mock-fallback is active, badge still displays. UI never checks model flag."
+      },
+      {
+        "id": "CHAT-002",
+        "widget": "Model Selector",
+        "data_point": "ELASTICO Pro (Best Quality) label",
+        "state": "REAL",
+        "file": "chat-view.tsx",
+        "line": "36",
+        "evidence": "Label for NVIDIA/proxy provider. When configured: real."
+      },
+      {
+        "id": "CHAT-003",
+        "widget": "Model Selector",
+        "data_point": "ELASTICO Fast (Low Latency) label",
+        "state": "REAL",
+        "file": "chat-view.tsx",
+        "line": "37",
+        "evidence": "Label for faster provider."
+      },
+      {
+        "id": "CHAT-004",
+        "widget": "Model Selector",
+        "data_point": "ELASTICO Local (Offline Mode) label",
+        "state": "FABRICATED",
+        "file": "chat-view.tsx",
+        "line": "38",
+        "evidence": "Implies a local model exists. Falls through to hardcoded template, not a local model."
+      },
+      {
+        "id": "CHAT-005",
+        "widget": "Chat Messages",
+        "data_point": "User messages",
+        "state": "REAL",
+        "file": "chat-view.tsx",
+        "line": "183-191",
+        "evidence": "Stored in Zustand, displayed as sent."
+      },
+      {
+        "id": "CHAT-006",
+        "widget": "Chat Messages",
+        "data_point": "AI responses (provider configured)",
+        "state": "REAL",
+        "file": "chat-view.tsx",
+        "line": "234-263",
+        "evidence": "Actual LLM response via streaming or JSON."
+      },
+      {
+        "id": "CHAT-007",
+        "widget": "Chat Messages",
+        "data_point": "AI responses (no provider)",
+        "state": "FABRICATED",
+        "file": "chat-view.tsx",
+        "line": "268-271",
+        "evidence": "Falls through to generateFootballAnalysis() — hardcoded templates. UI displays identically to real AI. model: 'mock-fallback' flag never checked."
+      },
+      {
+        "id": "CHAT-008",
+        "widget": "Mock Responses",
+        "data_point": "Match prediction template (Verdict)",
+        "state": "FABRICATED",
+        "file": "src/app/api/chat/route.ts",
+        "line": "136-153",
+        "evidence": "Hardcoded template with arbitrary drawProb = (1-eA)*0.3. Presented with Verdict label implying analytical depth."
+      },
+      {
+        "id": "CHAT-009",
+        "widget": "Mock Responses",
+        "data_point": "Tactical template",
+        "state": "FABRICATED",
+        "file": "src/app/api/chat/route.ts",
+        "line": "156-161",
+        "evidence": "Uses fabricated team.style and team.possession from store."
+      },
+      {
+        "id": "CHAT-010",
+        "widget": "Mock Responses",
+        "data_point": "Default fallback template",
+        "state": "FABRICATED",
+        "file": "src/app/api/chat/route.ts",
+        "line": "166-170",
+        "evidence": "Generic response for non-match queries."
+      },
+      {
+        "id": "CHAT-011",
+        "widget": "Empty State",
+        "data_point": "Welcome screen suggestions",
+        "state": "REAL",
+        "file": "chat-view.tsx",
+        "line": "459-493",
+        "evidence": "Static UI scaffolding. Navigation aids."
+      },
+      {
+        "id": "CHAT-012",
+        "widget": "Empty State",
+        "data_point": "Using {activeModel.label}",
+        "state": "REAL",
+        "file": "chat-view.tsx",
+        "line": "474-476",
+        "evidence": "Shows selected model label. Accurate."
+      }
+    ]
+  },
+  "news": {
+    "view": "News",
+    "component": "src/components/elastico/news-view.tsx",
+    "component_lines": 0,
+    "data_points": [
+      {
+        "id": "NEWS-001",
+        "widget": "News Feed",
+        "data_point": "News items (ESPN)",
+        "state": "REAL",
+        "file": "news-view.tsx",
+        "line": "135-164",
+        "evidence": "Fetched from /api/news -> ESPN API cascade."
+      },
+      {
+        "id": "NEWS-002",
+        "widget": "News Feed",
+        "data_point": "News items (Newsdata.io)",
+        "state": "REAL",
+        "file": "news-view.tsx",
+        "line": "135-164",
+        "evidence": "Second source in cascade."
+      },
+      {
+        "id": "NEWS-003",
+        "widget": "News Feed",
+        "data_point": "News items (DB/seed fallback)",
+        "state": "FABRICATED",
+        "file": "news-view.tsx",
+        "line": "135-164",
+        "evidence": "5 hand-crafted articles in prisma/seed.ts lines 45-51. With false source attribution."
+      },
+      {
+        "id": "NEWS-004",
+        "widget": "News Feed",
+        "data_point": "Category badges",
+        "state": "DERIVED",
+        "file": "news-view.tsx",
+        "line": "334-344",
+        "evidence": "From item.category. For seed news: FABRICATED by propagation."
+      },
+      {
+        "id": "NEWS-005",
+        "widget": "News Feed",
+        "data_point": "Sentiment indicators",
+        "state": "REAL",
+        "file": "news-view.tsx",
+        "line": "357-366",
+        "evidence": "Falls back to 'neutral'. Neither ESPN nor Newsdata.io provides sentiment. Always neutral for real news."
+      },
+      {
+        "id": "NEWS-006",
+        "widget": "News Detail Modal",
+        "data_point": "Related Teams (Team A, Team B)",
+        "state": "FABRICATED",
+        "file": "news-view.tsx",
+        "line": "532-548",
+        "evidence": "Hardcoded ['Team A', 'Team B'] for every article. Not real related teams."
+      },
+      {
+        "id": "NEWS-007",
+        "widget": "News Detail Modal",
+        "data_point": "Reaction buttons (Like, Fire, Think)",
+        "state": "MISSING",
+        "file": "news-view.tsx",
+        "line": "551-586",
+        "evidence": "Visual buttons with counts. No click handler persists any reaction. Dead buttons."
+      },
+      {
+        "id": "NEWS-008",
+        "widget": "News Detail Modal",
+        "data_point": "Reaction counts",
+        "state": "FABRICATED",
+        "file": "news-view.tsx",
+        "line": "318, 560-583",
+        "evidence": "ESPN/Newsdata.io don't provide reactions. Non-zero values are fabricated."
+      },
+      {
+        "id": "NEWS-009",
+        "widget": "Filters/Search",
+        "data_point": "Category filter, Search, Pagination",
+        "state": "REAL",
+        "file": "news-view.tsx",
+        "line": "247-273, 425-446",
+        "evidence": "API-driven filtering, search, pagination. Functional."
+      }
+    ]
+  },
+  "settings": {
+    "view": "Settings",
+    "component": "src/components/elastico/settings-view.tsx",
+    "component_lines": 0,
+    "data_points": [
+      {
+        "id": "SETT-001",
+        "widget": "AI Status Check",
+        "data_point": "AI connection status badge",
+        "state": "REAL",
+        "file": "settings-view.tsx",
+        "line": "163-187",
+        "evidence": "Sends __status_check__ to /api/chat. Checks response model. Accurately detects provider status."
+      },
+      {
+        "id": "SETT-002",
+        "widget": "Model Descriptions",
+        "data_point": "6-model ensemble prediction backend (FastAPI)",
+        "state": "FABRICATED",
+        "file": "settings-view.tsx",
+        "line": "settings page",
+        "evidence": "The live endpoint uses 3 models. The 6-model SuperEnsemble exists in a separate uncalled endpoint."
+      },
+      {
+        "id": "SETT-003",
+        "widget": "User Preferences",
+        "data_point": "Display name, bio, favorite teams",
+        "state": "REAL",
+        "file": "settings-view.tsx",
+        "line": "profile section",
+        "evidence": "Stored in Prisma DB."
+      },
+      {
+        "id": "SETT-004",
+        "widget": "User Preferences",
+        "data_point": "Theme toggle",
+        "state": "REAL",
+        "file": "settings-view.tsx",
+        "line": "appearance section",
+        "evidence": "next-themes integration."
+      },
+      {
+        "id": "SETT-005",
+        "widget": "User Preferences",
+        "data_point": "Navigation preferences",
+        "state": "REAL",
+        "file": "settings-view.tsx",
+        "line": "navigation section",
+        "evidence": "UI preferences."
       }
     ]
   }

@@ -30,14 +30,14 @@
 | # | View | Status | Fabrications Found | Date |
 |---|------|--------|-------------------|------|
 | 1 | Dashboard | **COMPLETE** | 11 | 2026-08-19 |
-| 2 | Live Match | PENDING | — | — |
-| 3 | Predictions | PENDING | — | — |
-| 4 | Tactical | PENDING | — | — |
-| 5 | Player | PENDING | — | — |
-| 6 | Compare | PENDING | — | — |
-| 7 | AI Analyst | PENDING | — | — |
-| 8 | News | PENDING | — | — |
-| 9 | Settings | PENDING | — | — |
+| 2 | Live Matches | **COMPLETE** | 6 | 2026-08-20 |
+| 3 | Predictions | **COMPLETE** | 20 | 2026-08-20 |
+| 4 | Tactical | **COMPLETE** | 6 | 2026-08-20 |
+| 5 | Player | **COMPLETE** | 0 | 2026-08-20 |
+| 6 | Compare | **COMPLETE** | 13 | 2026-08-20 |
+| 7 | AI Analyst | **COMPLETE** | 4 | 2026-08-20 |
+| 8 | News | **COMPLETE** | 3 | 2026-08-20 |
+| 9 | Settings | **COMPLETE** | 0 | 2026-08-20 |
 
 ---
 
@@ -612,63 +612,113 @@ The LSTM model has 15% weight in the default ensemble. Its own metadata says it 
 
 **States implemented:** LOADING (MatchCardSkeleton, line 302), SUCCESS, EMPTY (honest message, lines 474–484)
 **States missing:** ERROR (console.error only, line 362; no user-facing error state)
-**AI attribution:** N/A### V3. Predictions (predictions-view.tsx)
+**AI attribution:** N/A
+
+### V3. Predictions (predictions-view.tsx)
 
 **File:** `src/components/elastico/predictions-view.tsx` (434 lines)
 
-#### Widget 1: Accuracy Stats
+#### Widget 1: Accuracy Stats Cards
 
 | Data Point | State | File | Line | Evidence |
 |-----------|-------|------|------|----------|
-| User accuracy, streak, bestStreak, totalPredictions, correctPredictions | REAL | `predictions-view.tsx` | 113–117 | From `user` store object → Prisma DB |
+| Accuracy % | REAL | `predictions-view.tsx` | 113, 233 | `user?.predictionAccuracy ?? 0` from Zustand store → `/api/auth/me` → Prisma DB User record |
+| Total Predictions count | REAL | `predictions-view.tsx` | 116, 234 | `user?.totalPredictions ?? 0` from Zustand store → Prisma DB |
+| Current Streak | REAL | `predictions-view.tsx` | 114, 235 | `user?.predictionStreak ?? 0` from Zustand store → Prisma DB |
+| Best Streak | REAL | `predictions-view.tsx` | 115, 236 | `user?.bestStreak ?? 0` from Zustand store → Prisma DB |
+| correctPredictions (declared) | MISSING (dead variable) | `predictions-view.tsx` | 117 | Declared as `user?.correctPredictions ?? 0` but never referenced in any JSX. Variable is computed but discarded — no card or label renders it. |
 
-#### Widget 2: Leaderboard Position
+#### Widget 2: Leaderboard Position Card
 
 | Data Point | State | File | Line | Evidence |
 |-----------|-------|------|------|----------|
-| Leaderboard position | REAL | `predictions-view.tsx` | 85–91 | Fetched from `/api/leaderboard` → DB |
-| "of {totalPredictions} predictors" label | **MISLEADING** | `predictions-view.tsx` | 253 | `totalPredictions` is the USER's own prediction count, not the total number of predictors. Says "of X predictors" but X is the user's count. |
+| Leaderboard rank (#N) | REAL | `predictions-view.tsx` | 85–90, 252 | Fetched from `/api/leaderboard` → DB, then `entries.findIndex(e => e.id === user?.id)` to locate user. Conditionally rendered when `leaderboardPos > 0` (line 248). |
+| "of {totalPredictions} predictors" label | **MISLEADING** | `predictions-view.tsx` | 253 | `totalPredictions` is the USER's own prediction count (line 116), NOT the total number of leaderboard entries. Label reads "of X predictors" but X is the user's personal prediction total, not the predictor pool size. |
+| Card hidden when unranked | REAL | `predictions-view.tsx` | 248 | `{leaderboardPos > 0 && (...)}` — card correctly hidden when user has no rank. No placeholder or CTA shown. |
 
 #### Widget 3: Quick Predict Panel
 
 | Data Point | State | File | Line | Evidence |
 |-----------|-------|------|------|----------|
-| Upcoming match list | REAL | `predictions-view.tsx` | 98 | `matches.filter(m => m.status === 'upcoming')` from store |
-| Quick Predict confidence | **FABRICATED** | `predictions-view.tsx` | 155 | `confidence: 70` — hardcoded for every quick predict |
-| Quick Predict xG fallbacks | **FABRICATED** | `predictions-view.tsx` | 151–152 | `match.homeXg > 0 ? Math.round(match.homeXg) : (choice === 'home' ? 2 : ...)` — when xG is 0, invents goals based on predicted outcome |
+| Upcoming match list | REAL (if synced) / **FABRICATED** (if seed) | `predictions-view.tsx` | 64, 98 | `matches` from Zustand store → `/api/matches` → Prisma DB. If admin ran `/api/sync`, matches are real ESPN data. Otherwise, DB contains seed data with fictional matchups. |
+| Team names and codes | REAL (if synced) / **FABRICATED** (if seed) | `predictions-view.tsx` | 280, 292 | `m.homeTeam?.name`, `m.awayTeam?.name` from store match objects. Provenance depends on sync state. |
+| Team color dots (primaryColor) | REAL (if synced) / **FABRICATED** (if seed) | `predictions-view.tsx` | 279, 293 | `m.homeTeam?.primaryColor ?? '#555'` — from DB team record. Synced teams use ESPN colors; seed teams use fabricated colors. |
+| Match list truncated to 4 | MISSING (data truncation) | `predictions-view.tsx` | 274 | `upcomingMatches.slice(0, 4)` — only first 4 upcoming matches shown. No pagination or "show more" control. Additional matches are invisible. |
+| Quick Predict confidence | **FABRICATED** | `predictions-view.tsx` | 155 | `confidence: 70` — hardcoded integer for every Quick Predict submission, regardless of match or outcome. |
+| Quick Predict xG fallbacks | **FABRICATED** | `predictions-view.tsx` | 151–152 | When `match.homeXg > 0` is false (true for all DB-stored upcoming matches where xG defaults to 0), invents goal counts from user's choice: `(choice === 'home' ? 2 : choice === 'draw' ? 1 : 0)`. Goals are derived from the prediction itself, not from any model — circular. |
+| Quick Predict xG source (when >0) | **FABRICATED** (propagated) | `predictions-view.tsx` | 151 | `match.homeXg` comes from store matches → DB. xG values on DB matches are never populated by sync (only scores/status/date are synced per `sync/route.ts` lines 76–86). Non-zero xG values originate from seed data only. |
+| Existing prediction detection | REAL | `predictions-view.tsx` | 275 | `activePredictions.find(p => p.matchId === m.id)` — correctly checks DB predictions. Buttons disabled for already-predicted matches (line 286). |
 
 #### Widget 4: Mega Predict All
 
 | Data Point | State | File | Line | Evidence |
 |-----------|-------|------|------|----------|
-| Mega Predict API call | REAL | `predictions-view.tsx` | 170–186 | Calls `/api/mega-predict` which proxies to FastAPI backend |
-| Fallback xG values (1.4, 1.1) | **FABRICATED** | `predictions-view.tsx` | 168–169 | `m.homeXg > 0 ? m.homeXg : 1.4` — fabricated defaults presented as model inputs |
-| Fallback ELO values (1600, 1500) | **FABRICATED** | `predictions-view.tsx` | 176–177 | `m.homeTeam?.eloRating || 1600` — fabricated defaults |
-| Fallback odds (2.1, 3.4, 3.5) | **FABRICATED** | `predictions-view.tsx` | 182–184 | `m.oddsHome || 2.1` — fabricated defaults |
-| Fallback conceded multipliers (×0.9) | **FABRICATED** | `predictions-view.tsx` | 180–181 | `home_avg_conceded: awayXg * 0.9` — arbitrary multiplier |
-| Toast "Used 6-model super-ensemble" | **FABRICATED CLAIM** | `predictions-view.tsx` | 213 | The live endpoint `/api/predictions/predict` only uses 3 models (ELO+Poisson+Dixon-Coles). The 6-model SuperEnsemble is on a different, uncalled endpoint. |
+| API proxy call to /api/mega-predict | REAL (infrastructure) | `predictions-view.tsx` | 170–186 | POST to `/api/mega-predict` → `mega-predict/route.ts` → proxies to `${MEGA_PREDICT_API_URL}/api/predictions/predict` (line 86 of route). Real network call if env var is set. |
+| Backend availability | UNAVAILABLE (by default) | `mega-predict/route.ts` | 4, 71–75 | `MEGA_PREDICT_API_URL = process.env.MEGA_PREDICT_API_URL || ''`. If empty, POST returns 503 with honest message. The toast (predictions-view.tsx line 213) falls back to "Backend unavailable — configure MEGA_PREDICT_API_URL". |
+| Batch limited to 4 matches | MISSING (data truncation) | `predictions-view.tsx` | 162 | `.slice(0, 4)` — only first 4 unpredicted upcoming matches are processed. No user control over batch size. |
+| Fallback xG values (1.4, 1.1) | **FABRICATED** | `predictions-view.tsx` | 168–169 | `m.homeXg > 0 ? m.homeXg : 1.4` — arbitrary defaults. Used when match xG is 0 (all DB upcoming matches). Presented as model input features. |
+| Fallback ELO values (1600, 1500) | **FABRICATED** | `predictions-view.tsx` | 176–177 | `m.homeTeam?.eloRating || 1600` — arbitrary defaults. Seed team ELO values are also fabricated (per V2 audit). If ELO exists in seed, it's fabricated; if missing, the fallback is fabricated. |
+| Fallback odds (2.1, 3.4, 3.5) | **FABRICATED** | `predictions-view.tsx` | 182–184 | `m.oddsHome || 2.1` — arbitrary defaults. No odds API is called. DB matches from sync have no odds field populated. |
+| Conceded multipliers (×0.9) | **FABRICATED** | `predictions-view.tsx` | 180–181 | `home_avg_conceded: awayXg * 0.9` — arbitrary 0.9 multiplier with no statistical basis. Both the xG input and the multiplier are fabricated. |
+| Prediction outcome from ensemble response | DERIVED (from potentially fabricated inputs) | `predictions-view.tsx` | 191–192 | `ensemble.home_win >= ensemble.away_win && ...` — legitimate argmax selection from ensemble probabilities. However, inputs (xG, ELO, odds) sent to the ensemble are mostly fabricated, so the output is tainted by propagation. |
+| Confidence from ensemble response | DERIVED (from potentially fabricated inputs) | `predictions-view.tsx` | 193 | `Math.round(Math.max(ensemble.home_win, ensemble.draw, ensemble.away_win) * 100)` — legitimate computation. Same propagation caveat as outcome. |
+| Stored model name "mega-ensemble" | REAL | `predictions-view.tsx` | 203 | `model: 'mega-ensemble'` stored in DB prediction record via POST to `/api/predictions`. |
+| Toast "Used 6-model super-ensemble" | **FABRICATED CLAIM** | `predictions-view.tsx` | 213 | Hardcoded static string. (1) The backend's own GET endpoint (`mega-predict/route.ts` lines 45–53) hardcodes a list of **7** models, not 6 — internal contradiction. (2) The actual model count used by the backend's `/api/predictions/predict` endpoint is unverified by the frontend — the toast assumes a specific model configuration that may not match reality. |
+| Individual match failure handling | **SILENT FAILURE** | `predictions-view.tsx` | 209 | `catch { /* skip failed match */ }` — if a single match's mega-predict call fails, it is silently skipped. The final toast shows "X/4 predicted" but gives no detail on which matches failed or why. |
+| Mega Predict loading indicator | REAL | `predictions-view.tsx` | 69, 268 | `megaBatchLoading` state shows `<Loader2 className="size-3 animate-spin" />` and disables the button. Honest loading state. |
 
 #### Widget 5: Model Comparison Card
 
 | Data Point | State | File | Line | Evidence |
 |-----------|-------|------|------|----------|
-| MOCK_MODEL_COMPARISON data | **FABRICATED** | `predictions-view.tsx` | 40–45 | `const MOCK_MODEL_COMPARISON = [{ model: 'ELO', home: 45, draw: 26, away: 29, accuracy: 68 }, ...]` — hardcoded model probabilities and accuracy. Variable name contains "MOCK" but no DEMO disclosure in UI. |
+| MOCK_MODEL_COMPARISON data (probabilities) | **FABRICATED** | `predictions-view.tsx` | 40–45 | Hardcoded array: ELO (H45/D26/A29), Poisson (42/28/30), Dixon-Coles (47/25/28), Monte Carlo (44/27/29). Variable named "MOCK" but no DEMO disclosure in UI. |
+| MOCK_MODEL_COMPARISON accuracy values | **FABRICATED** | `predictions-view.tsx` | 41–44 | Accuracy: ELO 68%, Poisson 65%, Dixon-Coles 72%, Monte Carlo 70%. These are static numbers unrelated to any actual prediction results. |
+| Probability bars (H/D/A %) | **FABRICATED** | `predictions-view.tsx` | 379–381 | `<div ... style={{ width: \`${m.home}%\` }} />` rendered directly from MOCK values. Presented as if from live model outputs. |
+| Percentage labels under bars | **FABRICATED** | `predictions-view.tsx` | 383–384 | `<span>H {m.home}%</span>` etc. — same MOCK data rendered as text. |
+| Accuracy badges per model | **FABRICATED** | `predictions-view.tsx` | 376 | `{m.accuracy}% acc` badge rendered from MOCK data. |
+| Contradiction with Accuracy by Model chart | **MISLEADING** | `predictions-view.tsx` | 372 vs. 392 | Widget 5 shows fixed MOCK accuracy (ELO 68%, Dixon-Coles 72%). Widget 8 (Accuracy by Model chart, lines 392–409) computes real accuracy from DB predictions. Both are visible simultaneously — showing different, contradictory accuracy numbers for the same models. |
 
 #### Widget 6: Prediction Activity Heatmap
 
 | Data Point | State | File | Line | Evidence |
 |-----------|-------|------|------|----------|
-| MOCK_CALENDAR heatmap data | **FABRICATED** | `predictions-view.tsx` | 47–56 | `const MOCK_CALENDAR: Record<string, number> = { '0-0': 2, '0-1': 3, ... }` — 56 fake prediction activity counts. Variable name contains "MOCK" but no DEMO disclosure in UI. Presented as real activity data. |
+| MOCK_CALENDAR heatmap data (56 cells) | **FABRICATED** | `predictions-view.tsx` | 47–56 | Hardcoded `Record<string, number>` mapping `'row-col'` → fake prediction counts (values 0–4). 56 fabricated data points. Variable named "MOCK" but no DEMO disclosure in UI. |
+| Heatmap cell tooltip ("X predictions") | **FABRICATED** | `predictions-view.tsx` | 421 | `title={\`${count} predictions\`}` displays fabricated MOCK_CALENDAR values on hover. |
+| Heatmap cell color intensity | **FABRICATED** (propagated) | `predictions-view.tsx` | 420 | Color class derived from fabricated count: 0→muted, 1→primary/20, 2-3→primary/40, 4+→primary/70. |
+| Day-of-week column headers | REAL | `predictions-view.tsx` | 57, 416 | `['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']` — static UI labels, not data. |
+| Legend ("Less" / "More") | REAL | `predictions-view.tsx` | 424–427 | Static legend with fixed color swatches — UI chrome, not data. |
 
 #### Widget 7: Prediction History Table
 
 | Data Point | State | File | Line | Evidence |
 |-----------|-------|------|------|----------|
-| Prediction records | REAL | `predictions-view.tsx` | 79–82 | Fetched from `/api/predictions` → DB |
-| Accuracy by Model chart | REAL | `predictions-view.tsx` | 119–129, 392–409 | Computed from actual prediction records in DB |
+| Prediction records (match, outcome, score, result) | REAL | `predictions-view.tsx` | 79–82 | Fetched from `/api/predictions` → Prisma DB `prediction.findMany` with match join (up to 100 records). |
+| Model column values | REAL | `predictions-view.tsx` | 349 | `<Badge>{p.model}</Badge>` — from DB `prediction.model` field. Values: 'user' (Quick Predict), 'mega-ensemble' (Mega Predict), or other model names from external sources. |
+| Confidence column for Quick Predict rows | **FABRICATED** | `predictions-view.tsx` | 155, 350 | Quick Predict stores `confidence: 70` for every prediction. All rows with `model: 'user'` show identical 70% regardless of match difficulty. |
+| Confidence column for Mega Predict rows | DERIVED | `predictions-view.tsx` | 193, 350 | Confidence computed as `Math.round(Math.max(probabilities) * 100)` from ensemble response. Legitimate derivation, though inputs may be fabricated. |
+| Model filter dropdown — missing 'user' option | **BROKEN** | `predictions-view.tsx` | 311–316 | Filter lists: ELO, Poisson, Dixon-Coles, Monte Carlo, Mega Ensemble. But Quick Predict predictions have `model: 'user'` (not in list). Selecting any specific model filter hides all 'user' predictions with no way to view them alone. |
+| Result filter (correct/incorrect) | REAL | `predictions-view.tsx` | 319–326 | Correctly filters `p.isCorrect === true` or `false`. Functional. |
+| Sort by date/confidence/model | REAL | `predictions-view.tsx` | 107–109 | Legitimate sort on real DB fields. |
+| Empty state message | REAL | `predictions-view.tsx` | 331–332 | `{filteredPast.length === 0 && <p>No predictions found</p>}` — honest empty state. |
 
-**States implemented:** LOADING (skeleton, line 216), SUCCESS, EMPTY ("No predictions found", line 332)
-**States missing:** ERROR (silent catch on line 92: `catch { /* silent */ }`)
+#### Widget 8: Accuracy by Model Chart
+
+| Data Point | State | File | Line | Evidence |
+|-----------|-------|------|------|----------|
+| accuracyByModel computation | DERIVED | `predictions-view.tsx` | 119–129 | Groups `pastPredictions` by `p.model`, computes `Math.round((correct / total) * 100)`. Legitimate computation from real DB records. |
+| Chart bars (Recharts BarChart) | DERIVED | `predictions-view.tsx` | 396–405 | Renders accuracyByModel data. Conditional: only shown when `accuracyByModel.length > 0` (line 392). |
+| Chart not shown when empty | REAL | `predictions-view.tsx` | 392 | `{accuracyByModel.length > 0 && (...)}` — correctly hidden when no past predictions exist. No stale/fake chart shown. |
+
+#### Widget 9: Export CSV
+
+| Data Point | State | File | Line | Evidence |
+|-----------|-------|------|------|----------|
+| CSV data (date, match, prediction, score, confidence, model, result, points) | DERIVED | `predictions-view.tsx` | 131–142 | Transforms `filteredPast` (real DB predictions) into CSV rows via `generateCSV`. Data provenance is real. |
+| Export toast count ("X predictions exported") | REAL | `predictions-view.tsx` | 143 | `${data.length}` reflects actual count of exported rows. |
+| Export includes fabricated confidence | **FABRICATED** (propagated) | `predictions-view.tsx` | 137 | `Confidence: \`${p.confidence}%\`` — Quick Predict rows will always show 70%. Fabricated values propagate into the exported CSV. |
+
+**States implemented:** LOADING (skeleton, line 216), SUCCESS, EMPTY ("No predictions found", line 332; "No new matches to predict" toast, line 163)
+**States missing:** ERROR — fetchPredictions silently swallows all errors (`catch { /* silent */ }`, line 92). User sees stale/empty data with no failure indication. Leaderboard fetch failure also silently handled (leaderboardPos stays 0, card hidden). Individual Mega Predict failures silently skipped (line 209).
 **AI attribution:** N/A
 
 ---
