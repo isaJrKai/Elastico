@@ -435,4 +435,120 @@ These are recorded for the restoration phase. No code changes in this audit phas
 
 ---
 
-*End of Dashboard audit. Awaiting user confirmation before proceeding to View 2: Live Match.*
+## Backend & Prediction Engine Audit
+
+**Scope:** FastAPI backend at `/home/z/my-project/football-prediction-mega/` (18,176 lines Python across 38 files). Covers API endpoints, prediction engines, ML models, training pipeline, and data services.
+
+**Files audited:** All `.py` files in `config/`, `src/`, `scripts/`, `tests/`. All JSON files in `saved_models/`. All data files in `data/`.
+
+---
+
+### B1. xG Features Are Fabricated (CRITICAL)
+
+The XGBoost model (`xgboost_v1.json`, 1.5 MB) includes 3 xG features in its 50-feature schema: `xg_for_home`, `xg_for_away`, `xg_diff`. The model's own metadata (`saved_models/xgboost_v1_metadata.json`, line 335) states:
+
+> `"xg_note": "PROXY: shots_on_target x 0.1. Not real expected goals. football-data.co.uk does not provide xG."`
+
+The fabrication occurs in `scripts/phase2_data_foundation.py`:
+
+| Data Point | State | File | Line | Evidence |
+|-----------|-------|------|------|----------|
+| `xg_for_home` = mean(recent_SOT) × 0.1 | **FABRICATED** | `scripts/phase2_data_foundation.py` | 363 | Comment on line 360: `# xG proxy: recent SOT * 0.1`. No xG source exists in football-data.co.uk CSVs. The multiplier 0.1 is not calibrated. |
+| `xg_for_away` = mean(recent_SOT) × 0.1 | **FABRICATED** | `scripts/phase2_data_foundation.py` | 381 | Same fabrication method as home. |
+| `xg_diff` = xg_for_home − xg_for_away | **FABRICATED** | `scripts/phase2_data_foundation.py` | 392 | Propagation rule: derived from fabricated inputs. |
+| `xg_note` in model metadata | REAL | `saved_models/xgboost_v1_metadata.json` | 335 | Honestly discloses the proxy. But the frontend (Dashboard Widget 9) does not surface this disclosure. |
+| Feature schema labels `xg_for_home` as "Home team expected goals (xG) per match" | **FABRICATED CLAIM** | `src/ml/features.py` | 88 | Schema describes it as real xG. It is not. |
+
+**Propagation impact:** The trained XGBoost model was trained with fabricated xG features. Any inference using this model produces predictions influenced by fake xG. The model's feature importance (`xgboost_v1_metadata.json` lines 286–288) shows xG features have importance ~2.5 — roughly average among the 50 features, so they do influence predictions.
+
+---
+
+### B2. LSTM Model Self-Rated as FAILED — Still in Ensemble
+
+| Data Point | State | File | Line | Evidence |
+|-----------|-------|------|------|----------|
+| LSTM model classification | REAL | `saved_models/lstm_v1_metadata.json` | 274 | `"classification": "D. FAILED"` |
+| LSTM recommendation | REAL | `saved_models/lstm_v1_metadata.json` | 284 | `"Do NOT include LSTM in the final ensemble."` |
+| LSTM test accuracy | REAL | `saved_models/lstm_v1_metadata.json` | 269 | ECE: 0.30 (vs XGB 0.048). Log-loss: 3.48 (vs XGB 0.995). |
+| LSTM ensemble weight (default) | **FABRICATED** | `config/settings.py` | 40 | `ensemble_weight_lstm: float = 0.15` — despite explicit recommendation to exclude |
+| LSTM ensemble weight (EnsembleConfig) | **FABRICATED** | `src/engines/ensemble.py` | 60 | `"lstm": 0.15` — duplicates settings.py default |
+
+The LSTM model has 15% weight in the default ensemble. Its own metadata says it should not be included. The ensemble silently degrades predictions by mixing in a failed model.
+
+---
+
+### B3. Ensemble Weights Are Fabricated
+
+| Data Point | State | File | Line | Evidence |
+|-----------|-------|------|------|----------|
+| Ensemble weights (6-model) | **FABRICATED** | `src/engines/ensemble.py` | 54–61 | `elo: 0.15, poisson: 0.15, dixon_coles: 0.15, stochastic: 0.20, xgboost: 0.20, lstm: 0.15`. Not calibrated from validation performance. |
+| Ensemble weights (config duplicate) | **FABRICATED** | `config/settings.py` | 35–40 | Same values, duplicated. No calibration source cited. |
+| Confidence thresholds (0.55, 0.42) | **FABRICATED** | `src/engines/ensemble.py` | 566–570 | Hardcoded thresholds with no calibration evidence. |
+| ELO signal thresholds (150, -150, 80) | **FABRICATED** | `src/engines/ensemble.py` | 602–607 | Hardcoded. |
+| xG signal multiplier (1.3) | **FABRICATED** | `src/engines/ensemble.py` | 611–614 | Hardcoded. |
+| ELO even match threshold (30) | **FABRICATED** | `src/engines/ensemble.py` | 640 | Hardcoded. |
+| Draw risk threshold (0.32) | **FABRICATED** | `src/engines/ensemble.py` | 648 | Hardcoded. |
+| Home advantage constant (+65) | **FABRICATED** | `src/engines/ensemble.py` | 707 | `home_elo + 65.0` — hardcoded. Same value in `config/settings.py` line 24. |
+| Fallback probabilities (1/3 each) | **FABRICATED** | `src/engines/ensemble.py` | 466 | When prediction fails, returns `1/3, 1/3, 1/3` as if it were a real estimate. No "unavailable" signal. |
+| Fallback probabilities (empty weights) | **FABRICATED** | `src/engines/ensemble.py` | 536 | Second fallback path, same 1/3 uniform. |
+
+---
+
+### B4. Stochastic Engine Parameters Are Fabricated
+
+| Data Point | State | File | Line | Evidence |
+|-----------|-------|------|------|----------|
+| GARCH ω (omega) = 0.02 | **FABRICATED** | `src/engines/stochastic.py` | 38 | Default parameter. `calibrate_garch()` exists but is not called in the main prediction path. |
+| GARCH α (alpha) = 0.12 | **FABRICATED** | `src/engines/stochastic.py` | 39 | Same — not calibrated in production. |
+| GARCH β (beta) = 0.85 | **FABRICATED** | `src/engines/stochastic.py` | 40 | Same. |
+| Jump intensity λ = 0.1 | **FABRICATED** | `src/engines/stochastic.py` | 64 | `JumpDiffusionParams.jump_intensity`. |
+| Jump mean μ_J = 0.0 | **FABRICATED** | `src/engines/stochastic.py` | 65 | `JumpDiffusionParams.jump_mean`. |
+| Jump std σ_J = 0.3 | **FABRICATED** | `src/engines/stochastic.py` | 66 | `JumpDiffusionParams.jump_std`. |
+| Home-away correlation = 0.15 | **FABRICATED** | `src/engines/stochastic.py` | 77–78 | Hardcoded. |
+| League average goals = 1.3 | **FABRICATED** | `src/engines/stochastic.py` | 286 | Hardcoded. |
+| GARCH fallback (var*0.05, 0.10, 0.85, 0.80) | **FABRICATED** | `src/engines/stochastic.py` | 187–191 | Used when calibration fails. |
+| Jump fallback (0.05, 0.0, 0.2) | **FABRICATED** | `src/engines/stochastic.py` | 234–238 | Used when <2 jumps found. |
+| ELO factor mapping formula | **FABRICATED** | `src/engines/stochastic.py` | 304–305 | `0.8 + 0.4 * ...` — arbitrary mapping. |
+| Volatility normalization (/2.0 * 100) | **FABRICATED** | `src/engines/stochastic.py` | 402–403 | Arbitrary scaling. |
+| Confidence thresholds (0.55, 0.42) | **FABRICATED** | `src/engines/stochastic.py` | 409–414 | Same as ensemble — duplicated. |
+
+---
+
+### B5. Market Signal Parameters Are Fabricated
+
+| Data Point | State | File | Line | Evidence |
+|-----------|-------|------|------|----------|
+| Steam threshold "strong" = 0.12 | **FABRICATED** | `src/engines/market_signals.py` | 59 | Hardcoded. No citation. |
+| Steam threshold "moderate" = 0.06 | **FABRICATED** | `src/engines/market_signals.py` | 60 | Hardcoded. |
+| Steam threshold "weak" = 0.03 | **FABRICATED** | `src/engines/market_signals.py` | 61 | Hardcoded. |
+| RLM odds drift threshold = 0.04 | **FABRICATED** | `src/engines/market_signals.py` | 69 | Hardcoded. |
+| Sharp probability shift = 0.05 | **FABRICATED** | `src/engines/market_signals.py` | 72 | Hardcoded. |
+| Sharp odds velocity = 0.08 | **FABRICATED** | `src/engines/market_signals.py` | 73 | Hardcoded. |
+| Covariance base variance = 0.25 | **FABRICATED** | `src/engines/market_signals.py` | 156 | Hardcoded. |
+| Same-match correlation = −0.20 | **FABRICATED** | `src/engines/market_signals.py` | 170 | Hardcoded. |
+| Cross-match correlation = 0.02 | **FABRICATED** | `src/engines/market_signals.py` | 178 | Hardcoded. |
+| Marginal risk multipliers (1.2, 0.95) | **FABRICATED** | `src/engines/market_signals.py` | 314–315 | Hardcoded. |
+| Kelly base variance = 0.25 | **FABRICATED** | `src/engines/kelly.py` | 156 | Hardcoded diagonal of covariance matrix. |
+
+---
+
+### B6. Hardcoded Database Credentials
+
+| Data Point | State | File | Line | Evidence |
+|-----------|-------|------|------|----------|
+| `database_url` with embedded password | **FABRICATED** (security) | `config/settings.py` | 15 | `postgresql://neondb_owner:npg_8zPlbIK5NwaR@ep-late-sunset-...`. Should be in `.env` only. The class has `Config.env_file = ".env"` but the default value in the field definition means it works even without `.env`. |
+
+---
+
+### B7. Placeholder Endpoints Returning Fabricated Data
+
+| Endpoint | File | Line | Returns | State |
+|----------|------|------|---------|-------|
+| `GET /api/stats/team/{team_id}` | `src/api/routes/stats.py` | 84–88 | Raises `NotImplementedError` | MISSING |
+| `GET /api/stats/headtohead` | `src/api/routes/stats.py` | 91–102 | All zeros: `total_matches=0, home_wins=0, draws=0, away_wins=0, avg_home_goals=0.0, avg_away_goals=0.0, recent_results=[]` | **FABRICATED** (zeros presented as a valid response, not as "unavailable") |
+| `GET /api/stats/form/{team_id}` | `src/api/routes/stats.py` | 105–113 | All zeros: `last_5=[], goals_scored_per_game=0.0, goals_conceded_per_game=0.0, clean_sheets_pct=0.0, btts_pct=0.0, over_25_pct=0.0` | **FABRICATED** |
+| `GET /api/stats/brier` | `src/api/routes/stats.py` | 116–130 | All zeros: `total_predictions=0, brier_score=None, brier_skill_score=None, bins=[]` | **FABRICATED** |
+| `GET /api/admin/calibration` | `src/api/routes/admin.py` | 127–148 | All zeros: `total_evaluated=0, brier_score=0.0, log_loss=0.0, accuracy=0.0, reliability_bins=[]` | **FABRICATED** |
+| `POST /api/admin/backtest` | `src/api/routes/admin.py` | 151–179 | All zeros: `total_predictions=0, correct=0, accuracy=0.0, brier_score=0.0, log_loss=0.0, roi=None, confidence_breakdown={high/medium/low: all zeros}` | **FABRICATED** |
+| `GET /api/admin/models` | `src/api/routes/admin.py` | 182–193 | Static hardcoded list of 5 model names. Does not check `saved_models/` directory. | **FABRICATED** |
+| `GET /api/admin/system/health` | `src/api/routes/admin.py` | 196–208 | `"database": "connected"` (line 201, comment: `# Would check actual connection`), `"data_freshness": {"matches": "unknown", "odds": "unknown", "elo_ratings": "initial"}` (lines 203–206) | **FABRICATED** — claims "connected" without checking; claims "initial" for ELO freshness. |
