@@ -73,8 +73,8 @@ export default function PredictionEngineView() {
 
   const [homeTeamId, setHomeTeamId] = useState('')
   const [awayTeamId, setAwayTeamId] = useState('')
-  const [homeXg, setHomeXg] = useState('1.45')
-  const [awayXg, setAwayXg] = useState('1.10')
+  const [homeXg, setHomeXg] = useState('')
+  const [awayXg, setAwayXg] = useState('')
   const [homeElo, setHomeElo] = useState('1850')
   const [awayElo, setAwayElo] = useState('1780')
   const [oddsHome, setOddsHome] = useState('2.10')
@@ -313,7 +313,7 @@ export default function PredictionEngineView() {
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(String(t.eloRating)); setHomeXg('1.45') }
+                        if (t) { setHomeElo(String(t.eloRating)); setHomeXg(String(t.xgPerGame ?? '')) }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Home" /></SelectTrigger>
                         <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -324,7 +324,7 @@ export default function PredictionEngineView() {
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(String(t.eloRating)); setAwayXg('1.10') }
+                        if (t) { setAwayElo(String(t.eloRating)); setAwayXg(String(t.xgPerGame ?? '')) }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Away" /></SelectTrigger>
                         <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>

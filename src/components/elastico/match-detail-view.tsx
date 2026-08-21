@@ -332,7 +332,7 @@ export default function MatchDetailView() {
     { label: 'Pass Accuracy', h: homeTeam?.passAccuracy ?? null, a: awayTeam?.passAccuracy ?? null, suffix: '%' },
     { label: 'Press Intensity', h: homeTeam?.pressIntensity ?? null, a: awayTeam?.pressIntensity ?? null, suffix: '%' },
     { label: 'xG', h: match.homeXg, a: match.awayXg, decimals: 2 },
-    { label: 'xG/Match', h: homeTeam?.xgPerGame ?? 1.5, a: awayTeam?.xgPerGame ?? 1.3, decimals: 2 },
+    { label: 'xG/Match', h: homeTeam?.xgPerGame ?? null, a: awayTeam?.xgPerGame ?? null, decimals: 2 },
   ]
 
   return (

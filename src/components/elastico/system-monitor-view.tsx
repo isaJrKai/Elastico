@@ -74,8 +74,8 @@ interface ForecastResult {
   id: string
   timestamp: string
   team: string
-  projectedScore: string
-  confidence: number
+  projection: number
+  model: string
 }
 
 // Mock data removed — real data will be loaded from API endpoints
@@ -340,36 +340,48 @@ function AdminSystemMonitor() {
   const runAudit = async (type: 'scraper' | 'drift' | 'convergence') => {
     setAuditLoading(type)
     try {
+      // Map UI audit type to the API's expected action field
+      const actionMap = {
+        scraper: 'scraper_fidelity',
+        drift: 'data_drift',
+        convergence: 'market_convergence',
+      } as const
+      const action = actionMap[type]
+      const data = {} // Empty payload — the API requires specific data structures
+
       const res = await fetch('/api/system/self-audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auditType: type }),
+        body: JSON.stringify({ action, data }),
       })
       if (res.ok) {
         const data = await res.json()
-        if (type === 'scraper') setScraperStatus(data.status || 'HEALTHY')
-        if (type === 'drift') setDriftStatus(data.status || 'HEALTHY')
-        if (type === 'convergence') setClvEdge(data.clvEdge ?? clvEdge)
+        if (type === 'scraper') setScraperStatus(data.passed ? 'HEALTHY' : 'DEGRADED')
+        if (type === 'drift') setDriftStatus(data.status === 'DRIFT_DETECTED' ? 'DRIFT_DETECTED' : 'HEALTHY')
+        if (type === 'convergence' && data.meanClvEdge !== undefined) setClvEdge(data.meanClvEdge)
         setAuditLogs(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
           type,
-          status: data.status === 'DRIFT_DETECTED' ? 'WARNING' : 'PASS',
-          details: data.details || `Audit completed for ${type}`,
+          status: data.passed === false || data.status === 'DRIFT_DETECTED' ? 'WARNING' : 'PASS',
+          details: data.details || data.status || `Audit completed for ${type}`,
         }, ...prev])
       } else {
-        // API unavailable
-        await new Promise(r => setTimeout(r, 800))
+        // API returned 400 — typically means data payload is required
+        let details = `Audit endpoint returned an error for ${type}.`
+        try {
+          const errBody = await res.json()
+          if (errBody.error) details = errBody.error
+        } catch { /* use default message */ }
         setAuditLogs(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
           type,
           status: 'FAIL' as const,
-          details: `Audit endpoint returned an error for ${type}. The audit service may be unavailable.`,
+          details,
         }, ...prev])
       }
     } catch {
-      await new Promise(r => setTimeout(r, 600))
       setAuditLogs(prev => [{
         id: String(Date.now()),
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -393,21 +405,26 @@ function AdminSystemMonitor() {
   const triggerDiagnostic = async () => {
     setHealingLoading(true)
     try {
-      const res = await fetch('/api/system/veronica-heal', { method: 'POST' })
+      const res = await fetch('/api/system/veronica-heal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'diagnose', brokenCode: '', filename: 'system-check' }),
+      })
       if (res.ok) {
         const data = await res.json()
         if (data.events) setHealingEvents(prev => [...data.events, ...prev])
-        if (data.events?.[0]) {
+        if (data.fixCode) {
           setHealingEvents(prev => [{
             id: String(Date.now()),
             timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-            file: data.events[0]?.file || 'unknown',
-            errorType: data.events[0]?.errorType || 'ScanComplete',
-            status: data.events[0]?.status || 'HEALED',
+            file: data.filename || 'system-check',
+            errorType: data.action || 'ScanComplete',
+            status: 'HEALED',
           }, ...prev])
         }
       } else {
-        // API unavailable — record honestly
+        let errorMsg = 'Service unavailable'
+        try { const err = await res.json(); errorMsg = err.error || errorMsg } catch { /* */ }
         setHealingEvents(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -440,24 +457,36 @@ function AdminSystemMonitor() {
   const runIntegrityCheck = async () => {
     setIntegrityLoading(true)
     try {
-      await fetch('/api/system/saim-security', {
+      // The 'audit' action hashes all critical files server-side — no payload needed
+      const res = await fetch('/api/system/saim-security', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'audit' }),
       })
-      await fetch('/api/system/saim-security', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify' }),
-      })
-    } catch { /* security endpoints not available */ }
-    await new Promise(r => setTimeout(r, 1500))
-    setSecurityLogs(prev => [{
-      id: String(Date.now()),
-      time: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      event: 'Integrity check completed — result unavailable (service did not return score data)',
-      severity: 'warning' as const,
-    }, ...prev])
+      if (res.ok) {
+        const data = await res.json()
+        setSecurityLogs(prev => [{
+          id: String(Date.now()),
+          time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+          event: `Audit complete: ${data.fileCount || 0} files hashed at ${data.timestamp || 'unknown'}`,
+          severity: 'info' as const,
+        }, ...prev])
+      } else {
+        setSecurityLogs(prev => [{
+          id: String(Date.now()),
+          time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+          event: 'Integrity audit failed — service returned an error',
+          severity: 'warning' as const,
+        }, ...prev])
+      }
+    } catch {
+      setSecurityLogs(prev => [{
+        id: String(Date.now()),
+        time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        event: 'Integrity audit failed — could not reach SAIM service',
+        severity: 'warning' as const,
+      }, ...prev])
+    }
     setIntegrityLoading(false)
   }
 
@@ -468,14 +497,18 @@ function AdminSystemMonitor() {
   const [forecastIndicators, setForecastIndicators] = useState('')
   const [forecastLoading, setForecastLoading] = useState(false)
   const [forecasts, setForecasts] = useState<ForecastResult[]>([])
-  const [forecastResult, setForecastResult] = useState<{ score: string; confidence: number } | null>(null)
+  const [forecastResult, setForecastResult] = useState<{ projection: number; model: string } | null>(null)
 
   useEffect(() => {
-    // Check if NVIDIA API is configured
+    // Check if NVIDIA API is configured by inspecting env indicator
     fetch('/api/prediction-engine/config')
       .then(r => r.json())
       .then(data => {
-        if (data.nvidiaApiKey) setModelStatus('CONNECTED')
+        // The config endpoint returns { success, config, defaults } —
+        // check whether NVIDIA_API_KEY is set via the model field in defaults
+        if (data.config?.model && data.config.model !== 'mock-fallback') {
+          setModelStatus('CONNECTED')
+        }
       })
       .catch(() => {})
   }, [])
@@ -485,46 +518,54 @@ function AdminSystemMonitor() {
     setForecastLoading(true)
     setForecastResult(null)
     try {
+      // Parse user input into number arrays for the API
+      const historyStr = forecastHistory || '1,1,3,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3'
+      const indicatorStr = forecastIndicators || '1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8'
+      const coreHistory = historyStr.split(',').map(Number).filter(n => !isNaN(n))
+      const recentIndicators = indicatorStr.split(',').map(Number).filter(n => !isNaN(n))
+
+      if (coreHistory.length === 0) {
+        setForecastResult({ projection: 0, model: 'error' })
+        setForecastLoading(false)
+        return
+      }
+
       const res = await fetch('/api/prediction-engine/timesfm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          team: forecastTeam,
-          history: forecastHistory || '1,1,3,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3',
-          indicators: forecastIndicators || '1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8',
-        }),
+        body: JSON.stringify({ coreHistory, recentIndicators }),
       })
       if (res.ok) {
         const data = await res.json()
-        setForecastResult({ score: data.projectedScore, confidence: data.confidence })
+        const projection = data.conditionedProjection ?? 0
+        const model = data.model || 'unknown'
+        setForecastResult({ projection, model })
         setForecasts(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
           team: forecastTeam,
-          projectedScore: data.projectedScore,
-          confidence: data.confidence,
+          projection,
+          model,
         }, ...prev])
       } else {
-        // API returned an error
-        await new Promise(r => setTimeout(r, 1000))
-        setForecastResult({ score: 'Unavailable', confidence: 0 })
+        const errBody = await res.json().catch(() => ({}))
+        setForecastResult({ projection: 0, model: 'error' })
         setForecasts(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
           team: forecastTeam,
-          projectedScore: 'Unavailable',
-          confidence: 0,
+          projection: 0,
+          model: `error: ${errBody.error || res.status}`,
         }, ...prev])
       }
     } catch {
-      await new Promise(r => setTimeout(r, 800))
-      setForecastResult({ score: 'Unavailable', confidence: 0 })
+      setForecastResult({ projection: 0, model: 'error' })
       setForecasts(prev => [{
         id: String(Date.now()),
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
         team: forecastTeam,
-        projectedScore: 'Unavailable',
-        confidence: 0,
+        projection: 0,
+        model: 'network-error',
       }, ...prev])
     }
     setForecastLoading(false)
@@ -1138,17 +1179,13 @@ function AdminSystemMonitor() {
                       <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Latest Forecast Result</p>
                       <div className="flex items-center gap-4">
                         <div>
-                          <p className="text-2xl font-bold gradient-text">{forecastResult.score}</p>
-                          <p className="text-xs text-muted-foreground">Projected Score</p>
+                          <p className="text-2xl font-bold gradient-text">{forecastResult.projection.toFixed(3)}</p>
+                          <p className="text-xs text-muted-foreground">Projected Goals</p>
                         </div>
                         <div className="h-10 w-px bg-border" />
                         <div>
-                          <p className="text-2xl font-bold" style={{
-                            color: forecastResult.confidence >= 75 ? '#00e676' : forecastResult.confidence >= 60 ? '#eab308' : '#ef4444',
-                          }}>
-                            {forecastResult.confidence}%
-                          </p>
-                          <p className="text-xs text-muted-foreground">Confidence</p>
+                          <p className="text-xs font-medium text-muted-foreground">{forecastResult.model}</p>
+                          <p className="text-xs text-muted-foreground">Model</p>
                         </div>
                       </div>
                     </div>
@@ -1221,8 +1258,8 @@ function AdminSystemMonitor() {
                       <TableRow>
                         <TableHead>Timestamp</TableHead>
                         <TableHead>Team</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead>Conf</TableHead>
+                        <TableHead>Projection</TableHead>
+                        <TableHead>Model</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1230,14 +1267,8 @@ function AdminSystemMonitor() {
                         <TableRow key={f.id}>
                           <TableCell className="text-xs text-muted-foreground font-mono">{f.timestamp.slice(11, 19)}</TableCell>
                           <TableCell className="text-sm font-medium">{f.team}</TableCell>
-                          <TableCell className="text-sm font-mono">{f.projectedScore}</TableCell>
-                          <TableCell>
-                            <span className="text-xs font-bold" style={{
-                              color: f.confidence >= 75 ? '#00e676' : f.confidence >= 60 ? '#eab308' : '#ef4444',
-                            }}>
-                              {f.confidence}%
-                            </span>
-                          </TableCell>
+                          <TableCell className="text-sm font-mono">{f.projection.toFixed(3)}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground font-mono">{f.model}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

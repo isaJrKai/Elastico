@@ -160,20 +160,14 @@ function NvidiaApiStatusBadge({ token }: { token?: string }) {
   const [status, setStatus] = React.useState<'loading' | 'connected' | 'disconnected'>('loading')
 
   React.useEffect(() => {
-    fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ message: '__status_check__', model: 'pro', stream: false }),
-    })
+    // Use the dedicated GET status endpoint instead of POST
+    fetch('/api/chat')
       .then((res) => res.json())
       .then((data) => {
-        if (data.model === 'pro') {
+        const providers = Array.isArray(data.providers) ? data.providers : []
+        const proProvider = providers.find((p: { name?: string; configured?: boolean }) => p.name === 'pro')
+        if (proProvider?.configured) {
           setStatus('connected')
-        } else if (data.model === 'mock-fallback') {
-          setStatus('disconnected')
         } else {
           setStatus('disconnected')
         }
