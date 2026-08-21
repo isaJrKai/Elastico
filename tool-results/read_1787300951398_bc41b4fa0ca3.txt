@@ -1,0 +1,613 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { useElasticoStore, type Match, type MatchEvent, type Team, type User } from '@/store/use-elastico-store'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Separator } from '@/components/ui/separator'
+     9→import { Skeleton } from '@/components/ui/skeleton'
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+    12→import {
+    13→  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie,
+    14→} from 'recharts'
+    15→import {
+    16→  ArrowLeft, Bookmark, BookmarkCheck, Share2, Sparkles, Brain, MapPin, Cloud,
+    17→  Thermometer, Users, Trophy, Clock, Zap, Target, Activity, ChevronDown,
+    18→  Loader2, AlertCircle, Swords, Flame, MessageSquare, Copy, Check,
+    19→} from 'lucide-react'
+    20→import { cn } from '@/lib/utils'
+    21→import { toast } from '@/hooks/use-toast'
+    22→
+    23→// ── Extended Types ──────────────────────────────────────────────────────────
+    24→
+    25→interface VoteUser { id: string; name: string; displayName: string | null; avatarUrl: string | null; plan: string }
+    26→interface Vote { id: string; userId: string; matchId: string; choice: string; createdAt: string; user: VoteUser }
+    27→interface PredictionUser { id: string; name: string; displayName: string | null; avatarUrl: string | null; predictionAccuracy: number }
+    28→interface Prediction { id: string; userId: string; matchId: string; predictedHomeGoals: number; predictedAwayGoals: number; predictedOutcome: string; confidence: number; model: string; isCorrect: boolean | null; points: number; createdAt: string; user: PredictionUser }
+    29→
+    30→interface MatchDetail extends Match {
+    31→  homeTeam: Team & { players: Team['players'] }
+    32→  awayTeam: Team & { players: Team['players'] }
+    33→  events: MatchEvent[]
+    34→  votes: Vote[]
+    35→  predictions: Prediction[]
+    36→  voteDistribution: { home: number; draw: number; away: number }
+    37→  _count: { predictions: number; votes: number; bookmarks: number }
+    38→  attendance?: number | null
+    39→}
+    40→
+    41→// ── Helpers ────────────────────────────────────────────────────────────────
+    42→
+    43→function computeEloProb(homeElo: number, awayElo: number, outcome: string): number {
+    44→  const expectedHome = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400))
+    45→  if (outcome === 'home') return Math.round(expectedHome * 100)
+    46→  if (outcome === 'away') return Math.round((1 - expectedHome) * 100 * 0.75)
+    47→  return Math.round(100 - expectedHome * 100 - (1 - expectedHome) * 100 * 0.75)
+    48→}
+    49→
+    50→function StatBarRow({ label, homeValue, awayValue, homeColor, awayColor, suffix = '', decimals = 0 }: { label: string; homeValue: number; awayValue: number; homeColor?: string; awayColor?: string; suffix?: string; decimals?: number }) {
+    51→  const total = homeValue + awayValue || 1
+    52→  const hp = (homeValue / total) * 100
+    53→  const fmt = (v: number) => decimals > 0 ? v.toFixed(decimals) : String(Math.round(v))
+    54→  return (
+    55→    <div className="space-y-1.5">
+    56→      <div className="flex items-center justify-between text-xs">
+    57→        <span className={cn('font-semibold tabular-nums', hp >= 50 ? 'text-foreground' : 'text-muted-foreground')}>{fmt(homeValue)}{suffix}</span>
+    58→        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
+    59→        <span className={cn('font-semibold tabular-nums', (100 - hp) > hp ? 'text-foreground' : 'text-muted-foreground')}>{fmt(awayValue)}{suffix}</span>
+    60→      </div>
+    61→      <div className="flex h-2 gap-0.5 rounded-full overflow-hidden bg-muted">
+    62→        <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${hp}%`, backgroundColor: homeColor || 'oklch(0.72 0.19 163)' }} />
+    63→        <div className="h-full rounded-full transition-all duration-700 ease-out ml-auto" style={{ width: `${100 - hp}%`, backgroundColor: awayColor || 'oklch(0.68 0.15 230)' }} />
+    64→      </div>
+    65→    </div>
+    66→  )
+    67→}
+    68→
+    69→function getStatusConfig(status: string) {
+    70→  switch (status) {
+    71→    case 'live': return { label: 'LIVE', cls: 'bg-red-500/15 text-red-400 border-red-500/30', pulse: true }
+    72→    case 'halftime': return { label: 'HALF TIME', cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30', pulse: false }
+    73→    case 'finished': return { label: 'FULL TIME', cls: 'bg-muted text-muted-foreground border-border', pulse: false }
+    74→    default: return { label: 'UPCOMING', cls: 'bg-primary/15 text-primary border-primary/30', pulse: false }
+    75→  }
+    76→}
+    77→
+    78→function getEventIcon(type: string) {
+    79→  switch (type) {
+    80→    case 'goal': case 'penalty': case 'own_goal': return '⚽'
+    81→    case 'yellow_card': return '🟨'
+    82→    case 'red_card': return '🟥'
+    83→    case 'substitution': return '🔄'
+    84→    default: return '⚡'
+    85→  }
+    86→}
+    87→
+    88→// ── SHOT MAP DATA ──────────────────────────────────────────────────────────
+    89→
+    90→interface ShotMapPoint {
+    91→  x: number; y: number; team: string; goal: boolean
+    92→  xg?: number; player?: string | null; minute?: number; outcome?: string
+    93→}
+    94→
+    95→// Fallback: generate shot positions from match events when no deep data source
+    96→function generateShotsFromEvents(events: MatchEvent[], homeXg: number, awayXg: number): ShotMapPoint[] {
+    97→  const shots: ShotMapPoint[] = []
+    98→  const homeGoals = events.filter(e => e.type === 'goal' && e.team === 'home')
+    99→  const awayGoals = events.filter(e => e.type === 'goal' && e.team === 'away')
+   100→  for (let i = 0; i < Math.ceil(homeXg * 3); i++) {
+   101→    shots.push({ x: 15 + (i * 17 % 30), y: 10 + (i * 23 % 80), team: 'home', goal: i < homeGoals.length })
+   102→  }
+   103→  for (let i = 0; i < Math.ceil(awayXg * 3); i++) {
+   104→    shots.push({ x: 55 + (i * 17 % 30), y: 10 + (i * 23 % 80), team: 'away', goal: i < awayGoals.length })
+   105→  }
+   106→  return shots
+   107→}
+   108→
+   109→// ═══════════════════════════════════════════════════════════════════════════════
+   110→// MAIN COMPONENT
+   111→// ═══════════════════════════════════════════════════════════════════════════════
+   112→
+   113→export function MatchDetailView() {
+   114→  const selectedMatchId = useElasticoStore(s => s.selectedMatchId)
+   115→  const setView = useElasticoStore(s => s.setView)
+   116→  const user = useElasticoStore(s => s.user)
+   117→  const token = useElasticoStore(s => s.token)
+   118→  const [match, setMatch] = useState<MatchDetail | null>(null)
+   119→  const [loading, setLoading] = useState(true)
+   120→  const [error, setError] = useState<string | null>(null)
+   121→  const [activeTab, setActiveTab] = useState('statistics')
+   122→  const [bookmarked, setBookmarked] = useState(false)
+   123→  const [copied, setCopied] = useState(false)
+   124→  const [aiLoading, setAiLoading] = useState(false)
+   125→  const [simulating, setSimulating] = useState(false)
+   126→
+   127→  const fetchMatch = useCallback(async () => {
+   128→    if (!selectedMatchId) return
+   129→    setLoading(true)
+   130→    try {
+   131→      const headers: Record<string, string> = {}
+   132→      if (token) headers['Authorization'] = `Bearer ${token}`
+   133→      const res = await fetch(`/api/matches/${selectedMatchId}`, { headers })
+   134→      if (!res.ok) throw new Error(`Failed to fetch match`)
+   135→      const data = await res.json()
+   136→      setMatch(data.match)
+   137→    } catch (err) {
+   138→      setError(err instanceof Error ? err.message : 'Failed to load match')
+   139→    } finally { setLoading(false) }
+   140→  }, [selectedMatchId, token])
+   141→
+   142→  useEffect(() => { fetchMatch() }, [fetchMatch])
+   143→
+   144→  const handleVote = useCallback(async (choice: 'home' | 'draw' | 'away') => {
+   145→    if (!selectedMatchId || !token) return
+   146→    try {
+   147→      await fetch(`/api/matches/${selectedMatchId}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ choice }) })
+   148→      fetchMatch()
+   149→    } catch { /* silent */ }
+   150→  }, [selectedMatchId, token, fetchMatch])
+   151→
+   152→  const handleSimulate = useCallback(async () => {
+   153→    if (!selectedMatchId || !token) return
+   154→    setSimulating(true)
+   155→    try {
+   156→      const res = await fetch(`/api/matches/${selectedMatchId}/simulate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+   157→      if (!res.ok) {
+   158→        const err = await res.json().catch(() => ({ error: 'Simulation failed' }))
+   159→        toast({ title: 'Simulation failed', description: err.error || 'Unknown error', variant: 'destructive' })
+   160→        return
+   161→      }
+   162→      toast({ title: 'Simulation complete', description: 'Match has been simulated with events and stats' })
+   163→      fetchMatch()
+   164→    } catch (e: any) {
+   165→      toast({ title: 'Simulation error', description: e.message || 'Failed to run simulation', variant: 'destructive' })
+   166→    } finally { setSimulating(false) }
+   167→  }, [selectedMatchId, token, fetchMatch])
+   168→
+   169→  const handleCopySummary = useCallback(() => {
+   170→    if (!match) return
+   171→    const text = `⚽ ${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition} · ${match.stage}\nxG: ${(match.homeXg ?? 0).toFixed(1)} - ${(match.awayXg ?? 0).toFixed(1)}\n\n— ELASTICO Analytics`
+   172→    navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+   173→  }, [match])
+   174→
+   175→  const handleAIAnalysis = useCallback(() => {
+   176→    if (!match) return
+   177→    setAiLoading(true)
+   178→    fetch('/api/chat', {
+   179→      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+   180→      body: JSON.stringify({ message: `Analyze the match ${match.homeTeam?.name} vs ${match.awayTeam?.name}. ELO: ${match.homeEloBefore} vs ${match.awayEloBefore}. Score: ${match.homeScore}-${match.awayScore}. xG: ${match.homeXg}-${match.awayXg}.`, matchId: selectedMatchId }),
+   181→    }).then(() => { setView('ai-chat'); setAiLoading(false) }).catch(() => { setAiLoading(false) })
+   182→  }, [match, token, selectedMatchId, setView])
+   183→
+   184→  // Derived
+   185→  const isUpcoming = match?.status === 'upcoming'
+   186→  const isLive = match?.status === 'live' || match?.status === 'halftime'
+   187→  const isFinished = match?.status === 'finished'
+   188→  const statusConfig = match ? getStatusConfig(match.status) : null
+   189→  const homeTeam = match?.homeTeam
+   190→  const awayTeam = match?.awayTeam
+   191→
+   192→  const homeWinProb = match?.homeWinProb ?? computeEloProb(match?.homeEloBefore ?? 1500, match?.awayEloBefore ?? 1500, 'home')
+   193→  const drawProb = match?.drawProb ?? computeEloProb(match?.homeEloBefore ?? 1500, match?.awayEloBefore ?? 1500, 'draw')
+   194→  const awayWinProb = match?.awayWinProb ?? computeEloProb(match?.homeEloBefore ?? 1500, match?.awayEloBefore ?? 1500, 'away')
+   195→  const totalVotes = (match?.voteDistribution?.home ?? 0) + (match?.voteDistribution?.draw ?? 0) + (match?.voteDistribution?.away ?? 0)
+   196→
+   197→  const votePieData = useMemo(() => [
+   198→    { name: 'Home', value: match?.voteDistribution?.home ?? 0, fill: '#00e676' },
+   199→    { name: 'Draw', value: match?.voteDistribution?.draw ?? 0, fill: '#ffd700' },
+   200→    { name: 'Away', value: match?.voteDistribution?.away ?? 0, fill: '#ff4757' },
+   201→  ].filter(d => d.value > 0), [match])
+   202→
+   203→  const xgTimeline = useMemo(() => {
+   204→    if (!match) return []
+   205→    const goals = (match.events || []).filter(e => e.type === 'goal').sort((a, b) => a.minute - b.minute)
+   206→    let hc = 0, ac = 0
+   207→    const pts = [{ minute: "0'", Home: 0, Away: 0 }]
+   208→    const homeXg = match.homeXg ?? 0
+   209→    const awayXg = match.awayXg ?? 0
+   210→    for (const g of goals) {
+   211→      if (g.team === 'home') hc += homeXg / Math.max(goals.filter(e => e.team === 'home').length, 1)
+   212→      else ac += awayXg / Math.max(goals.filter(e => e.team === 'away').length, 1)
+   213→      pts.push({ minute: `${g.minute}'`, Home: +hc.toFixed(2), Away: +ac.toFixed(2) })
+   214→    }
+   215→    pts.push({ minute: "90'", Home: +homeXg.toFixed(2), Away: +awayXg.toFixed(2) })
+   216→    return pts
+   217→  }, [match])
+   218→
+   219→  // ── StatsBomb shot map (real xG + coordinates) ────────────────────────
+   220→  const [sbShots, setSbShots] = useState<ShotMapPoint[]>([])
+   221→  const [sbLoading, setSbLoading] = useState(false)
+   222→  const [sbSource, setSbSource] = useState<string>('')
+   223→
+   224→  useEffect(() => {
+   225→    // Try to fetch real shot data from StatsBomb for the 2022 World Cup Final as demo
+   226→    // In production, match SB match IDs to DB matches
+   227→    const demoMatchId = 3869151 // 2022 World Cup Final: Argentina vs France
+   228→    setSbLoading(true)
+   229→    fetch(`/api/statsbomb?action=shots&match=${demoMatchId}`)
+   230→      .then(r => r.json())
+   231→      .then(data => {
+   232→        if (data.success && data.data?.length > 0) {
+   233→          setSbShots(data.data)
+   234→          setSbSource(`StatsBomb: ${data.homeTeam} vs ${data.awayTeam}`)
+   235→        }
+   236→      })
+   237→      .catch(() => {})
+   238→      .finally(() => setSbLoading(false))
+   239→  }, [])
+   240→
+   241→  // ── xT (Expected Threat) leaderboard from analytics engine ──────────────
+   242→  const [xtLeaderboard, setXtLeaderboard] = useState<Array<{ player: string; team: string; totalXtGained: number; totalActions: number; avgXtPerAction: number; progressiveActions: number }>>([])
+   243→  const [xtLoading, setXtLoading] = useState(false)
+   244→
+   245→  useEffect(() => {
+   246→    setXtLoading(true)
+   247→    fetch('/api/analytics?action=xt-match&match=3869151')
+   248→      .then(r => r.json())
+   249→      .then(data => {
+   250→        if (data.success && data.data?.leaderboard) {
+   251→          setXtLeaderboard(data.data.leaderboard)
+   252→        }
+   253→      })
+   254→      .catch(() => {})
+   255→      .finally(() => setXtLoading(false))
+   256→  }, [])
+   257→
+   258→  const shotMapData = useMemo(() => {
+   259→    if (sbShots.length > 0) return sbShots
+   260→    if (match) return generateShotsFromEvents(match.events || [], match.homeXg, match.awayXg)
+   261→    return []
+   262→  }, [sbShots, match])
+   263→
+   264→  // ── Loading ──
+   265→  if (loading) return (<div className="flex flex-col gap-4 animate-fade-in-up"><Skeleton className="h-44 w-full rounded-xl" /><div className="grid grid-cols-1 lg:grid-cols-2 gap-4"><Skeleton className="h-64 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div></div>)
+   266→
+   267→  if (error || !match) return (
+   268→    <div className="flex flex-col items-center justify-center py-20 animate-fade-in-up">
+   269→      <AlertCircle className="size-12 text-destructive mb-4" /><h3 className="text-lg font-semibold mb-2">Failed to Load Match</h3>
+   270→      <Button variant="outline" onClick={() => setView('matches')} className="gap-2 border-border"><ArrowLeft className="size-4" />Back to Matches</Button>
+   271→    </div>
+   272→  )
+   273→
+   274→  const stats = [
+   275→    { label: 'Possession', h: match.possessionHome, a: 100 - match.possessionHome, suffix: '%' },
+   276→    { label: 'Shots', h: match.shotsHome, a: match.shotsAway },
+   277→    { label: 'Shots on Target', h: match.shotsOnTargetHome, a: match.shotsOnTargetAway },
+   278→    { label: 'Corners', h: match.cornersHome, a: match.cornersAway },
+   279→    { label: 'Fouls', h: match.foulsHome, a: match.foulsAway },
+   280→    { label: 'Pass Accuracy', h: homeTeam?.passAccuracy ?? 78, a: awayTeam?.passAccuracy ?? 76, suffix: '%' },
+   281→    { label: 'Press Intensity', h: homeTeam?.pressIntensity ?? 60, a: awayTeam?.pressIntensity ?? 55, suffix: '%' },
+   282→    { label: 'xG', h: match.homeXg, a: match.awayXg, decimals: 2 },
+   283→    { label: 'xG/Match', h: homeTeam?.xgPerGame ?? 1.5, a: awayTeam?.xgPerGame ?? 1.3, decimals: 2 },
+   284→  ]
+   285→
+   286→  return (
+   287→    <TooltipProvider>
+   288→      <div className="flex flex-col gap-4 animate-fade-in-up">
+   289→        {/* ── ACTION BAR ── */}
+   290→        <div className="flex items-center gap-2 flex-wrap">
+   291→          <Button variant="outline" size="sm" className="h-8 gap-1.5 border-border text-xs" onClick={() => setView('matches')}><ArrowLeft className="size-3.5" />Back</Button>
+   292→          <div className="flex-1" />
+   293→          <Button variant="ghost" size="sm" className={cn('h-8 gap-1.5 text-xs', bookmarked && 'text-primary')} onClick={() => setBookmarked(!bookmarked)}>
+   294→            {bookmarked ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />}{bookmarked ? 'Saved' : 'Bookmark'}
+   295→          </Button>
+   296→          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleCopySummary}>
+   297→            {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}{copied ? 'Copied!' : 'Copy Summary'}
+   298→          </Button>
+   299→          <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={handleAIAnalysis} disabled={aiLoading}>
+   300→            {aiLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Brain className="size-3.5" />}AI Analysis
+   301→          </Button>
+   302→          {isUpcoming && (user?.plan === 'pro' || user?.plan === 'elite') && (
+   303→            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs bg-primary/10 text-primary border-primary/30" onClick={handleSimulate} disabled={simulating}>
+   304→              <Zap className="size-3.5" />{simulating ? 'Simulating...' : 'Simulate'}
+   305→            </Button>
+   306→          )}
+   307→        </div>
+   308→
+   309→        {/* ═══════════════════════════════════════════════════════════════════
+   310→            MATCH HEADER
+   311→            ═══════════════════════════════════════════════════════════════════ */}
+   312→        <Card className="glass-card-premium rounded-xl overflow-hidden">
+   313→          <CardContent className="p-6">
+   314→            {/* Competition + Status */}
+   315→            <div className="flex items-center justify-between mb-6">
+   316→              <div className="flex items-center gap-2">
+   317→                <Badge variant="secondary" className="text-xs bg-muted/50"><Trophy className="size-3 mr-1" />{match.competition}</Badge>
+   318→                <Badge variant="secondary" className="text-xs bg-muted/50">{match.stage}</Badge>
+   319→                {match.group && <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">Group {match.group}</Badge>}
+   320→              </div>
+   321→              <Badge variant="outline" className={cn('text-xs font-bold', statusConfig?.cls)}>
+   322→                {statusConfig?.pulse && <span className="relative flex size-1.5 mr-1.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex size-1.5 rounded-full bg-red-500" /></span>}
+   323→                {statusConfig?.label}
+   324→              </Badge>
+   325→            </div>
+   326→
+   327→            {/* Teams + Score */}
+   328→            <div className="flex items-center justify-between gap-4">
+   329→              {/* Home */}
+   330→              <div className="flex-1 text-center">
+   331→                <div className="flex justify-center mb-3">
+   332→                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: homeTeam?.primaryColor ?? '#555' }}>{homeTeam?.name}</div>
+   333→                </div>
+   334→                <h2 className="text-lg font-bold">{homeTeam?.name}</h2>
+   335→                <div className="flex items-center justify-center gap-2 mt-1">
+   336→                  <Badge variant="outline" className="text-[10px] border-border/50">ELO {match.homeEloBefore ?? homeTeam?.eloRating ?? '—'}</Badge>
+   337→                  {homeTeam?.form && <div className="flex gap-0.5">{homeTeam.form.split('').map((f, i) => <span key={i} className={cn('inline-flex size-4 items-center justify-center rounded text-[9px] font-bold', f === 'W' ? 'bg-emerald-500/20 text-emerald-400' : f === 'D' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400')}>{f}</span>)}</div>}
+   338→                </div>
+   339→              </div>
+   340→
+   341→              {/* Score */}
+   342→              <div className="text-center shrink-0 px-4">
+   343→                {isUpcoming ? (
+   344→                  <div className="text-muted-foreground">
+   345→                    <p className="text-sm font-medium">Upcoming</p>
+   346→                    <p className="text-xs mt-1">{match.date ? new Date(match.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBD'}</p>
+   347→                  </div>
+   348→                ) : (
+   349→                  <>
+   350→                    <div className="flex items-center gap-3">
+   351→                      <span className={cn('text-5xl font-black tabular-nums', match.homeScore > match.awayScore && isFinished && 'text-primary')}>{match.homeScore}</span>
+   352→                      <span className="text-2xl text-muted-foreground font-light">:</span>
+   353→                      <span className={cn('text-5xl font-black tabular-nums', match.awayScore > match.homeScore && isFinished && 'text-primary')}>{match.awayScore}</span>
+   354→                    </div>
+   355→                    <div className="flex items-center justify-center gap-3 mt-1 text-[11px] text-cyan-400 font-medium">
+   356→                      <span>xG {(match.homeXg ?? 0).toFixed(1)}</span>
+   357→                      <span className="text-muted-foreground">·</span>
+   358→                      <span>xG {(match.awayXg ?? 0).toFixed(1)}</span>
+   359→                    </div>
+   360→                  </>
+   361→                )}
+   362→              </div>
+   363→
+   364→              {/* Away */}
+   365→              <div className="flex-1 text-center">
+   366→                <div className="flex justify-center mb-3">
+   367→                  <div className="size-16 rounded-full border-2 border-border/50 flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: awayTeam?.primaryColor ?? '#555' }}>{awayTeam?.name}</div>
+   368→                </div>
+   369→                <h2 className="text-lg font-bold">{awayTeam?.name}</h2>
+   370→                <div className="flex items-center justify-center gap-2 mt-1">
+   371→                  <Badge variant="outline" className="text-[10px] border-border/50">ELO {match.awayEloBefore ?? awayTeam?.eloRating ?? '—'}</Badge>
+   372→                  {awayTeam?.form && <div className="flex gap-0.5">{awayTeam.form.split('').map((f, i) => <span key={i} className={cn('inline-flex size-4 items-center justify-center rounded text-[9px] font-bold', f === 'W' ? 'bg-emerald-500/20 text-emerald-400' : f === 'D' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400')}>{f}</span>)}</div>}
+   373→                </div>
+   374→              </div>
+   375→            </div>
+   376→
+   377→            {/* Venue + Weather */}
+   378→            <div className="flex items-center justify-center gap-4 mt-5 text-[11px] text-muted-foreground">
+   379→              {match.venue && <span className="flex items-center gap-1"><MapPin className="size-3" />{match.venue}</span>}
+   380→              {match.weather && <span className="flex items-center gap-1"><Cloud className="size-3" />{match.weather}</span>}
+   381→              {match.temperature != null && <span className="flex items-center gap-1"><Thermometer className="size-3" />{match.temperature}°C</span>}
+   382→            </div>
+   383→
+   384→            {/* Probability Bars */}
+   385→            <div className="mt-5 max-w-md mx-auto space-y-2">
+   386→              <div className="flex items-center gap-2">
+   387→                <span className="text-[10px] w-10 text-right text-emerald-400 font-medium">Home</span>
+   388→                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-1000" style={{ width: `${homeWinProb}%` }} /></div>
+   389→                <span className="text-[11px] font-bold tabular-nums w-10">{homeWinProb}%</span>
+   390→              </div>
+   391→              <div className="flex items-center gap-2">
+   392→                <span className="text-[10px] w-10 text-right text-amber-400 font-medium">Draw</span>
+   393→                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-1000" style={{ width: `${drawProb}%` }} /></div>
+   394→                <span className="text-[11px] font-bold tabular-nums w-10">{drawProb}%</span>
+   395→              </div>
+   396→              <div className="flex items-center gap-2">
+   397→                <span className="text-[10px] w-10 text-right text-red-400 font-medium">Away</span>
+   398→                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-red-600 to-red-400 transition-all duration-1000" style={{ width: `${awayWinProb}%` }} /></div>
+   399→                <span className="text-[11px] font-bold tabular-nums w-10">{awayWinProb}%</span>
+   400→              </div>
+   401→            </div>
+   402→
+   403→            {/* Vote buttons */}
+   404→            {isUpcoming && (
+   405→              <div className="flex justify-center gap-3 mt-5">
+   406→                {(['home', 'draw', 'away'] as const).map((c) => (
+   407→                  <Button key={c} size="sm" variant="outline" className={cn('flex-1 max-w-[120px] text-xs font-semibold', c === 'home' ? 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10' : c === 'draw' ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10' : 'border-red-500/30 text-red-400 hover:bg-red-500/10')} onClick={() => handleVote(c)}>
+   408→                    {c === 'home' ? 'Home Win' : c === 'draw' ? 'Draw' : 'Away Win'}
+   409→                  </Button>
+   410→                ))}
+   411→              </div>
+   412→            )}
+   413→          </CardContent>
+   414→        </Card>
+   415→
+   416→        {/* ═══════════════════════════════════════════════════════════════════
+   417→            TABS: TIMELINE / STATISTICS / xG / SHOT MAP / VOTES
+   418→            ═══════════════════════════════════════════════════════════════════ */}
+   419→        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+   420→          <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
+   421→            {[
+   422→              { value: 'timeline', label: 'Timeline' },
+   423→              { value: 'statistics', label: 'Statistics' },
+   424→              { value: 'xg', label: 'xG Timeline' },
+   425→              { value: 'shotmap', label: 'Shot Map' },
+   426→              { value: 'xt', label: 'xT Threat' },
+   427→              { value: 'votes', label: 'Votes' },
+   428→            ].map((t) => (
+   429→              <TabsTrigger key={t.value} value={t.value} className="flex-1 h-8 text-xs font-semibold rounded-md transition-all data-[state=active]:bg-primary/15 data-[state=active]:text-primary">{t.label}</TabsTrigger>
+   430→            ))}
+   431→          </TabsList>
+   432→
+   433→          {/* TIMELINE TAB */}
+   434→          <TabsContent value="timeline" className="mt-4">
+   435→            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+   436→              <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Activity className="size-4 text-primary" />Match Events</h3>
+   437→              {(match.events || []).length === 0 ? (
+   438→                <p className="text-sm text-muted-foreground text-center py-8">No events recorded</p>
+   439→              ) : (
+   440→                <div className="relative ml-4 border-l-2 border-border/30 space-y-4">
+   441→                  {(match.events || []).sort((a, b) => a.minute - b.minute).map((ev, i) => (
+   442→                    <div key={ev.id || i} className="relative pl-6 animate-slide-in-left" style={{ animationDelay: `${i * 50}ms` }}>
+   443→                      <div className="absolute -left-[9px] top-0.5 size-4 rounded-full bg-background border-2 border-border flex items-center justify-center text-[10px]">{getEventIcon(ev.type)}</div>
+   444→                      <div className="flex items-center gap-2">
+   445→                        <span className="text-xs font-bold tabular-nums text-primary">{ev.minute}&apos;</span>
+   446→                        <span className={cn('text-xs font-medium', ev.team === 'home' ? (homeTeam?.code ? '' : 'text-foreground') : (awayTeam?.code ? '' : 'text-foreground'))}>
+   447→                          {ev.team === 'home' ? homeTeam?.name : awayTeam?.name}
+   448→                        </span>
+   449→                        <span className="text-xs text-muted-foreground">{ev.playerName}</span>
+   450→                      </div>
+   451→                      {ev.description && <p className="text-[11px] text-muted-foreground/70 mt-0.5">{ev.description}</p>}
+   452→                    </div>
+   453→                  ))}
+   454→                </div>
+   455→              )}
+   456→            </CardContent></Card>
+   457→          </TabsContent>
+   458→
+   459→          {/* STATISTICS TAB */}
+   460→          <TabsContent value="statistics" className="mt-4">
+   461→            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5 space-y-4">
+   462→              <h3 className="text-sm font-bold flex items-center gap-2"><Target className="size-4 text-primary" />Match Statistics</h3>
+   463→              {stats.map((s) => <StatBarRow key={s.label} label={s.label} homeValue={s.h} awayValue={s.a} suffix={s.suffix} decimals={s.decimals ?? 0} />)}
+   464→            </CardContent></Card>
+   465→          </TabsContent>
+   466→
+   467→          {/* xG TIMELINE TAB */}
+   468→          <TabsContent value="xg" className="mt-4">
+   469→            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+   470→              <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Flame className="size-4 text-cyan-400" />Cumulative xG Timeline</h3>
+   471→              {xgTimeline.length > 0 ? (
+   472→                <ResponsiveContainer width="100%" height={250}>
+   473→                  <LineChart data={xgTimeline}>
+   474→                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+   475→                    <XAxis dataKey="minute" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+   476→                    <YAxis tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} />
+   477→                    <RTooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }} />
+   478→                    <Line type="monotone" dataKey="Home" stroke="#00e676" strokeWidth={2} dot={{ r: 3 }} />
+   479→                    <Line type="monotone" dataKey="Away" stroke="#00b4d8" strokeWidth={2} dot={{ r: 3 }} />
+   480→                  </LineChart>
+   481→                </ResponsiveContainer>
+   482→              ) : <p className="text-sm text-muted-foreground text-center py-8">No xG data available</p>}
+   483→            </CardContent></Card>
+   484→          </TabsContent>
+   485→
+   486→          {/* SHOT MAP TAB */}
+   487→          <TabsContent value="shotmap" className="mt-4">
+   488→            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+   489→              <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Swords className="size-4 text-amber-400" />Shot Map {sbSource && <span className="text-[10px] font-normal text-muted-foreground">({sbSource})</span>}{sbLoading && <Loader2 className="size-3 animate-spin text-muted-foreground" />}</h3>
+   490→              <div className="pitch-bg rounded-xl p-4 relative" style={{ aspectRatio: '3/2' }}>
+   491→                {/* Pitch markings */}
+   492→                <div className="absolute inset-0 border-2 border-emerald-500/20 rounded-xl" />
+   493→                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[40%] h-[15%] border-b-2 border-x-2 border-emerald-500/20 rounded-b-lg" />
+   494→                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[40%] h-[15%] border-t-2 border-x-2 border-emerald-500/20 rounded-t-lg" />
+   495→                <div className="absolute top-1/2 left-0 -translate-y-1/2 w-[15%] h-[30%] border-r-2 border-t-2 border-b-2 border-emerald-500/20 rounded-r-lg" />
+   496→                <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[15%] h-[30%] border-l-2 border-t-2 border-b-2 border-emerald-500/20 rounded-l-lg" />
+   497→                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-16 rounded-full border-2 border-emerald-500/20" />
+   498→                {/* Shots */}
+   499→                {shotMapData.map((s, i) => (
+   500→                  <Tooltip key={i}>
+   501→                    <TooltipTrigger asChild>
+   502→                      <div className={cn('absolute rounded-full border-2 transform -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-150 cursor-pointer', s.goal ? 'size-4 border-white bg-amber-400 shadow-lg shadow-amber-400/40' : 'size-3', !s.goal && s.team === 'home' && 'border-primary/50 bg-primary/30', !s.goal && s.team === 'away' && 'border-cyan-500/50 bg-cyan-500/30')} style={{ left: `${s.x}%`, top: `${s.y}%` }} />
+   503→                    </TooltipTrigger>
+   504→                    <TooltipContent className="text-[10px] space-y-0.5">
+   505→                      <div className="font-semibold">{s.player ? `${s.player} ${s.minute ? `${s.minute}'` : ''}` : `${s.team === 'home' ? homeTeam?.name : awayTeam?.name} ${s.goal ? '⚽ GOAL' : 'Shot'}`}</div>
+   506→                      {'xg' in s && s.xg !== undefined && <div className="text-muted-foreground">xG: {(s.xg ?? 0).toFixed(3)}</div>}
+   507→                      {s.outcome && <div className="text-muted-foreground">{s.outcome}</div>}
+   508→                    </TooltipContent>
+   509→                  </Tooltip>
+   510→                ))}
+   511→              </div>
+   512→              <div className="flex items-center justify-center gap-6 mt-3 text-[10px] text-muted-foreground">
+   513→                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-primary/50" />{homeTeam?.name} Shot</span>
+   514→                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-amber-400" />Goal</span>
+   515→                <span className="flex items-center gap-1.5"><div className="size-2.5 rounded-full bg-cyan-500/50" />{awayTeam?.name} Shot</span>
+   516→              </div>
+   517→            </CardContent></Card>
+   518→          </TabsContent>
+   519→
+   520→          {/* xT (EXPECTED THREAT) TAB */}
+   521→          <TabsContent value="xt" className="mt-4">
+   522→            <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+   523→              <h3 className="text-sm font-bold mb-1 flex items-center gap-2"><Flame className="size-4 text-orange-400" />Expected Threat (xT) Leaderboard</h3>
+   524→              <p className="text-[10px] text-muted-foreground mb-4">Measures how much each pass increased the probability of scoring. Powered by a 12x8 pitch grid trained on thousands of matches.</p>
+   525→              {xtLoading ? (
+   526→                <div className="flex items-center justify-center py-8"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
+   527→              ) : xtLeaderboard.length > 0 ? (
+   528→                <div className="space-y-1.5 max-h-80 overflow-y-auto">
+   529→                  {xtLeaderboard.map((p, i) => (
+   530→                    <div key={i} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-muted/30 transition-colors">
+   531→                      <span className="text-[10px] font-bold text-muted-foreground w-5 text-right">{i + 1}</span>
+   532→                      <div className="flex-1 min-w-0">
+   533→                        <div className="flex items-center gap-2">
+   534→                          <span className="text-xs font-semibold truncate">{p.player}</span>
+   535→                          <Badge variant="outline" className="text-[9px] shrink-0">{p.team.split(' ').slice(-1)[0]}</Badge>
+   536→                        </div>
+   537→                        <div className="flex gap-3 text-[10px] text-muted-foreground mt-0.5">
+   538→                          <span>{p.totalActions} actions</span>
+   539→                          <span>{p.progressiveActions} progressive</span>
+   540→                        </div>
+   541→                      </div>
+   542→                      <div className="text-right shrink-0">
+   543→                        <div className={cn('text-sm font-bold tabular-nums', p.totalXtGained > 0.1 ? 'text-orange-400' : p.totalXtGained > 0 ? 'text-amber-400' : 'text-muted-foreground')}>
+   544→                          {p.totalXtGained > 0 ? '+' : ''}{(p.totalXtGained ?? 0).toFixed(4)}
+   545→                        </div>
+   546→                        <div className="text-[9px] text-muted-foreground">avg {(p.avgXtPerAction ?? 0).toFixed(4)}</div>
+   547→                      </div>
+   548→                    </div>
+   549→                  ))}
+   550→                </div>
+   551→              ) : (
+   552→                <p className="text-sm text-muted-foreground text-center py-8">No xT data available for this match</p>
+   553→              )}
+   554→              <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-4 text-[10px] text-muted-foreground">
+   555→                <span className="flex items-center gap-1.5"><Flame className="size-3 text-orange-400" />xT = probability of scoring from that zone</span>
+   556→                <span>Higher = more threatening pass progression</span>
+   557→              </div>
+   558→            </CardContent></Card>
+   559→          </TabsContent>
+   560→
+   561→          {/* VOTES TAB */}
+   562→          <TabsContent value="votes" className="mt-4">
+   563→            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   564→              <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+   565→                <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Users className="size-4 text-primary" />Community Vote Distribution</h3>
+   566→                {totalVotes > 0 ? (
+   567→                  <>
+   568→                    <ResponsiveContainer width="100%" height={180}>
+   569→                      <PieChart>
+   570→                        <Pie data={votePieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value" stroke="none">
+   571→                          {votePieData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
+   572→                        </Pie>
+   573→                        <RTooltip contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }} />
+   574→                      </PieChart>
+   575→                    </ResponsiveContainer>
+   576→                    <div className="flex justify-center gap-4 mt-2 text-[11px]">
+   577→                      {votePieData.map((d) => <span key={d.name} className="flex items-center gap-1.5"><div className="size-2 rounded-full" style={{ backgroundColor: d.fill }} />{d.name}: {d.value} ({totalVotes > 0 ? Math.round((d.value / totalVotes) * 100) : 0}%)</span>)}
+   578→                    </div>
+   579→                    <p className="text-center text-[10px] text-muted-foreground mt-2">{totalVotes} total votes</p>
+   580→                  </>
+   581→                ) : <p className="text-sm text-muted-foreground text-center py-8">No votes yet</p>}
+   582→              </CardContent></Card>
+   583→
+   584→              <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
+   585→                <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><MessageSquare className="size-4 text-cyan-400" />Prediction Summary</h3>
+   586→                {(match.predictions || []).length > 0 ? (
+   587→                  <div className="space-y-2 max-h-64 overflow-y-auto">
+   588→                    {(match.predictions || []).slice(0, 10).map((p) => (
+   589→                      <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-border/10">
+   590→                        <div className="flex items-center gap-2">
+   591→                          <span className="text-xs font-medium">{p.user.displayName || p.user.name}</span>
+   592→                          <Badge variant="outline" className="text-[9px] border-border/50">{p.model}</Badge>
+   593→                        </div>
+   594→                        <div className="flex items-center gap-2">
+   595→                          <span className="text-[10px] text-muted-foreground">{p.predictedOutcome.replace('_', ' ')}</span>
+   596→                          {p.isCorrect !== null && (
+   597→                            <span className={cn('text-[10px] font-bold', p.isCorrect ? 'text-emerald-400' : 'text-red-400')}>
+   598→                              {p.isCorrect ? '✓' : '✗'}
+   599→                            </span>
+   600→                          )}
+   601→                        </div>
+   602→                      </div>
+   603→                    ))}
+   604→                  </div>
+   605→                ) : <p className="text-sm text-muted-foreground text-center py-8">No predictions yet</p>}
+   606→              </CardContent></Card>
+   607→            </div>
+   608→          </TabsContent>
+   609→        </Tabs>
+   610→      </div>
+   611→    </TooltipProvider>
+   612→  )
+   613→}

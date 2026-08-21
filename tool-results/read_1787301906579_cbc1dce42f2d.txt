@@ -1,0 +1,725 @@
+     1→"""SQLAlchemy ORM models for the Football Prediction Mega database.
+     2→
+     3→Every model mirrors a table defined in ``database/schema.sql`` and
+     4→``database/init.sql``.  Each class includes:
+     5→
+     6→* ``Mapped`` / ``mapped_column`` type-annotated fields
+     7→* UUID primary keys with ``server_default=text("uuid_generate_v4()")``
+     8→* ``DateTime(timezone=True)`` for all timestamps
+     9→* Bidirectional / convenient relationships where appropriate
+    10→* A ``to_dict()`` helper for easy JSON serialization
+    11→"""
+    12→
+    13→from __future__ import annotations
+    14→
+    15→import datetime
+    16→from decimal import Decimal
+    17→from typing import Any, Optional
+    18→from uuid import UUID as UUID_Type
+    19→
+    20→from sqlalchemy import (
+    21→    Boolean,
+    22→    Date,
+    23→    Index,
+    24→    Integer,
+    25→    Numeric,
+    26→    String,
+    27→    Text,
+    28→    UniqueConstraint,
+    29→    text,
+    30→)
+    31→from sqlalchemy.dialects.postgresql import JSONB, UUID
+    32→from sqlalchemy.orm import (
+    33→    DeclarativeBase,
+    34→    Mapped,
+    35→    mapped_column,
+    36→    relationship,
+    37→)
+    38→
+    39→
+    40→# ---------------------------------------------------------------------------
+    41→# Base
+    42→# ---------------------------------------------------------------------------
+    43→
+    44→class Base(DeclarativeBase):
+    45→    """Declarative base shared by every model."""
+    46→
+    47→    type_annotation_map = {
+    48→        dict[str, Any]: JSONB,
+    49→    }
+    50→
+    51→
+    52→# ═══════════════════════════════════════════════════════════════════════════
+    53→# Core domain models
+    54→# ═══════════════════════════════════════════════════════════════════════════
+    55→
+    56→
+    57→class League(Base):
+    58→    __tablename__ = "leagues"
+    59→
+    60→    id: Mapped[UUID_Type] = mapped_column(
+    61→        UUID(as_uuid=True),
+    62→        primary_key=True,
+    63→        server_default=text("uuid_generate_v4()"),
+    64→    )
+    65→    external_id: Mapped[int | None] = mapped_column(Integer, unique=True)
+    66→    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    67→    country: Mapped[str | None] = mapped_column(String(100))
+    68→    country_code: Mapped[str | None] = mapped_column(String(3))
+    69→    season: Mapped[int | None] = mapped_column(Integer)
+    70→    logo_url: Mapped[str | None] = mapped_column(Text)
+    71→    created_at: Mapped[datetime.datetime] = mapped_column(
+    72→        server_default=text("NOW()"),
+    73→    )
+    74→
+    75→    # -- relationships --
+    76→    teams: Mapped[list["Team"]] = relationship(back_populates="league")
+    77→    matches: Mapped[list["Match"]] = relationship(back_populates="league")
+    78→
+    79→    def to_dict(self) -> dict[str, Any]:
+    80→        return {
+    81→            "id": str(self.id),
+    82→            "external_id": self.external_id,
+    83→            "name": self.name,
+    84→            "country": self.country,
+    85→            "country_code": self.country_code,
+    86→            "season": self.season,
+    87→            "logo_url": self.logo_url,
+    88→            "created_at": self.created_at.isoformat() if self.created_at else None,
+    89→        }
+    90→
+    91→
+    92→class Team(Base):
+    93→    __tablename__ = "teams"
+    94→    __table_args__ = (
+    95→        Index("idx_teams_league", "league_id"),
+    96→        Index("idx_teams_code", "code"),
+    97→    )
+    98→
+    99→    id: Mapped[UUID_Type] = mapped_column(
+   100→        UUID(as_uuid=True),
+   101→        primary_key=True,
+   102→        server_default=text("uuid_generate_v4()"),
+   103→    )
+   104→    external_id: Mapped[int | None] = mapped_column(Integer, unique=True)
+   105→    league_id: Mapped[UUID_Type | None] = mapped_column(
+   106→        UUID(as_uuid=True), index=True,
+   107→    )
+   108→    name: Mapped[str] = mapped_column(String(200), nullable=False)
+   109→    short_name: Mapped[str | None] = mapped_column(String(50))
+   110→    code: Mapped[str | None] = mapped_column(String(3))
+   111→    country: Mapped[str | None] = mapped_column(String(100))
+   112→    founded: Mapped[int | None] = mapped_column(Integer)
+   113→    primary_color: Mapped[str | None] = mapped_column(String(7))
+   114→    secondary_color: Mapped[str | None] = mapped_column(String(7))
+   115→    venue_name: Mapped[str | None] = mapped_column(String(200))
+   116→    venue_capacity: Mapped[int | None] = mapped_column(Integer)
+   117→    elo_rating: Mapped[Decimal | None] = mapped_column(
+   118→        Numeric(8, 2), server_default=text("1500"),
+   119→    )
+   120→    elo_updated_at: Mapped[datetime.datetime | None] = mapped_column()
+   121→    created_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   122→    updated_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   123→
+   124→    # -- relationships --
+   125→    league: Mapped["League | None"] = relationship(back_populates="teams")
+   126→    players: Mapped[list["Player"]] = relationship(back_populates="team")
+   127→    home_matches: Mapped[list["Match"]] = relationship(
+   128→        foreign_keys="Match.home_team_id", back_populates="home_team",
+   129→    )
+   130→    away_matches: Mapped[list["Match"]] = relationship(
+   131→        foreign_keys="Match.away_team_id", back_populates="away_team",
+   132→    )
+   133→
+   134→    def to_dict(self) -> dict[str, Any]:
+   135→        return {
+   136→            "id": str(self.id),
+   137→            "external_id": self.external_id,
+   138→            "league_id": str(self.league_id) if self.league_id else None,
+   139→            "name": self.name,
+   140→            "short_name": self.short_name,
+   141→            "code": self.code,
+   142→            "country": self.country,
+   143→            "founded": self.founded,
+   144→            "primary_color": self.primary_color,
+   145→            "secondary_color": self.secondary_color,
+   146→            "venue_name": self.venue_name,
+   147→            "venue_capacity": self.venue_capacity,
+   148→            "elo_rating": float(self.elo_rating) if self.elo_rating is not None else None,
+   149→            "elo_updated_at": self.elo_updated_at.isoformat() if self.elo_updated_at else None,
+   150→            "created_at": self.created_at.isoformat() if self.created_at else None,
+   151→            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+   152→        }
+   153→
+   154→
+   155→class Player(Base):
+   156→    __tablename__ = "players"
+   157→    __table_args__ = (
+   158→        Index("idx_players_team", "team_id"),
+   159→        Index("idx_players_position", "position"),
+   160→    )
+   161→
+   162→    id: Mapped[UUID_Type] = mapped_column(
+   163→        UUID(as_uuid=True),
+   164→        primary_key=True,
+   165→        server_default=text("uuid_generate_v4()"),
+   166→    )
+   167→    external_id: Mapped[int | None] = mapped_column(Integer, unique=True)
+   168→    team_id: Mapped[UUID_Type | None] = mapped_column(
+   169→        UUID(as_uuid=True), index=True,
+   170→    )
+   171→    first_name: Mapped[str | None] = mapped_column(String(100))
+   172→    last_name: Mapped[str | None] = mapped_column(String(100))
+   173→    name: Mapped[str | None] = mapped_column(String(200))
+   174→    position: Mapped[str | None] = mapped_column(String(20))
+   175→    nationality: Mapped[str | None] = mapped_column(String(100))
+   176→    date_of_birth: Mapped[datetime.date | None] = mapped_column(Date)
+   177→    height_cm: Mapped[int | None] = mapped_column(Integer)
+   178→    preferred_foot: Mapped[str | None] = mapped_column(String(10))
+   179→    created_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   180→    updated_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   181→
+   182→    # -- relationships --
+   183→    team: Mapped["Team | None"] = relationship(back_populates="players")
+   184→    match_stats: Mapped[list["PlayerMatchStat"]] = relationship(back_populates="player")
+   185→
+   186→    def to_dict(self) -> dict[str, Any]:
+   187→        return {
+   188→            "id": str(self.id),
+   189→            "external_id": self.external_id,
+   190→            "team_id": str(self.team_id) if self.team_id else None,
+   191→            "first_name": self.first_name,
+   192→            "last_name": self.last_name,
+   193→            "name": self.name,
+   194→            "position": self.position,
+   195→            "nationality": self.nationality,
+   196→            "date_of_birth": self.date_of_birth.isoformat() if self.date_of_birth else None,
+   197→            "height_cm": self.height_cm,
+   198→            "preferred_foot": self.preferred_foot,
+   199→            "created_at": self.created_at.isoformat() if self.created_at else None,
+   200→            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+   201→        }
+   202→
+   203→
+   204→class Match(Base):
+   205→    __tablename__ = "matches"
+   206→    __table_args__ = (
+   207→        Index("idx_matches_league", "league_id"),
+   208→        Index("idx_matches_home", "home_team_id"),
+   209→        Index("idx_matches_away", "away_team_id"),
+   210→        Index("idx_matches_date", "date"),
+   211→        Index("idx_matches_status", "status"),
+   212→    )
+   213→
+   214→    id: Mapped[UUID_Type] = mapped_column(
+   215→        UUID(as_uuid=True),
+   216→        primary_key=True,
+   217→        server_default=text("uuid_generate_v4()"),
+   218→    )
+   219→    external_id: Mapped[int | None] = mapped_column(Integer, unique=True)
+   220→    league_id: Mapped[UUID_Type | None] = mapped_column(
+   221→        UUID(as_uuid=True), index=True,
+   222→    )
+   223→    home_team_id: Mapped[UUID_Type | None] = mapped_column(
+   224→        UUID(as_uuid=True), index=True,
+   225→    )
+   226→    away_team_id: Mapped[UUID_Type | None] = mapped_column(
+   227→        UUID(as_uuid=True), index=True,
+   228→    )
+   229→    season: Mapped[int | None] = mapped_column(Integer)
+   230→    round: Mapped[str | None] = mapped_column(String(20))
+   231→    date: Mapped[datetime.datetime | None] = mapped_column()
+   232→    status: Mapped[str] = mapped_column(String(20), server_default=text("'upcoming'"))
+   233→    home_score: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   234→    away_score: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   235→    home_xg: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
+   236→    away_xg: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
+   237→    venue: Mapped[str | None] = mapped_column(String(200))
+   238→    referee: Mapped[str | None] = mapped_column(String(100))
+   239→    attendance: Mapped[int | None] = mapped_column(Integer)
+   240→    home_elo_before: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+   241→    away_elo_before: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+   242→    home_elo_after: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+   243→    away_elo_after: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
+   244→    created_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   245→    updated_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   246→
+   247→    # -- relationships --
+   248→    league: Mapped["League | None"] = relationship(back_populates="matches")
+   249→    home_team: Mapped["Team | None"] = relationship(
+   250→        foreign_keys=[home_team_id], back_populates="home_matches",
+   251→    )
+   252→    away_team: Mapped["Team | None"] = relationship(
+   253→        foreign_keys=[away_team_id], back_populates="away_matches",
+   254→    )
+   255→    match_statistics: Mapped[list["MatchStatistic"]] = relationship(
+   256→        back_populates="match", cascade="all, delete-orphan",
+   257→    )
+   258→    player_match_stats: Mapped[list["PlayerMatchStat"]] = relationship(
+   259→        back_populates="match", cascade="all, delete-orphan",
+   260→    )
+   261→    odds: Mapped[list["Odds"]] = relationship(
+   262→        back_populates="match", cascade="all, delete-orphan",
+   263→    )
+   264→    predictions: Mapped[list["Prediction"]] = relationship(back_populates="match")
+   265→    ensemble_prediction: Mapped["EnsemblePrediction | None"] = relationship(
+   266→        back_populates="match", uselist=False,
+   267→    )
+   268→    simulation_results: Mapped[list["SimulationResult"]] = relationship(
+   269→        back_populates="match",
+   270→    )
+   271→
+   272→    def to_dict(self) -> dict[str, Any]:
+   273→        return {
+   274→            "id": str(self.id),
+   275→            "external_id": self.external_id,
+   276→            "league_id": str(self.league_id) if self.league_id else None,
+   277→            "home_team_id": str(self.home_team_id) if self.home_team_id else None,
+   278→            "away_team_id": str(self.away_team_id) if self.away_team_id else None,
+   279→            "season": self.season,
+   280→            "round": self.round,
+   281→            "date": self.date.isoformat() if self.date else None,
+   282→            "status": self.status,
+   283→            "home_score": self.home_score,
+   284→            "away_score": self.away_score,
+   285→            "home_xg": float(self.home_xg) if self.home_xg is not None else None,
+   286→            "away_xg": float(self.away_xg) if self.away_xg is not None else None,
+   287→            "venue": self.venue,
+   288→            "referee": self.referee,
+   289→            "attendance": self.attendance,
+   290→            "home_elo_before": float(self.home_elo_before) if self.home_elo_before is not None else None,
+   291→            "away_elo_before": float(self.away_elo_before) if self.away_elo_before is not None else None,
+   292→            "home_elo_after": float(self.home_elo_after) if self.home_elo_after is not None else None,
+   293→            "away_elo_after": float(self.away_elo_after) if self.away_elo_after is not None else None,
+   294→            "created_at": self.created_at.isoformat() if self.created_at else None,
+   295→            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+   296→        }
+   297→
+   298→
+   299→# ═══════════════════════════════════════════════════════════════════════════
+   300→# Match-level statistics
+   301→# ═══════════════════════════════════════════════════════════════════════════
+   302→
+   303→
+   304→class MatchStatistic(Base):
+   305→    __tablename__ = "match_statistics"
+   306→    __table_args__ = (
+   307→        Index("idx_match_stats_match", "match_id"),
+   308→    )
+   309→
+   310→    id: Mapped[UUID_Type] = mapped_column(
+   311→        UUID(as_uuid=True),
+   312→        primary_key=True,
+   313→        server_default=text("uuid_generate_v4()"),
+   314→    )
+   315→    match_id: Mapped[UUID_Type] = mapped_column(
+   316→        UUID(as_uuid=True), index=True,
+   317→    )
+   318→    team_id: Mapped[UUID_Type | None] = mapped_column(UUID(as_uuid=True))
+   319→    possession: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+   320→    shots: Mapped[int | None] = mapped_column(Integer)
+   321→    shots_on_target: Mapped[int | None] = mapped_column(Integer)
+   322→    corners: Mapped[int | None] = mapped_column(Integer)
+   323→    fouls: Mapped[int | None] = mapped_column(Integer)
+   324→    offsides: Mapped[int | None] = mapped_column(Integer)
+   325→    passes: Mapped[int | None] = mapped_column(Integer)
+   326→    pass_accuracy: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+   327→    tackles: Mapped[int | None] = mapped_column(Integer)
+   328→    interceptions: Mapped[int | None] = mapped_column(Integer)
+   329→    yellow_cards: Mapped[int | None] = mapped_column(Integer)
+   330→    red_cards: Mapped[int | None] = mapped_column(Integer)
+   331→    created_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   332→
+   333→    # -- relationships --
+   334→    match: Mapped["Match"] = relationship(back_populates="match_statistics")
+   335→
+   336→    def to_dict(self) -> dict[str, Any]:
+   337→        return {
+   338→            "id": str(self.id),
+   339→            "match_id": str(self.match_id) if self.match_id else None,
+   340→            "team_id": str(self.team_id) if self.team_id else None,
+   341→            "possession": float(self.possession) if self.possession is not None else None,
+   342→            "shots": self.shots,
+   343→            "shots_on_target": self.shots_on_target,
+   344→            "corners": self.corners,
+   345→            "fouls": self.fouls,
+   346→            "offsides": self.offsides,
+   347→            "passes": self.passes,
+   348→            "pass_accuracy": float(self.pass_accuracy) if self.pass_accuracy is not None else None,
+   349→            "tackles": self.tackles,
+   350→            "interceptions": self.interceptions,
+   351→            "yellow_cards": self.yellow_cards,
+   352→            "red_cards": self.red_cards,
+   353→            "created_at": self.created_at.isoformat() if self.created_at else None,
+   354→        }
+   355→
+   356→
+   357→class PlayerMatchStat(Base):
+   358→    __tablename__ = "player_match_stats"
+   359→    __table_args__ = (
+   360→        Index("idx_player_stats_match", "match_id"),
+   361→        Index("idx_player_stats_player", "player_id"),
+   362→    )
+   363→
+   364→    id: Mapped[UUID_Type] = mapped_column(
+   365→        UUID(as_uuid=True),
+   366→        primary_key=True,
+   367→        server_default=text("uuid_generate_v4()"),
+   368→    )
+   369→    match_id: Mapped[UUID_Type] = mapped_column(UUID(as_uuid=True), index=True)
+   370→    player_id: Mapped[UUID_Type | None] = mapped_column(UUID(as_uuid=True), index=True)
+   371→    team_id: Mapped[UUID_Type | None] = mapped_column(UUID(as_uuid=True))
+   372→    minutes_played: Mapped[int | None] = mapped_column(Integer)
+   373→    goals: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   374→    assists: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   375→    xg: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
+   376→    xa: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
+   377→    shots: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   378→    passes: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   379→    key_passes: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   380→    tackles: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   381→    interceptions: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   382→    dribbles: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   383→    fouls_drawn: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   384→    yellow_cards: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   385→    red_cards: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   386→    created_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   387→
+   388→    # -- relationships --
+   389→    match: Mapped["Match"] = relationship(back_populates="player_match_stats")
+   390→    player: Mapped["Player | None"] = relationship(back_populates="match_stats")
+   391→
+   392→    def to_dict(self) -> dict[str, Any]:
+   393→        return {
+   394→            "id": str(self.id),
+   395→            "match_id": str(self.match_id) if self.match_id else None,
+   396→            "player_id": str(self.player_id) if self.player_id else None,
+   397→            "team_id": str(self.team_id) if self.team_id else None,
+   398→            "minutes_played": self.minutes_played,
+   399→            "goals": self.goals,
+   400→            "assists": self.assists,
+   401→            "xg": float(self.xg) if self.xg is not None else None,
+   402→            "xa": float(self.xa) if self.xa is not None else None,
+   403→            "shots": self.shots,
+   404→            "passes": self.passes,
+   405→            "key_passes": self.key_passes,
+   406→            "tackles": self.tackles,
+   407→            "interceptions": self.interceptions,
+   408→            "dribbles": self.dribbles,
+   409→            "fouls_drawn": self.fouls_drawn,
+   410→            "yellow_cards": self.yellow_cards,
+   411→            "red_cards": self.red_cards,
+   412→            "created_at": self.created_at.isoformat() if self.created_at else None,
+   413→        }
+   414→
+   415→
+   416→# ═══════════════════════════════════════════════════════════════════════════
+   417→# Odds
+   418→# ═══════════════════════════════════════════════════════════════════════════
+   419→
+   420→
+   421→class Odds(Base):
+   422→    __tablename__ = "odds"
+   423→    __table_args__ = (
+   424→        Index("idx_odds_match", "match_id"),
+   425→        Index("idx_odds_recorded", "recorded_at"),
+   426→    )
+   427→
+   428→    id: Mapped[UUID_Type] = mapped_column(
+   429→        UUID(as_uuid=True),
+   430→        primary_key=True,
+   431→        server_default=text("uuid_generate_v4()"),
+   432→    )
+   433→    match_id: Mapped[UUID_Type] = mapped_column(UUID(as_uuid=True), index=True)
+   434→    source: Mapped[str | None] = mapped_column(String(50))
+   435→    home_win: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+   436→    draw: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+   437→    away_win: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+   438→    over_under_line: Mapped[Decimal | None] = mapped_column(Numeric(3, 1))
+   439→    over_price: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+   440→    under_price: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+   441→    asian_handicap: Mapped[Decimal | None] = mapped_column(Numeric(4, 2))
+   442→    home_hcap_price: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+   443→    away_hcap_price: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+   444→    recorded_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   445→
+   446→    # -- relationships --
+   447→    match: Mapped["Match"] = relationship(back_populates="odds")
+   448→
+   449→    def to_dict(self) -> dict[str, Any]:
+   450→        return {
+   451→            "id": str(self.id),
+   452→            "match_id": str(self.match_id) if self.match_id else None,
+   453→            "source": self.source,
+   454→            "home_win": float(self.home_win) if self.home_win is not None else None,
+   455→            "draw": float(self.draw) if self.draw is not None else None,
+   456→            "away_win": float(self.away_win) if self.away_win is not None else None,
+   457→            "over_under_line": float(self.over_under_line) if self.over_under_line is not None else None,
+   458→            "over_price": float(self.over_price) if self.over_price is not None else None,
+   459→            "under_price": float(self.under_price) if self.under_price is not None else None,
+   460→            "asian_handicap": float(self.asian_handicap) if self.asian_handicap is not None else None,
+   461→            "home_hcap_price": float(self.home_hcap_price) if self.home_hcap_price is not None else None,
+   462→            "away_hcap_price": float(self.away_hcap_price) if self.away_hcap_price is not None else None,
+   463→            "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
+   464→        }
+   465→
+   466→
+   467→# ═══════════════════════════════════════════════════════════════════════════
+   468→# Predictions
+   469→# ═══════════════════════════════════════════════════════════════════════════
+   470→
+   471→
+   472→class Prediction(Base):
+   473→    __tablename__ = "predictions"
+   474→    __table_args__ = (
+   475→        Index("idx_predictions_match", "match_id"),
+   476→        Index("idx_predictions_model", "model"),
+   477→        Index("idx_predictions_evaluated", "evaluated_at"),
+   478→        Index("idx_predictions_correct", "is_correct"),
+   479→    )
+   480→
+   481→    id: Mapped[UUID_Type] = mapped_column(
+   482→        UUID(as_uuid=True),
+   483→        primary_key=True,
+   484→        server_default=text("uuid_generate_v4()"),
+   485→    )
+   486→    match_id: Mapped[UUID_Type | None] = mapped_column(UUID(as_uuid=True), index=True)
+   487→    model: Mapped[str] = mapped_column(String(50), nullable=False)
+   488→    home_win_prob: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
+   489→    draw_prob: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
+   490→    away_win_prob: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
+   491→    expected_home_goals: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
+   492→    expected_away_goals: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
+   493→    confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   494→    features_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+   495→    prediction_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   496→    outcome: Mapped[str | None] = mapped_column(String(20))
+   497→    evaluated_at: Mapped[datetime.datetime | None] = mapped_column()
+   498→    is_correct: Mapped[bool | None] = mapped_column(Boolean)
+   499→    brier_score: Mapped[Decimal | None] = mapped_column(Numeric(6, 5))
+   500→    log_loss: Mapped[Decimal | None] = mapped_column(Numeric(8, 5))
+   501→
+   502→    # -- relationships --
+   503→    match: Mapped["Match | None"] = relationship(back_populates="predictions")
+   504→
+   505→    def to_dict(self) -> dict[str, Any]:
+   506→        return {
+   507→            "id": str(self.id),
+   508→            "match_id": str(self.match_id) if self.match_id else None,
+   509→            "model": self.model,
+   510→            "home_win_prob": float(self.home_win_prob),
+   511→            "draw_prob": float(self.draw_prob),
+   512→            "away_win_prob": float(self.away_win_prob),
+   513→            "expected_home_goals": float(self.expected_home_goals) if self.expected_home_goals is not None else None,
+   514→            "expected_away_goals": float(self.expected_away_goals) if self.expected_away_goals is not None else None,
+   515→            "confidence": float(self.confidence) if self.confidence is not None else None,
+   516→            "features_snapshot": self.features_snapshot,
+   517→            "prediction_at": self.prediction_at.isoformat() if self.prediction_at else None,
+   518→            "outcome": self.outcome,
+   519→            "evaluated_at": self.evaluated_at.isoformat() if self.evaluated_at else None,
+   520→            "is_correct": self.is_correct,
+   521→            "brier_score": float(self.brier_score) if self.brier_score is not None else None,
+   522→            "log_loss": float(self.log_loss) if self.log_loss is not None else None,
+   523→        }
+   524→
+   525→
+   526→class EnsemblePrediction(Base):
+   527→    __tablename__ = "ensemble_predictions"
+   528→    __table_args__ = (
+   529→        Index("idx_ensemble_match", "match_id"),
+   530→    )
+   531→
+   532→    id: Mapped[UUID_Type] = mapped_column(
+   533→        UUID(as_uuid=True),
+   534→        primary_key=True,
+   535→        server_default=text("uuid_generate_v4()"),
+   536→    )
+   537→    match_id: Mapped[UUID_Type] = mapped_column(UUID(as_uuid=True), unique=True, index=True)
+   538→    home_win_prob: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
+   539→    draw_prob: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
+   540→    away_win_prob: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
+   541→    expected_home_goals: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
+   542→    expected_away_goals: Mapped[Decimal | None] = mapped_column(Numeric(5, 3))
+   543→    confidence: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   544→    model_weights: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+   545→    calibration_factor: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   546→    signals: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+   547→    risks: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+   548→    prediction_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   549→    outcome: Mapped[str | None] = mapped_column(String(20))
+   550→    is_correct: Mapped[bool | None] = mapped_column(Boolean)
+   551→
+   552→    # -- relationships --
+   553→    match: Mapped["Match | None"] = relationship(back_populates="ensemble_prediction")
+   554→
+   555→    def to_dict(self) -> dict[str, Any]:
+   556→        return {
+   557→            "id": str(self.id),
+   558→            "match_id": str(self.match_id) if self.match_id else None,
+   559→            "home_win_prob": float(self.home_win_prob),
+   560→            "draw_prob": float(self.draw_prob),
+   561→            "away_win_prob": float(self.away_win_prob),
+   562→            "expected_home_goals": float(self.expected_home_goals) if self.expected_home_goals is not None else None,
+   563→            "expected_away_goals": float(self.expected_away_goals) if self.expected_away_goals is not None else None,
+   564→            "confidence": float(self.confidence) if self.confidence is not None else None,
+   565→            "model_weights": self.model_weights,
+   566→            "calibration_factor": float(self.calibration_factor) if self.calibration_factor is not None else None,
+   567→            "signals": self.signals,
+   568→            "risks": self.risks,
+   569→            "prediction_at": self.prediction_at.isoformat() if self.prediction_at else None,
+   570→            "outcome": self.outcome,
+   571→            "is_correct": self.is_correct,
+   572→        }
+   573→
+   574→
+   575→# ═══════════════════════════════════════════════════════════════════════════
+   576→# Simulation
+   577→# ═══════════════════════════════════════════════════════════════════════════
+   578→
+   579→
+   580→class SimulationResult(Base):
+   581→    __tablename__ = "simulation_results"
+   582→    __table_args__ = (
+   583→        Index("idx_sim_match", "match_id"),
+   584→    )
+   585→
+   586→    id: Mapped[UUID_Type] = mapped_column(
+   587→        UUID(as_uuid=True),
+   588→        primary_key=True,
+   589→        server_default=text("uuid_generate_v4()"),
+   590→    )
+   591→    match_id: Mapped[UUID_Type | None] = mapped_column(UUID(as_uuid=True), index=True)
+   592→    num_simulations: Mapped[int | None] = mapped_column(Integer)
+   593→    scorelines: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+   594→    home_win_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   595→    draw_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   596→    away_win_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   597→    over_25_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   598→    btts_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   599→    created_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   600→
+   601→    # -- relationships --
+   602→    match: Mapped["Match | None"] = relationship(back_populates="simulation_results")
+   603→
+   604→    def to_dict(self) -> dict[str, Any]:
+   605→        return {
+   606→            "id": str(self.id),
+   607→            "match_id": str(self.match_id) if self.match_id else None,
+   608→            "num_simulations": self.num_simulations,
+   609→            "scorelines": self.scorelines,
+   610→            "home_win_pct": float(self.home_win_pct) if self.home_win_pct is not None else None,
+   611→            "draw_pct": float(self.draw_pct) if self.draw_pct is not None else None,
+   612→            "away_win_pct": float(self.away_win_pct) if self.away_win_pct is not None else None,
+   613→            "over_25_pct": float(self.over_25_pct) if self.over_25_pct is not None else None,
+   614→            "btts_pct": float(self.btts_pct) if self.btts_pct is not None else None,
+   615→            "created_at": self.created_at.isoformat() if self.created_at else None,
+   616→        }
+   617→
+   618→
+   619→# ═══════════════════════════════════════════════════════════════════════════
+   620→# Model evaluation & monitoring  (from database/init.sql)
+   621→# ═══════════════════════════════════════════════════════════════════════════
+   622→
+   623→
+   624→class ModelAccuracy(Base):
+   625→    __tablename__ = "model_accuracy"
+   626→    __table_args__ = (
+   627→        Index("idx_accuracy_model", "model"),
+   628→        UniqueConstraint("model", "period_start", "period_end", name="uq_model_period"),
+   629→    )
+   630→
+   631→    id: Mapped[UUID_Type] = mapped_column(
+   632→        UUID(as_uuid=True),
+   633→        primary_key=True,
+   634→        server_default=text("uuid_generate_v4()"),
+   635→    )
+   636→    model: Mapped[str] = mapped_column(String(50), nullable=False)
+   637→    period_start: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+   638→    period_end: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+   639→    total_predictions: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   640→    correct: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   641→    accuracy: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   642→    avg_brier_score: Mapped[Decimal | None] = mapped_column(Numeric(6, 5))
+   643→    avg_log_loss: Mapped[Decimal | None] = mapped_column(Numeric(8, 5))
+   644→    roi: Mapped[Decimal | None] = mapped_column(Numeric(8, 4))
+   645→    sample_size: Mapped[int | None] = mapped_column(Integer)
+   646→    computed_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   647→
+   648→    def to_dict(self) -> dict[str, Any]:
+   649→        return {
+   650→            "id": str(self.id),
+   651→            "model": self.model,
+   652→            "period_start": self.period_start.isoformat() if self.period_start else None,
+   653→            "period_end": self.period_end.isoformat() if self.period_end else None,
+   654→            "total_predictions": self.total_predictions,
+   655→            "correct": self.correct,
+   656→            "accuracy": float(self.accuracy) if self.accuracy is not None else None,
+   657→            "avg_brier_score": float(self.avg_brier_score) if self.avg_brier_score is not None else None,
+   658→            "avg_log_loss": float(self.avg_log_loss) if self.avg_log_loss is not None else None,
+   659→            "roi": float(self.roi) if self.roi is not None else None,
+   660→            "sample_size": self.sample_size,
+   661→            "computed_at": self.computed_at.isoformat() if self.computed_at else None,
+   662→        }
+   663→
+   664→
+   665→class CalibrationBin(Base):
+   666→    __tablename__ = "calibration_bins"
+   667→    __table_args__ = (
+   668→        UniqueConstraint("model", "probability_bin", name="uq_model_bin"),
+   669→    )
+   670→
+   671→    id: Mapped[UUID_Type] = mapped_column(
+   672→        UUID(as_uuid=True),
+   673→        primary_key=True,
+   674→        server_default=text("uuid_generate_v4()"),
+   675→    )
+   676→    model: Mapped[str] = mapped_column(String(50), nullable=False)
+   677→    probability_bin: Mapped[Decimal] = mapped_column(Numeric(4, 2), nullable=False)
+   678→    total: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   679→    actual_correct: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   680→    avg_predicted: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   681→    avg_actual: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+   682→    computed_at: Mapped[datetime.datetime] = mapped_column(server_default=text("NOW()"))
+   683→
+   684→    def to_dict(self) -> dict[str, Any]:
+   685→        return {
+   686→            "id": str(self.id),
+   687→            "model": self.model,
+   688→            "probability_bin": float(self.probability_bin),
+   689→            "total": self.total,
+   690→            "actual_correct": self.actual_correct,
+   691→            "avg_predicted": float(self.avg_predicted) if self.avg_predicted is not None else None,
+   692→            "avg_actual": float(self.avg_actual) if self.avg_actual is not None else None,
+   693→            "computed_at": self.computed_at.isoformat() if self.computed_at else None,
+   694→        }
+   695→
+   696→
+   697→class DataFreshness(Base):
+   698→    __tablename__ = "data_freshness"
+   699→    __table_args__ = (
+   700→        UniqueConstraint("source", "entity_type", name="uq_source_entity"),
+   701→    )
+   702→
+   703→    id: Mapped[UUID_Type] = mapped_column(
+   704→        UUID(as_uuid=True),
+   705→        primary_key=True,
+   706→        server_default=text("uuid_generate_v4()"),
+   707→    )
+   708→    source: Mapped[str] = mapped_column(String(50), nullable=False)
+   709→    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+   710→    last_fetch_at: Mapped[datetime.datetime | None] = mapped_column()
+   711→    records_fetched: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+   712→    status: Mapped[str] = mapped_column(String(20), server_default=text("'unknown'"))
+   713→    error_message: Mapped[str | None] = mapped_column(Text)
+   714→
+   715→    def to_dict(self) -> dict[str, Any]:
+   716→        return {
+   717→            "id": str(self.id),
+   718→            "source": self.source,
+   719→            "entity_type": self.entity_type,
+   720→            "last_fetch_at": self.last_fetch_at.isoformat() if self.last_fetch_at else None,
+   721→            "records_fetched": self.records_fetched,
+   722→            "status": self.status,
+   723→            "error_message": self.error_message,
+   724→        }
+   725→
