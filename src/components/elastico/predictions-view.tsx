@@ -80,8 +80,8 @@ interface ComputePrediction {
   btts: number
   mostLikelyScore: string
   expectedGoals: { home: string; away: string; total: string }
-  confidence: number
-  volatility: number
+  confidence?: number
+  volatility?: number
 }
 
 type ComputeState = 'idle' | 'loading' | 'error' | 'success'
@@ -576,7 +576,7 @@ export default function PredictionsView() {
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Zap className="size-4 text-cyan-400" />
               Model Predictions
-              <Badge variant="outline" className="text-[9px] border-cyan-500/30 text-cyan-400">4-Model Ensemble</Badge>
+              <Badge variant="outline" className="text-[9px] border-cyan-500/30 text-cyan-400">Model Ensemble</Badge>
             </CardTitle>
             <Button
               variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground"
@@ -588,7 +588,8 @@ export default function PredictionsView() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            ELO + Poisson + Dixon-Coles + Stochastic Jump-Diffusion. Data source: ESPN live scores.
+            ELO + Poisson + Dixon-Coles. Data source: ESPN live scores.
+            Stochastic model available in the Prediction Engine view with real odds inputs.
           </p>
         </CardHeader>
         <CardContent>

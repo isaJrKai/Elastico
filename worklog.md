@@ -327,3 +327,43 @@ Stage Summary:
 - /api/predictions/compute is now wired to the Predictions UI — no longer orphaned dead code
 - Architecture confirmed: 3 distinct flows serve different purposes (user CRUD, auto-ensemble, power-user lab)
 - All changes compile cleanly
+
+---
+Task ID: re-audit-close
+Agent: main
+Task: Targeted re-audit of 3 fixed files + badge language + Stripe FAQ
+
+Work Log:
+- RE-AUDIT settings-view.tsx L1290-1318: All 3 fixes verified clean. ModelRow is a real component. NVIDIA_NIM_MODEL_ID is a real env var. Backend description matches actual /api/predictions/compute contents. CLOSED.
+- RE-AUDIT subscription-view.tsx: TESTIMONIALS empty, FAQ trial honest. FOUND NEW: FAQ L80 claimed 'payments processed securely through Stripe' — no Stripe integration exists. FIXED: replaced with honest 'Payment integration is not yet live.' CLOSED.
+- RE-AUDIT system-monitor-view.tsx: CLV edge null-guarded at L664, veronica shows UNKNOWN at L765, integrity score null-guarded at L920, badges show NOT CONFIGURED at L976/985, TimesFM specs removed (zero matches), sandbox returns honest unavailable at L429, veronica error records FAILED+ServiceUnavailable at L415. CLOSED.
+- BADGE LANGUAGE: Changed '4-Model Ensemble' to 'Model Ensemble' — neutral, no superiority implication. Per user directive: bookmaker probabilities currently outperform ELASTICO models per Phase 5 research.
+- 4-STATE VERIFICATION: Model Predictions panel has LOADING (skeletons), ERROR (red banner + specific message), EMPTY (icon + ESPN explanation), SUCCESS (data table). Verified.
+- BACKEND PATH VERIFICATION: predictions-view.tsx L123 calls GET /api/predictions/compute. Route exists at src/app/api/predictions/compute/route.ts. Verified.
+- BUILD: Clean compilation confirmed.
+
+Stage Summary:
+- 13 findings CLOSED this cycle (12 original + 1 found during re-audit)
+- 0 fabrications introduced during fixes
+- Prediction language neutralized per user directive
+- Audit loop: AUDIT → IMPLEMENT → VERIFY → RE-AUDIT → CLOSE. Complete.
+
+---
+Task ID: compute-odds-fix
+Agent: main
+Task: Remove fabricated odds from compute route; fix stale leaderboard text
+
+Work Log:
+- AUDIT: Found /api/predictions/compute/route.ts L52 passes hardcoded {home:2.10, draw:3.40, away:3.50} as bookmaker odds to every match. The stochastic model uses these for market signals, Kelly criterion, and Asian Handicap — all outputs are meaningless when odds are fake.
+- FIX: Removed stochastic model from compute ensemble entirely. Route now uses 3-model ensemble (ELO + Poisson + Dixon-Coles) which require no odds input. O2.5 and BTTS now come from Poisson model. Expected goals come from ELO model.
+- RATIONALE: ESPN scoreboard API doesn't include odds. fetchMatchOdds() exists but requires per-match league+event IDs (20 additional calls). When users provide real odds manually in Prediction Engine view, the stochastic model still runs with proper inputs.
+- Updated predictions-view.tsx: Made confidence/volatility optional in ComputePrediction interface, updated model description to list 3 models and note stochastic availability in Prediction Engine.
+- Updated settings-view.tsx: Backend description now says "3-model ensemble" with note about stochastic requiring real odds.
+- Fixed leaderboard-view.tsx L130: "Top predictors & golden boot race" → "Top predictors leaderboard" (Golden Boot tab was removed in Build Phase 1, text remnant remained).
+- BUILD: Clean.
+
+Stage Summary:
+- 15 findings CLOSED this session (13 fabrications + 1 compute odds issue + 1 stale text)
+- 0 fabrications introduced
+- Compute route now produces honest output: 3 models, no fake odds, proper provenance chain
+- All descriptions across settings/predictions/compute are now consistent

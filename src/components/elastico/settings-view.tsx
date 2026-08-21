@@ -1300,8 +1300,9 @@ export default function SettingsView() {
               <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Active</Badge>
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Server-side ensemble (ELO + Poisson + Dixon-Coles + Stochastic Jump-Diffusion)
-              via /api/predictions/compute. Client-side stochastic models via prediction-engine-view.
+              3-model ensemble (ELO + Poisson + Dixon-Coles) via /api/predictions/compute.
+              Stochastic simulation (Merton Jump-Diffusion + GARCH) available via
+              Prediction Engine view when real bookmaker odds are provided.
             </p>
           </div>
           <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 p-3">

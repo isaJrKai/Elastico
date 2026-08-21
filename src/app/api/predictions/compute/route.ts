@@ -3,9 +3,16 @@ import { authenticateRequest } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { fetchAllLiveScores, mapStatus, type ESPNMatch } from '@/lib/football-data'
 import { calculateElo, poissonProbabilities, dixonColes, type EloResult } from '@/lib/predictions'
-import { runStochasticSimulation, type StochasticMatchResult, type MatchInput, DEFAULT_CONFIG } from '@/lib/prediction-engine'
 
-/** GET /api/predictions/compute — compute real predictions from ESPN match data (auth required) */
+/** GET /api/predictions/compute — compute predictions from ESPN match data (auth required)
+ *
+ * Uses a 3-model ensemble (ELO + Poisson + Dixon-Coles).
+ * The stochastic model (Merton Jump-Diffusion + GARCH) requires real bookmaker odds
+ * to produce meaningful market-derived outputs. Since this endpoint fetches fixtures
+ * from ESPN's scoreboard API (which does not include odds), we do not run the
+ * stochastic model here. Users who want stochastic analysis should use the
+ * Prediction Engine view, where they can provide real odds manually.
+ */
 export async function GET(request: NextRequest) {
   try {
     // Rate limit: 5 requests per minute
@@ -22,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     // Take upcoming and recent matches, compute predictions
     const predictions = matches.slice(0, 20).map((m: ESPNMatch) => {
-      // Use ELO ratings from ESPN team data (approximate from league position)
+      // Use ELO ratings from ESPN team data (approximate from abbreviation)
       const homeElo = 1500 + (m.homeTeam.abbreviation ? hashToElo(m.homeTeam.abbreviation) : 0)
       const awayElo = 1500 + (m.awayTeam.abbreviation ? hashToElo(m.awayTeam.abbreviation) : 0)
 
@@ -39,27 +46,11 @@ export async function GET(request: NextRequest) {
         elo.expectedHomeGoals, elo.expectedAwayGoals, 0.1, -0.1, 0.1, 0.0
       )
 
-      // 4. Stochastic Simulation (Merton Jump-Diffusion + GARCH)
-      const matchInput: MatchInput = {
-        homeTeam: m.homeTeam.name,
-        awayTeam: m.awayTeam.name,
-        homeXg: elo.expectedHomeGoals,
-        awayXg: elo.expectedAwayGoals,
-        homeGoalsConceded: 1.0,
-        awayGoalsConceded: 1.0,
-        homeElo,
-        awayElo,
-        bookmakerOdds: { home: 2.10, draw: 3.40, away: 3.50 },
-      }
-      const stochastic: StochasticMatchResult = runStochasticSimulation(
-        matchInput, DEFAULT_CONFIG
-      )
-
-      // Ensemble: average all models
+      // Ensemble: average of 3 models (no stochastic — requires real odds)
       const ensemble = {
-        homeWin: (elo.homeProb + poisson.homeWinProb + dc.homeWinProb + stochastic.matchProbabilities.homeVictory) / 4,
-        draw: (elo.drawProb + poisson.drawProb + dc.drawProb + stochastic.matchProbabilities.draw) / 4,
-        awayWin: (elo.awayProb + poisson.awayWinProb + dc.awayWinProb + stochastic.matchProbabilities.awayVictory) / 4,
+        homeWin: (elo.homeProb + poisson.homeWinProb + dc.homeWinProb) / 3,
+        draw: (elo.drawProb + poisson.drawProb + dc.drawProb) / 3,
+        awayWin: (elo.awayProb + poisson.awayWinProb + dc.awayWinProb) / 3,
       }
 
       // Normalize to 100%
@@ -68,16 +59,7 @@ export async function GET(request: NextRequest) {
       ensemble.draw = Math.round((ensemble.draw / total) * 1000) / 10
       ensemble.awayWin = Math.round((ensemble.awayWin / total) * 1000) / 10
 
-      // Asian Handicap from stochastic model
-      const asian = stochastic.asianHandicap
-
-      // Over/Under 2.5
-      const over25 = stochastic.totalsMarket.over25
-
-      // BTTS
-      const btts = stochastic.bothTeamsToScore
-
-      // Most likely scoreline
+      // Most likely scoreline (from Poisson)
       const mls = poisson.mostLikelyScore
 
       return {
@@ -96,23 +78,13 @@ export async function GET(request: NextRequest) {
         elo: { home: Math.round(elo.homeProb * 1000) / 10, draw: Math.round(elo.drawProb * 1000) / 10, away: Math.round(elo.awayProb * 1000) / 10, expHome: elo.expectedHomeGoals.toFixed(2), expAway: elo.expectedAwayGoals.toFixed(2) },
         poisson: { home: Math.round(poisson.homeWinProb * 1000) / 10, draw: Math.round(poisson.drawProb * 1000) / 10, away: Math.round(poisson.awayWinProb * 1000) / 10, over25: Math.round(poisson.overProb * 1000) / 10, btts: Math.round(poisson.bttsProb * 1000) / 10 },
         dixonColes: { home: Math.round(dc.homeWinProb * 1000) / 10, draw: Math.round(dc.drawProb * 1000) / 10, away: Math.round(dc.awayWinProb * 1000) / 10 },
-        // Asian Handicap lines
-        asianHandicap: {
-          '0': asian.line0,
-          '-0.5': asian.lineHalf,
-          '-1': asian.line1,
-          '-1.5': asian.line15,
-        },
-        // Markets
-        overUnder25: Math.round(over25 * 1000) / 10,
-        btts: Math.round(btts * 1000) / 10,
+        // Markets (from Poisson — does not require odds)
+        overUnder25: Math.round(poisson.overProb * 1000) / 10,
+        btts: Math.round(poisson.bttsProb * 1000) / 10,
         // Most likely score
         mostLikelyScore: `${mls.home}-${mls.away}`,
-        // Expected goals
-        expectedGoals: { home: stochastic.expectedMeans.home.toFixed(2), away: stochastic.expectedMeans.away.toFixed(2), total: stochastic.expectedMeans.total.toFixed(2) },
-        // Confidence
-        confidence: stochastic.confidence,
-        volatility: Math.round(stochastic.volatilityIndex * 100) / 100,
+        // Expected goals (from ELO)
+        expectedGoals: { home: elo.expectedHomeGoals.toFixed(2), away: elo.expectedAwayGoals.toFixed(2), total: (elo.expectedHomeGoals + elo.expectedAwayGoals).toFixed(2) },
       }
     })
 
@@ -127,7 +99,7 @@ export async function GET(request: NextRequest) {
 }
 
 // Deterministic hash from team abbreviation to approximate ELO offset
-// Uses actual FIFA-style rankings mapped from ESPN team data
+// Uses manually curated team strengths mapped to ESPN abbreviations
 const TEAM_ELO_MAP: Record<string, number> = {
   // Premier League
   'MCI': 380, 'ARS': 360, 'LIV': 370, 'MUN': 320, 'CHE': 340, 'NEW': 310, 'TOT': 300, 'AVL': 290,

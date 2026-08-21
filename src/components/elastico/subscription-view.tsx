@@ -77,7 +77,7 @@ const COMPARISON_FEATURES: PlanFeature[] = [
 
 const FAQ_ITEMS = [
   { question: 'Can I switch plans at any time?', answer: 'Yes! You can upgrade or downgrade your plan at any time. When upgrading, you get immediate access. When downgrading, benefits continue until the end of your billing period.' },
-  { question: 'What payment methods do you accept?', answer: 'We accept Visa, Mastercard, Amex, PayPal, and Apple Pay. All payments are processed securely through Stripe.' },
+  { question: 'What payment methods do you accept?', answer: 'Payment integration is not yet live. When launched, we plan to support major cards and digital wallets via a secure payment provider.' },
   { question: 'Is there a free trial for Pro or Elite?', answer: 'Free trials are not yet available. When payment integration is complete, trial options will be announced here.' },
   { question: 'What happens to my data if I downgrade?', answer: 'Your data is never deleted. Saved simulations and reports become read-only but are preserved.' },
   { question: 'Can I cancel anytime?', answer: 'Absolutely. Cancel anytime with no penalties. You keep access until your current billing period ends.' },
