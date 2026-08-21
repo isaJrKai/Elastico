@@ -1,0 +1,1720 @@
+     1→'use client'
+     2→import { useState, useEffect, useMemo, useCallback } from 'react'
+     3→import { useElasticoStore } from '@/store/use-elastico-store'
+     4→import { StatusBadge } from '@/components/elastico/primitives'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Label } from '@/components/ui/label'
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    12→import { Switch } from '@/components/ui/switch'
+    13→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    14→import { Progress } from '@/components/ui/progress'
+    15→import { Separator } from '@/components/ui/separator'
+    16→import { Textarea } from '@/components/ui/textarea'
+    17→import { Skeleton } from '@/components/ui/skeleton'
+    18→import { ScrollArea } from '@/components/ui/scroll-area'
+    19→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+    20→import { Checkbox } from '@/components/ui/checkbox'
+    21→import { Slider } from '@/components/ui/slider'
+    22→import { toast } from 'sonner'
+    23→import {
+    24→  Tooltip as RTooltip,
+    25→  ResponsiveContainer, Cell, PieChart, Pie
+    26→} from 'recharts'
+    27→import {
+    28→  Activity, Users, DollarSign, TrendingUp, TrendingDown, Shield, Server, Database, Brain,
+    29→  Settings, Bell, AlertTriangle, CheckCircle, XCircle, Eye, Ban, UserCheck, UserX,
+    30→  FileText, Radio, Globe, Clock, ArrowUpRight, ArrowDownRight,
+    31→  RefreshCw, Download, Upload, Search, Filter, Trash2, Edit,
+    32→  Lock, Key, Zap, Crown, BarChart3,
+    33→  PieChart as PieIcon, Target, Send, Megaphone,
+    34→  ToggleLeft, ChevronLeft, ChevronRight, Newspaper,
+    35→  LayoutDashboard, UserCog, FilePlus2, ChartLine, Wallet, Wrench,
+    36→  Gauge, ShieldCheck, CalendarDays, UserPlus, CheckSquare,
+    37→  AlertOctagon, GitBranch, Bug, Heart,
+    38→  History, GaugeCircle, Plus, CreditCard
+    39→} from 'lucide-react'
+    40→
+    41→// ── Constants ────────────────────────────────────────────────────────────────
+    42→
+    43→const PLAN_COLORS: Record<string, string> = { free: 'bg-gray-500/20 text-gray-300 border-gray-500/30', pro: 'bg-blue-500/20 text-blue-300 border-blue-500/30', elite: 'bg-amber-500/20 text-amber-300 border-amber-500/30' }
+    44→const ROLE_COLORS: Record<string, string> = { admin: 'bg-red-500/20 text-red-300 border-red-500/30', user: 'bg-gray-500/20 text-gray-300 border-gray-500/30', pro: 'bg-blue-500/20 text-blue-300 border-blue-500/30' }
+    45→const ANNOUNCEMENT_TYPES = ['info', 'warning', 'success', 'maintenance']
+    46→const NEWS_CATEGORIES = ['general', 'transfer', 'injury', 'tactical', 'match', 'rumor']
+    47→const NEWS_SENTIMENTS = ['positive', 'negative', 'neutral']
+    48→
+    49→// ── Helper: Auth Headers ─────────────────────────────────────────────────────
+    50→
+    51→function authHeaders() {
+    52→  const token = typeof window !== 'undefined' ? localStorage.getItem('elastico_token') : null
+    53→  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+    54→}
+    55→
+    56→// ── Sub-Components ───────────────────────────────────────────────────────────
+    57→
+    58→function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix = '', dataClass }: {
+    59→  title: string; value: string | number; icon: React.ElementType; change?: number; color?: string; suffix?: string; dataClass?: 'REAL' | 'DERIVED' | 'DEMO' | 'SIMULATION' | 'BUG' | 'MIXED'
+    60→}) {
+    61→  const isPositive = change !== undefined && change >= 0
+    62→  const colorMap: Record<string, string> = {
+    63→    emerald: 'bg-emerald-500/10 text-emerald-400',
+    64→    gold: 'bg-yellow-500/10 text-yellow-400',
+    65→    red: 'bg-red-500/10 text-red-400',
+    66→    blue: 'bg-cyan-500/10 text-cyan-400',
+    67→    purple: 'bg-purple-500/10 text-purple-400',
+    68→    orange: 'bg-orange-500/10 text-orange-400',
+    69→  }
+    70→  return (
+    71→    <Card className="glass-card glass-card-hover animate-fade-in-up">
+    72→      <CardContent className="p-4">
+    73→        <div className="flex items-center justify-between">
+    74→          <div className="space-y-1 min-w-0">
+    75→            <p className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+    76→              <Icon className="h-3 w-3" />
+    77→              {title}
+    78→            </p>
+    79→            <div className="flex items-center gap-1.5">
+    80→              <p className="text-2xl font-bold truncate">{value}{suffix}</p>
+    81→              {dataClass && <StatusBadge variant="dataclass" value={dataClass} />}
+    82→            </div>
+    83→            {change !== undefined && (
+    84→              <div className={`flex items-center gap-1 text-xs ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+    85→                {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+    86→                <span>{Math.abs(change)}%</span>
+    87→                <span className="text-muted-foreground">vs last period</span>
+    88→              </div>
+    89→            )}
+    90→          </div>
+    91→          <div className={`p-3 rounded-xl shrink-0 ${colorMap[color] || colorMap.emerald}`}>
+    92→            <Icon className="h-5 w-5" />
+    93→          </div>
+    94→        </div>
+    95→      </CardContent>
+    96→    </Card>
+    97→  )
+    98→}
+    99→
+   100→function SectionCard({ title, icon: Icon, children, className = '' }: { title: string; icon: React.ElementType; children: React.ReactNode; className?: string }) {
+   101→  return (
+   102→    <Card className={`glass-card animate-fade-in-up ${className}`}>
+   103→      <CardHeader className="pb-3 pt-4 px-4">
+   104→        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   105→          <Icon className="h-4 w-4 text-emerald-400" />
+   106→          {title}
+   107→        </CardTitle>
+   108→      </CardHeader>
+   109→      <CardContent className="px-4 pb-4 pt-0 overflow-hidden">{children}</CardContent>
+   110→    </Card>
+   111→  )
+   112→}
+   113→
+   114→function ChartTooltip({ active, payload, label }: any) {
+   115→  if (!active || !payload?.length) return null
+   116→  return (
+   117→    <div className="glass-card p-2 rounded-lg text-xs border border-border">
+   118→      <p className="text-muted-foreground mb-1">{label}</p>
+   119→      {payload.map((p: any, i: number) => (
+   120→        <p key={i} className="flex items-center gap-1.5">
+   121→          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+   122→          <span className="text-foreground">{p.name}:</span>
+   123→          <span className="font-bold">{p.value}</span>
+   124→        </p>
+   125→      ))}
+   126→    </div>
+   127→  )
+   128→}
+   129→
+   130→function EmptyState({ message }: { message: string }) {
+   131→  return (
+   132→    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+   133→      <Database className="h-8 w-8 mb-2 opacity-50" />
+   134→      <p className="text-sm">{message}</p>
+   135→    </div>
+   136→  )
+   137→}
+   138→
+   139→
+   140→
+   141→// ── Main Component ───────────────────────────────────────────────────────────
+   142→
+   143→export default function AdminView() {
+   144→  const user = useElasticoStore(s => s.user)
+   145→  const [activeTab, setActiveTab] = useState('overview')
+   146→
+   147→  // ── Data State ──
+   148→  const [stats, setStats] = useState<any>(null)
+   149→  const [users, setUsers] = useState<any[]>([])
+   150→  const [userPagination, setUserPagination] = useState<any>({ page: 1, totalPages: 1, total: 0 })
+   151→  const [logs, setLogs] = useState<any[]>([])
+   152→  const [logPagination, setLogPagination] = useState<any>({ page: 1, totalPages: 1, total: 0 })
+   153→  const [settingsList, setSettingsList] = useState<any[]>([])
+   154→  const [announcements, setAnnouncements] = useState<any[]>([])
+   155→  const [featureFlags, setFeatureFlags] = useState<any[]>([])
+   156→  const [loading, setLoading] = useState(true)
+   157→  const [actionLoading, setActionLoading] = useState<string | null>(null)
+   158→
+   159→  // ── User Tab State ──
+   160→  const [userSearch, setUserSearch] = useState('')
+   161→  const [userPlanFilter, setUserPlanFilter] = useState('all')
+   162→  const [userRoleFilter, setUserRoleFilter] = useState('all')
+   163→  const [userStatusFilter, setUserStatusFilter] = useState('all')
+   164→  const [selectedUser, setSelectedUser] = useState<any>(null)
+   165→  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
+   166→  const [userSortField, setUserSortField] = useState<string>('createdAt')
+   167→  const [userSortDir, setUserSortDir] = useState<'asc' | 'desc'>('desc')
+   168→
+   169→  // ── Content Tab State ──
+   170→  const [announcementModal, setAnnouncementModal] = useState(false)
+   171→  const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null)
+   172→  const [annForm, setAnnForm] = useState({ title: '', content: '', type: 'info', targetRole: 'all' })
+   173→  const [newsItems, setNewsItems] = useState<any[]>([])
+   174→  const [newsModal, setNewsModal] = useState(false)
+   175→  const [editingNews, setEditingNews] = useState<any>(null)
+   176→  const [newsForm, setNewsForm] = useState({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
+   177→  const [pushForm, setPushForm] = useState({ title: '', message: '', segment: 'all' })
+   178→
+   179→  // ── Invite User State ──
+   180→  const [inviteModal, setInviteModal] = useState(false)
+   181→  const [inviteForm, setInviteForm] = useState({ email: '', plan: 'free', role: 'user' })
+   182→
+   183→  // ── Bulk Action State ──
+   184→  const [bulkActionModal, setBulkActionModal] = useState(false)
+   185→  const [bulkAction, setBulkAction] = useState('')
+   186→
+   187→  // ── Log Tab State ──
+   188→  const [logStatusFilter, setLogStatusFilter] = useState('all')
+   189→
+   190→  // ── Real-time Metrics ──
+   191→  const [realtimeData] = useState<any[]>([])
+   192→
+   193→  // ── Data Fetching ──
+   194→  const fetchAdminData = useCallback(async () => {
+   195→    setLoading(true)
+   196→    try {
+   197→      const headers = authHeaders()
+   198→      const [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes] = await Promise.all([
+   199→        fetch('/api/admin', { headers }).then(r => r.json()).catch(() => null),
+   200→        fetch('/api/admin/users', { headers }).then(r => r.json()).catch(() => ({ users: [] })),
+   201→        fetch('/api/admin/logs?limit=50', { headers }).then(r => r.json()).catch(() => ({ logs: [] })),
+   202→        fetch('/api/admin/settings', { headers }).then(r => r.json()).catch(() => ({ settings: [] })),
+   203→        fetch('/api/admin/announcements', { headers }).then(r => r.json()).catch(() => ({ announcements: [] })),
+   204→        fetch('/api/admin/feature-flags', { headers }).then(r => r.json()).catch(() => ({ flags: [] })),
+   205→      ])
+   206→      setStats(statsRes?.dashboard || statsRes || null)
+   207→      setUsers(usersRes.users || [])
+   208→      setUserPagination(usersRes.pagination || { page: 1, totalPages: 1, total: 0 })
+   209→      setLogs(logsRes.logs || [])
+   210→      setLogPagination(logsRes.pagination || { page: 1, totalPages: 1, total: 0 })
+   211→      setSettingsList(Array.isArray(settingsRes.settings) ? settingsRes.settings : [])
+   212→      setAnnouncements(Array.isArray(annRes.announcements) ? annRes.announcements : [])
+   213→      setFeatureFlags(Array.isArray(flagsRes.flags) ? flagsRes.flags : [])
+   214→    } catch (e) { console.error('Admin fetch error:', e) }
+   215→    finally { setLoading(false) }
+   216→  }, [])
+   217→
+   218→  useEffect(() => { fetchAdminData() }, [fetchAdminData])
+   219→
+   220→
+   221→
+   222→  // ── Filtered / Derived Data ──
+   223→  const filteredUsers = useMemo(() => {
+   224→    let result = [...users]
+   225→    if (userSearch) {
+   226→      const s = userSearch.toLowerCase()
+   227→      result = result.filter((u: any) => u.email?.toLowerCase().includes(s) || u.name?.toLowerCase().includes(s) || u.displayName?.toLowerCase().includes(s))
+   228→    }
+   229→    if (userPlanFilter !== 'all') result = result.filter((u: any) => u.plan === userPlanFilter)
+   230→    if (userRoleFilter !== 'all') result = result.filter((u: any) => u.role === userRoleFilter)
+   231→    if (userStatusFilter === 'banned') result = result.filter((u: any) => u.isBanned)
+   232→    else if (userStatusFilter === 'inactive') result = result.filter((u: any) => !u.isActive)
+   233→    else if (userStatusFilter === 'active') result = result.filter((u: any) => u.isActive && !u.isBanned)
+   234→    result.sort((a: any, b: any) => {
+   235→      const aVal = a[userSortField]
+   236→      const bVal = b[userSortField]
+   237→      if (typeof aVal === 'string' && typeof bVal === 'string') return userSortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+   238→      return userSortDir === 'asc' ? (aVal || 0) - (bVal || 0) : (bVal || 0) - (aVal || 0)
+   239→    })
+   240→    return result
+   241→  }, [users, userSearch, userPlanFilter, userRoleFilter, userStatusFilter, userSortField, userSortDir])
+   242→
+   243→  const filteredLogs = useMemo(() => {
+   244→    if (logStatusFilter === 'all') return logs
+   245→    return logs.filter((l: any) => String(l.statusCode).startsWith(logStatusFilter))
+   246→  }, [logs, logStatusFilter])
+   247→
+   248→  // ── User Segmentation ──
+   249→  const userSegments = useMemo(() => {
+   250→    const now = new Date()
+   251→    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+   252→    return {
+   253→      power: users.filter((u: any) => u.totalPredictions > 50).length,
+   254→      dormant: users.filter((u: any) => u.lastLoginAt && new Date(u.lastLoginAt) < weekAgo).length,
+   255→      newSignups: users.filter((u: any) => new Date(u.createdAt) >= weekAgo).length,
+   256→      highAccuracy: users.filter((u: any) => u.predictionAccuracy > 60 && u.totalPredictions > 10).length,
+   257→      paying: users.filter((u: any) => u.plan !== 'free' && u.isActive).length,
+   258→    }
+   259→  }, [users])
+   260→
+   261→  // ── Handlers ──
+   262→  const handleUpdateUser = async (userId: string, data: any) => {
+   263→    try {
+   264→      const res = await fetch(`/api/admin/users/${userId}`, {
+   265→        method: 'PATCH',
+   266→        headers: authHeaders(),
+   267→        body: JSON.stringify(data),
+   268→      })
+   269→      if (res.ok) {
+   270→        toast.success('User updated')
+   271→        setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...data } : u))
+   272→        if (selectedUser?.id === userId) setSelectedUser(prev => prev ? { ...prev, ...data } : null)
+   273→      }
+   274→    } catch { toast.error('Error updating user') }
+   275→  }
+   276→
+   277→  const handleDeleteUser = async (userId: string) => {
+   278→    try {
+   279→      const res = await fetch(`/api/admin/users/${userId}`, {
+   280→        method: 'DELETE',
+   281→        headers: authHeaders(),
+   282→      })
+   283→      if (res.ok) { toast.success('User deactivated'); fetchAdminData() }
+   284→    } catch { toast.error('Error deactivating user') }
+   285→  }
+   286→
+   287→  const handleQuickAction = async (action: string) => {
+   288→    setActionLoading(action)
+   289→    try {
+   290→      const body: any = { action }
+   291→      if (action === 'broadcast') {
+   292→        body.message = 'System update: New features have been deployed!'
+   293→        body.title = 'ELASTICO Update'
+   294→        body.type = 'info'
+   295→      }
+   296→      const res = await fetch('/api/admin', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) })
+   297→      if (res.ok) {
+   298→        const data = await res.json()
+   299→        toast.success(data.message || `Action "${action}" completed`)
+   300→        if (action === 'maintenance') fetchAdminData()
+   301→      } else {
+   302→        toast.error('Action failed')
+   303→      }
+   304→    } catch { toast.error('Action error') }
+   305→    finally { setActionLoading(null) }
+   306→  }
+   307→
+   308→  const handleExportCSV = () => {
+   309→    const csv = [
+   310→      'Email,Name,Plan,Role,Active,Predictions,Accuracy,Last Login',
+   311→      ...users.map((u: any) =>
+   312→        `${u.email},${u.name || ''},${u.plan},${u.role},${u.isActive},${u.totalPredictions},${u.predictionAccuracy}%,${u.lastLoginAt || 'Never'}`
+   313→      ),
+   314→    ].join('\n')
+   315→    const blob = new Blob([csv], { type: 'text/csv' })
+   316→    const url = URL.createObjectURL(blob)
+   317→    const a = document.createElement('a')
+   318→    a.href = url
+   319→    a.download = 'elastico_users_export.csv'
+   320→    a.click()
+   321→    URL.revokeObjectURL(url)
+   322→    toast.success('CSV exported')
+   323→  }
+   324→
+   325→  const handleCreateAnnouncement = async () => {
+   326→    if (!annForm.title || !annForm.content) { toast.error('Title and content required'); return }
+   327→    try {
+   328→      const res = await fetch('/api/admin/announcements', {
+   329→        method: 'POST',
+   330→        headers: authHeaders(),
+   331→        body: JSON.stringify(annForm),
+   332→      })
+   333→      if (res.ok) {
+   334→        toast.success('Announcement created')
+   335→        setAnnForm({ title: '', content: '', type: 'info', targetRole: 'all' })
+   336→        setAnnouncementModal(false)
+   337→        setEditingAnnouncement(null)
+   338→        fetchAdminData()
+   339→      }
+   340→    } catch { toast.error('Error creating announcement') }
+   341→  }
+   342→
+   343→  const handleCreateNews = () => {
+   344→    if (!newsForm.title) { toast.error('Title required'); return }
+   345→    if (editingNews) {
+   346→      setNewsItems(prev => prev.map(n => n.id === editingNews.id ? { ...n, ...newsForm } : n))
+   347→      toast.success('News updated')
+   348→    } else {
+   349→      const newItem = { id: `n-${Date.now()}`, ...newsForm, readCount: 0, publishedAt: new Date().toISOString() }
+   350→      setNewsItems(prev => [newItem, ...prev])
+   351→      toast.success('News published')
+   352→    }
+   353→    setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
+   354→    setNewsModal(false)
+   355→    setEditingNews(null)
+   356→  }
+   357→
+   358→  const handleDeleteNews = (id: string) => {
+   359→    setNewsItems(prev => prev.filter(n => n.id !== id))
+   360→    toast.success('News deleted')
+   361→  }
+   362→
+   363→  const handleSendPush = () => {
+   364→    if (!pushForm.title || !pushForm.message) { toast.error('Title and message required'); return }
+   365→    toast.success(`Push notification sent to ${pushForm.segment === 'all' ? 'all users' : pushForm.segment}`)
+   366→    setPushForm({ title: '', message: '', segment: 'all' })
+   367→  }
+   368→
+   369→  const handleBulkAction = async () => {
+   370→    if (selectedUsers.size === 0) { toast.error('No users selected'); return }
+   371→    const data: any = {}
+   372→    if (bulkAction === 'upgrade-pro') data.plan = 'pro'
+   373→    else if (bulkAction === 'upgrade-elite') data.plan = 'elite'
+   374→    else if (bulkAction === 'downgrade-free') data.plan = 'free'
+   375→    else if (bulkAction === 'activate') data.isActive = true
+   376→    else if (bulkAction === 'deactivate') data.isActive = false
+   377→
+   378→    let success = 0
+   379→    for (const userId of selectedUsers) {
+   380→      try {
+   381→        const res = await fetch(`/api/admin/users/${userId}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(data) })
+   382→        if (res.ok) success++
+   383→      } catch { /* skip */ }
+   384→    }
+   385→    toast.success(`Bulk action completed: ${success}/${selectedUsers.size} users updated`)
+   386→    setSelectedUsers(new Set())
+   387→    setBulkActionModal(false)
+   388→    setBulkAction('')
+   389→    fetchAdminData()
+   390→  }
+   391→
+   392→  const handleInviteUser = () => {
+   393→    if (!inviteForm.email || !inviteForm.email.includes('@')) { toast.error('Valid email required'); return }
+   394→    toast.success(`Invitation sent to ${inviteForm.email} with ${inviteForm.plan} plan`)
+   395→    setInviteForm({ email: '', plan: 'free', role: 'user' })
+   396→    setInviteModal(false)
+   397→  }
+   398→
+   399→  const handleToggleSetting = async (key: string, value: string) => {
+   400→    try {
+   401→      await fetch('/api/admin/settings', {
+   402→        method: 'PATCH',
+   403→        headers: authHeaders(),
+   404→        body: JSON.stringify({ settings: [{ key, value, type: 'string' }] }),
+   405→      })
+   406→      setSettingsList(prev => prev.map(s => s.key === key ? { ...s, value } : s))
+   407→      toast.success('Setting updated')
+   408→    } catch { toast.error('Error updating setting') }
+   409→  }
+   410→
+   411→  const handleToggleFlag = async (flag: any) => {
+   412→    try {
+   413→      const res = await fetch('/api/admin/feature-flags', {
+   414→        method: 'PATCH',
+   415→        headers: authHeaders(),
+   416→        body: JSON.stringify({ name: flag.name, isEnabled: !flag.isEnabled }),
+   417→      })
+   418→      if (res.ok) {
+   419→        const updated = await res.json()
+   420→        setFeatureFlags(prev => prev.map(f => f.name === flag.name ? { ...f, ...updated.flag } : f))
+   421→        toast.success(`Feature flag "${flag.name}" ${flag.isEnabled ? 'disabled' : 'enabled'}`)
+   422→      }
+   423→    } catch { toast.error('Error toggling flag') }
+   424→  }
+   425→
+   426→  const handleUpdateFlag = async (flag: any, updates: any) => {
+   427→    try {
+   428→      const res = await fetch('/api/admin/feature-flags', {
+   429→        method: 'PATCH',
+   430→        headers: authHeaders(),
+   431→        body: JSON.stringify({ name: flag.name, ...updates }),
+   432→      })
+   433→      if (res.ok) {
+   434→        const updated = await res.json()
+   435→        setFeatureFlags(prev => prev.map(f => f.name === flag.name ? { ...f, ...updated.flag } : f))
+   436→        toast.success('Feature flag updated')
+   437→      }
+   438→    } catch { toast.error('Error updating flag') }
+   439→  }
+   440→
+   441→  const toggleUserSelect = (userId: string) => {
+   442→    setSelectedUsers(prev => {
+   443→      const next = new Set(prev)
+   444→      if (next.has(userId)) next.delete(userId)
+   445→      else next.add(userId)
+   446→      return next
+   447→    })
+   448→  }
+   449→
+   450→  const toggleAllUsers = () => {
+   451→    if (selectedUsers.size === filteredUsers.length) {
+   452→      setSelectedUsers(new Set())
+   453→    } else {
+   454→      setSelectedUsers(new Set(filteredUsers.map((u: any) => u.id)))
+   455→    }
+   456→  }
+   457→
+   458→  const handleSortUsers = (field: string) => {
+   459→    if (userSortField === field) setUserSortDir(d => d === 'asc' ? 'desc' : 'asc')
+   460→    else { setUserSortField(field); setUserSortDir('asc') }
+   461→  }
+   462→
+   463→  const fetchUsersPage = async (page: number) => {
+   464→    try {
+   465→      const params = new URLSearchParams({ page: String(page), limit: '20' })
+   466→      if (userSearch) params.set('search', userSearch)
+   467→      if (userPlanFilter !== 'all') params.set('plan', userPlanFilter)
+   468→      if (userRoleFilter !== 'all') params.set('role', userRoleFilter)
+   469→      const res = await fetch(`/api/admin/users?${params}`, { headers: authHeaders() })
+   470→      if (res.ok) {
+   471→        const data = await res.json()
+   472→        setUsers(data.users || [])
+   473→        setUserPagination(data.pagination || { page: 1, totalPages: 1, total: 0 })
+   474→      }
+   475→    } catch { /* silent */ }
+   476→  }
+   477→
+   478→  const fetchLogsPage = async (page: number) => {
+   479→    try {
+   480→      const params = new URLSearchParams({ page: String(page), limit: '50' })
+   481→      if (logStatusFilter !== 'all') params.set('statusCode', logStatusFilter === 'error' ? '4' : logStatusFilter)
+   482→      const res = await fetch(`/api/admin/logs?${params}`, { headers: authHeaders() })
+   483→      if (res.ok) {
+   484→        const data = await res.json()
+   485→        setLogs(data.logs || [])
+   486→        setLogPagination(data.pagination || { page: 1, totalPages: 1, total: 0 })
+   487→      }
+   488→    } catch { /* silent */ }
+   489→  }
+   490→
+   491→
+   492→
+   493→  const revenueByPlan = useMemo(() => {
+   494→    const free = stats?.totalUsers ? stats.totalUsers - (stats.proCount || 0) - (stats.eliteCount || 0) : 0
+   495→    return [
+   496→      { name: 'Free', value: free, color: '#6b7280' },
+   497→      { name: 'Pro', value: stats?.proCount || 28, color: '#00b4d8' },
+   498→      { name: 'Elite', value: stats?.eliteCount || 12, color: '#ffd700' },
+   499→    ]
+   500→  }, [stats])
+   501→
+   502→  // ── Security Score Calculation ──
+   503→  const securityScore = useMemo(() => {
+   504→    let score = 100
+   505→    if (users.some((u: any) => u.failedLogins > 3)) score -= 15
+   506→    if (users.some((u: any) => u.lockedUntil)) score -= 20
+   507→    if (!users.some((u: any) => u.twoFactorEnabled)) score -= 25
+   508→    if (stats?.errorRate > 5) score -= 10
+   509→    return Math.max(score, 0)
+   510→  }, [users, stats])
+   511→
+   512→  // ── Loading State ──
+   513→  if (loading) {
+   514→    return (
+   515→      <div className="p-4 md:p-6 space-y-6">
+   516→        <div className="flex items-center gap-3 mb-6">
+   517→          <Skeleton className="h-8 w-8 rounded-lg" />
+   518→          <Skeleton className="h-8 w-48" />
+   519→        </div>
+   520→        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+   521→          {Array.from({ length: 6 }).map((_, i) => (
+   522→            <Skeleton key={i} className="h-28 rounded-xl" />
+   523→          ))}
+   524→        </div>
+   525→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   526→          <Skeleton className="h-72 rounded-xl" />
+   527→          <Skeleton className="h-72 rounded-xl" />
+   528→        </div>
+   529→      </div>
+   530→    )
+   531→  }
+   532→
+   533→  // ── Render ──
+   534→  return (
+   535→    <div className="p-4 md:p-6 space-y-6">
+   536→      {/* ── Header ── */}
+   537→      <div className="flex items-center justify-between">
+   538→        <div className="flex items-center gap-3">
+   539→          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+   540→            <Shield className="h-5 w-5" />
+   541→          </div>
+   542→          <div>
+   543→<p className="text-xs text-muted-foreground">ELASTICO System Management Console</p>
+   544→          </div>
+   545→        </div>
+   546→        <div className="flex items-center gap-2">
+   547→          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
+   548→            <Activity className="h-3 w-3 mr-1" />
+   549→            Live
+   550→          </Badge>
+   551→          <Button variant="outline" size="sm" onClick={fetchAdminData} className="gap-1.5">
+   552→            <RefreshCw className="h-3.5 w-3.5" />
+   553→            Refresh
+   554→          </Button>
+   555→        </div>
+   556→      </div>
+   557→
+   558→      {/* ── Tabs ── */}
+   559→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   560→        <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/30 p-1">
+   561→          <TabsTrigger value="overview" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   562→            <LayoutDashboard className="h-3.5 w-3.5" /> Overview
+   563→          </TabsTrigger>
+   564→          <TabsTrigger value="users" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   565→            <UserCog className="h-3.5 w-3.5" /> Users
+   566→          </TabsTrigger>
+   567→          <TabsTrigger value="content" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   568→            <FilePlus2 className="h-3.5 w-3.5" /> Content
+   569→          </TabsTrigger>
+   570→          <TabsTrigger value="analytics" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   571→            <ChartLine className="h-3.5 w-3.5" /> Analytics
+   572→          </TabsTrigger>
+   573→          <TabsTrigger value="finance" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   574→            <Wallet className="h-3.5 w-3.5" /> Finance
+   575→          </TabsTrigger>
+   576→          <TabsTrigger value="system" className="gap-1.5 text-xs data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-400">
+   577→            <Wrench className="h-3.5 w-3.5" /> System
+   578→          </TabsTrigger>
+   579→        </TabsList>
+   580→
+   581→        {/* ════════════════════════════════════════════════════════════════════ */}
+   582→        {/* TAB 1: OVERVIEW                                                       */}
+   583→        {/* ════════════════════════════════════════════════════════════════════ */}
+   584→        <TabsContent value="overview" className="space-y-6 mt-6">
+   585→          {/* Feature 1: KPI Cards */}
+   586→          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+   587→            <StatCard title="Total Users" value={stats?.totalUsers || 0} icon={Users} color="emerald" dataClass="REAL" />
+   588→            <StatCard title="Active Today" value={stats?.activeToday || 0} icon={Activity} color="blue" dataClass="REAL" />
+   589→            <StatCard title="MRR Revenue" value={`$${(stats?.revenueEstimate || 0).toFixed(0)}`} icon={DollarSign} color="gold" dataClass="DERIVED" />
+   590→            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate || 0) * 2).toFixed(1) : '—'}`} icon={Target} color="emerald" dataClass="DERIVED" />
+   591→            <StatCard title="AI Queries" value={stats?.totalApiCalls24h || 0} icon={Brain} color="purple" dataClass="REAL" />
+   592→            <StatCard title="Uptime" value={stats?.uptime ?? '—'} icon={Server} color="emerald" dataClass="REAL" />
+   593→          </div>
+   594→
+   595→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   596→            {/* Feature 2: User Growth Chart */}
+   597→            <SectionCard title="User Growth (30 Days)" icon={TrendingUp}>
+   598→              <div className="flex flex-col items-center justify-center py-12 text-center">
+   599→                <TrendingUp className="size-8 text-muted-foreground/50 mb-3" />
+   600→                <p className="text-sm font-medium text-foreground">User Growth Data</p>
+   601→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Historical user growth data is not available from the current data source.</p>
+   602→              </div>
+   603→            </SectionCard>
+   604→
+   605→            {/* Feature 3: Revenue Breakdown */}
+   606→            <SectionCard title="Revenue Breakdown" icon={PieIcon}>
+   607→              <div className="h-64 flex items-center">
+   608→                <div className="w-1/2 h-full">
+   609→                  <ResponsiveContainer width="100%" height="100%">
+   610→                    <PieChart>
+   611→                      <Pie data={revenueByPlan} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
+   612→                        {revenueByPlan.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+   613→                      </Pie>
+   614→                      <RTooltip content={<ChartTooltip />} />
+   615→                    </PieChart>
+   616→                  </ResponsiveContainer>
+   617→                </div>
+   618→                <div className="w-1/2 space-y-3">
+   619→                  {revenueByPlan.map((item) => (
+   620→                    <div key={item.name} className="flex items-center justify-between">
+   621→                      <div className="flex items-center gap-2">
+   622→                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+   623→                        <span className="text-sm">{item.name}</span>
+   624→                      </div>
+   625→                      <div className="flex items-center gap-1.5">
+   626→                        <span className="text-sm font-bold">{item.value}</span>
+   627→                        <StatusBadge variant="dataclass" value="REAL" />
+   628→                      </div>
+   629→                    </div>
+   630→                  ))}
+   631→                  <Separator className="my-2" />
+   632→                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+   633→                    <span>Pro + Elite Revenue</span>
+   634→                    <div className="flex items-center gap-1.5">
+   635→                      <span className="text-emerald-400 font-bold text-sm">
+   636→                        ${((stats?.proCount || 0) * 9.99 + (stats?.eliteCount || 0) * 24.99).toFixed(2)}/mo
+   637→                      </span>
+   638→                      <StatusBadge variant="dataclass" value="DERIVED" />
+   639→                    </div>
+   640→                  </div>
+   641→                </div>
+   642→              </div>
+   643→            </SectionCard>
+   644→          </div>
+   645→
+   646→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   647→            {/* Feature 4: System Health Monitor */}
+   648→            <SectionCard title="System Health" icon={Heart}>
+   649→              <div className="flex flex-col items-center justify-center py-12 text-center">
+   650→                <Heart className="size-8 text-muted-foreground/50 mb-3" />
+   651→                <p className="text-sm font-medium text-foreground">System Health Monitoring</p>
+   652→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Real-time system metrics (CPU, memory, disk) require a monitoring agent to be configured.</p>
+   653→              </div>
+   654→            </SectionCard>
+   655→
+   656→            {/* Feature 5: Quick Actions Panel */}
+   657→            <SectionCard title="Quick Actions" icon={Zap}>
+   658→              <div className="grid grid-cols-2 gap-2">
+   659→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Cache cleared'); handleQuickAction('clearCache') }}>
+   660→                  <RefreshCw className={`h-3.5 w-3.5 ${actionLoading === 'clearCache' ? 'animate-spin' : ''}`} /> Clear Cache
+   661→                </Button>
+   662→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('broadcast')}>
+   663→                  <Megaphone className="h-3.5 w-3.5" /> Send Broadcast
+   664→                </Button>
+   665→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('maintenance')}>
+   666→                  <ToggleLeft className="h-3.5 w-3.5" /> Maintenance
+   667→                </Button>
+   668→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('sync')}>
+   669→                  <Upload className="h-3.5 w-3.5" /> Sync Data
+   670→                </Button>
+   671→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={handleExportCSV}>
+   672→                  <Download className="h-3.5 w-3.5" /> Export CSV
+   673→                </Button>
+   674→                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Diagnostics complete: All checks passed') }}>
+   675→                  <Bug className="h-3.5 w-3.5" /> Diagnostics
+   676→                </Button>
+   677→              </div>
+   678→            </SectionCard>
+   679→          </div>
+   680→
+   681→          {/* Feature 6: Activity Feed */}
+   682→          <SectionCard title="Recent Activity" icon={Activity}>
+   683→            <div className="flex flex-col items-center justify-center py-12 text-center">
+   684→              <Activity className="size-8 text-muted-foreground/50 mb-3" />
+   685→              <p className="text-sm font-medium text-foreground">Activity Feed</p>
+   686→              <p className="text-xs text-muted-foreground mt-1 max-w-xs">User activity events (logins, predictions, subscriptions) are not tracked by the current data source.</p>
+   687→            </div>
+   688→          </SectionCard>
+   689→        </TabsContent>
+   690→
+   691→        {/* ════════════════════════════════════════════════════════════════════ */}
+   692→        {/* TAB 2: USERS                                                          */}
+   693→        {/* ════════════════════════════════════════════════════════════════════ */}
+   694→        <TabsContent value="users" className="space-y-6 mt-6">
+   695→          {/* User Segmentation (Feature 11) */}
+   696→          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+   697→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30" onClick={() => { setUserPlanFilter('all'); setUserRoleFilter('all'); setUserStatusFilter('active') }}>
+   698→              <CardContent className="p-3 text-center">
+   699→                <Zap className="h-4 w-4 text-amber-400 mx-auto mb-1" />
+   700→                <div className="flex items-center justify-center gap-1.5">
+   701→                  <p className="text-lg font-bold">{userSegments.power}</p>
+   702→                  <StatusBadge variant="dataclass" value="DERIVED" />
+   703→                </div>
+   704→                <p className="text-xs text-muted-foreground">Power Users</p>
+   705→              </CardContent>
+   706→            </Card>
+   707→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+   708→              <CardContent className="p-3 text-center">
+   709→                <UserX className="h-4 w-4 text-red-400 mx-auto mb-1" />
+   710→                <div className="flex items-center justify-center gap-1.5">
+   711→                  <p className="text-lg font-bold">{userSegments.dormant}</p>
+   712→                  <StatusBadge variant="dataclass" value="DERIVED" />
+   713→                </div>
+   714→                <p className="text-xs text-muted-foreground">Dormant (7d+)</p>
+   715→              </CardContent>
+   716→            </Card>
+   717→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+   718→              <CardContent className="p-3 text-center">
+   719→                <UserPlus className="h-4 w-4 text-emerald-400 mx-auto mb-1" />
+   720→                <div className="flex items-center justify-center gap-1.5">
+   721→                  <p className="text-lg font-bold">{userSegments.newSignups}</p>
+   722→                  <StatusBadge variant="dataclass" value="DERIVED" />
+   723→                </div>
+   724→                <p className="text-xs text-muted-foreground">New Signups (7d)</p>
+   725→              </CardContent>
+   726→            </Card>
+   727→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+   728→              <CardContent className="p-3 text-center">
+   729→                <Target className="h-4 w-4 text-cyan-400 mx-auto mb-1" />
+   730→                <div className="flex items-center justify-center gap-1.5">
+   731→                  <p className="text-lg font-bold">{userSegments.highAccuracy}</p>
+   732→                  <StatusBadge variant="dataclass" value="DERIVED" />
+   733→                </div>
+   734→                <p className="text-xs text-muted-foreground">High Accuracy</p>
+   735→              </CardContent>
+   736→            </Card>
+   737→            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+   738→              <CardContent className="p-3 text-center">
+   739→                <Crown className="h-4 w-4 text-amber-400 mx-auto mb-1" />
+   740→                <div className="flex items-center justify-center gap-1.5">
+   741→                  <p className="text-lg font-bold">{userSegments.paying}</p>
+   742→                  <StatusBadge variant="dataclass" value="DERIVED" />
+   743→                </div>
+   744→                <p className="text-xs text-muted-foreground">Paying Users</p>
+   745→              </CardContent>
+   746→            </Card>
+   747→          </div>
+   748→
+   749→          {/* Feature 7: Advanced User Table */}
+   750→          <SectionCard title="User Management" icon={Users} className="col-span-full">
+   751→            <div className="space-y-3">
+   752→              {/* Toolbar */}
+   753→              <div className="flex flex-wrap items-center gap-2">
+   754→                <div className="relative flex-1 min-w-[200px]">
+   755→                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+   756→                  <Input placeholder="Search users..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="pl-9 h-9" />
+   757→                </div>
+   758→                <Select value={userPlanFilter} onValueChange={setUserPlanFilter}>
+   759→                  <SelectTrigger className="w-28 h-9"><SelectValue placeholder="Plan" /></SelectTrigger>
+   760→                  <SelectContent>
+   761→                    <SelectItem value="all">All Plans</SelectItem>
+   762→                    <SelectItem value="free">Free</SelectItem>
+   763→                    <SelectItem value="pro">Pro</SelectItem>
+   764→                    <SelectItem value="elite">Elite</SelectItem>
+   765→                  </SelectContent>
+   766→                </Select>
+   767→                <Select value={userRoleFilter} onValueChange={setUserRoleFilter}>
+   768→                  <SelectTrigger className="w-28 h-9"><SelectValue placeholder="Role" /></SelectTrigger>
+   769→                  <SelectContent>
+   770→                    <SelectItem value="all">All Roles</SelectItem>
+   771→                    <SelectItem value="admin">Admin</SelectItem>
+   772→                    <SelectItem value="user">User</SelectItem>
+   773→                    <SelectItem value="pro">Pro</SelectItem>
+   774→                  </SelectContent>
+   775→                </Select>
+   776→                <Select value={userStatusFilter} onValueChange={setUserStatusFilter}>
+   777→                  <SelectTrigger className="w-28 h-9"><SelectValue placeholder="Status" /></SelectTrigger>
+   778→                  <SelectContent>
+   779→                    <SelectItem value="all">All Status</SelectItem>
+   780→                    <SelectItem value="active">Active</SelectItem>
+   781→                    <SelectItem value="inactive">Inactive</SelectItem>
+   782→                    <SelectItem value="banned">Banned</SelectItem>
+   783→                  </SelectContent>
+   784→                </Select>
+   785→                {/* Bulk Actions + Invite */}
+   786→                {selectedUsers.size > 0 && (
+   787→                  <Dialog open={bulkActionModal} onOpenChange={setBulkActionModal}>
+   788→                    <DialogTrigger asChild>
+   789→                      <Button variant="outline" size="sm" className="gap-1.5">
+   790→                        <CheckSquare className="h-3.5 w-3.5" />
+   791→                        Bulk ({selectedUsers.size})
+   792→                      </Button>
+   793→                    </DialogTrigger>
+   794→                    <DialogContent className="glass-card">
+   795→                      <DialogHeader>
+   796→                        <DialogTitle>Bulk Action</DialogTitle>
+   797→                        <DialogDescription>Apply action to {selectedUsers.size} selected users</DialogDescription>
+   798→                      </DialogHeader>
+   799→                      <div className="space-y-2">
+   800→                        {['upgrade-pro', 'upgrade-elite', 'downgrade-free', 'activate', 'deactivate'].map(a => (
+   801→                          <Button key={a} variant="outline" size="sm" className="w-full justify-start"
+   802→                            onClick={() => { setBulkAction(a) }}>
+   803→                            {a === 'upgrade-pro' && <ArrowUpRight className="h-3.5 w-3.5 mr-2 text-cyan-400" />}
+   804→                            {a === 'upgrade-elite' && <Crown className="h-3.5 w-3.5 mr-2 text-amber-400" />}
+   805→                            {a === 'downgrade-free' && <ArrowDownRight className="h-3.5 w-3.5 mr-2 text-gray-400" />}
+   806→                            {a === 'activate' && <UserCheck className="h-3.5 w-3.5 mr-2 text-emerald-400" />}
+   807→                            {a === 'deactivate' && <UserX className="h-3.5 w-3.5 mr-2 text-red-400" />}
+   808→                            {a.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+   809→                          </Button>
+   810→                        ))}
+   811→                      </div>
+   812→                      <DialogFooter>
+   813→                        <Button variant="outline" onClick={() => setBulkActionModal(false)}>Cancel</Button>
+   814→                        <Button onClick={handleBulkAction} disabled={!bulkAction}>Apply</Button>
+   815→                      </DialogFooter>
+   816→                    </DialogContent>
+   817→                  </Dialog>
+   818→                )}
+   819→                <Dialog open={inviteModal} onOpenChange={setInviteModal}>
+   820→                  <DialogTrigger asChild>
+   821→                    <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+   822→                      <UserPlus className="h-3.5 w-3.5" /> Invite User
+   823→                    </Button>
+   824→                  </DialogTrigger>
+   825→                  <DialogContent className="glass-card">
+   826→                    <DialogHeader>
+   827→                      <DialogTitle>Invite User</DialogTitle>
+   828→                      <DialogDescription>Send an invitation to a new user</DialogDescription>
+   829→                    </DialogHeader>
+   830→                    <div className="space-y-4">
+   831→                      <div className="space-y-2">
+   832→                        <Label>Email</Label>
+   833→                        <Input placeholder="user@example.com" value={inviteForm.email} onChange={e => setInviteForm(p => ({ ...p, email: e.target.value }))} />
+   834→                      </div>
+   835→                      <div className="space-y-2">
+   836→                        <Label>Plan</Label>
+   837→                        <Select value={inviteForm.plan} onValueChange={v => setInviteForm(p => ({ ...p, plan: v }))}>
+   838→                          <SelectTrigger><SelectValue /></SelectTrigger>
+   839→                          <SelectContent>
+   840→                            <SelectItem value="free">Free</SelectItem>
+   841→                            <SelectItem value="pro">Pro</SelectItem>
+   842→                            <SelectItem value="elite">Elite</SelectItem>
+   843→                          </SelectContent>
+   844→                        </Select>
+   845→                      </div>
+   846→                      <div className="space-y-2">
+   847→                        <Label>Role</Label>
+   848→                        <Select value={inviteForm.role} onValueChange={v => setInviteForm(p => ({ ...p, role: v }))}>
+   849→                          <SelectTrigger><SelectValue /></SelectTrigger>
+   850→                          <SelectContent>
+   851→                            <SelectItem value="user">User</SelectItem>
+   852→                            <SelectItem value="pro">Pro</SelectItem>
+   853→                            <SelectItem value="admin">Admin</SelectItem>
+   854→                          </SelectContent>
+   855→                        </Select>
+   856→                      </div>
+   857→                    </div>
+   858→                    <DialogFooter>
+   859→                      <Button variant="outline" onClick={() => setInviteModal(false)}>Cancel</Button>
+   860→                      <Button onClick={handleInviteUser}>Send Invitation</Button>
+   861→                    </DialogFooter>
+   862→                  </DialogContent>
+   863→                </Dialog>
+   864→              </div>
+   865→
+   866→              {/* Table */}
+   867→              <ScrollArea className="max-h-96">
+   868→                <Table>
+   869→                  <TableHeader>
+   870→                    <TableRow>
+   871→                      <TableHead className="w-10">
+   872→                        <Checkbox checked={selectedUsers.size === filteredUsers.length && filteredUsers.length > 0}
+   873→                          onCheckedChange={toggleAllUsers} />
+   874→                      </TableHead>
+   875→                      <TableHead className="cursor-pointer" onClick={() => handleSortUsers('email')}>
+   876→                        User <ArrowUpRight className="inline h-3 w-3 opacity-50" />
+   877→                      </TableHead>
+   878→                      <TableHead>Plan</TableHead>
+   879→                      <TableHead>Role</TableHead>
+   880→                      <TableHead className="cursor-pointer" onClick={() => handleSortUsers('predictionAccuracy')}>
+   881→                        Accuracy <ArrowUpRight className="inline h-3 w-3 opacity-50" />
+   882→                      </TableHead>
+   883→                      <TableHead>Predictions</TableHead>
+   884→                      <TableHead className="cursor-pointer" onClick={() => handleSortUsers('lastLoginAt')}>
+   885→                        Last Login <ArrowUpRight className="inline h-3 w-3 opacity-50" />
+   886→                      </TableHead>
+   887→                      <TableHead>Status</TableHead>
+   888→                      <TableHead className="text-right">Actions</TableHead>
+   889→                    </TableRow>
+   890→                  </TableHeader>
+   891→                  <TableBody>
+   892→                    {filteredUsers.length === 0 ? (
+   893→                      <TableRow><TableCell colSpan={9}><EmptyState message="No users found" /></TableCell></TableRow>
+   894→                    ) : (
+   895→                      filteredUsers.map((u: any) => (
+   896→                        <TableRow key={u.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => setSelectedUser(u)}>
+   897→                          <TableCell onClick={e => e.stopPropagation()}>
+   898→                            <Checkbox checked={selectedUsers.has(u.id)} onCheckedChange={() => toggleUserSelect(u.id)} />
+   899→                          </TableCell>
+   900→                          <TableCell>
+   901→                            <div className="flex items-center gap-2">
+   902→                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500/30 to-cyan-500/30 flex items-center justify-center text-xs font-bold">
+   903→                                {(u.email?.[0] || '?').toUpperCase()}
+   904→                              </div>
+   905→                              <div>
+   906→                                <p className="text-sm font-medium">{u.displayName || u.name || u.email}</p>
+   907→                                <p className="text-xs text-muted-foreground">{u.email}</p>
+   908→                              </div>
+   909→                            </div>
+   910→                          </TableCell>
+   911→                          <TableCell>
+   912→                            <Badge variant="outline" className={PLAN_COLORS[u.plan] || ''}>{u.plan}</Badge>
+   913→                          </TableCell>
+   914→                          <TableCell>
+   915→                            <Badge variant="outline" className={ROLE_COLORS[u.role] || ''}>{u.role}</Badge>
+   916→                          </TableCell>
+   917→                          <TableCell>
+   918→                            <div className="flex items-center gap-1.5">
+   919→                              <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+   920→                                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(u.predictionAccuracy || 0, 100)}%` }} />
+   921→                              </div>
+   922→                              <span className="text-xs font-mono">{u.predictionAccuracy || 0}%</span>
+   923→                            </div>
+   924→                          </TableCell>
+   925→                          <TableCell className="text-sm">{u.totalPredictions || 0}</TableCell>
+   926→                          <TableCell className="text-xs text-muted-foreground">
+   927→                            {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : 'Never'}
+   928→                          </TableCell>
+   929→                          <TableCell>
+   930→                            {u.isBanned ? <Badge variant="destructive" className="text-xs">Banned</Badge> :
+   931→                             !u.isActive ? <Badge variant="secondary" className="text-xs">Inactive</Badge> :
+   932→                             <Badge variant="outline" className="text-xs border-emerald-500/30 text-emerald-400">Active</Badge>}
+   933→                          </TableCell>
+   934→                          <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+   935→                            <div className="flex items-center justify-end gap-1">
+   936→                              <Button size="icon" variant="ghost" className="h-7 w-7"
+   937→                                onClick={() => handleUpdateUser(u.id, { isActive: !u.isActive })}>
+   938→                                {u.isActive ? <Ban className="h-3.5 w-3.5 text-red-400" /> : <UserCheck className="h-3.5 w-3.5 text-emerald-400" />}
+   939→                              </Button>
+   940→                              <Button size="icon" variant="ghost" className="h-7 w-7"
+   941→                                onClick={() => handleUpdateUser(u.id, { plan: u.plan === 'elite' ? 'free' : u.plan === 'pro' ? 'elite' : 'pro' })}>
+   942→                                <Crown className="h-3.5 w-3.5 text-amber-400" />
+   943→                              </Button>
+   944→                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteUser(u.id)}>
+   945→                                <Trash2 className="h-3.5 w-3.5 text-red-400" />
+   946→                              </Button>
+   947→                            </div>
+   948→                          </TableCell>
+   949→                        </TableRow>
+   950→                      ))
+   951→                    )}
+   952→                  </TableBody>
+   953→                </Table>
+   954→              </ScrollArea>
+   955→              {/* Pagination */}
+   956→              <div className="flex items-center justify-between text-xs text-muted-foreground">
+   957→                <span>{filteredUsers.length} of {userPagination.total} users</span>
+   958→                <div className="flex items-center gap-2">
+   959→                  <Button size="sm" variant="outline" disabled={userPagination.page <= 1}
+   960→                    onClick={() => fetchUsersPage(userPagination.page - 1)}>
+   961→                    <ChevronLeft className="h-3.5 w-3.5" />
+   962→                  </Button>
+   963→                  <span>Page {userPagination.page} of {userPagination.totalPages}</span>
+   964→                  <Button size="sm" variant="outline" disabled={userPagination.page >= userPagination.totalPages}
+   965→                    onClick={() => fetchUsersPage(userPagination.page + 1)}>
+   966→                    <ChevronRight className="h-3.5 w-3.5" />
+   967→                  </Button>
+   968→                </div>
+   969→              </div>
+   970→            </div>
+   971→          </SectionCard>
+   972→
+   973→          {/* Feature 8: User Detail Modal */}
+   974→          <Dialog open={!!selectedUser} onOpenChange={(open) => { if (!open) setSelectedUser(null) }}>
+   975→            <DialogContent className="glass-card max-w-lg max-h-[80vh] overflow-y-auto">
+   976→              {selectedUser && (
+   977→                <>
+   978→                  <DialogHeader>
+   979→                    <DialogTitle className="flex items-center gap-3">
+   980→                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500/30 to-cyan-500/30 flex items-center justify-center text-lg font-bold">
+   981→                        {(selectedUser.email?.[0] || '?').toUpperCase()}
+   982→                      </div>
+   983→                      <div>
+   984→                        <p>{selectedUser.displayName || selectedUser.name || selectedUser.email}</p>
+   985→                        <p className="text-sm font-normal text-muted-foreground">{selectedUser.email}</p>
+   986→                      </div>
+   987→                    </DialogTitle>
+   988→                  </DialogHeader>
+   989→                  <div className="space-y-4">
+   990→                    <div className="grid grid-cols-2 gap-3">
+   991→                      <div className="p-3 rounded-lg bg-muted/30">
+   992→                        <p className="text-xs text-muted-foreground">Plan</p>
+   993→                        <Badge variant="outline" className={PLAN_COLORS[selectedUser.plan] || ''}>{selectedUser.plan}</Badge>
+   994→                      </div>
+   995→                      <div className="p-3 rounded-lg bg-muted/30">
+   996→                        <p className="text-xs text-muted-foreground">Role</p>
+   997→                        <Badge variant="outline" className={ROLE_COLORS[selectedUser.role] || ''}>{selectedUser.role}</Badge>
+   998→                      </div>
+   999→                      <div className="p-3 rounded-lg bg-muted/30">
+  1000→                        <p className="text-xs text-muted-foreground">Predictions</p>
+  1001→                        <div className="flex items-center gap-1.5">
+  1002→                          <p className="text-lg font-bold">{selectedUser.totalPredictions || 0}</p>
+  1003→                          <StatusBadge variant="dataclass" value="REAL" />
+  1004→                        </div>
+  1005→                      </div>
+  1006→                      <div className="p-3 rounded-lg bg-muted/30">
+  1007→                        <p className="text-xs text-muted-foreground">Accuracy</p>
+  1008→                        <div className="flex items-center gap-1.5">
+  1009→                          <p className="text-lg font-bold text-emerald-400">{selectedUser.predictionAccuracy || 0}%</p>
+  1010→                          <StatusBadge variant="dataclass" value="DERIVED" />
+  1011→                        </div>
+  1012→                      </div>
+  1013→                      <div className="p-3 rounded-lg bg-muted/30">
+  1014→                        <p className="text-xs text-muted-foreground">Best Streak</p>
+  1015→                        <div className="flex items-center gap-1.5">
+  1016→                          <p className="text-lg font-bold text-amber-400">{selectedUser.bestStreak || 0}</p>
+  1017→                          <StatusBadge variant="dataclass" value="DERIVED" />
+  1018→                        </div>
+  1019→                      </div>
+  1020→                      <div className="p-3 rounded-lg bg-muted/30">
+  1021→                        <p className="text-xs text-muted-foreground">Login Count</p>
+  1022→                        <div className="flex items-center gap-1.5">
+  1023→                          <p className="text-lg font-bold">{selectedUser.loginCount || 0}</p>
+  1024→                          <StatusBadge variant="dataclass" value="REAL" />
+  1025→                        </div>
+  1026→                      </div>
+  1027→                    </div>
+  1028→                    <Separator />
+  1029→                    <div className="space-y-2">
+  1030→                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Session Info</p>
+  1031→                      <div className="flex justify-between text-sm">
+  1032→                        <span>Last Login</span>
+  1033→                        <span>{selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleString() : 'Never'}</span>
+  1034→                      </div>
+  1035→                      <div className="flex justify-between text-sm">
+  1036→                        <span>Account Created</span>
+  1037→                        <span>{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : '—'}</span>
+  1038→                      </div>
+  1039→                      <div className="flex justify-between text-sm">
+  1040→                        <span>Failed Logins</span>
+  1041→                        <span className={selectedUser.failedLogins > 0 ? 'text-red-400' : ''}>{selectedUser.failedLogins || 0}</span>
+  1042→                      </div>
+  1043→                      <div className="flex justify-between text-sm">
+  1044→                        <span>2FA Enabled</span>
+  1045→                        <span>{selectedUser.twoFactorEnabled ? 'Yes' : 'No'}</span>
+  1046→                      </div>
+  1047→                    </div>
+  1048→                    <Separator />
+  1049→                    <div className="flex flex-wrap gap-2">
+  1050→                      <Select value={selectedUser.plan} onValueChange={v => handleUpdateUser(selectedUser.id, { plan: v })}>
+  1051→                        <SelectTrigger className="w-32 h-8"><SelectValue /></SelectTrigger>
+  1052→                        <SelectContent>
+  1053→                          <SelectItem value="free">Free</SelectItem>
+  1054→                          <SelectItem value="pro">Pro</SelectItem>
+  1055→                          <SelectItem value="elite">Elite</SelectItem>
+  1056→                        </SelectContent>
+  1057→                      </Select>
+  1058→                      <Button size="sm" variant="outline" onClick={() => handleUpdateUser(selectedUser.id, { isActive: !selectedUser.isActive })}>
+  1059→                        {selectedUser.isActive ? 'Deactivate' : 'Activate'}
+  1060→                      </Button>
+  1061→                      <Button size="sm" variant="outline" onClick={() => handleUpdateUser(selectedUser.id, { isBanned: !selectedUser.isBanned, banReason: selectedUser.isBanned ? null : 'Admin action' })}>
+  1062→                        {selectedUser.isBanned ? 'Unban' : 'Ban'}
+  1063→                      </Button>
+  1064→                    </div>
+  1065→                  </div>
+  1066→                </>
+  1067→              )}
+  1068→            </DialogContent>
+  1069→          </Dialog>
+  1070→
+  1071→          {/* Feature 10: User Analytics Charts */}
+  1072→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1073→            {/* User Acquisition */}
+  1074→            <SectionCard title="User Acquisition" icon={TrendingUp}>
+  1075→              <div className="flex flex-col items-center justify-center py-12 text-center">
+  1076→                <BarChart3 className="size-8 text-muted-foreground/50 mb-3" />
+  1077→                <p className="text-sm font-medium text-foreground">User Acquisition Data</p>
+  1078→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Historical acquisition data by plan is not available from the current data source.</p>
+  1079→              </div>
+  1080→            </SectionCard>
+  1081→
+  1082→            {/* Geographic Distribution */}
+  1083→            <SectionCard title="Geographic Distribution" icon={Globe}>
+  1084→              <div className="flex flex-col items-center justify-center py-12 text-center">
+  1085→                <Globe className="size-8 text-muted-foreground/50 mb-3" />
+  1086→                <p className="text-sm font-medium text-foreground">Geographic Data</p>
+  1087→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">User geographic distribution data is not collected by the current data source.</p>
+  1088→              </div>
+  1089→            </SectionCard>
+  1090→          </div>
+  1091→        </TabsContent>
+  1092→
+  1093→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1094→        {/* TAB 3: CONTENT                                                        */}
+  1095→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1096→        <TabsContent value="content" className="space-y-6 mt-6">
+  1097→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1098→            {/* Feature 13: Announcement Manager */}
+  1099→            <SectionCard title="Announcements" icon={Megaphone}>
+  1100→              <div className="space-y-3">
+  1101→                <div className="flex items-center justify-between">
+  1102→                  <p className="text-xs text-muted-foreground">{announcements.length} active</p>
+  1103→                  <Dialog open={announcementModal} onOpenChange={(open) => { setAnnouncementModal(open); if (!open) { setEditingAnnouncement(null); setAnnForm({ title: '', content: '', type: 'info', targetRole: 'all' }) } }}>
+  1104→                    <DialogTrigger asChild>
+  1105→                      <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 h-8">
+  1106→                        <Plus className="h-3.5 w-3.5" /> New
+  1107→                      </Button>
+  1108→                    </DialogTrigger>
+  1109→                    <DialogContent className="glass-card">
+  1110→                      <DialogHeader>
+  1111→                        <DialogTitle>{editingAnnouncement ? 'Edit' : 'Create'} Announcement</DialogTitle>
+  1112→                        <DialogDescription>Announcements are shown to targeted user roles</DialogDescription>
+  1113→                      </DialogHeader>
+  1114→                      <div className="space-y-4">
+  1115→                        <div className="space-y-2">
+  1116→                          <Label>Title</Label>
+  1117→                          <Input value={annForm.title} onChange={e => setAnnForm(p => ({ ...p, title: e.target.value }))} placeholder="Announcement title" />
+  1118→                        </div>
+  1119→                        <div className="space-y-2">
+  1120→                          <Label>Content</Label>
+  1121→                          <Textarea value={annForm.content} onChange={e => setAnnForm(p => ({ ...p, content: e.target.value }))} placeholder="Announcement content..." rows={3} />
+  1122→                        </div>
+  1123→                        <div className="grid grid-cols-2 gap-3">
+  1124→                          <div className="space-y-2">
+  1125→                            <Label>Type</Label>
+  1126→                            <Select value={annForm.type} onValueChange={v => setAnnForm(p => ({ ...p, type: v }))}>
+  1127→                              <SelectTrigger><SelectValue /></SelectTrigger>
+  1128→                              <SelectContent>
+  1129→                                {ANNOUNCEMENT_TYPES.map(t => <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>)}
+  1130→                              </SelectContent>
+  1131→                            </Select>
+  1132→                          </div>
+  1133→                          <div className="space-y-2">
+  1134→                            <Label>Target Role</Label>
+  1135→                            <Select value={annForm.targetRole} onValueChange={v => setAnnForm(p => ({ ...p, targetRole: v }))}>
+  1136→                              <SelectTrigger><SelectValue /></SelectTrigger>
+  1137→                              <SelectContent>
+  1138→                                <SelectItem value="all">All</SelectItem>
+  1139→                                <SelectItem value="user">User</SelectItem>
+  1140→                                <SelectItem value="pro">Pro</SelectItem>
+  1141→                                <SelectItem value="elite">Elite</SelectItem>
+  1142→                                <SelectItem value="admin">Admin</SelectItem>
+  1143→                              </SelectContent>
+  1144→                            </Select>
+  1145→                          </div>
+  1146→                        </div>
+  1147→                      </div>
+  1148→                      <DialogFooter>
+  1149→                        <Button variant="outline" onClick={() => setAnnouncementModal(false)}>Cancel</Button>
+  1150→                        <Button onClick={handleCreateAnnouncement}>{editingAnnouncement ? 'Update' : 'Create'}</Button>
+  1151→                      </DialogFooter>
+  1152→                    </DialogContent>
+  1153→                  </Dialog>
+  1154→                </div>
+  1155→                <ScrollArea className="max-h-64">
+  1156→                  <div className="space-y-2">
+  1157→                    {announcements.length === 0 ? (
+  1158→                      <EmptyState message="No announcements" />
+  1159→                    ) : (
+  1160→                      announcements.map((ann: any) => (
+  1161→                        <div key={ann.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/20">
+  1162→                          <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${
+  1163→                            ann.type === 'warning' ? 'bg-amber-500/10 text-amber-400' :
+  1164→                            ann.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
+  1165→                            ann.type === 'maintenance' ? 'bg-red-500/10 text-red-400' :
+  1166→                            'bg-cyan-500/10 text-cyan-400'
+  1167→                          }`}>
+  1168→                            {ann.type === 'warning' ? <AlertTriangle className="h-3.5 w-3.5" /> :
+  1169→                             ann.type === 'success' ? <CheckCircle className="h-3.5 w-3.5" /> :
+  1170→                             ann.type === 'maintenance' ? <Wrench className="h-3.5 w-3.5" /> :
+  1171→                             <Bell className="h-3.5 w-3.5" />}
+  1172→                          </div>
+  1173→                          <div className="min-w-0 flex-1">
+  1174→                            <p className="text-sm font-medium">{ann.title}</p>
+  1175→                            <p className="text-xs text-muted-foreground line-clamp-2">{ann.content}</p>
+  1176→                            <div className="flex items-center gap-2 mt-1">
+  1177→                              <Badge variant="outline" className="text-[10px]">{ann.targetRole}</Badge>
+  1178→                              <span className="text-[10px] text-muted-foreground">{new Date(ann.createdAt).toLocaleDateString()}</span>
+  1179→                            </div>
+  1180→                          </div>
+  1181→                        </div>
+  1182→                      ))
+  1183→                    )}
+  1184→                  </div>
+  1185→                </ScrollArea>
+  1186→              </div>
+  1187→            </SectionCard>
+  1188→
+  1189→            {/* Feature 14: News Publisher */}
+  1190→            <SectionCard title="News Publisher" icon={Newspaper}>
+  1191→              <div className="space-y-3">
+  1192→                <div className="flex items-center justify-between">
+  1193→                  <p className="text-xs text-muted-foreground">{newsItems.length} articles</p>
+  1194→                  <Dialog open={newsModal} onOpenChange={(open) => { setNewsModal(open); if (!open) { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) } }}>
+  1195→                    <DialogTrigger asChild>
+  1196→                      <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 h-8"
+  1197→                        onClick={() => { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) }}>
+  1198→                        <Plus className="h-3.5 w-3.5" /> New Article
+  1199→                      </Button>
+  1200→                    </DialogTrigger>
+  1201→                    <DialogContent className="glass-card">
+  1202→                      <DialogHeader>
+  1203→                        <DialogTitle>{editingNews ? 'Edit' : 'Create'} News Article</DialogTitle>
+  1204→                      </DialogHeader>
+  1205→                      <div className="space-y-4">
+  1206→                        <div className="space-y-2">
+  1207→                          <Label>Title</Label>
+  1208→                          <Input value={newsForm.title} onChange={e => setNewsForm(p => ({ ...p, title: e.target.value }))} />
+  1209→                        </div>
+  1210→                        <div className="space-y-2">
+  1211→                          <Label>Summary</Label>
+  1212→                          <Textarea value={newsForm.summary} onChange={e => setNewsForm(p => ({ ...p, summary: e.target.value }))} rows={2} />
+  1213→                        </div>
+  1214→                        <div className="space-y-2">
+  1215→                          <Label>Content</Label>
+  1216→                          <Textarea value={newsForm.content} onChange={e => setNewsForm(p => ({ ...p, content: e.target.value }))} rows={4} />
+  1217→                        </div>
+  1218→                        <div className="grid grid-cols-3 gap-3">
+  1219→                          <div className="space-y-2">
+  1220→                            <Label>Category</Label>
+  1221→                            <Select value={newsForm.category} onValueChange={v => setNewsForm(p => ({ ...p, category: v }))}>
+  1222→                              <SelectTrigger><SelectValue /></SelectTrigger>
+  1223→                              <SelectContent>
+  1224→                                {NEWS_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>)}
+  1225→                              </SelectContent>
+  1226→                            </Select>
+  1227→                          </div>
+  1228→                          <div className="space-y-2">
+  1229→                            <Label>Sentiment</Label>
+  1230→                            <Select value={newsForm.sentiment} onValueChange={v => setNewsForm(p => ({ ...p, sentiment: v }))}>
+  1231→                              <SelectTrigger><SelectValue /></SelectTrigger>
+  1232→                              <SelectContent>
+  1233→                                {NEWS_SENTIMENTS.map(s => <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>)}
+  1234→                              </SelectContent>
+  1235→                            </Select>
+  1236→                          </div>
+  1237→                          <div className="flex items-end gap-2 pb-1">
+  1238→                            <div className="flex items-center gap-2">
+  1239→                              <Switch checked={newsForm.isBreaking} onCheckedChange={c => setNewsForm(p => ({ ...p, isBreaking: c }))} />
+  1240→                              <Label className="text-xs">Breaking</Label>
+  1241→                            </div>
+  1242→                          </div>
+  1243→                        </div>
+  1244→                      </div>
+  1245→                      <DialogFooter>
+  1246→                        <Button variant="outline" onClick={() => setNewsModal(false)}>Cancel</Button>
+  1247→                        <Button onClick={handleCreateNews}>{editingNews ? 'Update' : 'Publish'}</Button>
+  1248→                      </DialogFooter>
+  1249→                    </DialogContent>
+  1250→                  </Dialog>
+  1251→                </div>
+  1252→                <ScrollArea className="max-h-64">
+  1253→                  <div className="space-y-2">
+  1254→                    {newsItems.map((news) => (
+  1255→                      <div key={news.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/20 group">
+  1256→                        <div className="min-w-0 flex-1">
+  1257→                          <div className="flex items-center gap-2">
+  1258→                            {news.isBreaking && <Badge variant="destructive" className="text-[10px] animate-pulse">BREAKING</Badge>}
+  1259→                            <p className="text-sm font-medium line-clamp-1">{news.title}</p>
+  1260→                          </div>
+  1261→                          <div className="flex items-center gap-2 mt-1">
+  1262→                            <Badge variant="outline" className="text-[10px]">{news.category}</Badge>
+  1263→                            <span className="text-[10px] text-muted-foreground">{news.readCount} reads</span>
+  1264→                            <span className="text-[10px] text-muted-foreground">
+  1265→                              {news.sentiment === 'positive' ? '😊' : news.sentiment === 'negative' ? '😟' : '😐'}
+  1266→                            </span>
+  1267→                          </div>
+  1268→                        </div>
+  1269→                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+  1270→                          <Button size="icon" variant="ghost" className="h-7 w-7"
+  1271→                            onClick={() => { setEditingNews(news); setNewsForm({ title: news.title, summary: news.summary || '', content: news.content || '', category: news.category, isBreaking: news.isBreaking, sentiment: news.sentiment || 'neutral' }); setNewsModal(true) }}>
+  1272→                            <Edit className="h-3 w-3" />
+  1273→                          </Button>
+  1274→                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteNews(news.id)}>
+  1275→                            <Trash2 className="h-3 w-3 text-red-400" />
+  1276→                          </Button>
+  1277→                        </div>
+  1278→                      </div>
+  1279→                    ))}
+  1280→                  </div>
+  1281→                </ScrollArea>
+  1282→              </div>
+  1283→            </SectionCard>
+  1284→          </div>
+  1285→
+  1286→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  1287→            {/* Feature 15: Content Calendar */}
+  1288→            <SectionCard title="Content Calendar" icon={CalendarDays}>
+  1289→              <div className="flex flex-col items-center justify-center py-12 text-center">
+  1290→                <CalendarDays className="size-8 text-muted-foreground/50 mb-3" />
+  1291→                <p className="text-sm font-medium text-foreground">Content Calendar</p>
+  1292→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Scheduled content items will appear here once created through the News Publisher.</p>
+  1293→              </div>
+  1294→            </SectionCard>
+  1295→
+  1296→            {/* Feature 16: Push Notification Composer */}
+  1297→            <SectionCard title="Push Notification Composer" icon={Radio}>
+  1298→              <div className="space-y-4">
+  1299→                <div className="space-y-2">
+  1300→                  <Label>Title</Label>
+  1301→                  <Input value={pushForm.title} onChange={e => setPushForm(p => ({ ...p, title: e.target.value }))} placeholder="Notification title" />
+  1302→                </div>
+  1303→                <div className="space-y-2">
+  1304→                  <Label>Message</Label>
+  1305→                  <Textarea value={pushForm.message} onChange={e => setPushForm(p => ({ ...p, message: e.target.value }))} placeholder="Notification message..." rows={3} />
+  1306→                </div>
+  1307→                <div className="space-y-2">
+  1308→                  <Label>Target Segment</Label>
+  1309→                  <Select value={pushForm.segment} onValueChange={v => setPushForm(p => ({ ...p, segment: v }))}>
+  1310→                    <SelectTrigger><SelectValue /></SelectTrigger>
+  1311→                    <SelectContent>
+  1312→                      <SelectItem value="all">All Users</SelectItem>
+  1313→                      <SelectItem value="free">Free Users</SelectItem>
+  1314→                      <SelectItem value="pro">Pro Users</SelectItem>
+  1315→                      <SelectItem value="elite">Elite Users</SelectItem>
+  1316→                      <SelectItem value="inactive">Inactive Users (7d+)</SelectItem>
+  1317→                    </SelectContent>
+  1318→                  </Select>
+  1319→                </div>
+  1320→                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleSendPush}>
+  1321→                  <Send className="h-4 w-4 mr-2" /> Send Push Notification
+  1322→                </Button>
+  1323→              </div>
+  1324→            </SectionCard>
+  1325→          </div>
+  1326→
+  1327→          {/* Feature 17: Content Analytics */}
+  1328→          <SectionCard title="Content Analytics" icon={BarChart3}>
+  1329→            <div className="flex flex-col items-center justify-center py-12 text-center">
+  1330→              <BarChart3 className="size-8 text-muted-foreground/50 mb-3" />
+  1331→              <p className="text-sm font-medium text-foreground">Content Analytics</p>
+  1332→              <p className="text-xs text-muted-foreground mt-1 max-w-xs">Publish and manage news articles to see analytics here.</p>
+  1333→            </div>
+  1334→          </SectionCard>
+  1335→        </TabsContent>
+  1336→
+  1337→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1338→        {/* TAB 4: ANALYTICS                                                      */}
+  1339→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1340→        <TabsContent value="analytics" className="space-y-6 mt-6">
+  1341→          {/* Feature 18: Prediction Model Performance */}
+  1342→          <SectionCard title="Prediction Model Performance" icon={Brain}>
+  1343→            <div className="flex flex-col items-center justify-center py-12 text-center">
+  1344→              <Brain className="size-8 text-muted-foreground/50 mb-3" />
+  1345→              <p className="text-sm font-medium text-foreground">Model Performance Data</p>
+  1346→              <p className="text-xs text-muted-foreground mt-1 max-w-xs">Prediction model accuracy metrics are not available from the current data source.</p>
+  1347→            </div>
+  1348→          </SectionCard>
+  1349→
+  1350→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1351→            {/* Feature 19: Match Prediction Heatmap */}
+  1352→            <SectionCard title="Match Prediction Heatmap" icon={Target}>
+  1353→              <div className="flex flex-col items-center justify-center py-12 text-center">
+  1354→                <Target className="size-8 text-muted-foreground/50 mb-3" />
+  1355→                <p className="text-sm font-medium text-foreground">Prediction Heatmap</p>
+  1356→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Per-stage prediction accuracy data is not available from the current data source.</p>
+  1357→              </div>
+  1358→            </SectionCard>
+  1359→
+  1360→            {/* Feature 22: Funnel Analysis */}
+  1361→            <SectionCard title="Conversion Funnel" icon={Filter}>
+  1362→              <div className="flex flex-col items-center justify-center py-12 text-center">
+  1363→                <Filter className="size-8 text-muted-foreground/50 mb-3" />
+  1364→                <p className="text-sm font-medium text-foreground">Conversion Funnel</p>
+  1365→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">User conversion funnel data is not tracked by the current data source.</p>
+  1366→              </div>
+  1367→            </SectionCard>
+  1368→          </div>
+  1369→
+  1370→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1371→            {/* Feature 20: A/B Test Manager */}
+  1372→            <SectionCard title="A/B Test Manager" icon={GitBranch}>
+  1373→              <div className="flex flex-col items-center justify-center py-12 text-center">
+  1374→                <GitBranch className="size-8 text-muted-foreground/50 mb-3" />
+  1375→                <p className="text-sm font-medium text-foreground">A/B Test Data</p>
+  1376→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">No A/B tests are currently configured or running.</p>
+  1377→              </div>
+  1378→            </SectionCard>
+  1379→
+  1380→            {/* Feature 21: Feature Usage Analytics */}
+  1381→            <SectionCard title="Feature Usage Analytics" icon={BarChart3}>
+  1382→              <div className="flex flex-col items-center justify-center py-12 text-center">
+  1383→                <BarChart3 className="size-8 text-muted-foreground/50 mb-3" />
+  1384→                <p className="text-sm font-medium text-foreground">Feature Usage Data</p>
+  1385→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Per-feature usage analytics are not tracked by the current data source.</p>
+  1386→              </div>
+  1387→            </SectionCard>
+  1388→          </div>
+  1389→        </TabsContent>
+  1390→
+  1391→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1392→        {/* TAB 5: FINANCE                                                        */}
+  1393→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1394→        <TabsContent value="finance" className="space-y-6 mt-6">
+  1395→          {/* Feature 23: Revenue Dashboard */}
+  1396→          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+  1397→            <StatCard title="MRR" value={`$${(stats?.revenueEstimate || 0).toFixed(2)}`} icon={DollarSign} color="emerald" dataClass="DERIVED" />
+  1398→            <StatCard title="ARR" value={`$${((stats?.revenueEstimate || 0) * 12).toFixed(0)}`} icon={TrendingUp} color="emerald" dataClass="DERIVED" />
+  1399→            <StatCard title="Churn Rate" value={stats?.churnRate ? `${stats.churnRate}%` : '—'} icon={TrendingDown} color="red" dataClass="DERIVED" />
+  1400→            <StatCard title="LTV" value={stats?.ltv ? `$${stats.ltv}` : '—'} icon={Crown} color="gold" dataClass="DERIVED" />
+  1401→            <StatCard title="ARPU" value={stats?.arpu ? `$${stats.arpu}` : '—'} icon={Users} color="blue" dataClass="DERIVED" />
+  1402→          </div>
+  1403→
+  1404→          {/* Revenue Trend Chart */}
+  1405→          <SectionCard title="Revenue Trend" icon={ChartLine}>
+  1406→            <div className="flex flex-col items-center justify-center py-12 text-center">
+  1407→              <ChartLine className="size-8 text-muted-foreground/50 mb-3" />
+  1408→              <p className="text-sm font-medium text-foreground">Revenue Trend Data</p>
+  1409→              <p className="text-xs text-muted-foreground mt-1 max-w-xs">Historical revenue trend data is not available from the current data source.</p>
+  1410→            </div>
+  1411→          </SectionCard>
+  1412→
+  1413→          {/* Feature 25: Revenue by Plan Chart */}
+  1414→          <SectionCard title="Revenue by Plan (Over Time)" icon={PieIcon}>
+  1415→            <div className="flex flex-col items-center justify-center py-12 text-center">
+  1416→              <PieChart className="size-8 text-muted-foreground/50 mb-3" />
+  1417→              <p className="text-sm font-medium text-foreground">Revenue by Plan History</p>
+  1418→              <p className="text-xs text-muted-foreground mt-1 max-w-xs">Historical revenue breakdown by plan is not available from the current data source.</p>
+  1419→            </div>
+  1420→          </SectionCard>
+  1421→
+  1422→          {/* Feature 24: Subscription Management */}
+  1423→          <SectionCard title="Subscription Management" icon={CreditCard}>
+  1424→            <div className="flex flex-col items-center justify-center py-12 text-center">
+  1425→              <CreditCard className="size-8 text-muted-foreground/50 mb-3" />
+  1426→              <p className="text-sm font-medium text-foreground">Subscription Data</p>
+  1427→              <p className="text-xs text-muted-foreground mt-1 max-w-xs">Detailed subscription records are not available from the current data source.</p>
+  1428→            </div>
+  1429→          </SectionCard>
+  1430→        </TabsContent>
+  1431→
+  1432→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1433→        {/* TAB 6: SYSTEM                                                         */}
+  1434→        {/* ════════════════════════════════════════════════════════════════════ */}
+  1435→        <TabsContent value="system" className="space-y-6 mt-6">
+  1436→          {/* Feature 26: System Settings Panel */}
+  1437→          <SectionCard title="System Settings" icon={Settings}>
+  1438→            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1439→              {[
+  1440→                { key: 'registration_open', label: 'Registration Open', type: 'boolean', default: 'true' },
+  1441→                { key: 'maintenance_mode', label: 'Maintenance Mode', type: 'boolean', default: 'false' },
+  1442→                { key: 'max_predictions_free', label: 'Max Predictions (Free)', type: 'number', default: '5' },
+  1443→                { key: 'ai_chat_enabled', label: 'AI Chat Enabled', type: 'boolean', default: 'true' },
+  1444→                { key: 'default_user_plan', label: 'Default User Plan', type: 'string', default: 'free' },
+  1445→                { key: 'prediction_lockout_hours', label: 'Prediction Lockout (hrs)', type: 'number', default: '1' },
+  1446→                { key: 'max_login_attempts', label: 'Max Login Attempts', type: 'number', default: '5' },
+  1447→                { key: 'session_timeout_minutes', label: 'Session Timeout (min)', type: 'number', default: '60' },
+  1448→              ].map(setting => {
+  1449→                const existing = settingsList.find((s: any) => s.key === setting.key)
+  1450→                const value = existing?.value || setting.default
+  1451→                return (
+  1452→                  <div key={setting.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/20">
+  1453→                    <div>
+  1454→                      <p className="text-sm font-medium">{setting.label}</p>
+  1455→                      <p className="text-[10px] text-muted-foreground font-mono">{setting.key}</p>
+  1456→                    </div>
+  1457→                    {setting.type === 'boolean' ? (
+  1458→                      <Switch checked={value === 'true'} onCheckedChange={(checked) => handleToggleSetting(setting.key, String(checked))} />
+  1459→                    ) : (
+  1460→                      <Input className="w-20 h-8 text-right text-sm" value={value}
+  1461→                        onChange={e => handleToggleSetting(setting.key, e.target.value)} />
+  1462→                    )}
+  1463→                  </div>
+  1464→                )
+  1465→              })}
+  1466→            </div>
+  1467→          </SectionCard>
+  1468→
+  1469→          {/* Feature 27: Feature Flags Manager */}
+  1470→          <SectionCard title="Feature Flags" icon={ToggleLeft}>
+  1471→            <ScrollArea className="max-h-72">
+  1472→              <div className="space-y-2">
+  1473→                {featureFlags.map((flag: any) => {
+  1474→                  const targetRoles: string[] = (() => { try { return JSON.parse(flag.targetRoles || '[]') } catch { return [] } })()
+  1475→                  return (
+  1476→                    <div key={flag.id} className="p-3 rounded-lg bg-muted/20 space-y-2">
+  1477→                      <div className="flex items-center justify-between">
+  1478→                        <div className="flex items-center gap-2">
+  1479→                          <Switch checked={flag.isEnabled} onCheckedChange={() => handleToggleFlag(flag)} />
+  1480→                          <div>
+  1481→                            <p className="text-sm font-medium font-mono">{flag.name}</p>
+  1482→                            <p className="text-xs text-muted-foreground">{flag.description || 'No description'}</p>
+  1483→                          </div>
+  1484→                        </div>
+  1485→                        <Badge variant={flag.isEnabled ? 'outline' : 'secondary'}
+  1486→                          className={flag.isEnabled ? 'border-emerald-500/30 text-emerald-400 text-[10px]' : 'text-[10px]'}>
+  1487→                          {flag.isEnabled ? 'Enabled' : 'Disabled'}
+  1488→                        </Badge>
+  1489→                      </div>
+  1490→                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+  1491→                        <span>Rollout: {flag.rollout || 100}%</span>
+  1492→                        <span>Target: {targetRoles.length > 0 ? targetRoles.join(', ') : 'All'}</span>
+  1493→                        <div className="flex-1" />
+  1494→                        <Slider value={[flag.rollout || 100]} max={100} step={5} className="w-24"
+  1495→                          onValueChange={([v]) => handleUpdateFlag(flag, { rollout: v })} />
+  1496→                      </div>
+  1497→                    </div>
+  1498→                  )
+  1499→                })}
+  1500→                {featureFlags.length === 0 && <EmptyState message="No feature flags configured" />}
+  1501→              </div>
+  1502→            </ScrollArea>
+  1503→          </SectionCard>
+  1504→
+  1505→          {/* Feature 28: API Request Logs */}
+  1506→          <SectionCard title="API Request Logs" icon={FileText}>
+  1507→            <div className="space-y-3">
+  1508→              <div className="flex items-center gap-2">
+  1509→                <span className="text-xs text-muted-foreground">Filter:</span>
+  1510→                {['all', '2xx', '3xx', '4xx', '5xx'].map(f => (
+  1511→                  <Button key={f} size="sm" variant={logStatusFilter === f ? 'default' : 'outline'} className="h-7 text-xs"
+  1512→                    onClick={() => { setLogStatusFilter(f); fetchLogsPage(1) }}>
+  1513→                    {f === 'all' ? 'All' : f}
+  1514→                  </Button>
+  1515→                ))}
+  1516→              </div>
+  1517→              <ScrollArea className="max-h-72">
+  1518→                <Table>
+  1519→                  <TableHeader>
+  1520→                    <TableRow>
+  1521→                      <TableHead>Method</TableHead>
+  1522→                      <TableHead>Path</TableHead>
+  1523→                      <TableHead>Status</TableHead>
+  1524→                      <TableHead>Duration</TableHead>
+  1525→                      <TableHead>Timestamp</TableHead>
+  1526→                    </TableRow>
+  1527→                  </TableHeader>
+  1528→                  <TableBody>
+  1529→                    {filteredLogs.length === 0 ? (
+  1530→                      <TableRow><TableCell colSpan={5}><EmptyState message="No logs found" /></TableCell></TableRow>
+  1531→                    ) : (
+  1532→                      filteredLogs.map((log: any) => (
+  1533→                        <TableRow key={log.id}>
+  1534→                          <TableCell>
+  1535→                            <Badge variant="outline" className={`text-[10px] font-mono ${
+  1536→                              log.method === 'GET' ? 'border-emerald-500/30 text-emerald-400' :
+  1537→                              log.method === 'POST' ? 'border-amber-500/30 text-amber-400' :
+  1538→                              log.method === 'PATCH' ? 'border-cyan-500/30 text-cyan-400' :
+  1539→                              'border-red-500/30 text-red-400'
+  1540→                            }`}>{log.method}</Badge>
+  1541→                          </TableCell>
+  1542→                          <TableCell className="text-xs font-mono max-w-[200px] truncate">{log.path}</TableCell>
+  1543→                          <TableCell>
+  1544→                            <Badge variant={log.statusCode >= 400 ? 'destructive' : 'outline'}
+  1545→                              className={`text-[10px] ${log.statusCode >= 400 ? '' : log.statusCode >= 300 ? 'border-amber-500/30 text-amber-400' : 'border-emerald-500/30 text-emerald-400'}`}>
+  1546→                              {log.statusCode}
+  1547→                            </Badge>
+  1548→                          </TableCell>
+  1549→                          <TableCell className="text-xs font-mono">{log.duration}ms</TableCell>
+  1550→                          <TableCell className="text-xs text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</TableCell>
+  1551→                        </TableRow>
+  1552→                      ))
+  1553→                    )}
+  1554→                  </TableBody>
+  1555→                </Table>
+  1556→              </ScrollArea>
+  1557→              <div className="flex items-center justify-between text-xs text-muted-foreground">
+  1558→                <span>{logPagination.total} total logs</span>
+  1559→                <div className="flex items-center gap-2">
+  1560→                  <Button size="sm" variant="outline" disabled={logPagination.page <= 1} onClick={() => fetchLogsPage(logPagination.page - 1)}>
+  1561→                    <ChevronLeft className="h-3.5 w-3.5" />
+  1562→                  </Button>
+  1563→                  <span>Page {logPagination.page} of {logPagination.totalPages}</span>
+  1564→                  <Button size="sm" variant="outline" disabled={logPagination.page >= logPagination.totalPages} onClick={() => fetchLogsPage(logPagination.page + 1)}>
+  1565→                    <ChevronRight className="h-3.5 w-3.5" />
+  1566→                  </Button>
+  1567→                </div>
+  1568→              </div>
+  1569→            </div>
+  1570→          </SectionCard>
+  1571→
+  1572→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1573→            {/* Feature 29: Rate Limiting Monitor */}
+  1574→            <SectionCard title="Rate Limiting Monitor" icon={Gauge}>
+  1575→              <div className="flex flex-col items-center justify-center py-12 text-center">
+  1576→                <Gauge className="size-8 text-muted-foreground/50 mb-3" />
+  1577→                <p className="text-sm font-medium text-foreground">Rate Limiting Data</p>
+  1578→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Per-endpoint rate limit usage is not available from the current data source.</p>
+  1579→              </div>
+  1580→            </SectionCard>
+  1581→
+  1582→            {/* Feature 30: Security Panel */}
+  1583→            <SectionCard title="Security Panel" icon={ShieldCheck}>
+  1584→              <div className="space-y-4">
+  1585→                {/* Security Score */}
+  1586→                <div className="text-center p-4 rounded-lg bg-muted/20">
+  1587→                  <div className={`text-4xl font-bold ${securityScore >= 80 ? 'text-emerald-400' : securityScore >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+  1588→                    {securityScore}
+  1589→                  </div>
+  1590→                  <p className="text-xs text-muted-foreground">Security Score</p>
+  1591→                </div>
+  1592→
+  1593→                <div className="grid grid-cols-2 gap-2 text-sm">
+  1594→                  <div className="p-2 rounded-lg bg-muted/20 text-center">
+  1595→                    <p className="font-bold text-red-400">{users.filter((u: any) => u.failedLogins > 0).reduce((sum: number, u: any) => sum + (u.failedLogins || 0), 0)}</p>
+  1596→                    <p className="text-[10px] text-muted-foreground">Failed Logins</p>
+  1597→                  </div>
+  1598→                  <div className="p-2 rounded-lg bg-muted/20 text-center">
+  1599→                    <p className="font-bold text-amber-400">{users.filter((u: any) => u.lockedUntil).length}</p>
+  1600→                    <p className="text-[10px] text-muted-foreground">Locked Accounts</p>
+  1601→                  </div>
+  1602→                  <div className="p-2 rounded-lg bg-muted/20 text-center">
+  1603→                    <p className="font-bold text-emerald-400">{stats?.activeToday || 0}</p>
+  1604→                    <p className="text-[10px] text-muted-foreground">Active Sessions</p>
+  1605→                  </div>
+  1606→                  <div className="p-2 rounded-lg bg-muted/20 text-center">
+  1607→                    <p className="font-bold text-cyan-400">{users.filter((u: any) => u.twoFactorEnabled).length}</p>
+  1608→                    <p className="text-[10px] text-muted-foreground">2FA Enabled</p>
+  1609→                  </div>
+  1610→                </div>
+  1611→
+  1612→                {/* Permission Matrix */}
+  1613→                <div>
+  1614→                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Permission Matrix</p>
+  1615→                  <ScrollArea className="max-h-32">
+  1616→                    <Table>
+  1617→                      <TableHeader>
+  1618→                        <TableRow>
+  1619→                          <TableHead className="text-xs">Permission</TableHead>
+  1620→                          <TableHead className="text-xs text-center">Admin</TableHead>
+  1621→                          <TableHead className="text-xs text-center">Elite</TableHead>
+  1622→                          <TableHead className="text-xs text-center">Pro</TableHead>
+  1623→                          <TableHead className="text-xs text-center">Free</TableHead>
+  1624→                        </TableRow>
+  1625→                      </TableHeader>
+  1626→                      <TableBody>
+  1627→                        {[
+  1628→                          { perm: 'View Matches', admin: true, elite: true, pro: true, free: true },
+  1629→                          { perm: 'Make Predictions', admin: true, elite: true, pro: true, free: true },
+  1630→                          { perm: 'AI Chat', admin: true, elite: true, pro: true, free: false },
+  1631→                          { perm: 'Advanced Stats', admin: true, elite: true, pro: false, free: false },
+  1632→                          { perm: 'Export Data', admin: true, elite: true, pro: false, free: false },
+  1633→                          { perm: 'Admin Panel', admin: true, elite: false, pro: false, free: false },
+  1634→                          { perm: 'Manage Users', admin: true, elite: false, pro: false, free: false },
+  1635→                        ].map((row) => (
+  1636→                          <TableRow key={row.perm}>
+  1637→                            <TableCell className="text-xs">{row.perm}</TableCell>
+  1638→                            <TableCell className="text-center"><CheckCircle className="h-3.5 w-3.5 text-emerald-400 mx-auto" /></TableCell>
+  1639→                            <TableCell className="text-center">{row.elite ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400 mx-auto" /> : <XCircle className="h-3.5 w-3.5 text-red-400/50 mx-auto" />}</TableCell>
+  1640→                            <TableCell className="text-center">{row.pro ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400 mx-auto" /> : <XCircle className="h-3.5 w-3.5 text-red-400/50 mx-auto" />}</TableCell>
+  1641→                            <TableCell className="text-center">{row.free ? <CheckCircle className="h-3.5 w-3.5 text-emerald-400 mx-auto" /> : <XCircle className="h-3.5 w-3.5 text-red-400/50 mx-auto" />}</TableCell>
+  1642→                          </TableRow>
+  1643→                        ))}
+  1644→                      </TableBody>
+  1645→                    </Table>
+  1646→                  </ScrollArea>
+  1647→                </div>
+  1648→              </div>
+  1649→            </SectionCard>
+  1650→          </div>
+  1651→
+  1652→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1653→            {/* Feature 31: Audit Trail */}
+  1654→            <SectionCard title="Audit Trail" icon={History}>
+  1655→              <div className="flex flex-col items-center justify-center py-12 text-center">
+  1656→                <History className="size-8 text-muted-foreground/50 mb-3" />
+  1657→                <p className="text-sm font-medium text-foreground">Audit Trail</p>
+  1658→                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Admin audit trail events are not tracked by the current data source.</p>
+  1659→              </div>
+  1660→            </SectionCard>
+  1661→
+  1662→            {/* Feature 32: Database Health */}
+  1663→            <SectionCard title="Database Health" icon={Database}>
+  1664→              <div className="space-y-3">
+  1665→                {[
+  1666→                  { label: 'Users', count: stats?.totalUsers || users.length, icon: Users },
+  1667→                  { label: 'Matches', count: stats?.totalMatches || 24, icon: Target },
+  1668→                  { label: 'Predictions', count: stats?.totalPredictions || 0, icon: Brain },
+  1669→                  { label: 'News Articles', count: newsItems.length, icon: Newspaper },
+  1670→                  { label: 'Announcements', count: announcements.length, icon: Bell },
+  1671→                  { label: 'Feature Flags', count: featureFlags.length, icon: ToggleLeft },
+  1672→                  { label: 'API Logs (24h)', count: stats?.totalApiCalls24h || logs.length, icon: FileText },
+  1673→                  { label: 'Sessions', count: stats?.activeToday || 0, icon: Key },
+  1674→                ].map((item) => (
+  1675→                  <div key={item.label} className="flex items-center justify-between p-2 rounded-lg bg-muted/20">
+  1676→                    <div className="flex items-center gap-2">
+  1677→                      <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
+  1678→                      <span className="text-sm">{item.label}</span>
+  1679→                    </div>
+  1680→                    <span className="text-sm font-mono font-bold">{item.count.toLocaleString()}</span>
+  1681→                  </div>
+  1682→                ))}
+  1683→                <Separator />
+  1684→                <div className="grid grid-cols-2 gap-2 text-xs">
+  1685→                  <div className="p-2 rounded-lg bg-muted/20">
+  1686→                    <p className="text-muted-foreground">DB Size</p>
+  1687→                    <p className="font-bold">—</p>
+  1688→                  </div>
+  1689→                  <div className="p-2 rounded-lg bg-muted/20">
+  1690→                    <p className="text-muted-foreground">Last Backup</p>
+  1691→                    <p className="font-bold">—</p>
+  1692→                  </div>
+  1693→                  <div className="p-2 rounded-lg bg-muted/20">
+  1694→                    <p className="text-muted-foreground">Avg Query Time</p>
+  1695→                    <p className="font-bold">—</p>
+  1696→                  </div>
+  1697→                  <div className="p-2 rounded-lg bg-muted/20">
+  1698→                    <p className="text-muted-foreground">Connections</p>
+  1699→                    <p className="font-bold">—</p>
+  1700→                  </div>
+  1701→                </div>
+  1702→              </div>
+  1703→            </SectionCard>
+  1704→          </div>
+  1705→
+  1706→          {/* Feature 33: Real-time Metrics */}
+  1707→          <SectionCard title="Real-time Metrics" icon={GaugeCircle}>
+  1708→            <div className="flex flex-col items-center justify-center py-12 text-center">
+  1709→              <GaugeCircle className="size-8 text-muted-foreground/50 mb-3" />
+  1710→              <p className="text-sm font-medium text-foreground">Real-time Metrics</p>
+  1711→              <p className="text-xs text-muted-foreground mt-1 max-w-xs">Real-time API metrics (requests/sec, latency, error rate) require a monitoring agent to be configured.</p>
+  1712→            </div>
+  1713→          </SectionCard>
+  1714→        </TabsContent>
+  1715→      </Tabs>
+  1716→    </div>
+  1717→  )
+  1718→}
+  1719→
+  1720→

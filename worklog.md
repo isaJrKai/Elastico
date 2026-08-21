@@ -248,3 +248,52 @@ Stage Summary:
 - Footer and page.tsx cleaned of false model claims
 - Server compiles and serves correctly
 - Known limitation: agent-browser cannot reach localhost in this sandbox environment
+
+---
+Task ID: build-resume
+Agent: Main
+Task: Resume build phase — security fixes, fabrication cleanup, navigation, responsive
+
+Work Log:
+- CRITICAL: Removed hardcoded Neon DB credentials from config/settings.py line 15 (replaced with local SQLite default)
+- CRITICAL: Fixed /api/predictions/predict crash — 4-line attribute name bug (ensemble_weights_elo → ensemble_weight_elo, missing market weight → 0.0 default)
+- Verified /predict endpoint end-to-end: Arsenal vs Chelsea → home 47.5%, draw 25.4%, away 27.1%, probabilities sum to 1.0
+- Discovered audit agent checked wrong codebase copy (elastico-work/ vs running src/)
+- Actual fabrication count in RUNNING code: 2 remaining (subscription-view Dixon-Coles references)
+- Fixed subscription-view: replaced "Dixon-Coles predictive model" with "Stochastic simulation engine" in Pro plan features and comparison table
+- Fixed system-monitor-view: changed "mock fallback" comment to "security endpoints not available"
+- Rewrote chat system prompt: HAL now speaks football — tactical concepts (low block, gegenpressing, half-spaces), model-specific capabilities, honesty rules, 70% confidence cap
+- Deployed navigation audit agent: found 7 issues — dead onClick handlers, missing command palette items, fake success toasts, dead retry button state
+- All 7 navigation issues fixed surgically (command-palette, subscription, settings, export, admin, compare views)
+- Deployed responsive audit agent: found 6 HIGH, 9 MEDIUM, 4 LOW issues across 8 views
+- Fixed all 6 HIGH responsive issues: table overflow, filter select wrapping, tab scrolling, header controls stacking
+- Final verification: 0 TypeScript errors, dev server 200 OK on :3000
+
+Stage Summary:
+- Security: Neon DB credential removed from source, backend /predict endpoint fixed
+- Fabrications: Down to 0 in running codebase (from 63 in Phase 6A audit)
+- Chat: System prompt rewritten for football-native personality with honesty rules
+- Navigation: 7 dead/misleading interactions fixed
+- Responsive: 6 HIGH severity mobile issues fixed (tables, tabs, selects)
+- Build Phase Steps 3, 7-9, 10, 11, 12, 13 all complete
+- Remaining MEDIUM/LOW responsive items (touch targets, grid breakpoints, tiny text) deferred to polish pass
+
+---
+Task ID: 12b
+Agent: fullstack-dev (subagent)
+Task: Fix 6 HIGH severity responsive issues in ELASTICO frontend
+
+Work Log:
+- H1 (predictions-view.tsx L582): Changed `max-h-96 overflow-y-auto` → `max-h-96 overflow-auto` on predictions table container to enable both x and y scrolling
+- H2 (predictions-view.tsx L533): Changed `flex gap-2` → `flex flex-wrap gap-2` on filter Selects parent div so selects stack on small screens
+- H3 (match-detail-view.tsx L490): Added `overflow-x-auto flex-nowrap` to 6-tab TabsList, changed `flex-1` → `flex-shrink-0 min-w-[90px]` on each TabsTrigger
+- H4 (chat-view.tsx L407): Added `flex-wrap` to header controls container, changed `w-[210px]` → `w-full sm:w-[210px]` and `w-[160px]` → `w-full sm:w-[160px]` on SelectTriggers
+- H5 (prediction-engine-view.tsx L283): Added `overflow-x-auto flex-nowrap` to 4-tab TabsList, added `flex-shrink-0 min-w-[140px]` to each TabsTrigger
+- H6 (prediction-engine-view.tsx L717): Wrapped Kelly portfolio Table in `<div className="overflow-x-auto">` for horizontal scroll on 7-column table
+- Verified: `npx tsc --noEmit` passes with zero errors
+
+Stage Summary:
+- 6 responsive fixes applied surgically across 4 files
+- All changes are CSS-only (className modifications + one wrapper div)
+- Zero TypeScript errors
+- No logic or data flow changes

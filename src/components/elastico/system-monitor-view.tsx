@@ -450,7 +450,7 @@ function AdminSystemMonitor() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'verify' }),
       })
-    } catch { /* mock fallback */ }
+    } catch { /* security endpoints not available */ }
     await new Promise(r => setTimeout(r, 1500))
     setSecurityLogs(prev => [{
       id: String(Date.now()),

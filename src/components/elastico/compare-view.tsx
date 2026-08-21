@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useElasticoStore, type Team } from '@/store/use-elastico-store'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { TeamCrest } from '@/components/elastico/primitives/team-crest'
 import { StatusBadge } from '@/components/elastico/primitives/status-badge'
@@ -35,9 +36,9 @@ type ViewState = 'loading' | 'empty' | 'error' | 'success'
 
 export default function CompareView() {
   const teams = useElasticoStore(s => s.teams)
+  const fetchTeams = useElasticoStore(s => s.fetchTeams)
   const [homeTeamId, setHomeTeamId] = useState<string>('')
   const [awayTeamId, setAwayTeamId] = useState<string>('')
-  const [state, setState] = useState<ViewState>(teams.length === 0 ? 'loading' : 'empty')
 
   // Transition to success/empty when teams load
   const viewState = useMemo<ViewState>(() => {
@@ -204,7 +205,7 @@ export default function CompareView() {
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
             <AlertCircle className="size-12 text-red-400" />
             <p className="text-sm text-muted-foreground">Failed to load team data</p>
-            <Button variant="outline" size="sm" className="mt-2 border-border text-xs" onClick={() => setState('loading')}>
+            <Button variant="outline" size="sm" className="mt-2 border-border text-xs" onClick={() => { fetchTeams(); toast.info('Retrying team data load...') }}>
               Retry
             </Button>
           </CardContent>

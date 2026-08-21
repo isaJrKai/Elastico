@@ -487,7 +487,7 @@ export default function MatchDetailView() {
             TABS: TIMELINE / STATISTICS / xG / SHOT MAP / VOTES
             ═══════════════════════════════════════════════════════════════════ */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
+          <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg overflow-x-auto flex-nowrap">
             {[
               { value: 'timeline', label: 'Timeline' },
               { value: 'statistics', label: 'Statistics' },
@@ -496,7 +496,7 @@ export default function MatchDetailView() {
               { value: 'xt', label: 'xT Threat' },
               { value: 'votes', label: 'Votes' },
             ].map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="flex-1 h-8 text-xs font-semibold rounded-md transition-all data-[state=active]:bg-primary/15 data-[state=active]:text-primary">{t.label}</TabsTrigger>
+              <TabsTrigger key={t.value} value={t.value} className="flex-shrink-0 min-w-[90px] h-8 text-xs font-semibold rounded-md transition-all data-[state=active]:bg-primary/15 data-[state=active]:text-primary">{t.label}</TabsTrigger>
             ))}
           </TabsList>
 

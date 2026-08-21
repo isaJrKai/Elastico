@@ -8,7 +8,7 @@ import {
 import {
   LayoutDashboard, Trophy, Swords, Newspaper, MessageSquare, Settings,
   Shield, Bell, CreditCard, BarChart3, Target, Users, Search, ArrowRight,
-  Crosshair, GitCompareArrows, Brain, Activity, Download,
+  Crosshair, GitCompareArrows, Brain, Activity, Download, UsersRound, Award,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -32,11 +32,13 @@ const viewItems: { view: View; label: string; icon: React.ElementType; category:
   { view: 'ai-chat',           label: 'AI Chat',           icon: MessageSquare,     category: 'Tools',        shortcut: '⌘C' },
   { view: 'news',              label: 'News',              icon: Newspaper,         category: 'Tools',        shortcut: '⌘N' },
   { view: 'export',            label: 'Export',            icon: Download,          category: 'Tools',        shortcut: '' },
+  { view: 'social',            label: 'Social',            icon: UsersRound,        category: 'Tools',        shortcut: '' },
   // System (app management)
   { view: 'settings',          label: 'Settings',          icon: Settings,          category: 'System',       shortcut: '⌘,' },
   { view: 'notifications',     label: 'Notifications',     icon: Bell,              category: 'System',       shortcut: '⌘B' },
   { view: 'subscription',      label: 'Subscription',      icon: CreditCard,        category: 'System',       shortcut: '' },
   { view: 'profile',           label: 'Profile',           icon: Users,             category: 'System',       shortcut: '' },
+  { view: 'achievements',      label: 'Achievements',      icon: Award,             category: 'System',       shortcut: '' },
   // Admin (role-restricted)
   { view: 'admin',             label: 'Admin Panel',       icon: Shield,            category: 'Admin',        shortcut: '' },
   { view: 'system-monitor',    label: 'System Monitor',    icon: Activity,          category: 'Admin',        shortcut: '' },

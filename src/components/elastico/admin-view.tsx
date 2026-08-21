@@ -142,6 +142,7 @@ function EmptyState({ message }: { message: string }) {
 
 export default function AdminView() {
   const user = useElasticoStore(s => s.user)
+  const setView = useElasticoStore(s => s.setView)
   const [activeTab, setActiveTab] = useState('overview')
 
   // ── Data State ──
@@ -671,7 +672,7 @@ export default function AdminView() {
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={handleExportCSV}>
                   <Download className="h-3.5 w-3.5" /> Export CSV
                 </Button>
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Diagnostics complete: All checks passed') }}>
+                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => setView('system-monitor')}>
                   <Bug className="h-3.5 w-3.5" /> Diagnostics
                 </Button>
               </div>

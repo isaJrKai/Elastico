@@ -530,7 +530,7 @@ export default function PredictionsView() {
                     {filteredResolved.length} result{filteredResolved.length !== 1 ? 's' : ''}
                   </Badge>
                 </CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Select value={modelFilter} onValueChange={setModelFilter}>
                     <SelectTrigger className="h-7 w-[120px] text-[10px] bg-muted/50 border-border">
                       <SelectValue placeholder="Model" />
@@ -579,7 +579,7 @@ export default function PredictionsView() {
                   }
                 />
               ) : (
-                <div className="max-h-96 overflow-y-auto">
+                <div className="max-h-96 overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="border-border/30 hover:bg-transparent">

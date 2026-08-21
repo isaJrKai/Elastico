@@ -280,17 +280,17 @@ export default function PredictionEngineView() {
       </div>
 
       <Tabs defaultValue="simulator" className="w-full">
-        <TabsList className="glass-card border-0 bg-transparent p-1 gap-1">
-          <TabsTrigger value="simulator" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+        <TabsList className="glass-card border-0 bg-transparent p-1 gap-1 overflow-x-auto flex-nowrap">
+          <TabsTrigger value="simulator" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Cpu className="w-4 h-4 mr-2" />Stochastic Simulator
           </TabsTrigger>
-          <TabsTrigger value="kelly" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="kelly" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Calculator className="w-4 h-4 mr-2" />Kelly Bankroll
           </TabsTrigger>
-          <TabsTrigger value="signals" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="signals" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Radio className="w-4 h-4 mr-2" />Market Signals
           </TabsTrigger>
-          <TabsTrigger value="config" className="data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Settings className="w-4 h-4 mr-2" />Engine Config
           </TabsTrigger>
         </TabsList>
@@ -714,6 +714,7 @@ export default function PredictionEngineView() {
                       <p className="text-sm text-zinc-600">Run a simulation, then calculate Kelly allocation</p>
                     </div>
                   ) : (
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="border-zinc-800/50 hover:bg-transparent">
@@ -744,6 +745,7 @@ export default function PredictionEngineView() {
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   )}
                 </CardContent>
               </Card>

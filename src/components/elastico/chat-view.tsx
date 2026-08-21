@@ -404,10 +404,10 @@ export default function ChatView() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Model Selector — no "Local" option */}
           <Select value={selectedModel} onValueChange={(v) => setSelectedModel(v as ModelKey)}>
-            <SelectTrigger className="h-9 w-[210px] text-xs glass-card border-border">
+            <SelectTrigger className="h-9 w-full sm:w-[210px] text-xs glass-card border-border">
               <div className="flex items-center gap-1.5 truncate">
                 <Wifi className="size-3 shrink-0 text-primary" />
                 <SelectValue placeholder="Select AI model" />
@@ -427,7 +427,7 @@ export default function ChatView() {
 
           {/* Context Selector */}
           <Select value={selectedMatchId} onValueChange={setSelectedMatchId}>
-            <SelectTrigger className="h-9 w-[160px] text-xs bg-card border-border">
+            <SelectTrigger className="h-9 w-full sm:w-[160px] text-xs bg-card border-border">
               <SelectValue placeholder="Select match context" />
             </SelectTrigger>
             <SelectContent>

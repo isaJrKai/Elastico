@@ -471,8 +471,8 @@ export default function SettingsView() {
   // ── Save Profile ─────────────────────────────────────────────────────────
 
   const handleSaveProfile = useCallback(() => {
-    toast.success('Profile saved', {
-      description: 'Your profile has been updated successfully.',
+    toast.info('Coming soon', {
+      description: 'Profile editing with server-side persistence is planned for a future update.',
     })
   }, [])
 
@@ -498,8 +498,8 @@ export default function SettingsView() {
       return
     }
 
-    toast.success('Password updated', {
-      description: 'Your password has been changed successfully.',
+    toast.info('Coming soon', {
+      description: 'Password changes require a backend auth endpoint which is planned for a future update.',
     })
     setCurrentPassword('')
     setNewPassword('')

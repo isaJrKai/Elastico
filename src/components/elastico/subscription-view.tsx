@@ -43,7 +43,7 @@ const PLANS: PricingPlan[] = [
   {
     id: 'pro', name: 'Pro', monthlyPrice: 4.99, yearlyPrice: 3.99,
     description: 'Unlock advanced models and deeper insights', icon: Zap,
-    features: ['Unlimited simulations', 'Dixon-Coles predictive model', 'Priority AI chat access', 'PDF report export', 'Advanced ELO metrics', 'Match probability deep-dives'],
+    features: ['Unlimited simulations', 'Stochastic simulation engine', 'Priority AI chat access', 'PDF report export', 'Advanced ELO metrics', 'Match probability deep-dives'],
     cta: 'Subscribe', borderClass: 'border-emerald-500/50', highlightClass: 'ring-2 ring-emerald-500/20', badge: 'Most Popular',
   },
   {
@@ -61,7 +61,7 @@ const COMPARISON_FEATURES: PlanFeature[] = [
   { name: 'AI Chat Messages', free: '5/day', pro: 'Unlimited', elite: 'Unlimited' },
   { name: 'Community Leaderboard', free: true, pro: true, elite: true },
   { name: 'Basic Match Predictions', free: true, pro: true, elite: true },
-  { name: 'Dixon-Coles Model', free: false, pro: true, elite: true },
+  { name: 'Stochastic Simulation Engine', free: false, pro: true, elite: true },
   { name: 'Advanced ELO Metrics', free: false, pro: true, elite: true },
   { name: 'Probability Deep-Dives', free: false, pro: true, elite: true },
   { name: 'PDF Report Export', free: false, pro: true, elite: true },
@@ -113,7 +113,7 @@ export default function SubscriptionView() {
 
   const handleSubscribe = (planId: string) => {
     if (planId === currentPlan) return
-    toast(`${PLANS.find(p => p.id === planId)?.name} Plan`, { description: `Subscription to the ${planId} plan initiated.` })
+    toast.info('Coming soon', { description: `Subscription management via Stripe is planned. The ${PLANS.find(p => p.id === planId)?.name} plan will be available once payment integration is complete.` })
   }
 
   return (

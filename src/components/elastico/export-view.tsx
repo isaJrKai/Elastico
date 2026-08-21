@@ -486,7 +486,7 @@ export function ExportView() {
                         key={type}
                         variant="outline"
                         className="gap-2 justify-start"
-                        onClick={() => toast.info(`Bulk export of ${type} started. You will be notified when ready.`)}
+                        onClick={() => toast.info('Coming soon', { description: `Bulk export of ${type} data is planned. It will generate a downloadable file once the export pipeline is complete.` })}
                       >
                         <Database className="size-4" />
                         Export {type.charAt(0).toUpperCase() + type.slice(1)}
