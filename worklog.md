@@ -297,3 +297,33 @@ Stage Summary:
 - All changes are CSS-only (className modifications + one wrapper div)
 - Zero TypeScript errors
 - No logic or data flow changes
+
+---
+Task ID: fab-fix-consolidate
+Agent: main
+Task: Fix 12+ remaining fabrications, consolidate prediction paths, confirm E2E flow
+
+Work Log:
+- Fixed settings-view.tsx L1293-1294: Replaced fabricated Llama model specs ("meta/llama-3.1-405b-instruct 405B parameters") with honest "Configured via NVIDIA_NIM_MODEL_ID" descriptions
+- Fixed settings-view.tsx L1303: Replaced fabricated "3-model ensemble (ELO + Poisson + Dixon-Coles) via FastAPI" with accurate description of actual architecture (server-side 4-model ensemble via /api/predictions/compute + client-side stochastic via prediction-engine-view)
+- Fixed subscription-view.tsx L87-89: Removed 3 fabricated testimonials ("Alex M.", "Sarah K.", "James R.") — replaced with empty array + conditional render
+- Fixed subscription-view.tsx L81: Removed fabricated free trial claim ("7-day Pro, 14-day Elite") — replaced with honest "not yet available"
+- Fixed subscription-view.tsx L46: Renamed "Stochastic simulation engine" to "Advanced stochastic models" in plan features (the engine exists but the original wording implied a separate named system; comparison table at L64 keeps accurate name since prediction-engine.ts exports it)
+- Fixed system-monitor.tsx L336: CLV edge default changed from fake 3.2 to null, with empty-state UI
+- Fixed system-monitor.tsx L385: Veronica status default changed from fake true to null, shows UNKNOWN
+- Fixed system-monitor.tsx L429: Sandbox no longer returns fake success — returns honest "unavailable" message
+- Fixed system-monitor.tsx L434: Integrity score default changed from fake 94 to null, with empty-state UI
+- Fixed system-monitor.tsx L958-969: Telegram/Discord badges changed from fake CONFIGURED to honest NOT CONFIGURED
+- Fixed system-monitor.tsx L1115-1118: Removed fabricated TimesFM specs ("500M params", "512 tokens", "xReg enabled") — replaced with dynamic status-based text
+- Fixed system-monitor.tsx L414-416: Veronica error no longer fabricates HEALED event — records FAILED honestly
+- Fixed system-monitor.tsx L601, L637: Removed fabricated "8 endpoints monitored" and "12 metrics tracked" claims
+- Wired predictions-view.tsx to call GET /api/predictions/compute (the 4-model ensemble endpoint)
+- Added Model Predictions panel with 4-state UI (loading skeleton, error with message, empty with explanation, success table)
+- Added ComputePrediction interface, fetchComputePredictions callback, auto-trigger on data load
+- Verified build passes cleanly after all changes
+
+Stage Summary:
+- 12+ fabrications fixed across 3 files (settings: 3, subscription: 3, system-monitor: 6+)
+- /api/predictions/compute is now wired to the Predictions UI — no longer orphaned dead code
+- Architecture confirmed: 3 distinct flows serve different purposes (user CRUD, auto-ensemble, power-user lab)
+- All changes compile cleanly

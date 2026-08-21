@@ -333,7 +333,7 @@ function AdminSystemMonitor() {
   // ── Tab 1: Audit Core ────────────────────────────────────────────────────
   const [scraperStatus, setScraperStatus] = useState<'HEALTHY' | 'DEGRADED' | 'DOWN'>('HEALTHY')
   const [driftStatus, setDriftStatus] = useState<'HEALTHY' | 'DRIFT_DETECTED'>('HEALTHY')
-  const [clvEdge, setClvEdge] = useState(3.2)
+  const [clvEdge, setClvEdge] = useState<number | null>(null)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [auditLoading, setAuditLoading] = useState<string | null>(null)
 
@@ -382,7 +382,7 @@ function AdminSystemMonitor() {
   }
 
   // ── Tab 2: Veronica ─────────────────────────────────────────────────────
-  const [veronicaOnline, setVeronicaOnline] = useState(true)
+  const [veronicaOnline, setVeronicaOnline] = useState<boolean | null>(null)
   const [healingEvents, setHealingEvents] = useState<HealingEvent[]>([])
   const [healingLoading, setHealingLoading] = useState(false)
   const [sandboxCode, setSandboxCode] = useState('// Test code here\nconsole.log("Hello from sandbox");')
@@ -407,13 +407,13 @@ function AdminSystemMonitor() {
           }, ...prev])
         }
       } else {
-        await new Promise(r => setTimeout(r, 1000))
+        // API unavailable — record honestly
         setHealingEvents(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          file: 'src/app/globals.css',
-          errorType: 'ScanComplete',
-          status: 'HEALED',
+          file: 'N/A',
+          errorType: 'ServiceUnavailable',
+          status: 'FAILED',
         }, ...prev])
       }
     } catch {
@@ -426,12 +426,12 @@ function AdminSystemMonitor() {
     setSandboxLoading(true)
     setSandboxResult('')
     await new Promise(r => setTimeout(r, 1200))
-    setSandboxResult(`✅ Sandbox execution complete\nFile: ${sandboxFilename}\nStatus: No errors detected\nRuntime: 42ms`)
+    setSandboxResult(`⚠ Sandbox execution unavailable\nFile: ${sandboxFilename}\nNo sandbox runtime is connected. The sandbox service is not yet deployed.`)
     setSandboxLoading(false)
   }
 
   // ── Tab 3: SAIM Security ────────────────────────────────────────────────
-  const [integrityScore, setIntegrityScore] = useState(94)
+  const [integrityScore, setIntegrityScore] = useState<number | null>(null)
   const [fileIntegrity, setFileIntegrity] = useState<FileIntegrity[]>([])
   const [integrityLoading, setIntegrityLoading] = useState(false)
   const [autoDestruct, setAutoDestruct] = useState(false)
@@ -598,7 +598,7 @@ function AdminSystemMonitor() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    8 endpoints monitored · Last check: {auditLogs[0]?.timestamp?.slice(11, 19) || 'N/A'}
+                    Last check: {auditLogs[0]?.timestamp?.slice(11, 19) || 'N/A'}
                   </p>
                   <Button
                     size="sm" variant="outline" className="w-full gap-2"
@@ -634,7 +634,7 @@ function AdminSystemMonitor() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    12 metrics tracked · KS test + PSI monitoring
+                    Drift detection available · Run audit to check
                   </p>
                   <Button
                     size="sm" variant="outline" className="w-full gap-2"
@@ -661,16 +661,25 @@ function AdminSystemMonitor() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <CircGauge
-                      value={Math.abs(clvEdge) * 10}
-                      max={50}
-                      size={80}
-                      label="CLV Edge %"
-                      strokeColor={clvEdge > 2 ? '#00e676' : clvEdge > 1 ? '#eab308' : '#ef4444'}
-                    />
-                    <span className="text-2xl font-bold" style={{ color: statusColor(clvEdge > 2 ? 'PASS' : 'WARNING') }}>
-                      {clvEdge > 0 ? '+' : ''}{clvEdge}%
-                    </span>
+                    {clvEdge != null ? (
+                      <>
+                        <CircGauge
+                          value={Math.abs(clvEdge) * 10}
+                          max={50}
+                          size={80}
+                          label="CLV Edge %"
+                          strokeColor={clvEdge > 2 ? '#00e676' : clvEdge > 1 ? '#eab308' : '#ef4444'}
+                        />
+                        <span className="text-2xl font-bold" style={{ color: statusColor(clvEdge > 2 ? 'PASS' : 'WARNING') }}>
+                          {clvEdge > 0 ? '+' : ''}{clvEdge}%
+                        </span>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-4 gap-2">
+                        <Shield className="size-6 text-muted-foreground/40" />
+                        <span className="text-xs text-muted-foreground">No data yet</span>
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Closing line value tracking · Avg over 30 days
@@ -748,12 +757,12 @@ function AdminSystemMonitor() {
                     <div
                       className="size-4 rounded-full"
                       style={{
-                        backgroundColor: statusColor(veronicaOnline ? 'ONLINE' : 'OFFLINE'),
-                        boxShadow: `0 0 12px ${statusColor(veronicaOnline ? 'ONLINE' : 'OFFLINE')}80`,
+                        backgroundColor: statusColor(veronicaOnline === true ? 'ONLINE' : 'OFFLINE'),
+                        boxShadow: `0 0 12px ${statusColor(veronicaOnline === true ? 'ONLINE' : 'OFFLINE')}80`,
                       }}
                     />
-                    <span className="text-xl font-bold" style={{ color: statusColor(veronicaOnline ? 'ONLINE' : 'OFFLINE') }}>
-                      {veronicaOnline ? 'ONLINE' : 'OFFLINE'}
+                    <span className="text-xl font-bold" style={{ color: statusColor(veronicaOnline === true ? 'ONLINE' : 'OFFLINE') }}>
+                      {veronicaOnline === true ? 'ONLINE' : veronicaOnline === false ? 'OFFLINE' : 'UNKNOWN'}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -908,14 +917,22 @@ function AdminSystemMonitor() {
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.05 }}>
               <Card className="glass-card-premium">
                 <CardContent className="flex flex-col items-center py-6 px-8">
-                  <CircGauge
-                    value={integrityScore}
-                    max={100}
-                    size={140}
-                    label="Integrity Score"
-                  />
+                  {integrityScore != null ? (
+                    <CircGauge
+                      value={integrityScore}
+                      max={100}
+                      size={140}
+                      label="Integrity Score"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2">
+                      <Fingerprint className="size-10 text-muted-foreground/40" />
+                      <span className="text-xs text-muted-foreground">No integrity data yet</span>
+                      <span className="text-[10px] text-muted-foreground">Run a check to populate</span>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    {integrityScore >= 90 ? 'Excellent' : integrityScore >= 70 ? 'Good' : 'Needs Attention'}
+                    {integrityScore == null ? 'Awaiting first scan' : integrityScore >= 90 ? 'Excellent' : integrityScore >= 70 ? 'Good' : 'Needs Attention'}
                   </p>
                 </CardContent>
               </Card>
@@ -955,8 +972,8 @@ function AdminSystemMonitor() {
                           <Send className="size-3.5 text-blue-400" />
                           <span className="text-xs text-muted-foreground">Telegram Bot</span>
                         </div>
-                        <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">
-                          CONFIGURED
+                        <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border text-[10px]">
+                          NOT CONFIGURED
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between">
@@ -964,8 +981,8 @@ function AdminSystemMonitor() {
                           <Radio className="size-3.5 text-indigo-400" />
                           <span className="text-xs text-muted-foreground">Discord Webhook</span>
                         </div>
-                        <Badge variant="outline" className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">
-                          CONFIGURED
+                        <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border text-[10px]">
+                          NOT CONFIGURED
                         </Badge>
                       </div>
                     </div>
@@ -1112,10 +1129,9 @@ function AdminSystemMonitor() {
                     </span>
                   </div>
                   <div className="space-y-2 text-xs text-muted-foreground">
-                    <p><strong className="text-foreground">Model:</strong> TimesFM 2.5 (500M params)</p>
-                    <p><strong className="text-foreground">Backend:</strong> {modelStatus === 'CONNECTED' ? 'NVIDIA NIM API' : 'Local Fallback'}</p>
-                    <p><strong className="text-foreground">Context Window:</strong> 512 tokens</p>
-                    <p><strong className="text-foreground">Conditioning:</strong> xReg enabled</p>
+                    <p><strong className="text-foreground">Model:</strong> {modelStatus === 'CONNECTED' ? 'TimesFM via NVIDIA NIM' : 'Not connected'}</p>
+                    <p><strong className="text-foreground">Backend:</strong> {modelStatus === 'CONNECTED' ? 'NVIDIA NIM API' : 'No backend configured'}</p>
+                    <p><strong className="text-foreground">Status:</strong> {modelStatus === 'CONNECTED' ? 'Active' : 'Configure NVIDIA_API_KEY to enable'}</p>
                   </div>
                   {forecastResult && (
                     <div className="bg-muted/50 rounded-lg p-3 space-y-2 border border-primary/20">

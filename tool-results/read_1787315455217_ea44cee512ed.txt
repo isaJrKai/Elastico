@@ -1,0 +1,1039 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { useElasticoStore } from '@/store/use-elastico-store'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Skeleton } from '@/components/ui/skeleton'
+     9→import { Input } from '@/components/ui/input'
+    10→import { DataState } from '@/components/elastico/primitives'
+    11→import { Label } from '@/components/ui/label'
+    12→import { Slider } from '@/components/ui/slider'
+    13→import {
+    14→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    15→} from '@/components/ui/select'
+    16→import {
+    17→  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    18→} from '@/components/ui/table'
+    19→import {
+    20→  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, Cell,
+    21→} from 'recharts'
+    22→import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
+    23→import {
+    24→  Target, ArrowUpDown, Flame, CheckCircle2, XCircle, Crown, Download,
+    25→  Trophy, Zap, TrendingUp, Send, AlertCircle, RefreshCw,
+    26→} from 'lucide-react'
+    27→import { cn } from '@/lib/utils'
+    28→import { generateCSV } from '@/lib/export'
+    29→import { toast } from 'sonner'
+    30→
+    31→// ── Types ──────────────────────────────────────────────────────────────────
+    32→
+    33→/** Shape returned by GET /api/predictions */
+    34→interface PredictionRecord {
+    35→  id: string
+    36→  matchId: string
+    37→  homeTeam: string
+    38→  awayTeam: string
+    39→  competition: string
+    40→  predictedHomeGoals: number
+    41→  predictedAwayGoals: number
+    42→  predictedOutcome: string
+    43→  confidence: number
+    44→  model: string
+    45→  actualHomeGoals: number | null
+    46→  actualAwayGoals: number | null
+    47→  isCorrect: boolean | null
+    48→  points: number
+    49→  matchDate: string | null
+    50→  createdAt: string
+    51→}
+    52→
+    53→interface LeaderboardEntry {
+    54→  rank: number
+    55→  id: string
+    56→  name: string | null
+    57→  predictionAccuracy: number
+    58→  predictionStreak: number
+    59→  bestStreak: number
+    60→  totalPredictions: number
+    61→}
+    62→
+    63→type ViewState = 'loading' | 'error' | 'empty' | 'success'
+    64→
+    65→/** Shape returned by GET /api/predictions/compute */
+    66→interface ComputePrediction {
+    67→  matchId: string
+    68→  competition: string
+    69→  homeTeam: { name: string; abbreviation?: string; logo?: string }
+    70→  awayTeam: { name: string; abbreviation?: string; logo?: string }
+    71→  homeScore: number | null
+    72→  awayScore: number | null
+    73→  status: string
+    74→  date: string
+    75→  ensemble: { homeWin: number; draw: number; awayWin: number }
+    76→  elo: { home: number; draw: number; away: number; expHome: string; expAway: string }
+    77→  poisson: { home: number; draw: number; away: number; over25: number; btts: number }
+    78→  dixonColes: { home: number; draw: number; away: number }
+    79→  overUnder25: number
+    80→  btts: number
+    81→  mostLikelyScore: string
+    82→  expectedGoals: { home: string; away: string; total: string }
+    83→  confidence: number
+    84→  volatility: number
+    85→}
+    86→
+    87→type ComputeState = 'idle' | 'loading' | 'error' | 'success'
+    88→
+    89→// ═══════════════════════════════════════════════════════════════════════════════
+    90→
+    91→export default function PredictionsView() {
+    92→  const user = useElasticoStore(s => s.user)
+    93→  const token = useElasticoStore(s => s.token)
+    94→  const matches = useElasticoStore(s => s.matches)
+    95→
+    96→  // ── State ────────────────────────────────────────────────────────────────
+    97→  const [predictions, setPredictions] = useState<PredictionRecord[]>([])
+    98→  const [leaderboardPos, setLeaderboardPos] = useState<number>(0)
+    99→  const [leaderboardCount, setLeaderboardCount] = useState<number>(0)
+   100→  const [viewState, setViewState] = useState<ViewState>('loading')
+   101→  const [errorMessage, setErrorMessage] = useState('')
+   102→  const [sortBy, setSortBy] = useState<'date' | 'confidence' | 'model'>('date')
+   103→  const [modelFilter, setModelFilter] = useState('all')
+   104→  const [resultFilter, setResultFilter] = useState<'all' | 'correct' | 'incorrect' | 'pending'>('all')
+   105→
+   106→  // Quick Predict state
+   107→  const [quickConfidence, setQuickConfidence] = useState(50)
+   108→  const [submittingMatchId, setSubmittingMatchId] = useState<string | null>(null)
+   109→  // Per-match score inputs: { [matchId]: { home: number, away: number } }
+   110→  const [quickScores, setQuickScores] = useState<Record<string, { home: string; away: string }>>({})
+   111→
+   112→  // Model Predictions (from /api/predictions/compute)
+   113→  const [computePredictions, setComputePredictions] = useState<ComputePrediction[]>([])
+   114→  const [computeState, setComputeState] = useState<ComputeState>('idle')
+   115→  const [computeError, setComputeError] = useState('')
+   116→
+   117→  const fetchComputePredictions = useCallback(async () => {
+   118→    setComputeState('loading')
+   119→    setComputeError('')
+   120→    try {
+   121→      const headers: Record<string, string> = {}
+   122→      if (token) headers['Authorization'] = `Bearer ${token}`
+   123→      const res = await fetch('/api/predictions/compute', { headers })
+   124→      if (!res.ok) {
+   125→        if (res.status === 429) throw new Error('Rate limited — max 5 requests per minute. Wait a moment and try again.')
+   126→        if (res.status === 401) throw new Error('Sign in to load model predictions.')
+   127→        const body = await res.json().catch(() => ({}))
+   128→        throw new Error(body.error || `Prediction engine returned ${res.status}`)
+   129→      }
+   130→      const data = await res.json()
+   131→      setComputePredictions(data.predictions || [])
+   132→      setComputeState('success')
+   133→    } catch (err) {
+   134→      setComputeError(err instanceof Error ? err.message : 'Failed to compute predictions.')
+   135→      setComputeState('error')
+   136→    }
+   137→  }, [token])
+   138→
+   139→  // ── Data Fetching ────────────────────────────────────────────────────────
+   140→  const fetchData = useCallback(async () => {
+   141→    setViewState('loading')
+   142→    setErrorMessage('')
+   143→
+   144→    try {
+   145→      const headers: Record<string, string> = {}
+   146→      if (token) headers['Authorization'] = `Bearer ${token}`
+   147→
+   148→      // Fetch predictions
+   149→      const res = await fetch('/api/predictions', { headers })
+   150→      if (!res.ok) {
+   151→        const body = await res.json().catch(() => ({}))
+   152→        throw new Error(body.error || `Request failed (${res.status})`)
+   153→      }
+   154→      const data = await res.json()
+   155→      const fetched: PredictionRecord[] = Array.isArray(data) ? data : data.predictions || []
+   156→      setPredictions(fetched)
+   157→
+   158→      // Fetch leaderboard
+   159→      const lbRes = await fetch('/api/leaderboard')
+   160→      if (lbRes.ok) {
+   161→        const lbData = await lbRes.json()
+   162→        const entries: LeaderboardEntry[] = Array.isArray(lbData) ? lbData : lbData.leaderboard || []
+   163→        const pos = entries.findIndex((e: LeaderboardEntry) => e.id === user?.id)
+   164→        setLeaderboardPos(pos >= 0 ? pos + 1 : 0)
+   165→        setLeaderboardCount(entries.length)
+   166→      }
+   167→
+   168→      // Determine view state
+   169→      if (fetched.length === 0) {
+   170→        setViewState('empty')
+   171→      } else {
+   172→        setViewState('success')
+   173→      }
+   174→    } catch (err) {
+   175→      const msg = err instanceof Error ? err.message : 'Failed to load predictions. Check your connection and try again.'
+   176→      setErrorMessage(msg)
+   177→      setViewState('error')
+   178→    }
+   179→  }, [token, user?.id])
+   180→
+   181→  useEffect(() => { fetchData() }, [fetchData])
+   182→  // Auto-fetch compute predictions when user has predictions loaded
+   183→  useEffect(() => { if (viewState === 'success' || viewState === 'empty') fetchComputePredictions() }, [viewState, fetchComputePredictions])
+   184→
+   185→  // ── Derived data ─────────────────────────────────────────────────────────
+   186→
+   187→  // Match map from store for cross-referencing (status, team colors)
+   188→  const matchMap = useMemo(() => {
+   189→    const map: Record<string, (typeof matches)[number]> = {}
+   190→    for (const m of matches) map[m.id] = m
+   191→    return map
+   192→  }, [matches])
+   193→
+   194→  const upcomingMatches = useMemo(() => matches.filter(m => m.status === 'upcoming'), [matches])
+   195→
+   196→  // Separate predictions: resolved (match played) vs pending
+   197→  const resolvedPredictions = useMemo(
+   198→    () => predictions.filter(p => p.actualHomeGoals != null && p.actualAwayGoals != null),
+   199→    [predictions],
+   200→  )
+   201→  const pendingPredictions = useMemo(
+   202→    () => predictions.filter(p => p.actualHomeGoals == null || p.actualAwayGoals == null),
+   203→    [predictions],
+   204→  )
+   205→
+   206→  // User's model values (for filter dropdown)
+   207→  const usedModels = useMemo(() => {
+   208→    const set = new Set<string>()
+   209→    for (const p of predictions) set.add(p.model)
+   210→    return Array.from(set).sort()
+   211→  }, [predictions])
+   212→
+   213→  const filteredResolved = useMemo(() => {
+   214→    let arr = [...resolvedPredictions]
+   215→    if (modelFilter !== 'all') arr = arr.filter(p => p.model === modelFilter)
+   216→    if (resultFilter === 'correct') arr = arr.filter(p => p.isCorrect === true)
+   217→    if (resultFilter === 'incorrect') arr = arr.filter(p => p.isCorrect === false)
+   218→    if (sortBy === 'date') arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+   219→    if (sortBy === 'confidence') arr.sort((a, b) => b.confidence - a.confidence)
+   220→    if (sortBy === 'model') arr.sort((a, b) => a.model.localeCompare(b.model))
+   221→    return arr
+   222→  }, [resolvedPredictions, modelFilter, resultFilter, sortBy])
+   223→
+   224→  // Stats from DB user record
+   225→  const accuracy = user?.predictionAccuracy ?? 0
+   226→  const streak = user?.predictionStreak ?? 0
+   227→  const bestStreak = user?.bestStreak ?? 0
+   228→  const totalPredictions = user?.totalPredictions ?? 0
+   229→
+   230→  // Accuracy by Model — computed from real resolved predictions
+   231→  const accuracyByModel = useMemo(() => {
+   232→    const map: Record<string, { total: number; correct: number }> = {}
+   233→    for (const p of resolvedPredictions) {
+   234→      if (!map[p.model]) map[p.model] = { total: 0, correct: 0 }
+   235→      map[p.model].total++
+   236→      if (p.isCorrect) map[p.model].correct++
+   237→    }
+   238→    return Object.entries(map)
+   239→      .map(([model, { total, correct }]) => ({
+   240→        model,
+   241→        accuracy: total > 0 ? Math.round((correct / total) * 100) : 0,
+   242→        total,
+   243→      }))
+   244→      .sort((a, b) => b.accuracy - a.accuracy)
+   245→  }, [resolvedPredictions])
+   246→
+   247→  // ── Actions ──────────────────────────────────────────────────────────────
+   248→
+   249→  const handleExport = useCallback(() => {
+   250→    if (filteredResolved.length === 0) {
+   251→      toast.error('Nothing to export', { description: 'No resolved predictions to export.' })
+   252→      return
+   253→    }
+   254→    const data = filteredResolved.map(p => ({
+   255→      Date: p.matchDate ? new Date(p.matchDate).toLocaleDateString() : new Date(p.createdAt).toLocaleDateString(),
+   256→      Match: `${p.homeTeam} vs ${p.awayTeam}`,
+   257→      Competition: p.competition,
+   258→      Prediction: p.predictedOutcome,
+   259→      'Predicted Score': `${p.predictedHomeGoals}-${p.predictedAwayGoals}`,
+   260→      'Actual Score': `${p.actualHomeGoals ?? '?'}-${p.actualAwayGoals ?? '?'}`,
+   261→      Confidence: `${p.confidence}%`,
+   262→      Model: p.model,
+   263→      Result: p.isCorrect === true ? 'Correct' : p.isCorrect === false ? 'Incorrect' : 'Pending',
+   264→      Points: p.points,
+   265→    }))
+   266→    generateCSV(data, 'elastico-predictions')
+   267→    toast.success('Exported!', { description: `${data.length} predictions exported as CSV` })
+   268→  }, [filteredResolved])
+   269→
+   270→  const handleQuickPredict = useCallback(async (matchId: string, choice: string) => {
+   271→    if (!token) {
+   272→      toast.error('Not authenticated')
+   273→      return
+   274→    }
+   275→
+   276→    const scores = quickScores[matchId]
+   277→    if (!scores || scores.home === '' || scores.away === '') {
+   278→      toast.error('Score required', { description: 'Enter your predicted score for both teams.' })
+   279→      return
+   280→    }
+   281→
+   282→    const homeGoals = parseInt(scores.home, 10)
+   283→    const awayGoals = parseInt(scores.away, 10)
+   284→    if (isNaN(homeGoals) || isNaN(awayGoals) || homeGoals < 0 || awayGoals < 0) {
+   285→      toast.error('Invalid score', { description: 'Scores must be non-negative integers.' })
+   286→      return
+   287→    }
+   288→
+   289→    const storeMatch = matchMap[matchId]
+   290→    setSubmittingMatchId(matchId)
+   291→    try {
+   292→      const res = await fetch('/api/predictions', {
+   293→        method: 'POST',
+   294→        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+   295→        body: JSON.stringify({
+   296→          matchId,
+   297→          predictedHomeGoals: homeGoals,
+   298→          predictedAwayGoals: awayGoals,
+   299→          predictedOutcome: choice,
+   300→          confidence: quickConfidence,
+   301→          model: 'user',
+   302→          homeTeam: storeMatch?.homeTeam?.name ?? null,
+   303→          awayTeam: storeMatch?.awayTeam?.name ?? null,
+   304→          competition: storeMatch?.competition ?? null,
+   305→          matchDate: storeMatch?.date ?? null,
+   306→        }),
+   307→      })
+   308→      if (!res.ok) {
+   309→        const body = await res.json().catch(() => ({}))
+   310→        throw new Error(body.error || `Submission failed (${res.status})`)
+   311→      }
+   312→      toast.success('Prediction submitted!')
+   313→      fetchData() // refresh
+   314→    } catch (err) {
+   315→      const msg = err instanceof Error ? err.message : 'Failed to submit prediction'
+   316→      toast.error('Prediction failed', { description: msg })
+   317→    } finally {
+   318→      setSubmittingMatchId(null)
+   319→    }
+   320→  }, [token, quickScores, quickConfidence, matchMap, fetchData])
+   321→
+   322→  const updateScore = useCallback((matchId: string, side: 'home' | 'away', value: string) => {
+   323→    // Allow only digits
+   324→    const cleaned = value.replace(/[^0-9]/g, '')
+   325→    setQuickScores(prev => ({
+   326→      ...prev,
+   327→      [matchId]: {
+   328→        home: side === 'home' ? cleaned : (prev[matchId]?.home ?? ''),
+   329→        away: side === 'away' ? cleaned : (prev[matchId]?.away ?? ''),
+   330→      },
+   331→    }))
+   332→  }, [])
+   333→
+   334→  // Check which upcoming matches already have predictions
+   335→  const predictedMatchIds = useMemo(() => new Set(predictions.map(p => p.matchId)), [predictions])
+   336→
+   337→  // ── Render: LOADING ─────────────────────────────────────────────────────
+   338→
+   339→  if (viewState === 'loading') {
+   340→    return (
+   341→      <div className="space-y-5 animate-fade-in-up">
+   342→        <div className="flex items-center gap-3">
+   343→          <Skeleton className="size-10 rounded-xl" />
+   344→          <div className="flex-1 space-y-2">
+   345→            <Skeleton className="h-4 w-48" />
+   346→            <Skeleton className="h-3 w-72" />
+   347→          </div>
+   348→        </div>
+   349→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   350→          {Array.from({ length: 4 }).map((_, i) => (
+   351→            <Skeleton key={i} className="h-20 rounded-xl" />
+   352→          ))}
+   353→        </div>
+   354→        <Skeleton className="h-72 rounded-xl" />
+   355→        <Skeleton className="h-64 rounded-xl" />
+   356→      </div>
+   357→    )
+   358→  }
+   359→
+   360→  // ── Render: ERROR ───────────────────────────────────────────────────────
+   361→
+   362→  if (viewState === 'error') {
+   363→    return (
+   364→      <div className="space-y-5 animate-fade-in-up">
+   365→        <div className="flex items-center gap-3">
+   366→          <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15">
+   367→            <Target className="size-5 text-primary" />
+   368→          </div>
+   369→          <div>
+   370→            <h2 className="text-base font-bold text-primary">Predictions</h2>
+   371→            <p className="text-sm text-muted-foreground">Track, analyze, and improve your prediction performance</p>
+   372→          </div>
+   373→        </div>
+   374→        <DataState
+   375→          type="error"
+   376→          message={errorMessage || 'Failed to load predictions'}
+   377→          onRetry={fetchData}
+   378→        />
+   379→      </div>
+   380→    )
+   381→  }
+   382→
+   383→  // ── Render: EMPTY ───────────────────────────────────────────────────────
+   384→
+   385→  if (viewState === 'empty') {
+   386→    return (
+   387→      <div className="space-y-5 animate-fade-in-up">
+   388→        {/* Header */}
+   389→        <div className="flex items-center gap-3">
+   390→          <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15">
+   391→            <Target className="size-5 text-primary" />
+   392→          </div>
+   393→          <div className="flex-1">
+   394→            <h2 className="text-base font-bold text-primary">Predictions</h2>
+   395→            <p className="text-sm text-muted-foreground">Track, analyze, and improve your prediction performance</p>
+   396→          </div>
+   397→        </div>
+   398→
+   399→        {/* Stats (all zeros — honest) */}
+   400→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   401→          {[
+   402→            { icon: Target, label: 'Accuracy', value: `${accuracy}%`, color: 'text-primary' },
+   403→            { icon: Zap, label: 'Total Predictions', value: totalPredictions, color: 'text-cyan-400' },
+   404→            { icon: Flame, label: 'Current Streak', value: streak, color: 'text-orange-400' },
+   405→            { icon: Crown, label: 'Best Streak', value: bestStreak, color: 'text-amber-400' },
+   406→          ].map(s => (
+   407→            <Card key={s.label} className="glass-card-premium card-hover-lift rounded-xl">
+   408→              <CardContent className="flex items-center gap-3 p-4">
+   409→                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+   410→                  <s.icon className={cn('size-4', s.color)} />
+   411→                </div>
+   412→                <div>
+   413→                  <p className="text-lg font-bold leading-tight">{s.value}</p>
+   414→                  <p className="text-[10px] text-muted-foreground">{s.label}</p>
+   415→                </div>
+   416→              </CardContent>
+   417→            </Card>
+   418→          ))}
+   419→        </div>
+   420→
+   421→        {/* Quick Predict — still visible when empty so user can start */}
+   422→        {upcomingMatches.length > 0 && (
+   423→          <Card className="glass-card-premium rounded-xl">
+   424→            <CardHeader className="pb-3">
+   425→              <CardTitle className="text-sm font-bold flex items-center gap-2">
+   426→                <Send className="size-4 text-primary" />
+   427→                Quick Predict — Upcoming Matches
+   428→              </CardTitle>
+   429→            </CardHeader>
+   430→            <CardContent className="space-y-3">
+   431→              <div className="flex items-center gap-3 px-1 pb-2">
+   432→                <Label className="text-xs text-muted-foreground whitespace-nowrap">Your confidence:</Label>
+   433→                <Slider
+   434→                  value={[quickConfidence]}
+   435→                  onValueChange={([v]) => setQuickConfidence(v)}
+   436→                  min={10}
+   437→                  max={100}
+   438→                  step={5}
+   439→                  className="flex-1"
+   440→                />
+   441→                <span className="text-xs font-mono text-primary tabular-nums w-8 text-right">{quickConfidence}%</span>
+   442→              </div>
+   443→              {upcomingMatches.slice(0, 4).map((m) => (
+   444→                <QuickPredictRow
+   445→                  key={m.id}
+   446→                  match={m}
+   447→                  scores={quickScores[m.id] ?? { home: '', away: '' }}
+   448→                  onScoreChange={(side, val) => updateScore(m.id, side, val)}
+   449→                  onPredict={(choice) => handleQuickPredict(m.id, choice)}
+   450→                  isSubmitting={submittingMatchId === m.id}
+   451→                  alreadyPredicted={predictedMatchIds.has(m.id)}
+   452→                />
+   453→              ))}
+   454→            </CardContent>
+   455→          </Card>
+   456→        )}
+   457→
+   458→        <DataState
+   459→          type="empty"
+   460→          message="No predictions yet. Use Quick Predict above or the Prediction Engine to get started."
+   461→          actionLabel="Refresh"
+   462→          actionOnClick={fetchData}
+   463→        />
+   464→      </div>
+   465→    )
+   466→  }
+   467→
+   468→  // ── Render: SUCCESS ─────────────────────────────────────────────────────
+   469→
+   470→  return (
+   471→    <div className="space-y-5 animate-fade-in-up">
+   472→      {/* Header */}
+   473→      <div className="flex items-center gap-3">
+   474→        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15">
+   475→          <Target className="size-5 text-primary" />
+   476→        </div>
+   477→        <div className="flex-1">
+   478→          <h2 className="text-base font-bold text-primary">Predictions</h2>
+   479→          <p className="text-sm text-muted-foreground">Track, analyze, and improve your prediction performance</p>
+   480→        </div>
+   481→        <Button
+   482→          variant="outline"
+   483→          size="sm"
+   484→          className="gap-1.5 border-border text-xs"
+   485→          onClick={handleExport}
+   486→          disabled={filteredResolved.length === 0}
+   487→        >
+   488→          <Download className="size-3.5" />Export CSV
+   489→        </Button>
+   490→      </div>
+   491→
+   492→      {/* ── ACCURACY STATS CARDS ── */}
+   493→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   494→        {[
+   495→          { icon: Target, label: 'Accuracy', value: `${accuracy}%`, color: 'text-primary' },
+   496→          { icon: Zap, label: 'Total Predictions', value: totalPredictions, color: 'text-cyan-400' },
+   497→          { icon: Flame, label: 'Current Streak', value: streak, color: 'text-orange-400' },
+   498→          { icon: Crown, label: 'Best Streak', value: bestStreak, color: 'text-amber-400' },
+   499→        ].map(s => (
+   500→          <Card key={s.label} className="glass-card-premium card-hover-lift rounded-xl">
+   501→            <CardContent className="flex items-center gap-3 p-4">
+   502→              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+   503→                <s.icon className={cn('size-4', s.color)} />
+   504→              </div>
+   505→              <div>
+   506→                <p className="text-lg font-bold leading-tight">{s.value}</p>
+   507→                <p className="text-[10px] text-muted-foreground">{s.label}</p>
+   508→              </div>
+   509→            </CardContent>
+   510→          </Card>
+   511→        ))}
+   512→      </div>
+   513→
+   514→      {/* ── LEADERBOARD POSITION ── */}
+   515→      {leaderboardPos > 0 && (
+   516→        <Card className="glass-card-premium rounded-xl border-amber-500/20">
+   517→          <CardContent className="flex items-center gap-4 p-4">
+   518→            <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15">
+   519→              <Trophy className="size-5 text-amber-400" />
+   520→            </div>
+   521→            <div>
+   522→              <p className="text-sm font-semibold">Leaderboard Position</p>
+   523→              <p className="text-2xl font-black text-amber-400">#{leaderboardPos}</p>
+   524→            </div>
+   525→            <div className="ml-auto text-right">
+   526→              <p className="text-xs text-muted-foreground">
+   527→                of {leaderboardCount} predictor{leaderboardCount !== 1 ? 's' : ''}
+   528→              </p>
+   529→            </div>
+   530→          </CardContent>
+   531→        </Card>
+   532→      )}
+   533→
+   534→      {/* ── QUICK PREDICT PANEL ── */}
+   535→      {upcomingMatches.length > 0 && (
+   536→        <Card className="glass-card-premium rounded-xl">
+   537→          <CardHeader className="pb-3">
+   538→            <CardTitle className="text-sm font-bold flex items-center gap-2">
+   539→              <Send className="size-4 text-primary" />
+   540→              Quick Predict — Upcoming Matches
+   541→            </CardTitle>
+   542→          </CardHeader>
+   543→          <CardContent className="space-y-3">
+   544→            {/* Confidence slider */}
+   545→            <div className="flex items-center gap-3 px-1 pb-2">
+   546→              <Label className="text-xs text-muted-foreground whitespace-nowrap">Your confidence:</Label>
+   547→              <Slider
+   548→                value={[quickConfidence]}
+   549→                onValueChange={([v]) => setQuickConfidence(v)}
+   550→                min={10}
+   551→                max={100}
+   552→                step={5}
+   553→                className="flex-1"
+   554→              />
+   555→              <span className="text-xs font-mono text-primary tabular-nums w-8 text-right">{quickConfidence}%</span>
+   556→            </div>
+   557→            {upcomingMatches.slice(0, 6).map((m) => (
+   558→              <QuickPredictRow
+   559→                key={m.id}
+   560→                match={m}
+   561→                scores={quickScores[m.id] ?? { home: '', away: '' }}
+   562→                onScoreChange={(side, val) => updateScore(m.id, side, val)}
+   563→                onPredict={(choice) => handleQuickPredict(m.id, choice)}
+   564→                isSubmitting={submittingMatchId === m.id}
+   565→                alreadyPredicted={predictedMatchIds.has(m.id)}
+   566→              />
+   567→            ))}
+   568→          </CardContent>
+   569→        </Card>
+   570→      )}
+   571→
+   572→      {/* ── MODEL PREDICTIONS (from /api/predictions/compute) ── */}
+   573→      <Card className="glass-card-premium rounded-xl">
+   574→        <CardHeader className="pb-3">
+   575→          <div className="flex items-center justify-between">
+   576→            <CardTitle className="text-sm font-bold flex items-center gap-2">
+   577→              <Zap className="size-4 text-cyan-400" />
+   578→              Model Predictions
+   579→              <Badge variant="outline" className="text-[9px] border-cyan-500/30 text-cyan-400">4-Model Ensemble</Badge>
+   580→            </CardTitle>
+   581→            <Button
+   582→              variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground"
+   583→              onClick={fetchComputePredictions}
+   584→              disabled={computeState === 'loading'}
+   585→            >
+   586→              <RefreshCw className={cn('size-3', computeState === 'loading' && 'animate-spin')} />
+   587→              Refresh
+   588→            </Button>
+   589→          </div>
+   590→          <p className="text-xs text-muted-foreground">
+   591→            ELO + Poisson + Dixon-Coles + Stochastic Jump-Diffusion. Data source: ESPN live scores.
+   592→          </p>
+   593→        </CardHeader>
+   594→        <CardContent>
+   595→          {computeState === 'loading' && (
+   596→            <div className="space-y-3">
+   597→              {Array.from({ length: 3 }).map((_, i) => (
+   598→                <div key={i} className="flex items-center gap-3">
+   599→                  <Skeleton className="h-5 w-28" />
+   600→                  <Skeleton className="h-5 flex-1" />
+   601→                  <Skeleton className="h-5 w-16" />
+   602→                </div>
+   603→              ))}
+   604→            </div>
+   605→          )}
+   606→          {computeState === 'error' && (
+   607→            <div className="flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+   608→              <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
+   609→              <div>
+   610→                <p className="text-xs font-medium text-red-400">Model predictions unavailable</p>
+   611→                <p className="text-[11px] text-muted-foreground mt-0.5">{computeError}</p>
+   612→              </div>
+   613→            </div>
+   614→          )}
+   615→          {computeState === 'success' && computePredictions.length === 0 && (
+   616→            <div className="flex flex-col items-center justify-center py-6 gap-2">
+   617→              <Target className="size-8 text-muted-foreground/30" />
+   618→              <p className="text-sm text-muted-foreground">No matches available for prediction right now.</p>
+   619→              <p className="text-[11px] text-muted-foreground">Predictions appear when ESPN provides upcoming or live fixtures.</p>
+   620→            </div>
+   621→          )}
+   622→          {computeState === 'success' && computePredictions.length > 0 && (
+   623→            <div className="max-h-[400px] overflow-auto">
+   624→              <Table>
+   625→                <TableHeader>
+   626→                  <TableRow className="border-border/30 hover:bg-transparent">
+   627→                    <TableHead className="text-[10px]">Match</TableHead>
+   628→                    <TableHead className="text-[10px] text-center">Home</TableHead>
+   629→                    <TableHead className="text-[10px] text-center">Draw</TableHead>
+   630→                    <TableHead className="text-[10px] text-center">Away</TableHead>
+   631→                    <TableHead className="text-[10px] text-center hidden sm:table-cell">Score</TableHead>
+   632→                    <TableHead className="text-[10px] text-center hidden md:table-cell">xG</TableHead>
+   633→                    <TableHead className="text-[10px] text-center hidden lg:table-cell">O2.5</TableHead>
+   634→                    <TableHead className="text-[10px] text-center hidden lg:table-cell">BTTS</TableHead>
+   635→                  </TableRow>
+   636→                </TableHeader>
+   637→                <TableBody>
+   638→                  {computePredictions.map((p) => (
+   639→                    <TableRow key={p.matchId} className="border-border/10">
+   640→                      <TableCell className="text-xs py-2">
+   641→                        <div className="flex flex-col">
+   642→                          <span className="font-medium truncate max-w-[140px]">{p.homeTeam.name} vs {p.awayTeam.name}</span>
+   643→                          <span className="text-[9px] text-muted-foreground">{p.competition}</span>
+   644→                        </div>
+   645→                      </TableCell>
+   646→                      <TableCell className="text-xs py-2 text-center font-bold text-emerald-400">{p.ensemble.homeWin}%</TableCell>
+   647→                      <TableCell className="text-xs py-2 text-center font-bold text-amber-400">{p.ensemble.draw}%</TableCell>
+   648→                      <TableCell className="text-xs py-2 text-center font-bold text-red-400">{p.ensemble.awayWin}%</TableCell>
+   649→                      <TableCell className="text-xs py-2 text-center tabular-nums hidden sm:table-cell text-muted-foreground">{p.mostLikelyScore}</TableCell>
+   650→                      <TableCell className="text-xs py-2 text-center tabular-nums hidden md:table-cell text-muted-foreground">{p.expectedGoals.total}</TableCell>
+   651→                      <TableCell className="text-xs py-2 text-center tabular-nums hidden lg:table-cell text-muted-foreground">{p.overUnder25}%</TableCell>
+   652→                      <TableCell className="text-xs py-2 text-center tabular-nums hidden lg:table-cell text-muted-foreground">{p.btts}%</TableCell>
+   653→                    </TableRow>
+   654→                  ))}
+   655→                </TableBody>
+   656→              </Table>
+   657→            </div>
+   658→          )}
+   659→        </CardContent>
+   660→      </Card>
+   661→
+   662→      {/* ── MAIN GRID ── */}
+   663→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+   664→        <div className="lg:col-span-2 space-y-5">
+   665→          {/* PREDICTION HISTORY TABLE */}
+   666→          <Card className="glass-card-premium rounded-xl">
+   667→            <CardHeader className="pb-3">
+   668→              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+   669→                <CardTitle className="text-sm font-bold flex items-center gap-2">
+   670→                  <ArrowUpDown className="size-4 text-cyan-400" />
+   671→                  Prediction History
+   672→                  <Badge variant="outline" className="text-[9px] border-border/50 ml-1">
+   673→                    {filteredResolved.length} result{filteredResolved.length !== 1 ? 's' : ''}
+   674→                  </Badge>
+   675→                </CardTitle>
+   676→                <div className="flex flex-wrap gap-2">
+   677→                  <Select value={modelFilter} onValueChange={setModelFilter}>
+   678→                    <SelectTrigger className="h-7 w-[120px] text-[10px] bg-muted/50 border-border">
+   679→                      <SelectValue placeholder="Model" />
+   680→                    </SelectTrigger>
+   681→                    <SelectContent className="glass-card border-border">
+   682→                      <SelectItem value="all">All Models</SelectItem>
+   683→                      {/* Show 'user' first, then any models found in data */}
+   684→                      {usedModels.includes('user') && <SelectItem value="user">User</SelectItem>}
+   685→                      {usedModels.filter(m => m !== 'user').map(m => (
+   686→                        <SelectItem key={m} value={m}>{m}</SelectItem>
+   687→                      ))}
+   688→                    </SelectContent>
+   689→                  </Select>
+   690→                  <Select value={resultFilter} onValueChange={(v) => setResultFilter(v as typeof resultFilter)}>
+   691→                    <SelectTrigger className="h-7 w-[100px] text-[10px] bg-muted/50 border-border">
+   692→                      <SelectValue placeholder="Result" />
+   693→                    </SelectTrigger>
+   694→                    <SelectContent className="glass-card border-border">
+   695→                      <SelectItem value="all">All</SelectItem>
+   696→                      <SelectItem value="correct">Correct</SelectItem>
+   697→                      <SelectItem value="incorrect">Incorrect</SelectItem>
+   698→                      <SelectItem value="pending">Pending</SelectItem>
+   699→                    </SelectContent>
+   700→                  </Select>
+   701→                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+   702→                    <SelectTrigger className="h-7 w-[100px] text-[10px] bg-muted/50 border-border">
+   703→                      <SelectValue placeholder="Sort" />
+   704→                    </SelectTrigger>
+   705→                    <SelectContent className="glass-card border-border">
+   706→                      <SelectItem value="date">Newest</SelectItem>
+   707→                      <SelectItem value="confidence">Confidence</SelectItem>
+   708→                      <SelectItem value="model">Model</SelectItem>
+   709→                    </SelectContent>
+   710→                  </Select>
+   711→                </div>
+   712→              </div>
+   713→            </CardHeader>
+   714→            <CardContent>
+   715→              {filteredResolved.length === 0 ? (
+   716→                <DataState
+   717→                  type="empty"
+   718→                  message={
+   719→                    resolvedPredictions.length === 0
+   720→                      ? 'No resolved predictions yet. Predictions will appear here after matches finish.'
+   721→                      : 'No predictions match the current filters.'
+   722→                  }
+   723→                />
+   724→              ) : (
+   725→                <div className="max-h-96 overflow-auto">
+   726→                  <Table>
+   727→                    <TableHeader>
+   728→                      <TableRow className="border-border/30 hover:bg-transparent">
+   729→                        <TableHead className="text-[10px]">Match</TableHead>
+   730→                        <TableHead className="text-[10px]">Score</TableHead>
+   731→                        <TableHead className="text-[10px]">Prediction</TableHead>
+   732→                        <TableHead className="text-[10px]">Model</TableHead>
+   733→                        <TableHead className="text-[10px]">Conf.</TableHead>
+   734→                        <TableHead className="text-[10px] text-center">Result</TableHead>
+   735→                      </TableRow>
+   736→                    </TableHeader>
+   737→                    <TableBody>
+   738→                      {filteredResolved.map((p) => {
+   739→                        const storeMatch = matchMap[p.matchId]
+   740→                        return (
+   741→                          <TableRow key={p.id} className="border-border/10">
+   742→                            <TableCell className="text-xs py-2">
+   743→                              <div className="flex items-center gap-1.5">
+   744→                                <div
+   745→                                  className="size-4 rounded-full border border-border/50 shrink-0"
+   746→                                  style={{ backgroundColor: storeMatch?.homeTeam?.primaryColor ?? '#555' }}
+   747→                                />
+   748→                                <span className="truncate max-w-[60px] sm:max-w-none">{p.homeTeam}</span>
+   749→                                <span className="text-muted-foreground mx-0.5">vs</span>
+   750→                                <span className="truncate max-w-[60px] sm:max-w-none">{p.awayTeam}</span>
+   751→                              </div>
+   752→                            </TableCell>
+   753→                            <TableCell className="text-xs py-2 tabular-nums font-bold">
+   754→                              {p.actualHomeGoals ?? '?'}-{p.actualAwayGoals ?? '?'}
+   755→                            </TableCell>
+   756→                            <TableCell className="text-xs py-2">
+   757→                              <span className="capitalize">{p.predictedOutcome.replace('_', ' ')}</span>
+   758→                              <span className="text-muted-foreground ml-1">
+   759→                                ({p.predictedHomeGoals}-{p.predictedAwayGoals})
+   760→                              </span>
+   761→                            </TableCell>
+   762→                            <TableCell className="text-xs py-2">
+   763→                              <Badge
+   764→                                variant="outline"
+   765→                                className={cn(
+   766→                                  'text-[9px] border-border/50',
+   767→                                  p.model === 'user' && 'border-primary/30 text-primary',
+   768→                                )}
+   769→                              >
+   770→                                {p.model}
+   771→                              </Badge>
+   772→                            </TableCell>
+   773→                            <TableCell className="text-xs py-2 tabular-nums">{p.confidence}%</TableCell>
+   774→                            <TableCell className="text-center py-2">
+   775→                              {p.isCorrect === null ? (
+   776→                                <span className="text-[10px] text-muted-foreground">Pending</span>
+   777→                              ) : p.isCorrect ? (
+   778→                                <CheckCircle2 className="size-4 text-emerald-400 mx-auto" />
+   779→                              ) : (
+   780→                                <XCircle className="size-4 text-red-400 mx-auto" />
+   781→                              )}
+   782→                            </TableCell>
+   783→                          </TableRow>
+   784→                        )
+   785→                      })}
+   786→                    </TableBody>
+   787→                  </Table>
+   788→                </div>
+   789→              )}
+   790→            </CardContent>
+   791→          </Card>
+   792→
+   793→          {/* PENDING PREDICTIONS */}
+   794→          {pendingPredictions.length > 0 && (
+   795→            <Card className="glass-card-premium rounded-xl">
+   796→              <CardHeader className="pb-3">
+   797→                <CardTitle className="text-sm font-bold flex items-center gap-2">
+   798→                  <AlertCircle className="size-4 text-amber-400" />
+   799→                  Pending Predictions
+   800→                  <Badge variant="outline" className="text-[9px] border-border/50 ml-1">
+   801→                    {pendingPredictions.length}
+   802→                  </Badge>
+   803→                </CardTitle>
+   804→              </CardHeader>
+   805→              <CardContent>
+   806→                <div className="max-h-64 overflow-y-auto space-y-2">
+   807→                  {pendingPredictions.slice(0, 10).map((p) => (
+   808→                    <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/20">
+   809→                      <div className="flex items-center gap-2 min-w-0">
+   810→                        <span className="text-xs font-medium truncate">{p.homeTeam}</span>
+   811→                        <span className="text-[10px] text-muted-foreground">vs</span>
+   812→                        <span className="text-xs font-medium truncate">{p.awayTeam}</span>
+   813→                      </div>
+   814→                      <div className="flex items-center gap-2 shrink-0">
+   815→                        <span className="text-xs capitalize">{p.predictedOutcome}</span>
+   816→                        <span className="text-[10px] text-muted-foreground tabular-nums">({p.predictedHomeGoals}-{p.predictedAwayGoals})</span>
+   817→                        <Badge variant="outline" className="text-[9px] border-amber-500/30 text-amber-400">pending</Badge>
+   818→                      </div>
+   819→                    </div>
+   820→                  ))}
+   821→                  {pendingPredictions.length > 10 && (
+   822→                    <p className="text-[10px] text-muted-foreground text-center">
+   823→                      +{pendingPredictions.length - 10} more
+   824→                    </p>
+   825→                  )}
+   826→                </div>
+   827→              </CardContent>
+   828→            </Card>
+   829→          )}
+   830→        </div>
+   831→
+   832→        {/* RIGHT COLUMN */}
+   833→        <div className="space-y-5">
+   834→          {/* ACCURACY BY MODEL CHART — real computation from DB */}
+   835→          {accuracyByModel.length > 0 ? (
+   836→            <Card className="glass-card-premium rounded-xl">
+   837→              <CardHeader className="pb-3">
+   838→                <CardTitle className="text-sm font-bold flex items-center gap-2">
+   839→                  <TrendingUp className="size-4 text-primary" />
+   840→                  Accuracy by Model
+   841→                </CardTitle>
+   842→              </CardHeader>
+   843→              <CardContent>
+   844→                <ResponsiveContainer width="100%" height={Math.max(180, accuracyByModel.length * 36)}>
+   845→                  <BarChart data={accuracyByModel} layout="vertical">
+   846→                    <CartesianGrid {...cartesianGridProps} />
+   847→                    <XAxis type="number" domain={[0, 100]} {...axisProps} />
+   848→                    <YAxis type="category" dataKey="model" {...axisProps} width={80} />
+   849→                    <RTooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} />
+   850→                    <Bar dataKey="accuracy" radius={[0, 4, 4, 0]} maxBarSize={24}>
+   851→                      {accuracyByModel.map((_, i) => (
+   852→                        <Cell
+   853→                          key={i}
+   854→                          fill={chartColor(i)}
+   855→                        />
+   856→                      ))}
+   857→                    </Bar>
+   858→                  </BarChart>
+   859→                </ResponsiveContainer>
+   860→                <p className="text-[10px] text-muted-foreground mt-2 text-center">
+   861→                  Based on {resolvedPredictions.length} resolved prediction{resolvedPredictions.length !== 1 ? 's' : ''}
+   862→                </p>
+   863→              </CardContent>
+   864→            </Card>
+   865→          ) : (
+   866→            <Card className="glass-card-premium rounded-xl">
+   867→              <CardHeader className="pb-3">
+   868→                <CardTitle className="text-sm font-bold flex items-center gap-2">
+   869→                  <TrendingUp className="size-4 text-primary" />
+   870→                  Accuracy by Model
+   871→                </CardTitle>
+   872→              </CardHeader>
+   873→              <CardContent>
+   874→                <DataState
+   875→                  type="empty"
+   876→                  message="No resolved predictions yet. Accuracy data will appear once matches are finished."
+   877→                />
+   878→              </CardContent>
+   879→            </Card>
+   880→          )}
+   881→
+   882→          {/* PREDICTION BREAKDOWN — honest summary */}
+   883→          <Card className="glass-card-premium rounded-xl">
+   884→            <CardHeader className="pb-3">
+   885→              <CardTitle className="text-sm font-bold flex items-center gap-2">
+   886→                <Target className="size-4 text-primary" />
+   887→                Breakdown
+   888→              </CardTitle>
+   889→            </CardHeader>
+   890→            <CardContent className="space-y-3">
+   891→              <div className="flex justify-between text-xs">
+   892→                <span className="text-muted-foreground">Resolved</span>
+   893→                <span className="font-mono tabular-nums font-semibold">{resolvedPredictions.length}</span>
+   894→              </div>
+   895→              <div className="flex justify-between text-xs">
+   896→                <span className="text-muted-foreground">Pending</span>
+   897→                <span className="font-mono tabular-nums font-semibold">{pendingPredictions.length}</span>
+   898→              </div>
+   899→              <div className="flex justify-between text-xs">
+   900→                <span className="text-muted-foreground">Correct</span>
+   901→                <span className="font-mono tabular-nums font-semibold text-emerald-400">
+   902→                  {resolvedPredictions.filter(p => p.isCorrect === true).length}
+   903→                </span>
+   904→              </div>
+   905→              <div className="flex justify-between text-xs">
+   906→                <span className="text-muted-foreground">Incorrect</span>
+   907→                <span className="font-mono tabular-nums font-semibold text-red-400">
+   908→                  {resolvedPredictions.filter(p => p.isCorrect === false).length}
+   909→                </span>
+   910→              </div>
+   911→              <div className="flex justify-between text-xs">
+   912→                <span className="text-muted-foreground">Models used</span>
+   913→                <span className="font-mono tabular-nums font-semibold">{usedModels.length}</span>
+   914→              </div>
+   915→              {usedModels.length > 0 && (
+   916→                <div className="flex flex-wrap gap-1.5 pt-1">
+   917→                  {usedModels.map(m => (
+   918→                    <Badge
+   919→                      key={m}
+   920→                      variant="outline"
+   921→                      className={cn(
+   922→                        'text-[9px] border-border/50',
+   923→                        m === 'user' && 'border-primary/30 text-primary',
+   924→                      )}
+   925→                    >
+   926→                      {m}
+   927→                    </Badge>
+   928→                  ))}
+   929→                </div>
+   930→              )}
+   931→            </CardContent>
+   932→          </Card>
+   933→        </div>
+   934→      </div>
+   935→    </div>
+   936→  )
+   937→}
+   938→
+   939→// ── Sub-components ──────────────────────────────────────────────────────────
+   940→
+   941→interface QuickPredictRowProps {
+   942→  match: {
+   943→    id: string
+   944→    homeTeam?: { name: string; code: string; primaryColor: string } | null
+   945→    awayTeam?: { name: string; code: string; primaryColor: string } | null
+   946→    competition?: string
+   947→  }
+   948→  scores: { home: string; away: string }
+   949→  onScoreChange: (side: 'home' | 'away', value: string) => void
+   950→  onPredict: (choice: string) => void
+   951→  isSubmitting: boolean
+   952→  alreadyPredicted: boolean
+   953→}
+   954→
+   955→function QuickPredictRow({ match, scores, onScoreChange, onPredict, isSubmitting, alreadyPredicted }: QuickPredictRowProps) {
+   956→  return (
+   957→    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg bg-muted/20">
+   958→      {/* Home team */}
+   959→      <div className="flex items-center gap-2 flex-1 min-w-0">
+   960→        <div
+   961→          className="size-6 rounded-full border border-border/50 shrink-0"
+   962→          style={{ backgroundColor: match.homeTeam?.primaryColor ?? '#555' }}
+   963→        />
+   964→        <span className="text-xs font-medium truncate">{match.homeTeam?.name ?? 'TBD'}</span>
+   965→      </div>
+   966→
+   967→      {/* Score inputs */}
+   968→      <div className="flex items-center gap-1.5 shrink-0">
+   969→        <Input
+   970→          type="text"
+   971→          inputMode="numeric"
+   972→          maxLength={1}
+   973→          value={scores.home}
+   974→          onChange={(e) => onScoreChange('home', e.target.value)}
+   975→          placeholder="-"
+   976→          disabled={alreadyPredicted || isSubmitting}
+   977→          className={cn(
+   978→            'h-7 w-10 text-center text-xs font-mono p-0 bg-muted/50 border-border',
+   979→            'focus-visible:ring-primary/30',
+   980→          )}
+   981→          aria-label="Predicted home goals"
+   982→        />
+   983→        <span className="text-xs text-muted-foreground font-bold">:</span>
+   984→        <Input
+   985→          type="text"
+   986→          inputMode="numeric"
+   987→          maxLength={1}
+   988→          value={scores.away}
+   989→          onChange={(e) => onScoreChange('away', e.target.value)}
+   990→          placeholder="-"
+   991→          disabled={alreadyPredicted || isSubmitting}
+   992→          className={cn(
+   993→            'h-7 w-10 text-center text-xs font-mono p-0 bg-muted/50 border-border',
+   994→            'focus-visible:ring-primary/30',
+   995→          )}
+   996→          aria-label="Predicted away goals"
+   997→        />
+   998→      </div>
+   999→
+  1000→      {/* Outcome buttons */}
+  1001→      <div className="flex items-center gap-1">
+  1002→        {(['home', 'draw', 'away'] as const).map((c) => (
+  1003→          <Button
+  1004→            key={c}
+  1005→            size="sm"
+  1006→            variant={alreadyPredicted ? 'secondary' : 'outline'}
+  1007→            className={cn(
+  1008→              'h-7 w-14 text-[10px] px-0',
+  1009→              !alreadyPredicted && c === 'home' && 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10',
+  1010→              !alreadyPredicted && c === 'draw' && 'border-amber-500/30 text-amber-400 hover:bg-amber-500/10',
+  1011→              !alreadyPredicted && c === 'away' && 'border-red-500/30 text-red-400 hover:bg-red-500/10',
+  1012→            )}
+  1013→            onClick={() => onPredict(c)}
+  1014→            disabled={alreadyPredicted || isSubmitting}
+  1015→          >
+  1016→            {isSubmitting ? '…' : c === 'home' ? 'H' : c === 'draw' ? 'D' : 'A'}
+  1017→          </Button>
+  1018→        ))}
+  1019→      </div>
+  1020→
+  1021→      {/* Away team */}
+  1022→      <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+  1023→        <span className="text-xs font-medium truncate text-right">{match.awayTeam?.name ?? 'TBD'}</span>
+  1024→        <div
+  1025→          className="size-6 rounded-full border border-border/50 shrink-0"
+  1026→          style={{ backgroundColor: match.awayTeam?.primaryColor ?? '#555' }}
+  1027→        />
+  1028→      </div>
+  1029→
+  1030→      {/* Already predicted indicator */}
+  1031→      {alreadyPredicted && (
+  1032→        <Badge variant="outline" className="text-[9px] border-primary/30 text-primary shrink-0">
+  1033→          Predicted
+  1034→        </Badge>
+  1035→      )}
+  1036→    </div>
+  1037→  )
+  1038→}
+  1039→

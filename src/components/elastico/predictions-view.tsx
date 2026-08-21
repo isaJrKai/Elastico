@@ -22,7 +22,7 @@ import {
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
 import {
   Target, ArrowUpDown, Flame, CheckCircle2, XCircle, Crown, Download,
-  Trophy, Zap, TrendingUp, Send, AlertCircle,
+  Trophy, Zap, TrendingUp, Send, AlertCircle, RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { generateCSV } from '@/lib/export'
@@ -62,6 +62,30 @@ interface LeaderboardEntry {
 
 type ViewState = 'loading' | 'error' | 'empty' | 'success'
 
+/** Shape returned by GET /api/predictions/compute */
+interface ComputePrediction {
+  matchId: string
+  competition: string
+  homeTeam: { name: string; abbreviation?: string; logo?: string }
+  awayTeam: { name: string; abbreviation?: string; logo?: string }
+  homeScore: number | null
+  awayScore: number | null
+  status: string
+  date: string
+  ensemble: { homeWin: number; draw: number; awayWin: number }
+  elo: { home: number; draw: number; away: number; expHome: string; expAway: string }
+  poisson: { home: number; draw: number; away: number; over25: number; btts: number }
+  dixonColes: { home: number; draw: number; away: number }
+  overUnder25: number
+  btts: number
+  mostLikelyScore: string
+  expectedGoals: { home: string; away: string; total: string }
+  confidence: number
+  volatility: number
+}
+
+type ComputeState = 'idle' | 'loading' | 'error' | 'success'
+
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export default function PredictionsView() {
@@ -84,6 +108,33 @@ export default function PredictionsView() {
   const [submittingMatchId, setSubmittingMatchId] = useState<string | null>(null)
   // Per-match score inputs: { [matchId]: { home: number, away: number } }
   const [quickScores, setQuickScores] = useState<Record<string, { home: string; away: string }>>({})
+
+  // Model Predictions (from /api/predictions/compute)
+  const [computePredictions, setComputePredictions] = useState<ComputePrediction[]>([])
+  const [computeState, setComputeState] = useState<ComputeState>('idle')
+  const [computeError, setComputeError] = useState('')
+
+  const fetchComputePredictions = useCallback(async () => {
+    setComputeState('loading')
+    setComputeError('')
+    try {
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const res = await fetch('/api/predictions/compute', { headers })
+      if (!res.ok) {
+        if (res.status === 429) throw new Error('Rate limited — max 5 requests per minute. Wait a moment and try again.')
+        if (res.status === 401) throw new Error('Sign in to load model predictions.')
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || `Prediction engine returned ${res.status}`)
+      }
+      const data = await res.json()
+      setComputePredictions(data.predictions || [])
+      setComputeState('success')
+    } catch (err) {
+      setComputeError(err instanceof Error ? err.message : 'Failed to compute predictions.')
+      setComputeState('error')
+    }
+  }, [token])
 
   // ── Data Fetching ────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -128,6 +179,8 @@ export default function PredictionsView() {
   }, [token, user?.id])
 
   useEffect(() => { fetchData() }, [fetchData])
+  // Auto-fetch compute predictions when user has predictions loaded
+  useEffect(() => { if (viewState === 'success' || viewState === 'empty') fetchComputePredictions() }, [viewState, fetchComputePredictions])
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
@@ -515,6 +568,96 @@ export default function PredictionsView() {
           </CardContent>
         </Card>
       )}
+
+      {/* ── MODEL PREDICTIONS (from /api/predictions/compute) ── */}
+      <Card className="glass-card-premium rounded-xl">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Zap className="size-4 text-cyan-400" />
+              Model Predictions
+              <Badge variant="outline" className="text-[9px] border-cyan-500/30 text-cyan-400">4-Model Ensemble</Badge>
+            </CardTitle>
+            <Button
+              variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground"
+              onClick={fetchComputePredictions}
+              disabled={computeState === 'loading'}
+            >
+              <RefreshCw className={cn('size-3', computeState === 'loading' && 'animate-spin')} />
+              Refresh
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            ELO + Poisson + Dixon-Coles + Stochastic Jump-Diffusion. Data source: ESPN live scores.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {computeState === 'loading' && (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-5 flex-1" />
+                  <Skeleton className="h-5 w-16" />
+                </div>
+              ))}
+            </div>
+          )}
+          {computeState === 'error' && (
+            <div className="flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
+              <div>
+                <p className="text-xs font-medium text-red-400">Model predictions unavailable</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{computeError}</p>
+              </div>
+            </div>
+          )}
+          {computeState === 'success' && computePredictions.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-6 gap-2">
+              <Target className="size-8 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">No matches available for prediction right now.</p>
+              <p className="text-[11px] text-muted-foreground">Predictions appear when ESPN provides upcoming or live fixtures.</p>
+            </div>
+          )}
+          {computeState === 'success' && computePredictions.length > 0 && (
+            <div className="max-h-[400px] overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border/30 hover:bg-transparent">
+                    <TableHead className="text-[10px]">Match</TableHead>
+                    <TableHead className="text-[10px] text-center">Home</TableHead>
+                    <TableHead className="text-[10px] text-center">Draw</TableHead>
+                    <TableHead className="text-[10px] text-center">Away</TableHead>
+                    <TableHead className="text-[10px] text-center hidden sm:table-cell">Score</TableHead>
+                    <TableHead className="text-[10px] text-center hidden md:table-cell">xG</TableHead>
+                    <TableHead className="text-[10px] text-center hidden lg:table-cell">O2.5</TableHead>
+                    <TableHead className="text-[10px] text-center hidden lg:table-cell">BTTS</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {computePredictions.map((p) => (
+                    <TableRow key={p.matchId} className="border-border/10">
+                      <TableCell className="text-xs py-2">
+                        <div className="flex flex-col">
+                          <span className="font-medium truncate max-w-[140px]">{p.homeTeam.name} vs {p.awayTeam.name}</span>
+                          <span className="text-[9px] text-muted-foreground">{p.competition}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs py-2 text-center font-bold text-emerald-400">{p.ensemble.homeWin}%</TableCell>
+                      <TableCell className="text-xs py-2 text-center font-bold text-amber-400">{p.ensemble.draw}%</TableCell>
+                      <TableCell className="text-xs py-2 text-center font-bold text-red-400">{p.ensemble.awayWin}%</TableCell>
+                      <TableCell className="text-xs py-2 text-center tabular-nums hidden sm:table-cell text-muted-foreground">{p.mostLikelyScore}</TableCell>
+                      <TableCell className="text-xs py-2 text-center tabular-nums hidden md:table-cell text-muted-foreground">{p.expectedGoals.total}</TableCell>
+                      <TableCell className="text-xs py-2 text-center tabular-nums hidden lg:table-cell text-muted-foreground">{p.overUnder25}%</TableCell>
+                      <TableCell className="text-xs py-2 text-center tabular-nums hidden lg:table-cell text-muted-foreground">{p.btts}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── MAIN GRID ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

@@ -43,7 +43,7 @@ const PLANS: PricingPlan[] = [
   {
     id: 'pro', name: 'Pro', monthlyPrice: 4.99, yearlyPrice: 3.99,
     description: 'Unlock advanced models and deeper insights', icon: Zap,
-    features: ['Unlimited simulations', 'Stochastic simulation engine', 'Priority AI chat access', 'PDF report export', 'Advanced ELO metrics', 'Match probability deep-dives'],
+    features: ['Unlimited simulations', 'Advanced stochastic models', 'Priority AI chat access', 'PDF report export', 'Advanced ELO metrics', 'Match probability deep-dives'],
     cta: 'Subscribe', borderClass: 'border-emerald-500/50', highlightClass: 'ring-2 ring-emerald-500/20', badge: 'Most Popular',
   },
   {
@@ -78,16 +78,14 @@ const COMPARISON_FEATURES: PlanFeature[] = [
 const FAQ_ITEMS = [
   { question: 'Can I switch plans at any time?', answer: 'Yes! You can upgrade or downgrade your plan at any time. When upgrading, you get immediate access. When downgrading, benefits continue until the end of your billing period.' },
   { question: 'What payment methods do you accept?', answer: 'We accept Visa, Mastercard, Amex, PayPal, and Apple Pay. All payments are processed securely through Stripe.' },
-  { question: 'Is there a free trial for Pro or Elite?', answer: 'New users get a 7-day free trial of Pro and a 14-day free trial of Elite.' },
+  { question: 'Is there a free trial for Pro or Elite?', answer: 'Free trials are not yet available. When payment integration is complete, trial options will be announced here.' },
   { question: 'What happens to my data if I downgrade?', answer: 'Your data is never deleted. Saved simulations and reports become read-only but are preserved.' },
   { question: 'Can I cancel anytime?', answer: 'Absolutely. Cancel anytime with no penalties. You keep access until your current billing period ends.' },
 ]
 
-const TESTIMONIALS = [
-  { name: 'Alex M.', role: 'Football Analyst', plan: 'Elite', avatar: 'AM', quote: 'ELASTICO\'s multi-model predictions have transformed my match analysis workflow. The Monte Carlo simulations are incredibly powerful.', rating: 5 },
-  { name: 'Sarah K.', role: 'Content Creator', plan: 'Pro', avatar: 'SK', quote: 'The AI chat feature alone is worth the subscription. Getting instant tactical analysis with xG data is a game changer.', rating: 5 },
-  { name: 'James R.', role: 'Bettor', plan: 'Pro', avatar: 'JR', quote: 'My prediction accuracy jumped from 52% to 71% after using ELASTICO for a month. The ELO model comparisons are brilliant.', rating: 4 },
-]
+const TESTIMONIALS: { name: string; role: string; plan: string; avatar: string; quote: string; rating: number }[] = []
+// Real testimonials will be collected from early users once the platform launches.
+// Empty until then — no fabricated social proof.
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -190,7 +188,8 @@ export default function SubscriptionView() {
         })}
       </div>
 
-      {/* Testimonials */}
+      {/* Testimonials — real reviews collected after launch */}
+      {TESTIMONIALS.length > 0 && (
       <div className="space-y-4">
         <div className="flex items-center gap-2"><Users className="size-4 text-primary" /><SectionHeader label="What Users Say" /></div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -209,6 +208,7 @@ export default function SubscriptionView() {
           ))}
         </div>
       </div>
+      )}
 
       {/* Feature Comparison Table */}
       <div className="space-y-4">
