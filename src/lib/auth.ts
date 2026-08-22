@@ -58,8 +58,7 @@ export function verifyToken(token: string): { userId: string; email: string; rol
 /** Check if a real database connection is likely available */
 export function isDbAvailable(): boolean {
   const url = process.env.DATABASE_URL || ''
-  // If it's clearly a placeholder or empty, DB is not configured
-  if (!url || (url === 'file:./dev.db' && process.env.NODE_ENV === 'production')) return false
+  if (!url || url.startsWith('file:')) return false
   return true
 }
 
