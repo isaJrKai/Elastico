@@ -157,7 +157,7 @@ export async function fetchPrediction(fixtureId: number): Promise<ASPrediction |
 export async function fetchStandings(leagueId: number, season?: number): Promise<ASStandingTeam[][]> {
   const year = season || new Date().getFullYear()
   const data = await apiGet('/standings', { league: String(leagueId), season: String(year) })
-  return data.response?.map((l: any) => l.league?.standings || []) || []
+  return data.response?.flatMap((l: any) => l.league?.standings || []) || []
 }
 
 /** Get odds for a fixture */

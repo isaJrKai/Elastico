@@ -24,3 +24,27 @@ Stage Summary:
 - Build: CLEAN — 0 TypeScript errors, standalone output ready
 - Deploy: RUNNING — production server on port 3000
 - Pending from user: API keys (API_SPORTS_KEY, THE_ODDS_API_KEY, FOOTBALL_DATA_API_KEY, NEWSDATA_API_KEY, AI keys), NEON_AUTH_URL
+
+---
+Task ID: 2
+Agent: main
+Task: Add API_SPORTS_KEY, fetch data, store in Neon DB, verify full pipeline
+
+Work Log:
+- Verified API_SPORTS_KEY (3bb67313...) against /status endpoint — active, Free plan, 100 req/day, expires 2027-06-18
+- Updated .env with API_SPORTS_KEY and channel_binding=require on DATABASE_URL
+- Discovered API-Sports free plan only covers seasons 2022-2024 for standings/teams/scorers (live/today fixtures work regardless)
+- Found and fixed critical bug in fetchStandings: API returns 3-level nesting (response→league.standings→group→entries) but code used .map instead of .flatMap — standings were silently failing to parse. Fixed in both src/lib/api-sports.ts and the sync script.
+- Updated cron/sync/route.ts: standings/teams/scorers sync now explicitly uses season=2024 for free plan compatibility
+- Wrote scripts/sync-api-sports.ts — standalone sync script that fetches from API-Sports and writes to Neon via Prisma
+- Ran initial sync: 105 teams, 17 matches, 96 standing entries written to Neon PostgreSQL
+- Verified data in Neon via direct Prisma query: PL standings show Liverpool 1st (84pts), Arsenal 2nd (74pts), etc.
+- Confirmed FOOTBALL_DATA_API_KEY is wired: read by src/lib/football-data-org.ts, used in 5 API routes (standings, odds, live, prediction-engine, football-data)
+- Confirmed full pipeline: API key → fetch → Neon DB tables → app /api/matches and /api/standings read from DB first
+
+Stage Summary:
+- API_SPORTS_KEY: VERIFIED & INTEGRATED — 105 teams, 17 matches, 96 standings in Neon DB
+- FOOTBALL_DATA_API_KEY: VERIFIED WIRED — used as fallback in standings route, live route, odds route, prediction engine
+- Bug fixed: fetchStandings flatMap in api-sports.ts (was silently producing 0 standings)
+- Free plan limitation: seasons 2022-2024 only for standings/teams/scorers; live+today fixtures work for any date
+- DB counts: 105 teams, 17 matches, 96 standings, 7 users, 4 sync logs

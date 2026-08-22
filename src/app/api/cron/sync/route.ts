@@ -191,13 +191,14 @@ async function syncStandingsFromApiSports(): Promise<{
   updated: number
 }> {
   const result = { created: 0, updated: 0 }
-  const season = String(new Date().getFullYear())
+  // Free plan covers 2022-2024; 2024 = 2024/25 completed season
+  const season = '2024'
   const topLeagues = AS_LEAGUES.slice(0, 10) // sync top 10 leagues
 
   for (const league of topLeagues) {
     checkTimeout()
     try {
-      const standingsGroups = await fetchASStandings(league.id)
+      const standingsGroups = await fetchASStandings(league.id, 2024)
       for (const group of standingsGroups) {
         for (const entry of group) {
           checkTimeout()
@@ -395,7 +396,8 @@ async function syncTeamsFromApiSports(): Promise<{
   for (const league of topLeagues) {
     checkTimeout()
     try {
-      const teams = await fetchLeagueTeams(league.id)
+      // Free plan covers 2022-2024
+      const teams = await fetchLeagueTeams(league.id, 2024)
       for (const t of teams) {
         checkTimeout()
         try {
@@ -455,7 +457,8 @@ async function syncPlayersFromApiSports(): Promise<{
   for (const league of topLeagues) {
     checkTimeout()
     try {
-      const scorers = await fetchTopScorers(league.id)
+      // Free plan covers 2022-2024
+      const scorers = await fetchTopScorers(league.id, 2024)
       for (const s of scorers) {
         checkTimeout()
         const p = s.player
