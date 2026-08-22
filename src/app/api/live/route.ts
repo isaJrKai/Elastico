@@ -7,6 +7,7 @@ import {
   fetchTeams, fetchTeamRoster,
   mapStatus, ESPN_LEAGUES,
 } from '@/lib/football-data'
+import { fetchStandings as fetchFDStandings } from '@/lib/football-data-org'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,8 +30,8 @@ export async function GET(request: NextRequest) {
 
       case 'standings': {
         if (!league) return NextResponse.json({ error: 'league required' }, { status: 400 })
-        // Try DB first
         const season = String(new Date().getFullYear())
+        // 1. Try DB first
         const dbStandings = await db.standingEntry.findMany({
           where: { competitionCode: league, season },
           orderBy: { rank: 'asc' },
@@ -38,7 +39,27 @@ export async function GET(request: NextRequest) {
         if (dbStandings.length > 0) {
           return NextResponse.json({ success: true, league, source: 'database', count: dbStandings.length, data: dbStandings })
         }
-        // Fallback to ESPN
+        // 2. Fallback to football-data.org (requires FOOTBALL_DATA_API_KEY)
+        if (process.env.FOOTBALL_DATA_API_KEY) {
+          try {
+            const fdStandings = await fetchFDStandings(league)
+            if (fdStandings.length > 0) {
+              const totalTable = fdStandings[0]?.table || []
+              return NextResponse.json({
+                success: true, league, source: 'football-data.org', count: totalTable.length,
+                data: totalTable.map(t => ({
+                  rank: t.position, team: t.team.name, code: t.team.tla,
+                  logo: t.team.crest, played: t.playedGames, wins: t.won, draws: t.draw,
+                  losses: t.lost, goalsFor: t.goalsFor, goalsAgainst: t.goalsAgainst,
+                  goalDiff: t.goalDifference, points: t.points, form: t.form || '',
+                })),
+              })
+            }
+          } catch (err) {
+            console.warn('[Live/Standings] football-data.org failed:', err)
+          }
+        }
+        // 3. Fallback to ESPN
         const standings = await fetchStandings(league)
         return NextResponse.json({ success: true, league, source: 'espn', count: standings.length, data: standings })
       }
