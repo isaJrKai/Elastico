@@ -48,3 +48,30 @@ Stage Summary:
 - Bug fixed: fetchStandings flatMap in api-sports.ts (was silently producing 0 standings)
 - Free plan limitation: seasons 2022-2024 only for standings/teams/scorers; live+today fixtures work for any date
 - DB counts: 105 teams, 17 matches, 96 standings, 7 users, 4 sync logs
+
+---
+Task ID: 3
+Agent: main
+Task: Deep clean — fix all PostgreSQL compatibility issues, implement API→DB→App data flow architecture
+
+Work Log:
+- Found and fixed 4 remaining `mode: 'insensitive'` Prisma queries that crash on PostgreSQL: src/app/api/matches/route.ts, src/app/api/players/route.ts, src/app/api/teams/route.ts, src/app/api/admin/users/route.ts
+- Added 2 new tables to Prisma schema: OddsSnapshot (historical odds persistence), NewsArticle (news cache)
+- Pushed schema to Neon — 19 tables now live
+- Rewrote /api/odds/route.ts: now follows API→DB→App flow. TheOdds API + API-Sports + football-data.org odds all persisted to OddsSnapshot. DB is the primary source. `?refresh=true` triggers API fetch.
+- Rewrote /api/football-data/route.ts: standings and matches now persisted to StandingEntry and Match tables. DB-first reads with API refresh fallback.
+- Rewrote /api/news/route.ts: Newsdata.io articles persisted to NewsArticle table. ESPN serves as live fallback (no stable IDs for caching).
+- Fixed TypeScript errors: FDStanding type (no .competition field), ASOdds type (no .teams on fixture)
+- Verified FOOTBALL_DATA_API_KEY works live: returned 20 PL teams, top 3 Arsenal/Everton/Hull
+- Production build: CLEAN — 0 errors, 51 API routes
+
+Stage Summary:
+- Architecture: ALL 3 KEY DATA ROUTES NOW FOLLOW API→DB→APP PATTERN
+  - /api/odds → TheOdds/API-Sports/FD → OddsSnapshot table → App
+  - /api/football-data → FD API → StandingEntry/Match/Team/OddsSnapshot tables → App
+  - /api/news → Newsdata.io → NewsArticle table → App
+- The Odds API: historical data preserved (every snapshot timestamped, no historical endpoint needed)
+- Security: API keys never reach the client — all data flows through server-side DB
+- 4 PostgreSQL mode:'insensitive' bugs fixed across codebase
+- 19 tables live on Neon PostgreSQL
+- Build: CLEAN, ready for deployment

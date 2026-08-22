@@ -17,10 +17,11 @@ export async function GET(req: NextRequest) {
     if (status) where.status = status
     if (league) where.competitionCode = league
     if (search) {
+      const q = search.toLowerCase()
       where.OR = [
-        { homeTeam: { name: { contains: search, mode: 'insensitive' } } },
-        { awayTeam: { name: { contains: search, mode: 'insensitive' } } },
-        { competition: { contains: search, mode: 'insensitive' } },
+        { homeTeam: { name: { contains: q } } },
+        { awayTeam: { name: { contains: q } } },
+        { competition: { contains: q } },
       ]
     }
 

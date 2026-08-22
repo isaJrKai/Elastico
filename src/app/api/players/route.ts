@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const where: any = {}
     if (teamId) where.teamId = teamId
     if (position) where.position = position
-    if (search) where.name = { contains: search, mode: 'insensitive' }
+    if (search) where.name = { contains: search.toLowerCase() }
 
     const [dbPlayers, total] = await Promise.all([
       db.player.findMany({

@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     // ── Try database first ────────────────────────────────────────────────
     const where: any = {}
     if (league) where.leagueCode = league
-    if (search) where.name = { contains: search, mode: 'insensitive' }
+    if (search) where.name = { contains: search.toLowerCase() }
 
     const dbTeams = await db.team.findMany({
       where,

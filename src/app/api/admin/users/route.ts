@@ -20,11 +20,12 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') || undefined
 
     const where: Record<string, unknown> = {}
-    if (search) {
+    const q = search?.toLowerCase()
+    if (q) {
       where.OR = [
-        { email: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
-        { displayName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: q } },
+        { name: { contains: q } },
+        { displayName: { contains: q } },
       ]
     }
     if (plan) where.plan = plan

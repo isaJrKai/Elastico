@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  fetchLeagueTeams, fetchLeaguePlayers, fetchMatch, fetchTeamMatches, fetchPlayerStats,
-  normalizeUnderstatShot,
+  fetchLeagueTeams, fetchLeaguePlayers, fetchMatch, fetchTeamMatches,
 } from '@/lib/understat'
 
 /**

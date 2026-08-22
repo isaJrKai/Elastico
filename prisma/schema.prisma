@@ -423,3 +423,72 @@ model SyncLog {
   @@index([source])
   @@index([createdAt])
 }
+
+// ==================== ODDS DATA WAREHOUSE ====================
+// TheOdds API doesn't provide historical data, so we persist
+// every snapshot we get. This builds a historical record over time.
+// Flow: API Key -> cron/route fetches odds -> saved here -> app reads from here
+
+model OddsSnapshot {
+  id            String   @id @default(cuid())
+  externalId    String   // TheOdds API event ID
+  source        String   @default("the-odds-api") // 'the-odds-api', 'api-sports', 'football-data.org'
+  sportKey      String   // 'soccer_epl', 'soccer_la_liga', etc.
+  homeTeam      String
+  awayTeam      String
+  commenceTime  DateTime?
+  // Match Winner (1X2)
+  homeWinOdds   Float?
+  drawOdds      Float?
+  awayWinOdds   Float?
+  bookmaker     String?
+  // Spreads (Asian Handicap)
+  homeSpreadOdds Float?
+  awaySpreadOdds Float?
+  spreadLine    String?   // e.g. "-0.5", "+1.5"
+  // Totals (Over/Under)
+  overOdds      Float?
+  underOdds     Float?
+  totalLine     String?   // e.g. "2.5"
+  // Raw JSON backup for any data we don't parse yet
+  rawData       String?   // JSON blob of the full bookmaker data
+  // Provenance
+  fetchedAt     DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@unique([externalId, source, fetchedAt])
+  @@index([sportKey])
+  @@index([homeTeam])
+  @@index([awayTeam])
+  @@index([commenceTime])
+  @@index([source, fetchedAt])
+}
+
+// ==================== NEWS CACHE ====================
+// News articles cached from Newsdata.io.
+// Flow: API Key -> cron/route fetches news -> saved here -> app reads from here
+
+model NewsArticle {
+  id            String   @id @default(cuid())
+  externalId    String   @unique // Newsdata.io article_id
+  title         String
+  summary       String?  // description field (first 200 chars)
+  content       String?  // full content
+  sourceName    String
+  sourceUrl     String
+  category      String   @default("sports")
+  imageUrl      String?
+  country       String?
+  language      String   @default("en")
+  sentiment     String?  // positive, negative, neutral
+  isBreaking    Boolean  @default(false)
+  publishedAt   DateTime?
+  fetchedAt     DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([category])
+  @@index([publishedAt])
+  @@index([fetchedAt])
+  @@index([sourceName])
+}
