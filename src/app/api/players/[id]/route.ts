@@ -1,3 +1,8 @@
+// DEPRECATED: Broken implementation — searches by name across league leaders,
+// not by ID. Treats 'id' param as either a player name or team ID unpredictably.
+// Overlaps with /api/players (list) and /api/live?action=roster.
+// No UI consumer exists. Merge into /api/players or remove.
+
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchTeamRoster, fetchLeagueLeaders, ESPN_LEAGUES } from '@/lib/football-data'
 

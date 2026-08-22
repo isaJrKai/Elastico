@@ -1,3 +1,7 @@
+// DEPRECATED: Inefficient brute-force search across all leagues.
+// Functionality overlaps with /api/teams (list) and /api/live?action=teams.
+// No UI consumer exists. Merge into /api/teams as ?id= param or remove.
+
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchTeams, fetchStandings, ESPN_LEAGUES } from '@/lib/football-data'
 

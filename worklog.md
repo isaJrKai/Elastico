@@ -410,3 +410,42 @@ Stage Summary:
 - Security: no exposed credentials in source code
 - Build: clean compilation, zero TypeScript errors
 - Architectural note: self-audit API requires data payloads that UI doesn't provide — buttons will get 400 with honest error message. This is correct behavior, not a bug to hide.
+
+---
+Task ID: cycle3
+Agent: main
+Task: Cycle 3 — Security fix, UI↔API contract audit, 16 orphaned route classification
+
+Work Log:
+- AUDIT: Deployed 3 parallel agents (security, data integrity, backend routes) + manual audit of 5 remaining views
+- SECURITY: Confirmed zero hardcoded credentials in source (Cycle 2 false positive: .toFixed(3) pattern)
+- UI↔API CONTRACT: Audited all fetch() calls in matches-view, player-view, tournament-view, dashboard-view, compare-view, export-view, admin-view — all 14+ fetch calls have correct method, body fields, and response field access. Zero mismatches.
+- BROKEN WORKFLOW (reclassified): Self-audit UI → sends correct action names (Cycle 2 fix) → API requires data payload UI doesn't have → 400. State: FUNCTIONAL BUT NOT END-TO-END CONNECTED
+- ORPHANED ROUTE CLASSIFICATION (16 routes):
+  - REMOVE (3): /api/setup (dangerous: raw DDL, weak auth, unauthenticated GET), /api/route.ts (boilerplate), /api/bandwidth (dead code with false claim)
+  - DEPRECATED (2): /api/the-odds (subsumed by /api/odds), /api/system/discord-gateway (aspirational, no bot)
+  - DEPRECATED/MERGE (2): /api/teams/[id] (inefficient, no consumer), /api/players/[id] (broken impl, no consumer)
+  - KEEP-AS-IS (2): /api/standings (health-checked, 3-tier fallback), /api/cron/sync (Vercel cron)
+  - FUNCTIONAL BUT UNWIRED (7): /api/api-sports, /api/the-sports-db, /api/understat, /api/odds, /api/advanced-analytics, /api/analytics/predictions, /api/achievements
+
+- FIX 3a (SECURITY): Removed /api/setup/route.ts and directory — dangerous raw DDL endpoint with unauthenticated GET
+- FIX 3b: Removed /api/route.ts — Next.js boilerplate
+- FIX 3c: Removed /api/bandwidth/route.ts and directory — dead code, comment falsely claimed Settings page used it
+- FIX 3d: Added DEPRECATED header to /api/the-odds/route.ts (subsumed by /api/odds)
+- FIX 3e: Added DEPRECATED header to /api/system/discord-gateway/route.ts (aspirational, no bot configured)
+- FIX 3f: Added DEPRECATED header to /api/teams/[id]/route.ts (inefficient, no consumer)
+- FIX 3g: Added DEPRECATED header to /api/players/[id]/route.ts (broken impl, no consumer)
+- Verified: zero client-side references to any removed route
+- Verified: /api/cron/sync still referenced by vercel.json (correctly kept)
+- BUILD: Clean compilation, zero TypeScript errors
+- RE-AUDIT: All 3 removals confirmed deleted on disk. All 4 deprecation headers confirmed present.
+
+Stage Summary:
+- 1 security fix (dangerous /api/setup route removed)
+- 2 dead routes removed (boilerplate, bandwidth)
+- 4 routes deprecated with clear headers (the-odds, discord-gateway, teams/[id], players/[id])
+- 7 routes classified as FUNCTIONAL BUT UNWIRED — production-relevant but need UI consumers
+- Zero UI↔API contract mismatches found across all 9+ views
+- Self-audit workflow reclassified from FIXED to FUNCTIONAL BUT NOT END-TO-END CONNECTED
+- No known confirmed fabrication remains in the audited running views/routes
+- Build: clean, zero TypeScript errors

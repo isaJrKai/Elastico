@@ -1,3 +1,7 @@
+// DEPRECATED: This route is subsumed by /api/odds which aggregates from
+// TheOdds API + API-Sports + football-data.org. Do not add new consumers.
+// Existing: zero UI consumers. Will be removed in a future cleanup.
+
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchSoccerOdds, fetchAllSoccerOdds, extractTheOddsData } from '@/lib/the-odds-api'
 

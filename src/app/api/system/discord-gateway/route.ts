@@ -1,3 +1,7 @@
+// DEPRECATED: Aspirational Discord bot integration. No Discord bot is configured or
+// consuming this gateway. No UI references this endpoint. Protected by admin auth.
+// Will be removed in a future cleanup unless a Discord bot is connected.
+
 // ELASTICO — Discord Command Gateway
 // Receives commands and routes to internal ELASTICO endpoints.
 // Replaces Telegram gateway — Discord webhooks are free, no per-message charges.
