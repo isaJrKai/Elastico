@@ -298,10 +298,10 @@ async function syncUnderstatAnalytics(): Promise<{
           if (!ut) continue
 
           // Validate: xG must be non-negative
-          const xg = parseFloat(ut.xG) || 0
-          const xga = parseFloat(ut.xGA) || 0
-          const npxg = parseFloat(ut.npxG) || 0
-          const npxga = parseFloat(ut.npxGA) || 0
+          const xg = parseFloat(String(ut.xG)) || 0
+          const xga = parseFloat(String(ut.xGA)) || 0
+          const npxg = parseFloat(String(ut.npxG)) || 0
+          const npxga = parseFloat(String(ut.npxGA)) || 0
           if (xg < 0 || xga < 0 || npxg < 0 || npxga < 0) {
             console.warn(`[SYNC/Understat] Invalid xG values for ${r.matchedDbTeamName}: xG=${xg}, xGA=${xga}`)
             continue

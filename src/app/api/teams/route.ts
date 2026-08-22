@@ -18,13 +18,12 @@ export async function GET(req: NextRequest) {
     const dbTeams = await db.team.findMany({
       where,
       include: {
-        _count: { select: { players: true },
+        _count: { select: { players: true } },
         analytics: {
           where: { source: 'understat' },
           orderBy: { syncedAt: 'desc' },
           take: 1,
         },
-      },
       },
       orderBy: { name: 'asc' },
     })

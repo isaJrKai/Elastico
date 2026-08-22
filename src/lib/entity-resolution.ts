@@ -143,7 +143,7 @@ const UNDERSTAT_ALIASES: Record<string, string> = {
  '1. FC Union Berlin': '1. FC Union Berlin',
  'Werder Bremen': 'SV Werder Bremen',
   'SV Werder Bremen': 'SV Werder Bremen',
- 'M'gladbach': 'Borussia Mönchengladbach',
+   'M\u00f6nchengladbach': 'Borussia M\u00f6nchengladbach',
   'Borussia Mönchengladbach': 'Borussia Mönchengladbach',
  'Mainz 05': '1. FSV Mainz 05',
   '1. FSV Mainz 05': '1. FSV Mainz 05',
@@ -170,7 +170,7 @@ const UNDERSTAT_ALIASES: Record<string, string> = {
  'Lyon': 'Olympique Lyonnais',
   'Olympique Lyonnais': 'Olympique Lyonnais',
  'Lille': 'LOSC Lille',
- LOSC Lille': 'LOSC Lille',
+  'LOSC Lille': 'LOSC Lille',
  'Nice': 'OGC Nice',
   'OGC Nice': 'OGC Nice',
   'Lens': 'RC Lens',
@@ -184,7 +184,7 @@ const UNDERSTAT_ALIASES: Record<string, string> = {
  'Montpellier': 'Montpellier HSC',
   'Montpellier HSC': 'Montpellier HSC',
  'Nantes': 'FC Nantes',
- FC Nantes': 'FC Nantes',
+   'FC Nantes': 'FC Nantes',
   'Reims': 'Stade de Reims',
   'Stade de Reims': 'Stade de Reims',
   'Brest': 'Stade Brestois 29',
@@ -194,7 +194,7 @@ const UNDERSTAT_ALIASES: Record<string, string> = {
   'Lorient': 'FC Lorient',
   'FC Lorient': 'FC Lorient',
   'Metz': 'FC Metz',
- FC Metz': 'FC Metz',
+   'FC Metz': 'FC Metz',
   'Auxerre': 'AJ Auxerre',
   'AJ Auxerre': 'AJ Auxerre',
   'Angers': 'Angers SCO',
@@ -254,7 +254,7 @@ export async function resolveUnderstatTeam(
   const exactMatches = await db.team.findMany({
     where: {
       leagueCode: normalizeLeagueCode(leagueCode),
-      name: { equals: understatTeamName, mode: 'insensitive' },
+      name: { equals: understatTeamName },
     },
  })
   if (exactMatches.length === 1) {
@@ -274,7 +274,7 @@ export async function resolveUnderstatTeam(
     const aliasMatches = await db.team.findMany({
       where: {
         leagueCode: normalizeLeagueCode(leagueCode),
-        name: { equals: aliasTarget, mode: 'insensitive' },
+        name: { equals: aliasTarget },
       },
  })
     if (aliasMatches.length === 1) {
