@@ -15,11 +15,14 @@ import {
   mapASStatus,
   AS_LEAGUES,
   type ASFixture,
+  AS_LEAGUES as AS_LEAGUES_ARR,
   type ASStandingTeam,
   type ASTeamInfo,
-  type ASTopScorer,
+ type ASTopScorer,
   type ASPlayer,
 } from '@/lib/api-sports'
+import { fetchLeagueTeams as fetchUnderstatLeagueTeams } from '@/lib/understat'
+import { resolveUnderstatTeams } from '@/lib/entity-resolution'
 
 export const maxDuration = 25 // Vercel hobby limit safety margin
 
@@ -255,6 +258,127 @@ async function syncStandingsFromApiSports(): Promise<{
       console.warn(`[SYNC/API-Sports] Standings failed for ${league.code}:`, err.message)
     }
   }
+
+  return result
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// UNDERSTAT ANALYTICAL ENRICHMENT (Phase 1: team xG/xGA only)
+// Runs AFTER API-Sports sync so that canonical teams exist in DB.
+// ═════════════════════════════════════════════════════════════════════════
+
+const UNDERSTAT_LEAGUES = ['PL', 'LIGA', 'SA', 'BL', 'L1'] as const
+const UNDERSTAT_SEASON = '2024' // Understat uses calendar year for 24/25 season
+
+async function syncUnderstatAnalytics(): Promise<{
+  resolved: number
+  unresolved: number
+  updated: number
+}> {
+  const result = { resolved: 0, unresolved: 0, updated: 0 }
+
+  for (const leagueCode of UNDERSTAT_LEAGUES) {
+    checkTimeout()
+    try {
+      const understatTeams = await fetchUnderstatLeagueTeams(leagueCode, parseInt(UNDERSTAT_SEASON))
+      if (understatTeams.length === 0) continue
+
+      const { resolved, unresolved } = await resolveUnderstatTeams(
+        db, understatTeams, leagueCode, UNDERSTAT_SEASON,
+      )
+
+      result.resolved += resolved.length
+      result.unresolved += unresolved.length
+
+      // Upsert resolved teams' analytics
+      for (const r of resolved) {
+        checkTimeout()
+        try {
+          const ut = understatTeams.find(t => t.id === r.understatTeamId)
+          if (!ut) continue
+
+          // Validate: xG must be non-negative
+          const xg = parseFloat(ut.xG) || 0
+          const xga = parseFloat(ut.xGA) || 0
+          const npxg = parseFloat(ut.npxG) || 0
+          const npxga = parseFloat(ut.npxGA) || 0
+          if (xg < 0 || xga < 0 || npxg < 0 || npxga < 0) {
+            console.warn(`[SYNC/Understat] Invalid xG values for ${r.matchedDbTeamName}: xG=${xg}, xGA=${xga}`)
+            continue
+          }
+
+          // Calculate per-game values (Understat xG is season total)
+          const matchesPlayed = (ut.wins || 0) + (ut.draws || 0) + (ut.losses || 0)
+          const xgPerGame = matchesPlayed > 0 ? Math.round((xg / matchesPlayed) * 100) / 100 : null
+          const xgaPerGame = matchesPlayed > 0 ? Math.round((xga / matchesPlayed) * 100) / 100 : null
+          const ppda = ut.ppda?.def > 0 ? Math.round((ut.ppda.att / ut.ppda.def) * 100) / 100 : null
+          const deep = matchesPlayed > 0 ? Math.round((ut.deep / matchesPlayed) * 100) / 100 : null
+          const ppdaAllowed = ut.ppda_allowed?.def > 0
+            ? Math.round((ut.ppda_allowed.att / ut.ppda_allowed.def) * 100) / 100
+            : null
+          const deepAllowed = matchesPlayed > 0
+            ? Math.round((ut.deep_allowed / matchesPlayed) * 100) / 100
+            : null
+
+          await db.teamAnalytic.upsert({
+            where: {
+              teamId_source_season_leagueCode: {
+                teamId: r.dbTeamId,
+                source: 'understat',
+                season: UNDERSTAT_SEASON,
+                leagueCode,
+              },
+            },
+            update: {
+              xgPerGame,
+              xgaPerGame,
+              npxGPerGame: matchesPlayed > 0 ? Math.round((npxg / matchesPlayed) * 100) / 100 : null,
+              npxgaPerGame: matchesPlayed > 0 ? Math.round((npxga / matchesPlayed) * 100) / 100 : null,
+              ppda,
+              ppdaAllowed,
+              deep,
+              deepAllowed,
+              syncedAt: new Date(),
+            },
+            create: {
+              teamId: r.dbTeamId,
+              source: 'understat',
+              season: UNDERSTAT_SEASON,
+              leagueCode,
+              xgPerGame,
+              xgaPerGame,
+              npxGPerGame: matchesPlayed > 0 ? Math.round((npxg / matchesPlayed) * 100) / 100 : null,
+              npxgaPerGame: matchesPlayed > 0 ? Math.round((npxga / matchesPlayed) * 100) / 100 : null,
+              ppda,
+              ppdaAllowed,
+              deep,
+              deepAllowed,
+              sourceTeamId: String(ut.id),
+              sourceTeamName: r.understatTeamName,
+              syncedAt: new Date(),
+            },
+          })
+          result.updated++
+        } catch (err) {
+          console.warn(`[SYNC/Understat] Failed to upsert for ${r.matchedDbTeamName}:`, err)
+        }
+      }
+
+      // Log unresolved teams
+      for (const u of unresolved) {
+        console.warn(
+          `[SYNC/Understat] UNRESOLVED: ${u.understatTeamName} ` +
+          `(id=${u.understatTeamId}, league=${leagueCode})`,
+        )
+      }
+    } catch (err: any) {
+      if (err.message?.includes('timeout')) throw err
+      console.warn(`[SYNC/Understat] Failed for ${leagueCode}:`, err.message)
+    }
+  }
+
+  await logSync('understat', 'team_analytics', 'success',
+    result.resolved + result.unresolved, result.resolved, result.updated)
 
   return result
 }
@@ -693,6 +817,7 @@ export async function GET(req: NextRequest) {
       standings: { source: 'none', created: 0, updated: 0 },
       teams: { source: 'none', created: 0, updated: 0 },
       players: { source: 'none', created: 0, updated: 0 },
+      understat: { source: 'none', resolved: 0, unresolved: 0, updated: 0 },
     },
     durationMs: 0,
   }
@@ -780,7 +905,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ═══ 3. ESPN Fallback — only if API-Sports didn't return fixtures ═══
+    // ═══ 3. Understat Analytical Enrichment ═══
+    try {
+      checkTimeout()
+      const usResult = await syncUnderstatAnalytics()
+      summary.syncs.understat = {
+        source: 'understat',
+        resolved: usResult.resolved,
+        unresolved: usResult.unresolved,
+        updated: usResult.updated,
+      }
+    } catch (err: any) {
+      if (err.message?.includes('timeout')) {
+        console.warn('[SYNC] Understat timeout')
+        await logSync('understat', 'team_analytics', 'partial', 0, 0, 0, err.message)
+      } else {
+        console.warn('[SYNC] Understat failed:', err.message)
+      }
+    }
+
+    // ═══ 4. ESPN Fallback — only if API-Sports didn't return fixtures ═══
     if (!apiSportsAvailable) {
       try {
         const espnResult = await syncFixturesFromESPN()

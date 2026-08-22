@@ -3,14 +3,17 @@ import { fetchAllLiveScores } from '@/lib/football-data'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
-function mapDbMatch(m: any) {
-  const teamMap = (t: any) => ({
+function mapDbMatch(m: any, teamAnalytics?: Map<string, any> | null) {
+  const teamMap = (t: any, analytics?: any) => ({
     id: t.id, name: t.name, code: t.code || '', logo: t.logo,
     primaryColor: t.primaryColor, secondaryColor: t.secondaryColor,
     eloRating: t.eloRating ?? 1500, form: '',
     wins: t.wins ?? 0, draws: t.draws ?? 0, losses: t.losses ?? 0,
     goalsFor: t.goalsFor ?? 0, goalsAgainst: t.goalsAgainst ?? 0,
-    xgPerGame: 0, xgaPerGame: 0, possession: 50, passAccuracy: 0, pressIntensity: 0,
+    xgPerGame: analytics?.xgPerGame ?? null,
+    xgaPerGame: analytics?.xgaPerGame ?? null,
+    xgSource: analytics?.xgSource ?? null,
+    possession: 50, passAccuracy: 0, pressIntensity: 0,
     players: (t.players || []).map((p: any) => ({
       id: p.id, name: p.name, number: p.number || 0,
       position: p.position || '', goals: p.goals || 0, assists: p.assists || 0,

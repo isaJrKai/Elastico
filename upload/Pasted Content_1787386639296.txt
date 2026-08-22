@@ -1,0 +1,1507 @@
+Absolutely. Based on Cycle 3's capability-map findings, I would **not** give GLM a normal "build Understat" prompt yet.
+
+The biggest discovery is architectural:
+
+> **ELASTICO doesn't primarily have a missing route problem. It has a missing unified data pipeline / canonical data model problem.**
+
+The capability map explicitly identifies Understat as the highest-value capability, but also warns that independently wiring six data sources could create duplicate teams, conflicting statistics, and ambiguous truth. 
+
+So the next GLM instruction should be a **mega prompt for the Data Foundation + Understat integration**, with a hard rule: **design the canonical data architecture first, then implement the highest-value pipeline without creating another fragmented system.**
+
+Here is the prompt I'd use.
+
+---
+
+# ELASTICO — CYCLE 4 MEGA DIRECTIVE
+
+## DATA FOUNDATION → CANONICAL DATA MODEL → REAL xG PIPELINE → VERIFIED PRODUCT DATA
+
+```text
+ELASTICO — CYCLE 4
+DATA FOUNDATION & ANALYTICAL DATA PIPELINE
+
+ROLE
+
+You are the primary engineering agent for ELASTICO.
+
+You have now completed three audit/build cycles.
+
+Cycle 1:
+- Removed confirmed fabricated product claims and fake data.
+- Corrected prediction-path architecture.
+- Removed fabricated bookmaker odds from the stochastic model.
+- Established truthful UI states.
+
+Cycle 2:
+- Removed hardcoded analytical values.
+- Corrected multiple UI/API contract mismatches.
+- Corrected TimesFM, NVIDIA, Veronica, SAIM, and xG-related defects.
+- Verified builds.
+
+Cycle 3:
+- Removed dangerous /api/setup.
+- Removed dead infrastructure.
+- Deprecated duplicate/aspirational routes.
+- Classified remaining orphaned capabilities.
+- Established that the remaining major problem is no longer primarily fabrication.
+- Established that the next major problem is DATA FOUNDATION and DATA INTEGRATION.
+
+The capability audit has now identified the highest-leverage opportunity:
+
+UNDERSTAT → REAL xG DATA → CANONICAL DATA MODEL → EXISTING ELASTICO UI
+
+This cycle is NOT a generic feature sprint.
+
+This is a data-foundation cycle.
+
+The goal is to make ELASTICO capable of displaying real analytical data without creating a fragmented multi-source architecture.
+
+==================================================
+0. GOVERNING PRINCIPLE
+==================================================
+
+DO NOT simply wire another API into the existing UI.
+
+Before integrating Understat, establish how ELASTICO represents:
+
+- canonical teams
+- external team identities
+- external data sources
+- statistical provenance
+- timestamps
+- freshness
+- conflicting values
+- source priority
+- unavailable data
+- derived data
+- cached data
+
+The current system has multiple data sources:
+
+- ESPN
+- API-Sports
+- Understat
+- TheSportsDB
+- odds providers
+
+The current architecture does not have a proper entity-resolution layer.
+
+The Team schema allows:
+
+@@unique([source, sourceId])
+
+This means the same real-world team can exist multiple times under different sources.
+
+DO NOT make this problem worse.
+
+Do not independently create a new Understat Team record for every Understat team.
+
+Do not blindly match teams by name.
+
+Do not overwrite existing statistics without recording their source.
+
+Do not silently merge records.
+
+Do not fabricate values when a source is unavailable.
+
+==================================================
+1. CURRENT OBJECTIVE
+==================================================
+
+The objective of Cycle 4 is:
+
+BUILD THE FOUNDATION REQUIRED TO SAFELY INTRODUCE REAL xG DATA.
+
+Then implement the first real analytical data pipeline:
+
+UNDERSTAT
+    ↓
+SOURCE INGESTION
+    ↓
+ENTITY RESOLUTION
+    ↓
+VALIDATION
+    ↓
+CANONICAL STORAGE
+    ↓
+PROVENANCE
+    ↓
+TEAM/MATCH DATA
+    ↓
+EXISTING ELASTICO UI
+    ↓
+TARGETED RE-AUDIT
+
+The first user-visible success criterion is:
+
+A real team or match with available Understat data should display real xG information in existing ELASTICO surfaces instead of:
+
+- N/A caused by missing integration
+- zero caused by default values
+- seed values
+- deterministic jitter
+- fabricated fallbacks
+- unexplained estimates
+
+==================================================
+2. DO NOT START CODING IMMEDIATELY
+==================================================
+
+Before modifying code, inspect the actual current implementation.
+
+You MUST inspect:
+
+1. prisma/schema.prisma
+2. prisma/seed.ts
+3. src/lib/understat.ts
+4. src/lib/api-sports.ts
+5. src/lib/football-data.ts
+6. src/lib/espn.ts / football-data equivalent ESPN service
+7. src/app/api/cron/sync/route.ts
+8. all Team-related Prisma queries
+9. all Match-related Prisma queries
+10. Zustand stores containing Team and Match interfaces
+11. match-detail-view.tsx
+12. tactical-view.tsx
+13. compare-view.tsx
+14. predictions-view.tsx
+15. prediction-engine.ts
+16. any existing source/sourceId handling
+17. any existing sync timestamps
+18. any existing provenance metadata
+19. any existing cache strategy
+20. any existing migrations
+
+Do not rely on previous summaries.
+
+Read the actual current files.
+
+==================================================
+3. FIRST DELIVERABLE — DATA FOUNDATION AUDIT
+==================================================
+
+Before implementation, produce a concise line-cited technical assessment containing:
+
+A. Current Team schema
+B. Current Match schema
+C. Current source identity model
+D. Current sync architecture
+E. Current Understat architecture
+F. Current ESPN architecture
+G. Current API-Sports architecture
+H. Current xG fields
+I. Current xG producers
+J. Current xG consumers
+K. Current provenance support
+L. Current timestamp/freshness support
+M. Current entity-resolution support
+
+For each identify:
+
+REAL
+DERIVED
+PROXY
+MISSING
+STALE
+UNAVAILABLE
+DEMO
+FABRICATED
+
+Do not inflate findings.
+
+==================================================
+4. CANONICAL ENTITY MODEL
+==================================================
+
+Design the smallest viable architecture for resolving external entities to canonical ELASTICO entities.
+
+At minimum investigate whether ELASTICO needs:
+
+Team
+TeamSource / TeamExternalIdentity
+
+For example conceptually:
+
+Canonical Team
+    |
+    +-- ESPN identity
+    +-- API-Sports identity
+    +-- Understat identity
+    +-- TheSportsDB identity
+
+DO NOT blindly implement this exact schema.
+
+Determine the correct architecture from the existing database.
+
+The canonical identity system must answer:
+
+"Which external records represent the same real-world football team?"
+
+Example:
+
+Manchester City
+
+ESPN:
+teamId = X
+
+API-Sports:
+teamId = Y
+
+Understat:
+teamId = Z
+
+The system should resolve:
+
+X → Canonical Team A
+Y → Canonical Team A
+Z → Canonical Team A
+
+rather than creating:
+
+Team A
+Team B
+Team C
+
+for the same club.
+
+==================================================
+5. ENTITY RESOLUTION REQUIREMENTS
+==================================================
+
+Design an explicit matching strategy.
+
+Possible signals:
+
+- source ID
+- normalized team name
+- league
+- country
+- venue
+- abbreviation
+- known aliases
+
+Never rely solely on exact string equality.
+
+Never automatically merge low-confidence matches.
+
+If confidence is ambiguous:
+
+MARK AS UNRESOLVED.
+
+Do not guess.
+
+Create a mechanism that makes unresolved mappings visible to developers/admins rather than silently corrupting data.
+
+If a manual mapping table is more reliable than heuristic matching, prefer correctness over automation.
+
+==================================================
+6. DATA PROVENANCE
+==================================================
+
+ELASTICO must know where analytical values came from.
+
+For every integrated analytical statistic determine whether the system can answer:
+
+- What source produced this value?
+- When was it fetched?
+- When was it last successfully synchronized?
+- Is it live?
+- Is it cached?
+- Is it estimated?
+- Is it derived?
+- Is it unavailable?
+- What entity/source ID produced it?
+
+At minimum, investigate provenance for:
+
+xG
+xGA
+possession
+pass accuracy
+press intensity
+odds
+player analytical metrics
+
+Do NOT create a giant metadata system unnecessarily.
+
+Implement the smallest architecture that can support truthful data provenance.
+
+==================================================
+7. xG DATA MODEL
+==================================================
+
+Investigate the existing:
+
+Team.xgPerGame
+Team.xgaPerGame
+Match.homeXg
+Match.awayXg
+
+Determine whether these fields are sufficient.
+
+Important:
+
+The audit found that advanced statistical fields exist in the frontend/store representation but are not properly persisted in the database.
+
+Do not blindly add fields.
+
+Determine:
+
+- Which values belong on Team?
+- Which values belong on Match?
+- Which values should be historical snapshots?
+- Which values need source attribution?
+- Which values need timestamps?
+
+For example:
+
+TEAM-LEVEL:
+
+xG per game
+xGA per game
+
+MATCH-LEVEL:
+
+home xG
+away xG
+
+MATCH SHOT-LEVEL:
+
+shot location
+xG
+shot type
+situation
+player
+minute
+
+Do not introduce shot-level storage unless required for the immediate integration.
+
+Separate:
+
+PHASE 1:
+team/match xG
+
+from:
+
+PHASE 2:
+shot maps
+
+==================================================
+8. UNDERSTAT INTEGRATION
+==================================================
+
+Inspect src/lib/understat.ts completely.
+
+Determine exactly what it already provides.
+
+The capability audit indicates it can provide:
+
+- team xG
+- team xGA
+- player xG
+- player xA
+- xGChain
+- xGBuildup
+- PPDA
+- deep completions
+- match shot maps
+- normalized shot coordinates
+- shot types
+- situation types
+
+Do not wire every capability.
+
+For this cycle:
+
+PRIMARY:
+
+REAL TEAM/MATCH xG
+
+SECONDARY:
+
+xGA if the data and schema support it cleanly.
+
+DEFER:
+
+shot maps
+xGChain
+xGBuildup
+PPDA
+deep completions
+player xG
+advanced shot-level analytics
+
+unless they are already trivially supported by the current data model.
+
+Do not expand scope merely because the API exposes more fields.
+
+==================================================
+9. UNDERSTAT INGESTION PIPELINE
+==================================================
+
+Design:
+
+Understat
+↓
+Fetch
+↓
+Validate
+↓
+Normalize
+↓
+Resolve entity
+↓
+Persist
+↓
+Record provenance
+↓
+Expose through existing API/store
+↓
+Existing UI consumes real values
+
+The ingestion layer MUST:
+
+- validate response structure
+- handle missing teams
+- handle missing matches
+- handle malformed data
+- handle source failures
+- respect timeouts
+- respect caching
+- avoid duplicate records
+- avoid overwriting unrelated source data
+- record successful sync time
+- expose failure state
+
+If Understat is unavailable:
+
+DO NOT FALL BACK TO RANDOM VALUES.
+
+DO NOT FALL BACK TO SEED VALUES.
+
+DO NOT FALL BACK TO FABRICATED xG.
+
+Instead:
+
+xG = unavailable
+
+and the UI must communicate that honestly.
+
+==================================================
+10. SOURCE PRIORITY
+==================================================
+
+Do not invent a universal source priority without evidence.
+
+Investigate source ownership by metric.
+
+For example, conceptually:
+
+LIVE SCORE
+→ ESPN / established canonical source
+
+FIXTURES
+→ existing canonical sync source
+
+TEAM IDENTITY
+→ canonical ELASTICO entity
+
+xG
+→ Understat
+
+ODDS
+→ ESPN initially
+
+MEDIA ASSETS
+→ TheSportsDB if eventually used
+
+But this is only a starting hypothesis.
+
+Confirm the appropriate source for each metric.
+
+A source should be authoritative for the data it is actually best suited to provide.
+
+==================================================
+11. DO NOT MIX DATA SOURCES SILENTLY
+==================================================
+
+Example of what MUST NOT happen:
+
+ESPN possession
++
+API-Sports possession
++
+Understat xG
++
+seed pass accuracy
+
+and then presenting all of them as one unified "Team Stats" object without provenance.
+
+Every displayed analytical value must have an understandable origin.
+
+If a metric is unavailable:
+
+show unavailable.
+
+If it is derived:
+
+label derived.
+
+If it is cached:
+
+show freshness.
+
+If it is estimated:
+
+label estimated.
+
+==================================================
+12. EXISTING UI INTEGRATION
+==================================================
+
+After the data foundation is ready, integrate ONLY into existing surfaces.
+
+PRIMARY:
+
+MATCH INTELLIGENCE / MATCH DETAIL
+
+The existing xG display should become real.
+
+Requirements:
+
+- real home xG
+- real away xG
+- source attribution
+- freshness if available
+- unavailable state
+- loading state
+- error state
+
+SECONDARY:
+
+COMPARE
+
+Existing xG comparison should consume real Team values.
+
+Do not create fake comparison values.
+
+TERTIARY:
+
+TACTICAL
+
+Do not automatically activate the existing radar if its other inputs remain fabricated/demo.
+
+If only xG is real but other tactical dimensions are unavailable:
+
+DO NOT imply the entire radar is real.
+
+Either:
+
+A. make only the xG dimension data-backed and clearly mark the rest unavailable,
+
+OR
+
+B. keep the radar in an honest illustrative/unavailable state until sufficient real inputs exist.
+
+Choose based on the actual component architecture.
+
+==================================================
+13. PREDICTIONS
+==================================================
+
+This is CRITICAL.
+
+Do not automatically change production prediction probabilities simply because xG becomes available.
+
+We already established through prior research that current ELASTICO models have not demonstrated superiority over bookmaker probabilities.
+
+Therefore:
+
+FIRST:
+
+Integrate real xG into the data layer.
+
+SECOND:
+
+Verify how prediction-engine inputs currently derive lambda/xG.
+
+THIRD:
+
+Measure the effect.
+
+FOURTH:
+
+Only after validation should prediction-model behavior change.
+
+Do not claim:
+
+"Real xG makes predictions better."
+
+That is an empirical question.
+
+==================================================
+14. EXISTING PROXY xG
+==================================================
+
+Previous research identified:
+
+xG proxy =
+shots_on_target × 0.1
+
+This is NOT real xG.
+
+If this logic still exists anywhere:
+
+- identify it
+- classify it as PROXY
+- determine whether it is used in production
+- prevent it from being mislabeled as real xG
+
+Do not silently replace it without understanding its consumers.
+
+If retained temporarily:
+
+label it explicitly as:
+
+"Estimated xG proxy"
+
+or equivalent truthful terminology.
+
+Never:
+
+"xG"
+
+without qualification if it is not actual xG.
+
+==================================================
+15. SEED DATA
+==================================================
+
+Inspect prisma/seed.ts.
+
+Identify any xG or advanced-stat seed values.
+
+Determine whether they:
+
+- exist only for development
+- leak into production
+- are consumed by live UI
+- are overwritten by sync
+- are treated as authoritative
+
+Do not delete useful development fixtures blindly.
+
+But ensure production UI cannot mistake seeded values for real analytical data.
+
+==================================================
+16. DATABASE MIGRATION
+==================================================
+
+If schema changes are required:
+
+DO NOT modify the production database blindly.
+
+First:
+
+1. update Prisma schema
+2. create migration
+3. verify migration SQL
+4. test migration against development database
+5. verify existing records survive
+6. verify rollback/recovery strategy where appropriate
+7. run Prisma generation
+8. run application build
+
+Do not store secrets in schema, migration files, or source.
+
+==================================================
+17. SYNC ARCHITECTURE
+==================================================
+
+Inspect the existing cron/sync route.
+
+Do not create a second independent cron architecture if the existing one can safely be extended.
+
+Determine:
+
+- current schedule
+- current source sequence
+- current failure behavior
+- current rate limits
+- current transaction boundaries
+- current retry behavior
+- current logging
+- current data freshness
+
+Then determine where Understat belongs.
+
+Potential architecture:
+
+Existing sync
+    |
+    +-- fixtures
+    +-- teams
+    +-- players
+    +-- standings
+    |
+    +-- Understat analytical enrichment
+           |
+           +-- team xG
+           +-- team xGA
+           +-- match xG where available
+
+But only implement after confirming the current architecture.
+
+==================================================
+18. RATE LIMITS AND SCRAPING
+==================================================
+
+Understat is scraped rather than consumed through a conventional API.
+
+Therefore account for:
+
+- request frequency
+- caching
+- timeout
+- retries
+- User-Agent
+- parsing failures
+- source HTML changes
+- rate limiting
+- Vercel/serverless execution constraints
+
+Do not hammer Understat on every frontend request.
+
+The frontend must NEVER directly scrape Understat.
+
+Use server-side ingestion/cache.
+
+==================================================
+19. CACHE STRATEGY
+==================================================
+
+Determine the correct caching model.
+
+Potentially:
+
+Longer cache:
+team-level historical xG
+
+Shorter cache:
+recent match xG
+
+No unnecessary repeated requests.
+
+Do not assume a fixed one-hour cache is always correct.
+
+Document why the chosen TTL is appropriate.
+
+==================================================
+20. ERROR STATES
+==================================================
+
+Every new data pipeline must support:
+
+LOADING
+SUCCESS
+EMPTY
+ERROR
+STALE
+UNAVAILABLE
+
+Example:
+
+SUCCESS:
+"Understat · updated 42 min ago"
+
+STALE:
+"Understat · last updated 8h ago"
+
+UNAVAILABLE:
+"xG unavailable"
+
+ERROR:
+"xG data could not be retrieved"
+
+EMPTY:
+"No xG data exists for this fixture"
+
+Never:
+
+"1.45"
+
+because a fallback was convenient.
+
+==================================================
+21. DATA PROVENANCE UI
+==================================================
+
+Do not turn the interface into a sea of badges.
+
+Use restrained provenance.
+
+Possible pattern:
+
+xG
+1.72
+Understat · 43m ago
+
+or:
+
+xG
+—
+Unavailable
+
+Only add detailed provenance UI where it materially improves trust.
+
+Do not redesign the whole product in this cycle.
+
+==================================================
+22. TACTICAL VIEW SAFETY
+==================================================
+
+The capability audit identified that Tactical currently uses:
+
+generateDemoProfile
+
+with seed values + deterministic jitter.
+
+This is a major issue.
+
+DO NOT simply connect Understat xG and then leave the radar looking like a real tactical model.
+
+Determine exactly which radar dimensions are real and which are not.
+
+Classify each:
+
+- attack
+- midfield
+- defense
+- pressing
+- possession
+- set pieces
+- xG if present
+
+as:
+
+REAL
+DERIVED
+PROXY
+DEMO
+UNAVAILABLE
+
+If the majority are not real:
+
+keep the visualization honest.
+
+Do not make a beautiful chart appear more authoritative than its underlying data.
+
+==================================================
+23. ENTITY RESOLUTION TESTS
+==================================================
+
+Create tests for at least:
+
+- exact known team match
+- alias match
+- different source IDs
+- different naming conventions
+- accented characters
+- FC/CF naming differences
+- ambiguous team names
+- missing team
+- relegated/promoted teams
+- same-name teams in different countries
+
+No low-confidence automatic merge.
+
+==================================================
+24. DATA INTEGRITY TESTS
+==================================================
+
+Add validation for:
+
+- xG >= 0
+- xGA >= 0
+- no impossible NaN values entering persistence
+- no negative xG
+- source ID present
+- canonical team ID present
+- sync timestamp present
+- source recorded
+- duplicate source identity rejected
+- malformed Understat payload rejected
+- stale values distinguishable from unavailable values
+
+Do not invent upper bounds without evidence.
+
+==================================================
+25. END-TO-END TEST
+==================================================
+
+The final verification must demonstrate:
+
+Understat source
+↓
+successful fetch
+↓
+normalized team identity
+↓
+database persistence
+↓
+API response
+↓
+Zustand/store or server data layer
+↓
+Match Detail
+↓
+real xG displayed
+
+Also verify:
+
+Compare
+↓
+real xG values
+
+and:
+
+Tactical
+↓
+does NOT falsely imply the entire radar is real
+
+if insufficient data exists.
+
+==================================================
+26. NO FAKE DATA RULE
+==================================================
+
+ABSOLUTE RULE:
+
+If real Understat data cannot be obtained:
+
+DO NOT:
+
+- seed fake xG
+- use random xG
+- use deterministic jitter
+- use goals × multiplier
+- use shots × arbitrary multiplier
+- copy another team's xG
+- use hardcoded 1.5 / 1.3
+- use 1/3 fallback probabilities
+- fabricate "confidence"
+
+Instead:
+
+RETURN UNAVAILABLE.
+
+==================================================
+27. ENVIRONMENT CONFIGURATION
+==================================================
+
+The capability audit noted that no `.env.local` currently exists and API-Sports configuration may therefore be unavailable.
+
+Do NOT ask the user to paste secrets into source code.
+
+Do NOT create credentials in code.
+
+Do NOT commit `.env.local`.
+
+Inspect:
+
+- .env.example
+- environment validation
+- deployment configuration
+- required variables
+
+Document which variables are required.
+
+If a secret is missing:
+
+return a clear configuration state.
+
+==================================================
+28. DO NOT ADD API-Sports DIRECT UI CALLS
+==================================================
+
+The capability map concluded that `/api/api-sports` is a general-purpose proxy that duplicates existing sync functionality.
+
+Do not wire UI directly to this route.
+
+If additional API-Sports data is required:
+
+extend the server-side data/sync architecture appropriately.
+
+Do not create another competing data path.
+
+==================================================
+29. ODDS
+==================================================
+
+DO NOT implement the full multi-provider odds integration during this cycle.
+
+The capability assessment identified odds as valuable, but blocked by:
+
+- API-key configuration
+- free-tier limits
+- no existing UI
+- product-direction considerations
+
+However, investigate the existing ESPN fetchMatchOdds capability.
+
+If the current architecture makes it trivial, document the smallest safe future integration.
+
+Do NOT implement it unless it naturally belongs inside this cycle without destabilizing the xG/data foundation.
+
+The current priority is xG.
+
+==================================================
+30. ADVANCED ANALYTICS
+==================================================
+
+DO NOT wire `/api/advanced-analytics` into the UI during this cycle.
+
+The formulas currently operate on demonstration/default inputs and lack a real data pipeline.
+
+Do not expose plausible-looking numbers as real analysis.
+
+Keep it orphaned.
+
+Document which 3–4 formulas might eventually be candidates for real-data integration.
+
+Do not implement them now.
+
+==================================================
+31. THE SPORTS DB
+==================================================
+
+DO NOT make TheSportsDB a priority in this cycle.
+
+Its primary value is media enrichment:
+
+- headshots
+- kits
+- stadiums
+- banners
+- social links
+
+That is useful later but not the current analytical bottleneck.
+
+Keep it isolated as a possible enrichment layer.
+
+==================================================
+32. ACHIEVEMENTS
+==================================================
+
+Do not implement achievements during this cycle.
+
+It is a retention layer, not the core analytical data foundation.
+
+==================================================
+33. ANALYTICS/PREDICTIONS
+==================================================
+
+Do not wire the duplicate prediction analytics endpoint unless the current work reveals a direct dependency.
+
+The Predictions UI already computes model accuracy client-side.
+
+Do not create duplicate prediction logic.
+
+==================================================
+34. ARCHITECTURAL NON-NEGOTIABLES
+==================================================
+
+DO NOT:
+
+- rebuild ELASTICO
+- replace Prisma
+- replace Zustand
+- replace the existing sync architecture without evidence
+- create a second data store
+- create duplicate prediction engines
+- create duplicate team entities
+- create a new frontend architecture
+- introduce a new framework
+- add unnecessary dependencies
+- create fake seed data
+- make production prediction claims
+- create a new dashboard
+- redesign the whole UI
+- wire every available API simply because it exists
+
+Preserve the existing architecture.
+
+Improve the foundation.
+
+==================================================
+35. PERFORMANCE
+==================================================
+
+Do not turn the frontend into an API aggregator.
+
+Data fetching should happen server-side where appropriate.
+
+Avoid:
+
+N frontend components
+×
+M external API calls.
+
+Prefer:
+
+external source
+→
+server-side ingestion/cache
+→
+canonical data
+→
+frontend
+
+Avoid repeated Understat requests.
+
+==================================================
+36. SECURITY
+==================================================
+
+Verify:
+
+- no credentials committed
+- no API keys in client bundles
+- no source scraping from browser
+- authentication where needed
+- rate limiting where needed
+- no raw SQL/DDL endpoints
+- no debug secrets
+- no environment secrets exposed through GET responses
+
+Do not reintroduce `/api/setup` functionality.
+
+==================================================
+37. BUILD / TEST / VERIFY LOOP
+==================================================
+
+Work in controlled increments.
+
+For each implementation unit:
+
+1. inspect
+2. change
+3. typecheck
+4. build
+5. targeted test
+6. inspect resulting code
+7. verify data state
+8. record evidence
+
+If something fails:
+
+STOP AND DIAGNOSE.
+
+Do not hide failures with fallbacks.
+
+==================================================
+38. TARGETED RE-AUDIT
+==================================================
+
+After implementation, re-audit:
+
+A. Prisma schema
+B. migration
+C. Understat service
+D. entity resolution
+E. sync worker
+F. API
+G. store
+H. match detail
+I. compare
+J. tactical
+K. prediction inputs
+L. seed data
+M. provenance
+N. environment configuration
+
+Verify that no new fabrication was introduced.
+
+==================================================
+39. FINAL DATA TRUTH TABLE
+==================================================
+
+Produce a final table:
+
+| Metric | Source | Stored? | Freshness | Provenance | UI | Truth State |
+|--------|--------|---------|-----------|------------|----|-------------|
+
+At minimum:
+
+- xG
+- xGA
+- possession
+- pass accuracy
+- press intensity
+- odds
+- team form
+- goals
+- shots
+
+Do not claim a metric is real merely because a field exists.
+
+==================================================
+40. FINAL ENTITY MAP
+==================================================
+
+Produce:
+
+| Canonical Team | ESPN ID | API-Sports ID | Understat ID | Other IDs | Resolution Method | Confidence |
+|---------------|---------|---------------|--------------|-----------|-------------------|------------|
+
+Only include verified mappings.
+
+==================================================
+41. FINAL CAPABILITY STATUS
+==================================================
+
+Update the previous capability map:
+
+UNDERSTAT
+→ WIRE / PARTIALLY WIRED / BLOCKED
+
+API-SPORTS
+→ MERGED / KEEP
+
+THE SPORTS DB
+→ KEEP ORPHANED
+
+ODDS
+→ RESEARCH LATER
+
+ADVANCED ANALYTICS
+→ KEEP ORPHANED
+
+ANALYTICS/PREDICTIONS
+→ KEEP ORPHANED
+
+ACHIEVEMENTS
+→ KEEP ORPHANED
+
+==================================================
+42. SUCCESS CRITERIA
+==================================================
+
+Cycle 4 is successful only if:
+
+[ ] Canonical entity strategy exists.
+[ ] Existing schema is understood.
+[ ] Required migration is created if necessary.
+[ ] Understat ingestion is server-side.
+[ ] Understat response is validated.
+[ ] Team identity resolution is deterministic and tested.
+[ ] No duplicate canonical teams are created.
+[ ] xG provenance exists.
+[ ] xG freshness exists where appropriate.
+[ ] Real xG reaches at least one existing UI surface.
+[ ] No fake xG fallback exists.
+[ ] Match Detail does not display fabricated xG.
+[ ] Compare does not display fabricated xG.
+[ ] Tactical does not falsely imply complete real data.
+[ ] Prediction models are not changed without validation.
+[ ] No credentials are introduced.
+[ ] Existing sync continues functioning.
+[ ] Build passes.
+[ ] Targeted regression audit passes.
+[ ] No new fabrication is introduced.
+
+==================================================
+43. STOP CONDITIONS
+==================================================
+
+STOP implementation if:
+
+- entity resolution cannot be made reliable
+- schema design would require destructive migration
+- Understat data structure is unstable/unverifiable
+- existing sync architecture cannot safely accommodate it
+- the only way to make the UI look populated is fake data
+- real xG cannot be mapped confidently to canonical teams
+- implementation requires replacing major architecture
+- prediction behavior would change without validation
+
+If blocked:
+
+REPORT THE BLOCKER.
+
+Do not work around it with fabricated data.
+
+==================================================
+44. WHAT NOT TO DO AFTER COMPLETION
+==================================================
+
+Do NOT immediately start:
+
+- odds integration
+- Advanced Analytics UI
+- achievements
+- TheSportsDB enrichment
+- new prediction models
+- LSTM
+- new AI features
+- dashboard redesign
+- tactical redesign
+- another giant audit
+
+Finish this cycle.
+
+Then report the state.
+
+==================================================
+45. FINAL REPORT FORMAT
+==================================================
+
+Return:
+
+# CYCLE 4 — DATA FOUNDATION REPORT
+
+## 1. What was inspected
+
+## 2. Architecture decision
+
+## 3. Canonical entity strategy
+
+## 4. Schema changes
+
+## 5. Migration
+
+## 6. Understat integration
+
+## 7. Data validation
+
+## 8. Provenance
+
+## 9. Sync architecture
+
+## 10. UI integration
+
+## 11. Prediction impact
+
+## 12. Tests
+
+## 13. Build result
+
+## 14. Targeted re-audit
+
+## 15. Remaining blockers
+
+## 16. Updated capability map
+
+## 17. Data Truth Table
+
+## 18. What is REAL
+
+## 19. What is DERIVED
+
+## 20. What is PROXY
+
+## 21. What remains UNAVAILABLE
+
+## 22. Recommended next build
+
+Do not inflate completion percentages.
+
+Do not say "everything is fixed."
+
+Use precise states.
+
+==================================================
+46. THE CORE MISSION
+==================================================
+
+ELASTICO has spent three cycles removing lies from the product.
+
+Now we need to give the product real analytical fuel.
+
+The objective is not:
+
+"Connect Understat."
+
+The objective is:
+
+BUILD ELASTICO'S FIRST RELIABLE ANALYTICAL DATA PIPELINE.
+
+Understat is simply the first high-value source.
+
+The architecture must be capable of eventually supporting:
+
+ESPN
+API-Sports
+Understat
+Odds
+TheSportsDB
+other future sources
+
+without turning ELASTICO into a collection of disconnected APIs.
+
+The desired architecture is:
+
+                EXTERNAL SOURCES
+                       │
+        ┌──────────────┼──────────────┐
+        ↓              ↓              ↓
+      ESPN        API-Sports      Understat
+        │              │              │
+        └──────────────┼──────────────┘
+                       ↓
+              INGESTION / NORMALIZE
+                       ↓
+              ENTITY RESOLUTION
+                       ↓
+              CANONICAL DATA MODEL
+                       ↓
+                 PROVENANCE
+                       ↓
+                VALIDATION
+                       ↓
+              CACHED / PERSISTED
+                       ↓
+                ELASTICO APIs
+                       ↓
+                PRODUCT VIEWS
+                       ↓
+             USER-FACING INTELLIGENCE
+
+Every layer must know what it knows.
+
+Every value must have a source.
+
+Every unavailable value must be allowed to remain unavailable.
+
+Every derived value must be distinguishable from raw data.
+
+Every external identity must resolve to the correct canonical entity.
+
+Every prediction claim must remain evidence-based.
+
+BUILD THE FOUNDATION ONCE.
+
+DO NOT BUILD ANOTHER APP.
+
+DO NOT BUILD ANOTHER DATA SILO.
+
+DO NOT FABRICATE DATA TO MAKE THE PRODUCT LOOK COMPLETE.
+
+Make ELASTICO progressively more real.
+```
+
+### Why I think this is the right next mega prompt
+
+The uploaded capability assessment makes a very important distinction: **Understat is the #1 capability by user value, but the actual highest-leverage engineering action is the data foundation underneath it.** The report specifically recommends schema work, entity resolution, then Understat ingestion, followed by provenance and existing-UI integration. 
+
+And I would **not** let GLM jump straight into all seven orphaned routes. The report itself concludes that wiring them independently risks six uncoordinated data sources creating duplicate entities and conflicting statistics. 
+
+So Cycle 4 should be the moment ELASTICO goes from:
+
+**"We have a lot of analytical capabilities in code"**
+
+to:
+
+**"We have a coherent data system that can actually feed those capabilities."**
+
+That is a much bigger architectural win than simply adding another endpoint.

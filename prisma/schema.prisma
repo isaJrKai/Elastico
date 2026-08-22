@@ -211,6 +211,40 @@ model UserPreference {
 // ==================== SHARED DATA WAREHOUSE ====================
 // (Populated by /api/cron/sync worker from ESPN / API-Sports)
 
+// ==================== ANALYTICAL DATA (Cycle 4) ====================
+// Separate from Team identity to allow multiple sources per analytical
+// metric without creating duplicate team entities.
+// Each row = one source's analytical stats for one team in one season.
+
+model TeamAnalytic {
+  id              String   @id @default(cuid())
+  teamId          String
+  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  source          String   // 'understat', 'the-sports-db', etc.
+  season          String   // '2024', '2024-2025', etc.
+  leagueCode      String?  // 'PL', 'LIGA', etc.
+  // --- Understat fields (null = unavailable, NOT estimated) ---
+  xgPerGame      Float?
+  xgaPerGame     Float?
+  npxGPerGame    Float?
+  npxgaPerGame   Float?
+  ppda            Float?   // passes per defensive action
+  ppdaAllowed     Float?
+  deep            Float?   // deep completions per game
+  deepAllowed     Float?
+  // --- Source identity (for debugging entity resolution) ---
+  sourceTeamId    String?  // Understat's own team ID
+  sourceTeamName  String?  // Understat's team name (for alias debugging)
+  // --- Provenance ---
+  syncedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([teamId, source, season, leagueCode])
+  @@index([teamId])
+  @@index([source, leagueCode, season])
+}
+
 model Team {
   id            String   @id @default(cuid())
   externalId    String?
@@ -240,6 +274,7 @@ model Team {
   homeMatches Match[] @relation("HomeTeam")
   awayMatches Match[] @relation("AwayTeam")
   players     Player[]
+  analytics    TeamAnalytic[]
 
   @@unique([source, sourceId])
   @@index([name])
