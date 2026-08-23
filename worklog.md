@@ -1,6 +1,27 @@
 # ELASTICO Worklog
 
 ---
+Task ID: hotfix-1
+Agent: main
+Task: Deep audit and clean — fix persistent React error #31 on Vercel
+
+Work Log:
+- Audited all 33 .tsx files for object-as-React-child rendering (React error #31)
+- Found root cause: `output: 'standalone'` in next.config.ts prevented Vercel from picking up code changes
+- Previous dashboard fix (match.homeTeam?.name) was correct but never reached production due to standalone output
+- Removed `output: 'standalone'` from next.config.ts
+- Added defensive sanitization in store fetchLiveScores: ensures team objects always have .name string
+- Verified Vercel env vars: DATABASE_URL, DIRECT_URL, JWT_SECRET all set for Production
+- Tested deployed app: demo login returns 200 + valid JWT, /api/live returns 5 matches from DB
+- Full auth audit: identified 11 findings (3 critical, 3 high, 3 medium, 2 low)
+
+Stage Summary:
+- React error #31 root cause: standalone output mode + team object rendered directly in LiveScoreWidget
+- Three-layer fix: (1) remove standalone, (2) dashboard uses .name, (3) store sanitizes team objects
+- Deployed to production: https://my-project-one-rust-23.vercel.app
+- Auth audit findings documented but not all fixed (rate limiting, password validation mismatch, etc.)
+
+---
 Task ID: 4.6
 Agent: main
 Task: Cycle 4.6 — Serve the Truth
