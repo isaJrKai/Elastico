@@ -204,9 +204,12 @@ export default function MatchDetailView() {
 
   const handleCopySummary = useCallback(() => {
     if (!match) return
-    const hXg = match.homeXg ?? 0
-    const aXg = match.awayXg ?? 0
-    const text = `${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition} · ${match.stage}\nxG: ${hXg.toFixed(1)} - ${aXg.toFixed(1)}\n\n— ELASTICO Analytics`
+    const hXg = match.homeXg ?? null
+    const aXg = match.awayXg ?? null
+    const xgStr = hXg != null && aXg != null
+      ? `xG: ${hXg.toFixed(1)} - ${aXg.toFixed(1)}`
+      : 'xG: N/A (data not available)'
+    const text = `${match.homeTeam?.name} ${match.homeScore} - ${match.awayScore} ${match.awayTeam?.name}\n${match.competition} · ${match.stage}\n${xgStr}\n\n— ELASTICO Analytics`
     navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
   }, [match])
 
@@ -240,9 +243,10 @@ export default function MatchDetailView() {
 
   const xgTimeline = useMemo(() => {
     if (!match) return []
-    const homeXg = match.homeXg ?? 0
-    const awayXg = match.awayXg ?? 0
-    if (homeXg === 0 && awayXg === 0) return []
+    const homeXg = match.homeXg ?? null
+    const awayXg = match.awayXg ?? null
+    // Do not fabricate a timeline from missing data
+    if (homeXg == null || awayXg == null) return []
     const goals = (match.events || []).filter(e => e.type === 'goal').sort((a, b) => a.minute - b.minute)
     let hc = 0, ac = 0
     const pts = [{ minute: "0'", Home: 0, Away: 0 }]
@@ -251,7 +255,7 @@ export default function MatchDetailView() {
       else ac += awayXg / Math.max(goals.filter(e => e.team === 'away').length, 1)
       pts.push({ minute: `${g.minute}'`, Home: +hc.toFixed(2), Away: +ac.toFixed(2) })
     }
-    pts.push({ minute: "90'", Home: +homeXg.toFixed(2), Away: +awayXg.toFixed(2) })
+    pts.push({ minute: "90'", Home: +homeXg!.toFixed(2), Away: +awayXg!.toFixed(2) })
     return pts
   }, [match])
 
@@ -309,7 +313,7 @@ export default function MatchDetailView() {
   const shotMapData = useMemo((): ShotMapPoint[] | null => {
     if (sbShots.length > 0) return sbShots
     // Only show generated-from-events shots for the demo match; all others → null
-    if (selectedMatchId === '3869151' && match) return generateShotsFromEvents(match.events || [], match.homeXg, match.awayXg)
+    if (selectedMatchId === '3869151' && match && match.homeXg != null && match.awayXg != null) return generateShotsFromEvents(match.events || [], match.homeXg, match.awayXg)
     return null
   }, [sbShots, match, selectedMatchId])
 
@@ -408,13 +412,13 @@ export default function MatchDetailView() {
                     </div>
                     <div className="flex items-center justify-center gap-3 mt-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-cyan-400 font-medium">xG {(match.homeXg ?? 0).toFixed(1)}</span>
-                        <StatusBadge variant="dataclass" value="DERIVED" />
+                        <span className="text-[11px] text-cyan-400 font-medium">xG {match.homeXg != null ? match.homeXg.toFixed(1) : 'N/A'}</span>
+                        <StatusBadge variant="dataclass" value={match.homeXgTruthClass || 'MISSING'} />
                       </div>
                       <span className="text-muted-foreground">·</span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-cyan-400 font-medium">xG {(match.awayXg ?? 0).toFixed(1)}</span>
-                        <StatusBadge variant="dataclass" value="DERIVED" />
+                        <span className="text-[11px] text-cyan-400 font-medium">xG {match.awayXg != null ? match.awayXg.toFixed(1) : 'N/A'}</span>
+                        <StatusBadge variant="dataclass" value={match.awayXgTruthClass || 'MISSING'} />
                       </div>
                     </div>
                   </>

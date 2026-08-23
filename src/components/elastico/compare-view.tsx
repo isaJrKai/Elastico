@@ -56,12 +56,12 @@ export default function CompareView() {
     const homeMatches = homeTeam.wins + homeTeam.draws + homeTeam.losses
     const awayMatches = awayTeam.wins + awayTeam.draws + awayTeam.losses
     return [
-      { label: 'ELO Rating', home: homeTeam.eloRating ?? 1500, away: awayTeam.eloRating ?? 1500, higher: 'higher' as const },
+      { label: 'ELO Rating', home: homeTeam.eloRating ?? null, away: awayTeam.eloRating ?? null, higher: 'higher' as const },
       { label: 'xG per Game', home: homeTeam.xgPerGame ?? null, away: awayTeam.xgPerGame ?? null, higher: 'higher' as const, truthClass: (homeTeam.xgTruthClass as string) || 'MISSING', source: (homeTeam.xgSource as string) || null },
       { label: 'xGA per Game', home: homeTeam.xgaPerGame ?? null, away: awayTeam.xgaPerGame ?? null, higher: 'lower' as const, truthClass: (homeTeam.xgTruthClass as string) || 'MISSING', source: (homeTeam.xgSource as string) || null },
-      { label: 'Possession %', home: homeTeam.possession ?? 50, away: awayTeam.possession ?? 50, higher: 'higher' as const },
-      { label: 'Pass Accuracy %', home: homeTeam.passAccuracy ?? 0, away: awayTeam.passAccuracy ?? 0, higher: 'higher' as const },
-      { label: 'Press Intensity', home: homeTeam.pressIntensity ?? 0, away: awayTeam.pressIntensity ?? 0, higher: 'higher' as const },
+      { label: 'Possession %', home: homeTeam.possession ?? null, away: awayTeam.possession ?? null, higher: 'higher' as const },
+      { label: 'Pass Accuracy %', home: homeTeam.passAccuracy ?? null, away: awayTeam.passAccuracy ?? null, higher: 'higher' as const },
+      { label: 'Press Intensity', home: homeTeam.pressIntensity ?? null, away: awayTeam.pressIntensity ?? null, higher: 'higher' as const },
       { label: 'Goals For', home: homeTeam.goalsFor ?? 0, away: awayTeam.goalsFor ?? 0, higher: 'higher' as const },
       { label: 'Goals Against', home: homeTeam.goalsAgainst ?? 0, away: awayTeam.goalsAgainst ?? 0, higher: 'lower' as const },
       { label: 'Wins', home: homeTeam.wins, away: awayTeam.wins, higher: 'higher' as const },
@@ -341,6 +341,28 @@ export default function CompareView() {
                         {stat.label}
                         {(stat as any).truthClass && (stat as any).truthClass !== 'REAL' && (
                           <span className="ml-1 text-yellow-500/70">{(stat as any).truthClass}</span>
+                        )}
+                      </span>
+                    </div>
+                  )
+                }
+                // Skip bar rendering for null values — show N/A instead
+                if (stat.home == null || stat.away == null) {
+                  const tc = (stat as any).truthClass
+                  return (
+                    <div key={stat.label} className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-16 text-right shrink-0">N/A</span>
+                      <div className="flex-1">
+                        <div className="flex h-2.5 rounded-full overflow-hidden bg-muted/20">
+                          <div className="rounded-l-full bg-muted/30" style={{ width: '50%' }} />
+                          <div className="rounded-r-full bg-muted/30" style={{ width: '50%' }} />
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground w-16 shrink-0">N/A</span>
+                      <span className="text-[10px] text-muted-foreground w-28 shrink-0 hidden lg:block">
+                        {stat.label}
+                        {tc && tc !== 'REAL' && (
+                          <span className="ml-1 text-yellow-500/70">{tc}</span>
                         )}
                       </span>
                     </div>

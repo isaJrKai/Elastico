@@ -59,8 +59,12 @@ export interface Match {
   status: string
   homeScore: number
   awayScore: number
-  homeXg: number
-  awayXg: number
+  homeXg: number | null
+  awayXg: number | null
+  homeXgSource: string | null
+  awayXgSource: string | null
+  homeXgTruthClass: string | null
+  awayXgTruthClass: string | null
   possessionHome: number
   shotsHome: number
   shotsAway: number

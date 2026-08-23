@@ -227,9 +227,9 @@ export function TacticalView() {
     return [
       { metric: 'xG/Game', [homeTeam.code]: homeTeam.xgPerGame, [awayTeam.code]: awayTeam.xgPerGame, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
       { metric: 'xGA/Game', [homeTeam.code]: homeTeam.xgaPerGame, [awayTeam.code]: awayTeam.xgaPerGame, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
-      { metric: 'Poss %', [homeTeam.code]: homeTeam.possession, [awayTeam.code]: awayTeam.possession, dataClass: 'REAL' as const },
-      { metric: 'Pass Acc', [homeTeam.code]: homeTeam.passAccuracy, [awayTeam.code]: awayTeam.passAccuracy, dataClass: 'REAL' as const },
-      { metric: 'Press', [homeTeam.code]: homeTeam.pressIntensity, [awayTeam.code]: awayTeam.pressIntensity, dataClass: 'DERIVED' as const },
+      { metric: 'Poss %', [homeTeam.code]: homeTeam.possession, [awayTeam.code]: awayTeam.possession, dataClass: (homeTeam.possession != null && awayTeam.possession != null) ? 'REAL' as const : 'MISSING' as const },
+      { metric: 'Pass Acc', [homeTeam.code]: homeTeam.passAccuracy, [awayTeam.code]: awayTeam.passAccuracy, dataClass: (homeTeam.passAccuracy != null && awayTeam.passAccuracy != null) ? 'REAL' as const : 'MISSING' as const },
+      { metric: 'Press', [homeTeam.code]: homeTeam.pressIntensity, [awayTeam.code]: awayTeam.pressIntensity, dataClass: (homeTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? 'DERIVED' as const : 'MISSING' as const },
     ]
   }, [homeTeam, awayTeam])
 
@@ -408,23 +408,23 @@ export function TacticalView() {
             <div className="grid grid-cols-3 gap-3 mt-4">
               <StatBlock
                 label="Home xG/Game"
-                value={(homeTeam!.xgPerGame ?? 0).toFixed(2)}
-                dataClass="DERIVED"
+                value={homeTeam!.xgPerGame != null ? homeTeam!.xgPerGame.toFixed(2) : 'N/A'}
+                dataClass={(homeTeam!.xgTruthClass as 'MISSING' | 'DERIVED' | 'REAL' | 'PROXY' | 'STALE' | 'UNAVAILABLE' | undefined) || 'MISSING'}
                 compact
                 className="p-3 rounded-lg bg-card border border-border/60"
               />
               <StatBlock
                 label="Away xG/Game"
-                value={(awayTeam!.xgPerGame ?? 0).toFixed(2)}
-                dataClass="DERIVED"
+                value={awayTeam!.xgPerGame != null ? awayTeam!.xgPerGame.toFixed(2) : 'N/A'}
+                dataClass={(awayTeam!.xgTruthClass as 'MISSING' | 'DERIVED' | 'REAL' | 'PROXY' | 'STALE' | 'UNAVAILABLE' | undefined) || 'MISSING'}
                 compact
                 className="p-3 rounded-lg bg-card border border-border/60"
               />
               <StatBlock
                 label="Possession Gap"
-                value={`${Math.abs((homeTeam!.possession ?? 50) - (awayTeam!.possession ?? 50)).toFixed(0)}%`}
-                sublabel={(homeTeam!.possession ?? 50) > (awayTeam!.possession ?? 50) ? homeTeam!.code : (awayTeam!.possession ?? 50) > (homeTeam!.possession ?? 50) ? awayTeam!.code : 'Even'}
-                dataClass="DERIVED"
+                value={homeTeam!.possession != null && awayTeam!.possession != null ? `${Math.abs(homeTeam!.possession - awayTeam!.possession).toFixed(0)}%` : 'N/A'}
+                sublabel={homeTeam!.possession != null && awayTeam!.possession != null ? (homeTeam!.possession > awayTeam!.possession ? homeTeam!.code : awayTeam!.possession > homeTeam!.possession ? awayTeam!.code : 'Even') : '—'}
+                dataClass={homeTeam!.possession != null && awayTeam!.possession != null ? 'DERIVED' : 'MISSING'}
                 compact
                 className="p-3 rounded-lg bg-card border border-border/60"
               />
