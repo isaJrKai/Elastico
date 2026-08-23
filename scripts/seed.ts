@@ -214,8 +214,10 @@ async function seed() {
         foulsHome: m.status !== 'upcoming' ? Math.floor(Math.random() * 12) + 3 : 0,
         foulsAway: m.status !== 'upcoming' ? Math.floor(Math.random() * 10) + 3 : 0,
         possessionHome: m.status !== 'upcoming' ? 45 + Math.floor(Math.random() * 20) : 50,
-        homeXg: m.status !== 'upcoming' ? parseFloat((Math.random() * 2.5 + 0.5).toFixed(2)) : 0,
-        awayXg: m.status !== 'upcoming' ? parseFloat((Math.random() * 2 + 0.3).toFixed(2)) : 0,
+        // xG: NEVER fabricate. Null = honestly unavailable.
+        // Cycle 4.5: seed script must obey zero-fabrication principle.
+        homeXg: null,
+        awayXg: null,
       }
     })
     createdMatches.push(match)

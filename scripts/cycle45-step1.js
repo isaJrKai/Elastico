@@ -1,41 +1,19 @@
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
-
-async function main() {
-  try {
-    const tables = await p.
-    if (tables.length > 0) {
-      console.log('TABLES:');
-      tables.forEach(t => console.log('  -', t.tablename));
-    } else {
-      console.log('NO TABLES FOUND');
-    }
-
-    // Check specific tables
-    const counts = {};
-    const tableNames = ['Team', 'Match', 'Player', 'CanonicalTeam', 'SourceIdentity', 'TeamAnalytic', 'StandingEntry', 'OddsSnapshot', 'NewsArticle', 'Prediction'];
-    for (const name of tableNames) {
-      try {
-        const model = p[name];
-        if (model && model.count) {
-          counts[name] = await model.count();
-        } else {
-          counts[name] = 'MODEL_NOT_FOUND';
-        }
-      } catch(e) {
-        counts[name] = 'ERROR: ' + e.message;
-      }
-    }
-    console.log('\nROW COUNTS:');
-    for (const [k,v] of Object.entries(counts)) {
-      console.log('  ' + k + ':', v);
-    }
-
-  } catch(e) {
-    console.error('DB CONNECTION ERROR:', e.message);
-  } finally {
-    await p.$disconnect();
-  }
+async function inspect() {
+  const ct = await p.canonicalTeam.count();
+  const si = await p.sourceIdentity.count();
+  const ta = await p.teamAnalytic.count();
+  const tm = await p.team.count();
+  const ma = await p.match.count();
+  const sl = await p.syncLog.findMany({orderBy:{createdAt:'desc'}, take:5});
+  console.log('=== DB STATE ===');
+  console.log('CanonicalTeams:', ct);
+  console.log('SourceIdentities:', si);
+  console.log('TeamAnalytics:', ta);
+  console.log('Teams:', tm);
+  console.log('Matches:', ma);
+  console.log('Recent SyncLogs:', JSON.stringify(sl.map(s => s.source+'|'+s.action+'|'+s.status+'|'+s.recordsProcessed), null, 2));
+  await p.$disconnect();
 }
-
-main();
+inspect().catch(e => { console.error(e.message.substring(0,500)); p.$disconnect(); });
