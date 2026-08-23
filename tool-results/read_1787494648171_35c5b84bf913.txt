@@ -1,0 +1,1036 @@
+   290→
+   291→  // Draw probability: model the draw as a narrow band around rating parity.
+   292→  // Using a normal approximation with σ ≈ 200 ELO points.
+   293→  const sigma = 200;
+   294→  const drawWidth = 40; // half-width of the draw band in ELO points
+   295→  const z1 = (eloDiff - drawWidth) / sigma;
+   296→  const z2 = (eloDiff + drawWidth) / sigma;
+   297→  const normalCDF = (z: number): number => 0.5 * (1 + erfApprox(z / Math.SQRT2));
+   298→  const rawDraw = normalCDF(z2) - normalCDF(z1);
+   299→
+   300→  // Scale: ensure drawProb is reasonable (cap between 0.15 and 0.35)
+   301→  const drawProb = clamp(rawDraw, 0.15, 0.35);
+   302→
+   303→  // Distribute remaining probability proportionally
+   304→  const remaining = 1 - drawProb;
+   305→  const homeRaw = expectedHome / (expectedHome + expectedAway);
+   306→  const homeProb = remaining * homeRaw;
+   307→  const awayProb = remaining * (1 - homeRaw);
+   308→
+   309→  // Expected goals: league-average ≈ 1.35 goals per team per match.
+   310→  // Map ELO expected score linearly.
+   311→  const leagueAvgGoals = 1.35;
+   312→  const expectedHomeGoals = clamp(
+   313→    leagueAvgGoals * (expectedHome / 0.5),
+   314→    0.4,
+   315→    3.5,
+   316→  );
+   317→  const expectedAwayGoals = clamp(
+   318→    leagueAvgGoals * (expectedAway / 0.5),
+   319→    0.4,
+   320→    3.5,
+   321→  );
+   322→
+   323→  // Assume a home win for demonstration of new ratings
+   324→  const homeEloNew = Math.round(
+   325→    homeElo + K * (1 - expectedHome),
+   326→  );
+   327→  const awayEloNew = Math.round(
+   328→    awayElo + K * (0 - expectedAway),
+   329→  );
+   330→
+   331→  return {
+   332→    homeProb,
+   333→    drawProb,
+   334→    awayProb,
+   335→    expectedHomeGoals,
+   336→    expectedAwayGoals,
+   337→    homeEloNew,
+   338→    awayEloNew,
+   339→  };
+   340→}
+   341→
+   342→/** Error function approximation (Abramowitz & Stegun). */
+   343→function erfApprox(x: number): number {
+   344→  const sign = x >= 0 ? 1 : -1;
+   345→  x = Math.abs(x);
+   346→  const t = 1 / (1 + 0.3275911 * x);
+   347→  const y =
+   348→    1 -
+   349→    ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t -
+   350→      0.284496736) *
+   351→      t +
+   352→      0.254829592) *
+   353→      t *
+   354→      Math.exp(-x * x);
+   355→  return sign * y;
+   356→}
+   357→
+   358→// ---------------------------------------------------------------------------
+   359→// 2. Poisson Probabilities
+   360→// ---------------------------------------------------------------------------
+   361→
+   362→/**
+   363→ * Build a full Poisson probability matrix for a match and derive
+   364→ * aggregate statistics (1X2, O/U 2.5, BTTS, most likely score).
+   365→ *
+   366→ * @param homeExpected  Expected goals for the home team.
+   367→ * @param awayExpected  Expected goals for the away team.
+   368→ * @param maxGoals      Maximum number of goals to model per team (default 8).
+   369→ */
+   370→export function poissonProbabilities(
+   371→  homeExpected: number,
+   372→  awayExpected: number,
+   373→  maxGoals: number = 8,
+   374→): PoissonResult {
+   375→  // Build probability matrix
+   376→  const matrix: number[][] = [];
+   377→  for (let h = 0; h <= maxGoals; h++) {
+   378→    matrix[h] = [];
+   379→    for (let a = 0; a <= maxGoals; a++) {
+   380→      matrix[h][a] =
+   381→        poissonPmf(h, homeExpected) * poissonPmf(a, awayExpected);
+   382→    }
+   383→  }
+   384→
+   385→  // Aggregate stats
+   386→  let homeWinProb = 0;
+   387→  let drawProb = 0;
+   388→  let awayWinProb = 0;
+   389→  let overProb = 0;
+   390→  let bttsProb = 0;
+   391→  let maxProb = 0;
+   392→  let mostLikelyScore = { home: 0, away: 0 };
+   393→
+   394→  for (let h = 0; h <= maxGoals; h++) {
+   395→    for (let a = 0; a <= maxGoals; a++) {
+   396→      const p = matrix[h][a];
+   397→      if (h > a) homeWinProb += p;
+   398→      else if (h === a) drawProb += p;
+   399→      else awayWinProb += p;
+   400→
+   401→      if (h + a > 2) overProb += p;
+   402→      if (h > 0 && a > 0) bttsProb += p;
+   403→
+   404→      if (p > maxProb) {
+   405→        maxProb = p;
+   406→        mostLikelyScore = { home: h, away: a };
+   407→      }
+   408→    }
+   409→  }
+   410→
+   411→  return {
+   412→    matrix,
+   413→    homeWinProb,
+   414→    drawProb,
+   415→    awayWinProb,
+   416→    overProb,
+   417→    underProb: 1 - overProb,
+   418→    bttsProb,
+   419→    mostLikelyScore,
+   420→  };
+   421→}
+   422→
+   423→// ---------------------------------------------------------------------------
+   424→// 3. Dixon-Coles Model
+   425→// ---------------------------------------------------------------------------
+   426→
+   427→/**
+   428→ * Calculate adjusted match probabilities using the Dixon-Coles model.
+   429→ *
+   430→ * The Dixon-Coles model modifies the independent Poisson probabilities
+   431→ * for low-scoring outcomes (0-0, 1-0, 0-1, 1-1) to account for the
+   432→ * observed negative correlation between home and away goals.
+   433→ *
+   434→ * @param homeGoals    Home goals to model up to.
+   435→ * @param awayGoals    Away goals to model up to.
+   436→ * @param homeAttack   Home team attack strength (> 1 = above avg).
+   437→ * @param homeDefense  Home team defense strength (< 1 = better).
+   438→ * @param awayAttack   Away team attack strength (> 1 = above avg).
+   439→ * @param awayDefense  Away team defense strength (< 1 = better).
+   440→ * @param homeAdv      Home advantage multiplier (default 0.3).
+   441→ * @param rho          Dixon-Coles correlation parameter (default -0.13).
+   442→ */
+   443→export function dixonColes(
+   444→  homeGoals: number = 8,
+   445→  awayGoals: number = 8,
+   446→  homeAttack: number,
+   447→  homeDefense: number,
+   448→  awayAttack: number,
+   449→  awayDefense: number,
+   450→  homeAdv: number = 0.3,
+   451→  rho: number = -0.13,
+   452→): DixonColesResult {
+   453→  // Baseline average goals
+   454→  const baseHome = 1.35;
+   455→  const baseAway = 1.15;
+   456→
+   457→  // Expected goals incorporating strengths and home advantage
+   458→  const homeLambda = baseHome * homeAttack * awayDefense * homeAdv;
+   459→  const awayLambda = baseAway * awayAttack * homeDefense;
+   460→
+   461→  // Build raw Poisson matrix
+   462→  const rawMatrix: number[][] = [];
+   463→  const adjMatrix: number[][] = [];
+   464→
+   465→  for (let h = 0; h <= homeGoals; h++) {
+   466→    rawMatrix[h] = [];
+   467→    adjMatrix[h] = [];
+   468→    for (let a = 0; a <= awayGoals; a++) {
+   469→      const raw = poissonPmf(h, homeLambda) * poissonPmf(a, awayLambda);
+   470→      const tau = dixonColesTau(h, a, homeLambda, awayLambda, rho);
+   471→      rawMatrix[h][a] = raw;
+   472→      adjMatrix[h][a] = raw * tau;
+   473→    }
+   474→  }
+   475→
+   476→  // Normalise adjusted matrix
+   477→  let totalAdj = 0;
+   478→  for (let h = 0; h <= homeGoals; h++) {
+   479→    for (let a = 0; a <= awayGoals; a++) {
+   480→      totalAdj += adjMatrix[h][a];
+   481→    }
+   482→  }
+   483→  for (let h = 0; h <= homeGoals; h++) {
+   484→    for (let a = 0; a <= awayGoals; a++) {
+   485→      adjMatrix[h][a] /= totalAdj;
+   486→    }
+   487→  }
+   488→
+   489→  // Raw (unadjusted) stats
+   490→  let rawHomeWin = 0;
+   491→  let rawDraw = 0;
+   492→  let rawAwayWin = 0;
+   493→  let adjHomeWin = 0;
+   494→  let adjDraw = 0;
+   495→  let adjAwayWin = 0;
+   496→
+   497→  for (let h = 0; h <= homeGoals; h++) {
+   498→    for (let a = 0; a <= awayGoals; a++) {
+   499→      if (h > a) {
+   500→        rawHomeWin += rawMatrix[h][a];
+   501→        adjHomeWin += adjMatrix[h][a];
+   502→      } else if (h === a) {
+   503→        rawDraw += rawMatrix[h][a];
+   504→        adjDraw += adjMatrix[h][a];
+   505→      } else {
+   506→        rawAwayWin += rawMatrix[h][a];
+   507→        adjAwayWin += adjMatrix[h][a];
+   508→      }
+   509→    }
+   510→  }
+   511→
+   512→  return {
+   513→    matrix: adjMatrix,
+   514→    homeWinProb: adjHomeWin,
+   515→    drawProb: adjDraw,
+   516→    awayWinProb: adjAwayWin,
+   517→    rawHomeWinProb: rawHomeWin,
+   518→    rawDrawProb: rawDraw,
+   519→    rawAwayWinProb: rawAwayWin,
+   520→  };
+   521→}
+   522→
+   523→// ---------------------------------------------------------------------------
+   524→// 4. Monte Carlo Simulation
+   525→// ---------------------------------------------------------------------------
+   526→
+   527→/**
+   528→ * Run Monte Carlo simulations of a match to generate probabilistic forecasts.
+   529→ *
+   530→ * Each iteration draws home and away goals from Poisson distributions
+   531→ * parameterised by ELO-derived expected goals.
+   532→ *
+   533→ * @param homeElo       Home team ELO rating.
+   534→ * @param awayElo       Away team ELO rating.
+   535→ * @param homeAdvantage Home advantage in ELO points (default 65).
+   536→ * @param iterations    Number of simulations (default 2000).
+   537→ */
+   538→export function monteCarloSimulation(
+   539→  homeElo: number,
+   540→  awayElo: number,
+   541→  homeAdvantage: number = 65,
+   542→  iterations: number = 2000,
+   543→): MonteCarloResult {
+   544→  const elo = calculateElo(homeElo, awayElo, 40, homeAdvantage);
+   545→  const homeLambda = elo.expectedHomeGoals;
+   546→  const awayLambda = elo.expectedAwayGoals;
+   547→
+   548→  const simulations: SimulationOutcome[] = [];
+   549→  let homeWins = 0;
+   550→  let draws = 0;
+   551→  let awayWins = 0;
+   552→  let totalHomeGoals = 0;
+   553→  let totalAwayGoals = 0;
+   554→
+   555→  // Goal distributions (index = goals scored, value = count)
+   556→  const homeGoalDist = new Array(10).fill(0);
+   557→  const awayGoalDist = new Array(10).fill(0);
+   558→  const scoreDist = new Map<string, number>();
+   559→
+   560→  for (let i = 0; i < iterations; i++) {
+   561→    const h = samplePoisson(homeLambda);
+   562→    const a = samplePoisson(awayLambda);
+   563→
+   564→    const result: 'home' | 'draw' | 'away' =
+   565→      h > a ? 'home' : h === a ? 'draw' : 'away';
+   566→
+   567→    simulations.push({ homeGoals: h, awayGoals: a, result });
+   568→
+   569→    if (result === 'home') homeWins++;
+   570→    else if (result === 'draw') draws++;
+   571→    else awayWins++;
+   572→
+   573→    totalHomeGoals += h;
+   574→    totalAwayGoals += a;
+   575→
+   576→    if (h < homeGoalDist.length) homeGoalDist[h]++;
+   577→    if (a < awayGoalDist.length) awayGoalDist[a]++;
+   578→
+   579→    const key = `${h}-${a}`;
+   580→    scoreDist.set(key, (scoreDist.get(key) ?? 0) + 1);
+   581→  }
+   582→
+   583→  return {
+   584→    simulations,
+   585→    stats: {
+   586→      homeWinPct: homeWins / iterations,
+   587→      drawPct: draws / iterations,
+   588→      awayWinPct: awayWins / iterations,
+   589→      avgHomeGoals: totalHomeGoals / iterations,
+   590→      avgAwayGoals: totalAwayGoals / iterations,
+   591→      goalDistribution: {
+   592→        home: homeGoalDist.map((c) => c / iterations),
+   593→        away: awayGoalDist.map((c) => c / iterations),
+   594→      },
+   595→      scoreDistribution: new Map(
+   596→        [...scoreDist.entries()].map(([k, v]) => [k, v / iterations]),
+   597→      ),
+   598→    },
+   599→  };
+   600→}
+   601→
+   602→/** Sample from a Poisson distribution (Knuth algorithm). */
+   603→function samplePoisson(lambda: number): number {
+   604→  const L = Math.exp(-lambda);
+   605→  let k = 0;
+   606→  let p = 1;
+   607→  do {
+   608→    k++;
+   609→    p *= Math.random();
+   610→  } while (p > L);
+   611→  return k - 1;
+   612→}
+   613→
+   614→// ---------------------------------------------------------------------------
+   615→// 5. Wilson Confidence Interval
+   616→// ---------------------------------------------------------------------------
+   617→
+   618→/**
+   619→ * Calculate the Wilson score confidence interval for a binomial proportion.
+   620→ *
+   621→ * This is more accurate than the normal approximation, especially for
+   622→ * small samples or extreme proportions.
+   623→ *
+   624→ * @param successes  Number of successful outcomes (e.g. wins).
+   625→ * @param total      Total number of trials.
+   626→ * @param z          Z-score for the desired confidence level (default 1.96 ≈ 95%).
+   627→ */
+   628→export function wilsonConfidenceInterval(
+   629→  successes: number,
+   630→  total: number,
+   631→  z: number = 1.96,
+   632→): WilsonInterval {
+   633→  if (total === 0) return { lower: 0, upper: 0, center: 0 };
+   634→
+   635→  const p = successes / total;
+   636→  const denominator = 1 + (z * z) / total;
+   637→  const center =
+   638→    (p + (z * z) / (2 * total)) / denominator;
+   639→  const margin =
+   640→    (z * Math.sqrt((p * (1 - p) + (z * z) / (4 * total)) / total)) /
+   641→    denominator;
+   642→
+   643→  return {
+   644→    lower: Math.max(0, center - margin),
+   645→    upper: Math.min(1, center + margin),
+   646→    center,
+   647→  };
+   648→}
+   649→
+   650→// ---------------------------------------------------------------------------
+   651→// 6. Expected Goals (xG) from Shots
+   652→// ---------------------------------------------------------------------------
+   653→
+   654→/**
+   655→ * Calculate cumulative xG from an array of shot descriptors.
+   656→ *
+   657→ * Uses a simplified distance-and-angle model:
+   658→ *  - Base probability from distance to goal (0.79 m wide × 2.44 m tall,
+   659→ *    converted from normalised pitch coordinates).
+   660→ *  - Penalties are fixed at 0.75.
+   661→ *  - Headers receive a 0.3× multiplier.
+   662→ *  - Free kicks get a 1.2× bonus.
+   663→ *
+   664→ * @param shots  Array of shot descriptors with x/y position, type, and body part.
+   665→ */
+   666→export function calculateXg(shots: Shot[]): XgResult {
+   667→  // Goal dimensions in normalised pitch units (pitch ≈ 105 × 68 m)
+   668→  // The goal is 7.32 m wide on a 68 m-wide pitch → normalised width ≈ 0.1076
+   669→  // Posts at y ≈ 0.5 ± 0.054
+   670→  // Crossbar at height ~2.44 m (modelled as distance penalty)
+   671→  const GOAL_HALF_WIDTH = 0.054;
+   672→
+   673→  const shotXgs: number[] = shots.map((shot) => {
+   674→    // Penalty: fixed value
+   675→    if (shot.type === 'penalty') return 0.75;
+   676→
+   677→    // Distance from goal line (1 - x), scaled to approximate metres
+   678→    const distToGoal = (1 - shot.x) * 105;
+   679→
+   680→    // Angle to goal posts
+   681→    const yDist = Math.abs(shot.y - 0.5);
+   682→    const goalAngle = Math.atan2(GOAL_HALF_WIDTH * 68, distToGoal) * 2;
+   683→
+   684→    // Base xG: exponential decay with distance, boosted by angle
+   685→    let xg = Math.exp(-0.15 * distToGoal) * (goalAngle / Math.PI) * 1.2;
+   686→
+   687→    // Type modifiers
+   688→    if (shot.type === 'free_kick') xg *= 1.2;
+   689→
+   690→    // Body part modifiers
+   691→    if (shot.bodyPart === 'head' || shot.type === 'header') xg *= 0.3;
+   692→    else if (shot.bodyPart === 'other') xg *= 0.5;
+   693→
+   694→    return clamp(xg, 0.01, 0.95);
+   695→  });
+   696→
+   697→  return {
+   698→    total: shotXgs.reduce((sum, v) => sum + v, 0),
+   699→    shotXgs,
+   700→  };
+   701→}
+   702→
+   703→// ---------------------------------------------------------------------------
+   704→// 7. Form Calculation
+   705→// ---------------------------------------------------------------------------
+   706→
+   707→/**
+   708→ * Calculate a team's form rating, momentum, and trend from recent results.
+   709→ *
+   710→ * @param results  Array of match results: 'W', 'D', or 'L'.
+   711→ *                 Most recent match should be the last element.
+   712→ */
+   713→export function calculateForm(results: string[]): FormResult {
+   714→  if (results.length === 0) {
+   715→    return { formRating: 0, momentum: 50, trend: 'stable' };
+   716→  }
+   717→
+   718→  // Points per result (weighted towards recency)
+   719→  const weights = results.map((_, i) => {
+   720→    // More recent results get exponentially higher weight
+   721→    return Math.pow(1.15, i);
+   722→  });
+   723→
+   724→  const totalWeight = weights.reduce((a, b) => a + b, 0);
+   725→  let weightedPoints = 0;
+   726→
+   727→  for (let i = 0; i < results.length; i++) {
+   728→    const r = results[i].toUpperCase();
+   729→    const points = r === 'W' ? 3 : r === 'D' ? 1 : 0;
+   730→    weightedPoints += points * weights[i];
+   731→  }
+   732→
+   733→  // Normalise: 0 points → -1, 3 points → +1
+   734→  const maxPossible = 3 * totalWeight;
+   735→  const formRating = clamp((2 * weightedPoints) / maxPossible - 1, -1, 1);
+   736→
+   737→  // Momentum: 0-100 based on recent performance burst
+   738→  const recentSlice = results.slice(-5);
+   739→  const recentWins = recentSlice.filter((r) => r.toUpperCase() === 'W').length;
+   740→  const momentum = clamp(
+   741→    50 + (recentWins - recentSlice.length / 2) * 15,
+   742→    0,
+   743→    100,
+   744→  );
+   745→
+   746→  // Trend: compare first half vs second half of results
+   747→  const mid = Math.floor(results.length / 2);
+   748→  const firstHalf = results.slice(0, mid);
+   749→  const secondHalf = results.slice(mid);
+   750→
+   751→  const halfPoints = (arr: string[]) =>
+   752→    arr.reduce((sum, r) => {
+   753→      const u = r.toUpperCase();
+   754→      return sum + (u === 'W' ? 3 : u === 'D' ? 1 : 0);
+   755→    }, 0);
+   756→
+   757→  const firstPts = halfPoints(firstHalf);
+   758→  const secondPts = halfPoints(secondHalf);
+   759→
+   760→  let trend: 'improving' | 'declining' | 'stable';
+   761→  const diff = secondPts - firstPts;
+   762→  if (diff > 2) trend = 'improving';
+   763→  else if (diff < -2) trend = 'declining';
+   764→  else trend = 'stable';
+   765→
+   766→  return { formRating, momentum, trend };
+   767→}
+   768→
+   769→// ---------------------------------------------------------------------------
+   770→// 8. Team Comparison
+   771→// ---------------------------------------------------------------------------
+   772→
+   773→/**
+   774→ * Generate a comprehensive comparison between two teams, incorporating
+   775→ * ELO ratings, recent form, playing style, and tactical matchup analysis.
+   776→ *
+   777→ * @param home  Home team data.
+   778→ * @param away  Away team data.
+   779→ */
+   780→export function teamComparison(
+   781→  home: TeamData,
+   782→  away: TeamData,
+   783→): TeamComparisonResult {
+   784→  // ELO gap
+   785→  const eloGap = home.elo - away.elo;
+   786→  const eloAdvantage: 'home' | 'away' | 'even' =
+   787→    eloGap > 50 ? 'home' : eloGap < -50 ? 'away' : 'even';
+   788→
+   789→  // Form
+   790→  const homeForm = calculateForm(home.form);
+   791→  const awayForm = calculateForm(away.form);
+   792→  const formDiff = homeForm.formRating - awayForm.formRating;
+   793→  const formAdvantage: 'home' | 'away' | 'even' =
+   794→    formDiff > 0.2 ? 'home' : formDiff < -0.2 ? 'away' : 'even';
+   795→
+   796→  // Style clash rating (how tactically interesting the matchup is)
+   797→  let styleClashRating = 50; // baseline
+   798→  const homeStyle = home.style ?? 'balanced';
+   799→  const awayStyle = away.style ?? 'balanced';
+   800→
+   801→  // Certain matchups are more tactically fascinating
+   802→  const clashBonus: Record<string, Record<string, number>> = {
+   803→    possession: { counter_attack: 25, direct: 15, defensive: 20 },
+   804→    counter_attack: { possession: 25, direct: 10, defensive: 15 },
+   805→    direct: { possession: 15, counter_attack: 10, defensive: 20 },
+   806→    defensive: { possession: 20, direct: 20, counter_attack: 15 },
+   807→  };
+   808→  styleClashRating += clashBonus[homeStyle]?.[awayStyle] ?? 0;
+   809→
+   810→  // Boost if both teams are strong (higher average goals scored)
+   811→  const avgStrength =
+   812→    (home.avgGoalsScored + away.avgGoalsScored) / (2 * 1.35);
+   813→  styleClashRating += clamp((avgStrength - 1) * 10, 0, 15);
+   814→
+   815→  styleClashRating = clamp(Math.round(styleClashRating), 0, 100);
+   816→
+   817→  // Head-to-head advice narrative
+   818→  const advice = generateMatchAdvice(home, away, eloGap, homeForm, awayForm);
+   819→
+   820→  return {
+   821→    eloGap,
+   822→    eloAdvantage,
+   823→    formComparison: {
+   824→      home: homeForm,
+   825→      away: awayForm,
+   826→      advantage: formAdvantage,
+   827→    },
+   828→    styleClashRating,
+   829→    headToHeadAdvice: advice,
+   830→  };
+   831→}
+   832→
+   833→function generateMatchAdvice(
+   834→  home: TeamData,
+   835→  away: TeamData,
+   836→  eloGap: number,
+   837→  homeForm: FormResult,
+   838→  awayForm: FormResult,
+   839→): string {
+   840→  const parts: string[] = [];
+   841→
+   842→  // ELO-based assessment
+   843→  if (eloGap > 150) {
+   844→    parts.push(
+   845→      `${home.name} hold a dominant ELO advantage (+${eloGap} pts) and are strong favourites.`,
+   846→    );
+   847→  } else if (eloGap > 50) {
+   848→    parts.push(
+   849→      `${home.name} have a notable ELO edge (+${eloGap} pts), especially with home advantage.`,
+   850→    );
+   851→  } else if (eloGap > -50) {
+   852→    parts.push(
+   853→      'The teams are closely matched on ratings — this could go either way.',
+   854→    );
+   855→  } else if (eloGap > -150) {
+   856→    parts.push(
+   857→      `${away.name} carry a slight ratings advantage despite being on the road.`,
+   858→    );
+   859→  } else {
+   860→    parts.push(
+   861→      `${away.name} are significant favourites on paper (+${Math.abs(eloGap)} pts ELO gap).`,
+   862→    );
+   863→  }
+   864→
+   865→  // Form assessment
+   866→  if (homeForm.trend === 'improving' && homeForm.momentum > 60) {
+   867→    parts.push(
+   868→      `${home.name} are building momentum with improving form (rating: ${homeForm.momentum}/100).`,
+   869→    );
+   870→  } else if (homeForm.trend === 'declining' && homeForm.momentum < 40) {
+   871→    parts.push(
+   872→      `${home.name}'s form is slipping — be cautious backing them despite home advantage.`,
+   873→    );
+   874→  }
+   875→
+   876→  if (awayForm.trend === 'improving' && awayForm.momentum > 60) {
+   877→    parts.push(
+   878→      `${away.name} are on the up and could cause an upset.`,
+   879→    );
+   880→  } else if (awayForm.trend === 'declining') {
+   881→    parts.push(`${away.name} are in a rut and may struggle here.`);
+   882→  }
+   883→
+   884→  // Style-based insight
+   885→  if (home.style === 'possession' && away.style === 'counter_attack') {
+   886→    parts.push(
+   887→      "Classic possession vs. counter-attack — if the away side can absorb pressure, they'll be dangerous on the break.",
+   888→    );
+   889→  } else if (home.style === 'defensive' && away.style === 'possession') {
+   890→    parts.push(
+   891→      'Expect the away side to dominate the ball, but breaking down a low block is never easy.',
+   892→    );
+   893→  }
+   894→
+   895→  return parts.join(' ');
+   896→}
+   897→
+   898→// ---------------------------------------------------------------------------
+   899→// 9. Halftime Adjustment
+   900→// ---------------------------------------------------------------------------
+   901→
+   902→/**
+   903→ * Generate second-half prediction adjustments based on first-half events.
+   904→ *
+   905→ * Factors considered: goals scored/conceded, red cards, sustained pressure.
+   906→ *
+   907→ * @param firstHalfEvents  Array of events from the first half.
+   908→ */
+   909→export function halftimeAdjustment(
+   910→  firstHalfEvents: FirstHalfEvent[],
+   911→): HalftimeAdjustmentResult {
+   912→  let homeGoalAdj = 0;
+   913→  let awayGoalAdj = 0;
+   914→  let homeWinAdj = 0;
+   915→  let drawAdj = 0;
+   916→  let awayWinAdj = 0;
+   917→  const narratives: string[] = [];
+   918→
+   919→  const homeGoals = firstHalfEvents.filter(
+   920→    (e) => e.type === 'goal' && e.team === 'home',
+   921→  ).length;
+   922→  const awayGoals = firstHalfEvents.filter(
+   923→    (e) => e.type === 'goal' && e.team === 'away',
+   924→  ).length;
+   925→  const homeReds = firstHalfEvents.filter(
+   926→    (e) => e.type === 'red_card' && e.team === 'home',
+   927→  ).length;
+   928→  const awayReds = firstHalfEvents.filter(
+   929→    (e) => e.type === 'red_card' && e.team === 'away',
+   930→  ).length;
+   931→  const homeYellows = firstHalfEvents.filter(
+   932→    (e) => e.type === 'yellow_card' && e.team === 'home',
+   933→  ).length;
+   934→  const awayYellows = firstHalfEvents.filter(
+   935→    (e) => e.type === 'yellow_card' && e.team === 'away',
+   936→  ).length;
+   937→
+   938→  // Goal difference adjustments — leading teams tend to concede fewer, score fewer
+   939→  const goalDiff = homeGoals - awayGoals;
+   940→  if (goalDiff >= 2) {
+   941→    // Home comfortably ahead → they may ease off
+   942→    homeGoalAdj -= 0.15;
+   943→    awayGoalAdj -= 0.25;
+   944→    homeWinAdj += 0.08;
+   945→    drawAdj -= 0.05;
+   946→    awayWinAdj -= 0.03;
+   947→    narratives.push(
+   948→      'The home side is in control. Expect them to manage the game in the second half.',
+   949→    );
+   950→  } else if (goalDiff === 1) {
+   951→    homeGoalAdj -= 0.05;
+   952→    awayGoalAdj += 0.1; // trailing side pushes harder
+   953→    homeWinAdj += 0.04;
+   954→    drawAdj -= 0.02;
+   955→    narratives.push(
+   956→      'Narrow lead for the home side — the away team will likely push for an equaliser.',
+   957→    );
+   958→  } else if (goalDiff === -1) {
+   959→    homeGoalAdj += 0.1;
+   960→    awayGoalAdj -= 0.05;
+   961→    awayWinAdj += 0.04;
+   962→    drawAdj -= 0.02;
+   963→    narratives.push(
+   964→      'The away side lead but the home team should respond with more urgency.',
+   965→    );
+   966→  } else if (goalDiff <= -2) {
+   967→    homeGoalAdj += 0.25;
+   968→    awayGoalAdj -= 0.15;
+   969→    awayWinAdj += 0.08;
+   970→    drawAdj -= 0.05;
+   971→    homeWinAdj -= 0.03;
+   972→    narratives.push(
+   973→      'The away side is dominant. The home side face an uphill battle.',
+   974→    );
+   975→  } else {
+   976→    // 0-0
+   977→    narratives.push(
+   978→      'Goalless at the break. Both teams may open up slightly in search of a breakthrough.',
+   979→    );
+   980→    homeGoalAdj += 0.05;
+   981→    awayGoalAdj += 0.05;
+   982→  }
+   983→
+   984→  // Red card adjustments
+   985→  if (homeReds > 0) {
+   986→    homeGoalAdj -= 0.35 * homeReds;
+   987→    awayGoalAdj += 0.25 * homeReds;
+   988→    homeWinAdj -= 0.12 * homeReds;
+   989→    awayWinAdj += 0.10 * homeReds;
+   990→    drawAdj += 0.02;
+   991→    narratives.push(
+   992→      'Disaster for the home side — a red card significantly shifts the balance.',
+   993→    );
+   994→  }
+   995→  if (awayReds > 0) {
+   996→    awayGoalAdj -= 0.35 * awayReds;
+   997→    homeGoalAdj += 0.25 * awayReds;
+   998→    awayWinAdj -= 0.12 * awayReds;
+   999→    homeWinAdj += 0.10 * awayReds;
+  1000→    drawAdj += 0.02;
+  1001→    narratives.push(
+  1002→      `The away side are down to ${11 - awayReds} men — big advantage for the home side.`,
+  1003→    );
+  1004→  }
+  1005→
+  1006→  // Yellow card pressure indicator
+  1007→  if (homeYellows >= 3) {
+  1008→    homeGoalAdj -= 0.05;
+  1009→    narratives.push(
+  1010→      'The home side have racked up bookings and may need to tread carefully.',
+  1011→    );
+  1012→  }
+  1013→  if (awayYellows >= 3) {
+  1014→    awayGoalAdj -= 0.05;
+  1015→    narratives.push(
+  1016→      'Discipline concerns for the away side with multiple yellow cards.'
+  1017→    );
+  1018→  }
+  1019→
+  1020→  // Normalise probability adjustments so they sum to ~0
+  1021→  const totalProbAdj = homeWinAdj + drawAdj + awayWinAdj;
+  1022→  homeWinAdj -= totalProbAdj / 3;
+  1023→  drawAdj -= totalProbAdj / 3;
+  1024→  awayWinAdj -= totalProbAdj / 3;
+  1025→
+  1026→  return {
+  1027→    homeGoalAdjustment: Math.round(homeGoalAdj * 1000) / 1000,
+  1028→    awayGoalAdjustment: Math.round(awayGoalAdj * 1000) / 1000,
+  1029→    homeWinProbAdjustment: Math.round(homeWinAdj * 1000) / 1000,
+  1030→    drawProbAdjustment: Math.round(drawAdj * 1000) / 1000,
+  1031→    awayWinProbAdjustment: Math.round(awayWinAdj * 1000) / 1000,
+  1032→    narrative: narratives.join(' '),
+  1033→  };
+  1034→}
+  1035→
+  1036→// ---------------------------------------------------------------------------
+  1037→// 10. Tactical Insight Generation
+  1038→// ---------------------------------------------------------------------------
+  1039→
+  1040→/**
+  1041→ * Generate a tactical analysis narrative based on in-match statistics.
+  1042→ *
+  1043→ * @param matchData  Current or post-match statistics.
+  1044→ */
+  1045→export function generateTacticalInsight(matchData: MatchStats): string {
+  1046→  const insights: string[] = [];
+  1047→
+  1048→  // Possession analysis
+  1049→  const possDiff = matchData.homePossession - matchData.awayPossession;
+  1050→  if (possDiff > 15) {
+  1051→    insights.push(
+  1052→      `The home side are dominating possession (${matchData.homePossession}%). They're likely dictating the tempo and forcing the opposition into a reactive game.`,
+  1053→    );
+  1054→  } else if (possDiff < -15) {
+  1055→    insights.push(
+  1056→      `The away team have seized control of the ball (${matchData.awayPossession}%). The home side are being forced to chase the game.`,
+  1057→    );
+  1058→  } else {
+  1059→    insights.push(
+  1060→      'Possession is evenly shared, suggesting a balanced and competitive encounter.',
+  1061→    );
+  1062→  }
+  1063→
+  1064→  // Shot efficiency
+  1065→  const homeShotAcc =
+  1066→    matchData.homeShots > 0
+  1067→      ? matchData.homeShotsOnTarget / matchData.homeShots
+  1068→      : 0;
+  1069→  const awayShotAcc =
+  1070→    matchData.awayShots > 0
+  1071→      ? matchData.awayShotsOnTarget / matchData.awayShots
+  1072→      : 0;
+  1073→
+  1074→  if (homeShotAcc > 0.5 && matchData.homeShots >= 5) {
+  1075→    insights.push(
+  1076→      `Impressive shooting accuracy from the home team (${Math.round(homeShotAcc * 100)}% on target). They're creating quality chances.`,
+  1077→    );
+  1078→  } else if (homeShotAcc < 0.25 && matchData.homeShots >= 5) {
+  1079→    insights.push(
+  1080→      `The home side are struggling to hit the target (${Math.round(homeShotAcc * 100)}% accuracy) — they need to be more clinical.`,
+  1081→    );
+  1082→  }
+  1083→
+  1084→  if (awayShotAcc > 0.5 && matchData.awayShots >= 5) {
+  1085→    insights.push(
+  1086→      `The away team are efficient in front of goal (${Math.round(awayShotAcc * 100)}% on target).`,
+  1087→    );
+  1088→  }
+  1089→
+  1090→  // xG comparison
+  1091→  if (matchData.homeXg !== undefined && matchData.awayXg !== undefined) {
+  1092→    const xgDiff = matchData.homeXg - matchData.awayXg;
+  1093→    if (Math.abs(xgDiff) > 0.5) {
+  1094→      const favoured =
+  1095→        xgDiff > 0 ? 'the home side' : 'the away team';
+  1096→      insights.push(
+  1097→        `Expected goals favour ${favoured} significantly (${Math.max(matchData.homeXg, matchData.awayXg).toFixed(2)} vs ${Math.min(matchData.homeXg, matchData.awayXg).toFixed(2)} xG).`,
+  1098→      );
+  1099→    }
+  1100→  }
+  1101→
+  1102→  // Corner analysis (proxy for attacking pressure)
+  1103→  const cornerDiff = matchData.homeCorners - matchData.awayCorners;
+  1104→  if (cornerDiff > 4) {
+  1105→    insights.push(
+  1106→      'The home side are generating sustained pressure, as evidenced by a significant corner count advantage.',
+  1107→    );
+  1108→  } else if (cornerDiff < -4) {
+  1109→    insights.push(
+  1110→      'The away team are applying most of the pressure, winning far more corners.',
+  1111→    );
+  1112→  }
+  1113→
+  1114→  // Pass accuracy
+  1115→  const passDiff = matchData.homePassAccuracy - matchData.awayPassAccuracy;
+  1116→  if (passDiff > 10) {
+  1117→    insights.push(
+  1118→      `Home side's superior passing (${matchData.homePassAccuracy}% accuracy) is helping them control the midfield.`,
+  1119→    );
+  1120→  } else if (passDiff < -10) {
+  1121→    insights.push(
+  1122→      `Away team's passing accuracy (${matchData.awayPassAccuracy}%) is notably better, indicating better ball retention.`,
+  1123→    );
+  1124→  }
+  1125→
+  1126→  // Fouls (aggression indicator)
+  1127→  const foulDiff = matchData.homeFouls - matchData.awayFouls;
+  1128→  if (foulDiff > 5) {
+  1129→    insights.push(
+  1130→      'The home side are committing considerably more fouls — they may be struggling to contain the opposition.',
+  1131→    );
+  1132→  } else if (foulDiff < -5) {
+  1133→    insights.push(
+  1134→      'The away team are the more physical side, racking up fouls as they try to disrupt the home team\'s rhythm.',
+  1135→    );
+  1136→  }
+  1137→
+  1138→  return insights.join('\n\n');
+  1139→}
+  1140→
+  1141→// ---------------------------------------------------------------------------
+  1142→// 11. Match Momentum
+  1143→// ---------------------------------------------------------------------------
+  1144→
+  1145→/**
+  1146→ * Calculate a momentum timeline throughout a match based on events.
+  1147→ *
+  1148→ * Each event shifts the momentum balance between the two teams.
+  1149→ * Momentum decays naturally over time and spikes with significant events.
+  1150→ *
+  1151→ * @param events  Array of match events with minute, type, and team.
+  1152→ */
+  1153→export function calculateMatchMomentum(
+  1154→  events: MatchEvent[],
+  1155→): MomentumPoint[] {
+  1156→  // Sort events by minute
+  1157→  const sorted = [...events].sort((a, b) => a.minute - b.minute);
+  1158→
+  1159→  // Impact weights for different event types
+  1160→  const impactWeights: Record<string, number> = {
+  1161→    goal: 30,
+  1162→    red_card: 25,
+  1163→    yellow_card: 5,
+  1164→    shot_on_target: 8,
+  1165→    shot_off_target: 3,
+  1166→    corner: 4,
+  1167→    dangerous_attack: 3,
+  1168→    substitution: 2,
+  1169→  };
+  1170→
+  1171→  const timeline: MomentumPoint[] = [];
+  1172→  let currentHomeMomentum = 0; // range: -100 to 100
+  1173→
+  1174→  // Track last event minute for decay
+  1175→  let lastMinute = 0;
+  1176→
+  1177→  // Generate momentum at each event minute
+  1178→  for (const event of sorted) {
+  1179→    const minutesSinceLast = event.minute - lastMinute;
+  1180→
+  1181→    // Natural decay towards 0 (momentum equalises over time without events)
+  1182→    const decayFactor = Math.exp(-0.02 * minutesSinceLast);
+  1183→    currentHomeMomentum *= decayFactor;
+  1184→
+  1185→    // Apply event impact
+  1186→    const impact = event.impact ?? impactWeights[event.type] ?? 3;
+  1187→    const direction = event.team === 'home' ? 1 : -1;
+  1188→    currentHomeMomentum = clamp(currentHomeMomentum + direction * impact, -100, 100);
+  1189→
+  1190→    timeline.push({
+  1191→      minute: event.minute,
+  1192→      homeMomentum: Math.round(currentHomeMomentum * 10) / 10,
+  1193→      awayMomentum: Math.round(-currentHomeMomentum * 10) / 10,
+  1194→    });
+  1195→
+  1196→    lastMinute = event.minute;
+  1197→  }
+  1198→
+  1199→  // Add a final point at minute 90 (or the last event + 5)
+  1200→  const finalMinute = Math.max(90, sorted.length > 0 ? sorted[sorted.length - 1].minute + 5 : 90);
+  1201→  const totalDecay = Math.exp(-0.02 * (finalMinute - lastMinute));
+  1202→  currentHomeMomentum *= totalDecay;
+  1203→
+  1204→  timeline.push({
+  1205→    minute: finalMinute,
+  1206→    homeMomentum: Math.round(currentHomeMomentum * 10) / 10,
+  1207→    awayMomentum: Math.round(-currentHomeMomentum * 10) / 10,
+  1208→  });
+  1209→
+  1210→  return timeline;
+  1211→}
+  1212→
+  1213→// ---------------------------------------------------------------------------
+  1214→// 12. Weather Impact
+  1215→// ---------------------------------------------------------------------------
+  1216→
+  1217→/**
+  1218→ * Estimate the impact of weather conditions on expected goals.
+  1219→ *
+  1220→ * Extreme weather tends to reduce goal expectancy by disrupting
+  1221→ * passing accuracy, shooting technique, and overall match tempo.
+  1222→ *
+  1223→ * @param weather      Weather condition descriptor.
+  1224→ * @param temperature  Temperature in Celsius.
+  1225→ */
+  1226→export function weatherImpact(
+  1227→  weather: string,
+  1228→  temperature: number,
+  1229→): WeatherImpactResult {
+  1230→  let modifier = 1.0;
+  1231→  const narratives: string[] = [];
+  1232→
+  1233→  const w = weather.toLowerCase();
+  1234→
+  1235→  // Weather conditions
+  1236→  if (w.includes('heavy rain') || w.includes('downpour') || w.includes('torrential')) {
+  1237→    modifier *= 0.82;
+  1238→    narratives.push(
+  1239→      'Heavy rain significantly disrupts passing and shooting accuracy, reducing expected goals.',
+  1240→    );
+  1241→  } else if (w.includes('rain') || w.includes('drizzle') || w.includes('showers')) {
+  1242→    modifier *= 0.92;
+  1243→    narratives.push(
+  1244→      'Light rain has a mild negative effect on goal expectancy due to a slicker ball and surface.',
+  1245→    );
+  1246→  }
+  1247→
+  1248→  if (w.includes('snow') || w.includes('blizzard')) {
+  1249→    modifier *= 0.72;
+  1250→    narratives.push(
+  1251→      'Snow severely impacts match quality — expect far fewer goals than usual.',
+  1252→    );
+  1253→  }
+  1254→
+  1255→  if (w.includes('strong wind') || w.includes('gale') || w.includes('storm')) {
+  1256→    modifier *= 0.85;
+  1257→    narratives.push(
+  1258→      'Strong winds make long passes and shots unpredictable, lowering scoring chances.',
+  1259→    );
+  1260→  } else if (w.includes('wind') || w.includes('breezy')) {
+  1261→    modifier *= 0.95;
+  1262→    narratives.push(
+  1263→      'A moderate breeze has a slight dampening effect on goal expectancy.',
+  1264→    );
+  1265→  }
+  1266→
+  1267→  if (w.includes('extreme heat') || w.includes('heatwave')) {
+  1268→    modifier *= 0.88;
+  1269→    narratives.push(
+  1270→      'Extreme heat causes fatigue, reducing the intensity and goal output in the second half.',
+  1271→    );
+  1272→  }
+  1273→
+  1274→  if (w.includes('fog')) {
+  1275→    modifier *= 0.90;
+  1276→    narratives.push(
+  1277→      'Fog reduces visibility and can affect long-range shooting and passing.',
+  1278→    );
+  1279→  }
+  1280→
+  1281→  if (w.includes('clear') || w.includes('sunny') || w.includes('fair')) {
+  1282→    modifier *= 1.02;
+  1283→    narratives.push(
+  1284→      'Ideal conditions — no significant weather impact on expected goals.',
+  1285→    );
+  1286→  }
+  1287→
+  1288→  // Temperature effects
+  1289→  if (temperature > 35) {
+  1290→    modifier *= 0.88;
+  1291→    narratives.push(
+  1292→      'Temperatures above 35°C will lead to significant fatigue and reduced goal output.',
+  1293→    );
+  1294→  } else if (temperature > 30) {
+  1295→    modifier *= 0.94;
+  1296→    narratives.push(
+  1297→      'High temperatures (30-35°C) may cause some fatigue, especially in the second half.',
+  1298→    );
+  1299→  } else if (temperature < -5) {
+  1300→    modifier *= 0.85;
+  1301→    narratives.push(
+  1302→      'Freezing conditions will make the ball behave unpredictably and increase injury risk.',
+  1303→    );
+  1304→  } else if (temperature < 0) {
+  1305→    modifier *= 0.92;
+  1306→    narratives.push(
+  1307→      'Sub-zero temperatures slightly reduce the quality of play and goal expectancy.',
+  1308→    );
+  1309→  } else if (temperature >= 15 && temperature <= 25) {
+  1310→    // Optimal range — already at 1.0 modifier
+  1311→    if (narratives.length === 0) {
+  1312→      narratives.push(
+  1313→        'Perfect playing conditions — no weather-related adjustments needed.',
+  1314→      );
+  1315→    }
+  1316→  }
+  1317→
+  1318→  // Clamp modifier to reasonable bounds
+  1319→  modifier = clamp(modifier, 0.6, 1.1);
+  1320→
+  1321→  return {
+  1322→    goalModifier: Math.round(modifier * 1000) / 1000,
+  1323→    narrative: narratives.join(' '),
+  1324→  };
+  1325→}

@@ -29,3 +29,29 @@ Stage Summary:
 - Provenance: Every xG value now carries source, truthClass, freshness through API to UI
 - Proxy xG audit: CLEAN — no shots_on_target*0.1 pattern found
 - UI: Match Detail, Compare, Tactical views all show honest data classification (REAL/MISSING badges)
+---
+Task ID: 1
+Agent: main
+Task: Cycle 4.5 Data Population and End-to-End Verification
+
+Work Log:
+- Read all critical source files: schema.prisma, understat.ts, entity-resolution.ts, canonical-entity.ts, cron/sync/route.ts, /api/teams/route.ts, /api/matches/[id]/route.ts
+- Verified environment: FOOTBALL_DATA_API_KEY=CONFIGURED, THE_ODDS_API_KEY=CONFIGURED, API_SPORTS_KEY=EMPTY, NEWSDATA_API_KEY=EMPTY, DATABASE=CONNECTED, UNDERSTAT=AVAILABLE
+- Ran controlled Understat sync test: getLeagueData/EPL/2024 works (20 teams), getTeamData/{id}/2024 returns 404, getMatchData/{id} returns 404
+- Verified entity resolution: 3/3 test teams resolved EXACT to API-Sports teams in DB
+- Confirmed DB state: 670 teams, 27 matches, 0 CanonicalTeams, 0 SourceIdentities, 0 TeamAnalytics, 0 Odds, 0 News
+- Found 10 demo matches with xG=0 and null provenance (source=unknown)
+- Found 8 instances of null-to-zero xG transforms in UI (match-detail: 6, tactical: 2)
+- Found Math.random() only in legitimate Monte Carlo simulation contexts
+- Confirmed prediction lambda values are standard league-average constants (1.35/1.15)
+- Build verified: 0 TypeScript errors, 51 API routes, 33 static pages
+- Security verified: no API key values in client-side code
+- Generated PDF verification report
+
+Stage Summary:
+- BLOCKER: Understat getTeamData and getMatchData endpoints return 404. Real xG cannot be populated.
+- BLOCKER: API_SPORTS_KEY and NEWSDATA_API_KEY are empty, blocking all API-Sports and News sync
+- CanonicalTeam and SourceIdentity tables have never been populated
+- 0 TeamAnalytic rows exist (no xG data ever persisted)
+- 8 UI null-to-zero fabrication risks identified in match-detail and tactical views
+- Report saved to /home/z/my-project/download/ELASTICO-Cycle-4.5-Verification-Report.pdf
