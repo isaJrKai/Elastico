@@ -502,7 +502,18 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
       const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
-        set({ liveMatches: data.matches || [], isLiveLoading: false })
+        // Sanitize: ensure team fields are safe objects (never render raw)
+        const matches = (data.matches || []).map((m: any) => ({
+          ...m,
+          // Keep team objects but guarantee .name exists for safe rendering
+          homeTeam: m.homeTeam && typeof m.homeTeam === 'object'
+            ? { name: String(m.homeTeam.name || 'Home'), ...m.homeTeam }
+            : m.homeTeam,
+          awayTeam: m.awayTeam && typeof m.awayTeam === 'object'
+            ? { name: String(m.awayTeam.name || 'Away'), ...m.awayTeam }
+            : m.awayTeam,
+        }))
+        set({ liveMatches: matches, isLiveLoading: false })
       } else {
         set({ isLiveLoading: false })
       }
