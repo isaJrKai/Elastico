@@ -325,30 +325,10 @@ export default function CompareView() {
           <CardContent className="max-h-96 overflow-y-auto pr-1">
             <div className="space-y-2.5">
               {statComparisons.map((stat) => {
-                // Handle null values (MISSING xG data)
+                // Handle null values — show N/A with provenance
                 if (stat.home === null || stat.away === null) {
-                  return (
-                    <div key={stat.label} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground/60 w-16 text-right shrink-0">--</span>
-                      <div className="flex-1">
-                        <div className="flex h-2.5 rounded-full overflow-hidden bg-muted/30">
-                          <div className="bg-muted/40 rounded-l-full" style={{ width: '50%' }} />
-                          <div className="bg-muted/40 rounded-r-full" style={{ width: '50%' }} />
-                        </div>
-                      </div>
-                      <span className="text-xs text-muted-foreground/60 w-16 shrink-0">--</span>
-                      <span className="text-[10px] text-muted-foreground/60 w-28 shrink-0 hidden lg:block">
-                        {stat.label}
-                        {(stat as any).truthClass && (stat as any).truthClass !== 'REAL' && (
-                          <span className="ml-1 text-yellow-500/70">{(stat as any).truthClass}</span>
-                        )}
-                      </span>
-                    </div>
-                  )
-                }
-                // Skip bar rendering for null values — show N/A instead
-                if (stat.home == null || stat.away == null) {
                   const tc = (stat as any).truthClass
+                  const src = (stat as any).source
                   return (
                     <div key={stat.label} className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground w-16 text-right shrink-0">N/A</span>
@@ -361,8 +341,14 @@ export default function CompareView() {
                       <span className="text-xs text-muted-foreground w-16 shrink-0">N/A</span>
                       <span className="text-[10px] text-muted-foreground w-28 shrink-0 hidden lg:block">
                         {stat.label}
-                        {tc && tc !== 'REAL' && (
+                        {tc && tc !== 'REAL' && tc !== 'DERIVED' && (
                           <span className="ml-1 text-yellow-500/70">{tc}</span>
+                        )}
+                        {tc === 'DERIVED' && src && (
+                          <span className="ml-1 text-blue-400/70">DERIVED · {src}</span>
+                        )}
+                        {!tc && (
+                          <span className="ml-1 text-muted-foreground/50">MISSING</span>
                         )}
                       </span>
                     </div>
@@ -390,7 +376,8 @@ export default function CompareView() {
                     <span className="text-[10px] text-muted-foreground w-28 shrink-0 hidden lg:block">
                       {stat.label}
                       {tc === 'REAL' && <span className="ml-1 text-emerald-500/80">REAL</span>}
-                      {tc && tc !== 'REAL' && tc !== 'MISSING' && <span className="ml-1 text-yellow-500/70">{tc}</span>}
+                      {tc === 'DERIVED' && <span className="ml-1 text-blue-400/80">DERIVED</span>}
+                      {tc && tc !== 'REAL' && tc !== 'DERIVED' && tc !== 'MISSING' && <span className="ml-1 text-yellow-500/70">{tc}</span>}
                       {src && <span className="ml-1 text-muted-foreground/50">via {src}</span>}
                     </span>
                   </div>

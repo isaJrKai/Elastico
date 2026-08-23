@@ -93,16 +93,24 @@ export async function GET(
       }) as any
 
       if (dbMatch) {
-        // Fetch xG analytics for both teams
+        // Fetch xG analytics: try legacy teamId first, then CanonicalTeam name match
+        const findAnalytics = async (teamName: string, teamId: string) => {
+          // Try legacy TeamAnalytic by teamId
+          const legacy = await db.teamAnalytic.findFirst({
+            where: { teamId, source: 'understat' },
+            orderBy: { syncedAt: 'desc' },
+          })
+          if (legacy) return legacy
+          // Try CanonicalTeam-based analytic by name
+          const canonical = await db.canonicalTeam.findFirst({
+            where: { displayName: { equals: teamName, mode: 'insensitive' } },
+            include: { analytics: { orderBy: { syncedAt: 'desc' }, take: 1 } },
+          })
+          return canonical?.analytics[0] ?? null
+        }
         const [homeAnalytics, awayAnalytics] = await Promise.all([
-          db.teamAnalytic.findFirst({
-            where: { teamId: dbMatch.homeTeamId, source: 'understat' },
-            orderBy: { syncedAt: 'desc' },
-          }),
-          db.teamAnalytic.findFirst({
-            where: { teamId: dbMatch.awayTeamId, source: 'understat' },
-            orderBy: { syncedAt: 'desc' },
-          }),
+          findAnalytics(dbMatch.homeTeam?.name || '', dbMatch.homeTeamId),
+          findAnalytics(dbMatch.awayTeam?.name || '', dbMatch.awayTeamId),
         ])
         return NextResponse.json({ match: mapDbMatch(dbMatch, homeAnalytics, awayAnalytics), source: 'database' })
       }
@@ -122,15 +130,21 @@ export async function GET(
       }) as any
 
       if (dbMatch) {
+        const findAnalytics = async (teamName: string, teamId: string) => {
+          const legacy = await db.teamAnalytic.findFirst({
+            where: { teamId, source: 'understat' },
+            orderBy: { syncedAt: 'desc' },
+          })
+          if (legacy) return legacy
+          const canonical = await db.canonicalTeam.findFirst({
+            where: { displayName: { equals: teamName, mode: 'insensitive' } },
+            include: { analytics: { orderBy: { syncedAt: 'desc' }, take: 1 } },
+          })
+          return canonical?.analytics[0] ?? null
+        }
         const [homeAnalytics, awayAnalytics] = await Promise.all([
-          db.teamAnalytic.findFirst({
-            where: { teamId: dbMatch.homeTeamId, source: 'understat' },
-            orderBy: { syncedAt: 'desc' },
-          }),
-          db.teamAnalytic.findFirst({
-            where: { teamId: dbMatch.awayTeamId, source: 'understat' },
-            orderBy: { syncedAt: 'desc' },
-          }),
+          findAnalytics(dbMatch.homeTeam?.name || '', dbMatch.homeTeamId),
+          findAnalytics(dbMatch.awayTeam?.name || '', dbMatch.awayTeamId),
         ])
         return NextResponse.json({ match: mapDbMatch(dbMatch, homeAnalytics, awayAnalytics), source: 'database' })
       }

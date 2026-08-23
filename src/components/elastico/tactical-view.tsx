@@ -87,15 +87,18 @@ const RADAR_DIMS = [
 
 // ── Demo Tactical Profiles ─────────────────────────────────────────────
 
-function generateDemoProfile(team: { style: string | null; xgPerGame: number; xgaPerGame: number; possession: number; pressIntensity: number; passAccuracy: number }, seed: number) {
+function generateDemoProfile(team: { style: string | null; xgPerGame: number | null; xgaPerGame: number | null; possession: number; pressIntensity: number; passAccuracy: number }, seed: number) {
   const hash = (s: string) => s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const base = hash(team.style || 'balanced') + seed
   const jitter = (i: number, range: number) => ((base * (i + 1) * 7) % range)
+  // Use safe defaults when xG is null (no fabrication)
+  const xg = team.xgPerGame ?? 1.3
+  const xga = team.xgaPerGame ?? 1.1
 
   return {
-    attack: Math.min(95, Math.max(30, team.xgPerGame * 25 + jitter(0, 20) - 10)),
+    attack: Math.min(95, Math.max(30, xg * 25 + jitter(0, 20) - 10)),
     midfield: Math.min(95, Math.max(30, team.possession * 0.7 + team.passAccuracy * 0.2 + jitter(1, 15) - 7)),
-    defense: Math.min(95, Math.max(30, 100 - team.xgaPerGame * 30 + jitter(2, 15) - 7)),
+    defense: Math.min(95, Math.max(30, 100 - xga * 30 + jitter(2, 15) - 7)),
     pressing: Math.min(95, Math.max(20, team.pressIntensity + jitter(3, 20) - 10)),
     possession: Math.min(95, Math.max(20, team.possession + jitter(4, 10) - 5)),
     setPiece: Math.min(95, Math.max(25, 40 + jitter(5, 40))),
@@ -225,8 +228,8 @@ export function TacticalView() {
   const styleData = useMemo(() => {
     if (!homeTeam || !awayTeam) return []
     return [
-      { metric: 'xG/Game', [homeTeam.code]: homeTeam.xgPerGame, [awayTeam.code]: awayTeam.xgPerGame, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
-      { metric: 'xGA/Game', [homeTeam.code]: homeTeam.xgaPerGame, [awayTeam.code]: awayTeam.xgaPerGame, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
+      { metric: 'xG/Game', [homeTeam.code]: homeTeam.xgPerGame ?? null, [awayTeam.code]: awayTeam.xgPerGame ?? null, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
+      { metric: 'xGA/Game', [homeTeam.code]: homeTeam.xgaPerGame ?? null, [awayTeam.code]: awayTeam.xgaPerGame ?? null, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
       { metric: 'Poss %', [homeTeam.code]: homeTeam.possession, [awayTeam.code]: awayTeam.possession, dataClass: (homeTeam.possession != null && awayTeam.possession != null) ? 'REAL' as const : 'MISSING' as const },
       { metric: 'Pass Acc', [homeTeam.code]: homeTeam.passAccuracy, [awayTeam.code]: awayTeam.passAccuracy, dataClass: (homeTeam.passAccuracy != null && awayTeam.passAccuracy != null) ? 'REAL' as const : 'MISSING' as const },
       { metric: 'Press', [homeTeam.code]: homeTeam.pressIntensity, [awayTeam.code]: awayTeam.pressIntensity, dataClass: (homeTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? 'DERIVED' as const : 'MISSING' as const },

@@ -1,6 +1,30 @@
 # ELASTICO Worklog
 
 ---
+Task ID: 4.6
+Agent: main
+Task: Cycle 4.6 — Serve the Truth
+
+Work Log:
+- Fixed truthClass: REAL → DERIVED for 20 team analytics (aggregated from player data)
+- Rewrote /api/teams: primary path now queries CanonicalTeam + TeamAnalytic; falls back to legacy Team table; final fallback ESPN with truthClass=MISSING
+- Updated /api/matches/[id]: analytics lookup now tries legacy teamId first, then CanonicalTeam name match
+- Fixed Zustand store: Team.xgPerGame and xgaPerGame typed as `number | null` (was non-null `number`)
+- Fixed tactical-view generateDemoProfile: accepts null xG (was non-null, would crash on NaN)
+- Fixed tactical-view styleData: null-guarded xG fields for Recharts
+- Fixed compare-view: removed dead unreachable null block, added DERIVED badge, added source provenance label
+- ESPN fallback paths now include xgTruthClass: 'MISSING' explicitly
+- seed.ts fabrication fix (from 4.5) preserved
+- 43/43 end-to-end verification checks passed
+
+Stage Summary:
+- /api/teams now serves from CanonicalTeam → SourceIdentity → TeamAnalytic
+- Arsenal golden path: CanonicalTeam(Arsenal) → SourceIdentity(understat:83) → TeamAnalytic(xgPerGame=1.99, truthClass=DERIVED, source=understat, freshness=SEASON)
+- Build: 0 TypeScript errors
+- No fabrication, no silent null→0, no PROXY records
+- UI components handle null xG with N/A + provenance badges
+
+---
 Task ID: 1
 Agent: main
 Task: Cycle 4.5 — Controlled End-to-End Data Pipeline Verification

@@ -106,8 +106,8 @@ export interface Team {
   rank: number | null
   coachName: string | null
   style: string | null
-  xgPerGame: number
-  xgaPerGame: number
+  xgPerGame: number | null
+  xgaPerGame: number | null
   xgTruthClass: string | null  // 'REAL', 'DERIVED', 'PROXY', 'MISSING', null
   xgSource: string | null     // 'understat', 'proxy', null
   xgFreshness: string | null  // 'FRESH', 'CURRENT', 'SEASON', 'STALE'
