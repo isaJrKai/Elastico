@@ -190,7 +190,7 @@ function LiveScoreWidget() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium truncate">
-                      {match.homeTeam || match.home_team || 'Home'}
+                      {match.homeTeam?.name || match.home_team || 'Home'}
                     </span>
                     <span className={cn(
                       'text-sm font-bold tabular-nums',
@@ -206,7 +206,7 @@ function LiveScoreWidget() {
                       {match.awayScore ?? match.away_score ?? 0}
                     </span>
                     <span className="text-sm font-medium truncate">
-                      {match.awayTeam || match.away_team || 'Away'}
+                      {match.awayTeam?.name || match.away_team || 'Away'}
                     </span>
                   </div>
                   {match.competition && (
