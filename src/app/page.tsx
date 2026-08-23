@@ -139,6 +139,7 @@ export default function Home() {
     if (cmd && e.key === 'n') { e.preventDefault(); store.setView('news') }
     if (cmd && e.key === ',') { e.preventDefault(); store.setView('settings') }
     if (cmd && e.key === 'b') { e.preventDefault(); store.setView('notifications') }
+    if (cmd && e.key === 'e') { e.preventDefault(); store.setView('export') }
   }, [isAuthenticated])
 
   useEffect(() => {

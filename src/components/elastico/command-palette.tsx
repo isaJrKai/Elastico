@@ -31,7 +31,7 @@ const viewItems: { view: View; label: string; icon: React.ElementType; category:
   // Tools (utilities)
   { view: 'ai-chat',           label: 'AI Chat',           icon: MessageSquare,     category: 'Tools',        shortcut: '⌘C' },
   { view: 'news',              label: 'News',              icon: Newspaper,         category: 'Tools',        shortcut: '⌘N' },
-  { view: 'export',            label: 'Export',            icon: Download,          category: 'Tools',        shortcut: '' },
+  { view: 'export',            label: 'Export',            icon: Download,          category: 'Tools',        shortcut: '⌘E' },
   { view: 'social',            label: 'Social',            icon: UsersRound,        category: 'Tools',        shortcut: '' },
   // System (app management)
   { view: 'settings',          label: 'Settings',          icon: Settings,          category: 'System',       shortcut: '⌘,' },

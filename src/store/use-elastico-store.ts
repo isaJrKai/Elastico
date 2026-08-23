@@ -254,7 +254,7 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
   // Navigation
   currentView: 'login',
   selectedMatchId: null,
-  sidebarOpen: false,
+  sidebarOpen: true,
   commandPaletteOpen: false,
 
   // Data

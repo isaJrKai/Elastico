@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 import {
   Download,
@@ -191,13 +191,27 @@ export function ExportView() {
     toast.success('API endpoint URL copied!')
   }, [])
 
+  // Expose chartRef setter for external chart capture
+  // (used by other views to register their chart DOM node)
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      setChartRef((e.detail as HTMLElement) || null)
+    }
+    window.addEventListener('register-chart', handler as EventListener)
+    return () => window.removeEventListener('register-chart', handler as EventListener)
+  }, [])
+
   return (
-    <div
-      className="space-y-6"
-    >
+    <div className="space-y-6">
       {/* Header */}
-      <div>
-        <p className="text-muted-foreground text-sm">Export data, generate reports, and access the API</p>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10">
+          <Download className="size-5 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Export Center</h2>
+          <p className="text-muted-foreground text-sm">Export data, generate reports, and access the API</p>
+        </div>
       </div>
 
       <Tabs defaultValue="custom" className="space-y-4">
