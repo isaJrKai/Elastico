@@ -49,6 +49,14 @@ export async function GET(req: NextRequest) {
         playerCount: t._count.players,
         source: t.source,
         lastSyncedAt: t.lastSyncedAt?.toISOString() || null,
+        // --- xG analytics from Understat (REAL data) ---
+        xgPerGame: t.analytics[0]?.xgPerGame ?? null,
+        xgaPerGame: t.analytics[0]?.xgaPerGame ?? null,
+        npxGPerGame: t.analytics[0]?.npxGPerGame ?? null,
+        xgTruthClass: t.analytics[0]?.truthClass ?? null,
+        xgSource: t.analytics[0]?.source ?? null,
+        xgFreshness: t.analytics[0]?.dataFreshness ?? null,
+        xgSyncedAt: t.analytics[0]?.syncedAt?.toISOString() || null,
       }))
 
       return NextResponse.json({ teams, source: 'database', total: teams.length })

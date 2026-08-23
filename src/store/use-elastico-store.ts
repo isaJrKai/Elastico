@@ -104,6 +104,9 @@ export interface Team {
   style: string | null
   xgPerGame: number
   xgaPerGame: number
+  xgTruthClass: string | null  // 'REAL', 'DERIVED', 'PROXY', 'MISSING', null
+  xgSource: string | null     // 'understat', 'proxy', null
+  xgFreshness: string | null  // 'FRESH', 'CURRENT', 'SEASON', 'STALE'
   possession: number
   passAccuracy: number
   pressIntensity: number

@@ -21,8 +21,9 @@ import {
  type ASTopScorer,
   type ASPlayer,
 } from '@/lib/api-sports'
-import { fetchLeagueTeams as fetchUnderstatLeagueTeams } from '@/lib/understat'
+import { fetchLeagueTeams as fetchUnderstatLeagueTeams, computeTeamXgFromMatches } from '@/lib/understat'
 import { resolveUnderstatTeams } from '@/lib/entity-resolution'
+import { buildCanonicalEntities, linkUnderstatToCanonical, classifyFreshness } from '@/lib/canonical-entity'
 
 export const maxDuration = 25 // Vercel hobby limit safety margin
 
@@ -285,41 +286,48 @@ async function syncUnderstatAnalytics(): Promise<{
       if (understatTeams.length === 0) continue
 
       const { resolved, unresolved } = await resolveUnderstatTeams(
-        db, understatTeams, leagueCode, UNDERSTAT_SEASON,
+        db, understatTeams.map(t => ({ id: t.id, title: t.title, team_name: t.team_name || t.title })), leagueCode, UNDERSTAT_SEASON,
       )
 
       result.resolved += resolved.length
       result.unresolved += unresolved.length
 
       // Upsert resolved teams' analytics
-      for (const r of resolved) {
+      // NOTE: The new Understat API does NOT return xG/xGA at team level.
+      // We compute per-game xG from match-level data via computeTeamXgFromMatches.
+      // This makes one additional fetch per resolved team (rate-limited, so we
+      // process only the first 3 resolved teams per league per sync cycle).
+      const teamsToProcess = resolved.slice(0, 3)
+
+      for (const r of teamsToProcess) {
         checkTimeout()
         try {
-          const ut = understatTeams.find(t => t.id === r.understatTeamId)
-          if (!ut) continue
+          // Compute real xG from match history
+          const xgData = await computeTeamXgFromMatches(
+            r.understatTeamId, parseInt(UNDERSTAT_SEASON),
+          )
 
-          // Validate: xG must be non-negative
-          const xg = parseFloat(String(ut.xG)) || 0
-          const xga = parseFloat(String(ut.xGA)) || 0
-          const npxg = parseFloat(String(ut.npxG)) || 0
-          const npxga = parseFloat(String(ut.npxGA)) || 0
-          if (xg < 0 || xga < 0 || npxg < 0 || npxga < 0) {
-            console.warn(`[SYNC/Understat] Invalid xG values for ${r.matchedDbTeamName}: xG=${xg}, xGA=${xga}`)
+          if (!xgData || xgData.matchesPlayed === 0) {
+            console.warn(`[SYNC/Understat] No xG data for ${r.matchedDbTeamName} (${r.understatTeamId})`)
             continue
           }
 
-          // Calculate per-game values (Understat xG is season total)
-          const matchesPlayed = (ut.wins || 0) + (ut.draws || 0) + (ut.losses || 0)
-          const xgPerGame = matchesPlayed > 0 ? Math.round((xg / matchesPlayed) * 100) / 100 : null
-          const xgaPerGame = matchesPlayed > 0 ? Math.round((xga / matchesPlayed) * 100) / 100 : null
-          const ppda = ut.ppda?.def > 0 ? Math.round((ut.ppda.att / ut.ppda.def) * 100) / 100 : null
-          const deep = matchesPlayed > 0 ? Math.round((ut.deep / matchesPlayed) * 100) / 100 : null
-          const ppdaAllowed = ut.ppda_allowed?.def > 0
-            ? Math.round((ut.ppda_allowed.att / ut.ppda_allowed.def) * 100) / 100
-            : null
-          const deepAllowed = matchesPlayed > 0
-            ? Math.round((ut.deep_allowed / matchesPlayed) * 100) / 100
-            : null
+          const xgPerGame = Math.round((xgData.totalXg / xgData.matchesPlayed) * 100) / 100
+          const xgaPerGame = Math.round((xgData.totalXga / xgData.matchesPlayed) * 100) / 100
+
+          if (xgPerGame < 0 || xgaPerGame < 0) {
+            console.warn(`[SYNC/Understat] Invalid xG for ${r.matchedDbTeamName}: xG=${xgPerGame}, xGA=${xgaPerGame}`)
+            continue
+          }
+
+          // Link understat identity to canonical team
+          const canonicalId = await linkUnderstatToCanonical(
+            db, r.dbTeamId, r.understatTeamId,
+            r.understatTeamName, r.confidence, r.method,
+          )
+
+          const now = new Date()
+          const freshness = classifyFreshness(now)
 
           await db.teamAnalytic.upsert({
             where: {
@@ -333,13 +341,13 @@ async function syncUnderstatAnalytics(): Promise<{
             update: {
               xgPerGame,
               xgaPerGame,
-              npxGPerGame: matchesPlayed > 0 ? Math.round((npxg / matchesPlayed) * 100) / 100 : null,
-              npxgaPerGame: matchesPlayed > 0 ? Math.round((npxga / matchesPlayed) * 100) / 100 : null,
-              ppda,
-              ppdaAllowed,
-              deep,
-              deepAllowed,
-              syncedAt: new Date(),
+              npxGPerGame: xgData.matchesPlayed > 0
+                ? Math.round((xgData.npxG / xgData.matchesPlayed) * 100) / 100
+                : null,
+              truthClass: 'REAL',
+              dataFreshness: freshness,
+              canonicalTeamId: canonicalId,
+              syncedAt: now,
             },
             create: {
               teamId: r.dbTeamId,
@@ -348,21 +356,26 @@ async function syncUnderstatAnalytics(): Promise<{
               leagueCode,
               xgPerGame,
               xgaPerGame,
-              npxGPerGame: matchesPlayed > 0 ? Math.round((npxg / matchesPlayed) * 100) / 100 : null,
-              npxgaPerGame: matchesPlayed > 0 ? Math.round((npxga / matchesPlayed) * 100) / 100 : null,
-              ppda,
-              ppdaAllowed,
-              deep,
-              deepAllowed,
-              sourceTeamId: String(ut.id),
+              npxGPerGame: xgData.matchesPlayed > 0
+                ? Math.round((xgData.npxG / xgData.matchesPlayed) * 100) / 100
+                : null,
+              truthClass: 'REAL',
+              dataFreshness: freshness,
+              sourceTeamId: String(r.understatTeamId),
               sourceTeamName: r.understatTeamName,
-              syncedAt: new Date(),
+              canonicalTeamId: canonicalId,
+              syncedAt: now,
             },
           })
           result.updated++
+          console.log(`[SYNC/Understat] ${r.matchedDbTeamName}: xG/g=${xgPerGame}, xGA/g=${xgaPerGame} (${xgData.matchesPlayed} matches, ${r.confidence})`)
         } catch (err) {
           console.warn(`[SYNC/Understat] Failed to upsert for ${r.matchedDbTeamName}:`, err)
         }
+      }
+
+      if (resolved.length > 3) {
+        console.log(`[SYNC/Understat] ${leagueCode}: ${resolved.length - 3} teams deferred to next sync cycle (rate limit)`)
       }
 
       // Log unresolved teams
@@ -906,6 +919,21 @@ export async function GET(req: NextRequest) {
           console.warn('[SYNC] API-Sports players failed:', err.message)
         }
       }
+    }
+
+    // ═══ 2.5 Build Canonical Entities (after teams exist) ═══
+    try {
+      checkTimeout()
+      const canonResult = await buildCanonicalEntities(db)
+      summary.syncs.canonical = {
+        source: 'canonical',
+        canonicalTeams: canonResult.canonicalTeamsCreated,
+        identities: canonResult.identitiesCreated,
+      }
+      console.log(`[SYNC] Canonical: ${canonResult.canonicalTeamsCreated} teams, ${canonResult.identitiesCreated} identities`)
+    } catch (err: any) {
+      if (err.message?.includes('timeout')) throw err
+      console.warn('[SYNC] Canonical entity build failed:', err.message)
     }
 
     // ═══ 3. Understat Analytical Enrichment ═══

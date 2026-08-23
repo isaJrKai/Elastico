@@ -1,0 +1,982 @@
+     1→import { NextRequest, NextResponse } from 'next/server'
+     2→import { db } from '@/lib/db'
+     3→import {
+     4→  ESPN_LEAGUES,
+     5→  fetchStandings as fetchESPNStandings,
+     6→  mapStatus,
+     7→} from '@/lib/football-data'
+     8→import {
+     9→  fetchLiveFixtures,
+    10→  fetchFixtures,
+    11→  fetchStandings as fetchASStandings,
+    12→  fetchTopScorers,
+    13→  fetchLeagueTeams,
+    14→  fetchSquad,
+    15→  mapASStatus,
+    16→  AS_LEAGUES,
+    17→  type ASFixture,
+    18→  AS_LEAGUES as AS_LEAGUES_ARR,
+    19→  type ASStandingTeam,
+    20→  type ASTeamInfo,
+    21→ type ASTopScorer,
+    22→  type ASPlayer,
+    23→} from '@/lib/api-sports'
+    24→import { fetchLeagueTeams as fetchUnderstatLeagueTeams, computeTeamXgFromMatches } from '@/lib/understat'
+    25→import { resolveUnderstatTeams } from '@/lib/entity-resolution'
+    26→import { buildCanonicalEntities, linkUnderstatToCanonical, classifyFreshness } from '@/lib/canonical-entity'
+    27→
+    28→export const maxDuration = 25 // Vercel hobby limit safety margin
+    29→
+    30→const SYNC_START = Date.now()
+    31→const TIMEOUT_MS = 23_000 // Stop early if approaching Vercel 30s limit
+    32→
+    33→function elapsed() {
+    34→  return Date.now() - SYNC_START
+    35→}
+    36→
+    37→function checkTimeout() {
+    38→  if (elapsed() > TIMEOUT_MS) {
+    39→    throw new Error('approaching Vercel timeout, stopping early')
+    40→  }
+    41→}
+    42→
+    43→// ── Cron Secret Validation ──────────────────────────────────────────────────
+    44→
+    45→function validateCron(req: NextRequest): boolean {
+    46→  const secret = req.headers.get('x-cron-secret')
+    47→  const expected = process.env.CRON_SECRET || 'elastico-cron-2024'
+    48→  return secret === expected
+    49→}
+    50→
+    51→// ═══════════════════════════════════════════════════════════════════════════════
+    52→// API-SPORTS SYNC — Primary data source (high quality, 100 req/day free)
+    53→// ═══════════════════════════════════════════════════════════════════════════════
+    54→
+    55→async function syncFixturesFromApiSports(): Promise<{
+    56→  created: number
+    57→  updated: number
+    58→  processed: number
+    59→}> {
+    60→  const result = { created: 0, updated: 0, processed: 0 }
+    61→
+    62→  try {
+    63→    // 1. Live fixtures (1 API call — covers all leagues)
+    64→    const liveFixtures = await fetchLiveFixtures()
+    65→    console.log(`[SYNC/API-Sports] Got ${liveFixtures.length} live fixtures`)
+    66→
+    67→    for (const f of liveFixtures) {
+    68→      checkTimeout()
+    69→      await upsertApiSportsFixture(f, result)
+    70→    }
+    71→
+    72→    // 2. Today's fixtures from top 5 leagues (5 API calls)
+    73→    const top5 = AS_LEAGUES.slice(0, 5) // PL, LIGA, SA, BL, L1
+    74→    for (const league of top5) {
+    75→      checkTimeout()
+    76→      try {
+    77→        const fixtures = await fetchFixtures(league.id)
+    78→        for (const f of fixtures) {
+    79→          checkTimeout()
+    80→          await upsertApiSportsFixture(f, result)
+    81→        }
+    82→      } catch (err: any) {
+    83→        if (err.message?.includes('timeout')) throw err
+    84→        console.warn(`[SYNC/API-Sports] Failed fixtures for ${league.code}:`, err.message)
+    85→      }
+    86→    }
+    87→  } catch (err: any) {
+    88→    if (err.message?.includes('timeout')) throw err
+    89→    console.warn('[SYNC/API-Sports] Fixtures failed:', err.message || err)
+    90→  }
+    91→
+    92→  return result
+    93→}
+    94→
+    95→async function upsertApiSportsFixture(
+    96→  f: ASFixture,
+    97→  result: { created: number; updated: number; processed: number }
+    98→) {
+    99→  result.processed++
+   100→  const season = String(f.league?.season || new Date().getFullYear())
+   101→  const leagueCode =
+   102→    AS_LEAGUES.find(l => l.id === f.league?.id)?.code ||
+   103→    f.league?.country?.substring(0, 4).toUpperCase() ||
+   104→    'UNKNOWN'
+   105→
+   106→  // Upsert home team
+   107→  const homeTeam = await db.team.upsert({
+   108→    where: { source_sourceId: { source: 'api-sports', sourceId: String(f.teams.home.id) } },
+   109→    update: {
+   110→      name: f.teams.home.name,
+   111→      logo: f.teams.home.logo,
+   112→      league: f.league?.name || '',
+   113→      leagueCode,
+   114→      source: 'api-sports',
+   115→      lastSyncedAt: new Date(),
+   116→    },
+   117→    create: {
+   118→      externalId: String(f.teams.home.id),
+   119→      name: f.teams.home.name,
+   120→      code: f.teams.home.name.substring(0, 3).toUpperCase(),
+   121→      logo: f.teams.home.logo,
+   122→      league: f.league?.name || '',
+   123→      leagueCode,
+   124→      country: f.league?.country || '',
+   125→      source: 'api-sports',
+   126→      sourceId: String(f.teams.home.id),
+   127→    },
+   128→  })
+   129→
+   130→  // Upsert away team
+   131→  const awayTeam = await db.team.upsert({
+   132→    where: { source_sourceId: { source: 'api-sports', sourceId: String(f.teams.away.id) } },
+   133→    update: {
+   134→      name: f.teams.away.name,
+   135→      logo: f.teams.away.logo,
+   136→      league: f.league?.name || '',
+   137→      leagueCode,
+   138→      source: 'api-sports',
+   139→      lastSyncedAt: new Date(),
+   140→    },
+   141→    create: {
+   142→      externalId: String(f.teams.away.id),
+   143→      name: f.teams.away.name,
+   144→      code: f.teams.away.name.substring(0, 3).toUpperCase(),
+   145→      logo: f.teams.away.logo,
+   146→      league: f.league?.name || '',
+   147→      leagueCode,
+   148→      country: f.league?.country || '',
+   149→      source: 'api-sports',
+   150→      sourceId: String(f.teams.away.id),
+   151→    },
+   152→  })
+   153→
+   154→  // Upsert match
+   155→  const matchData = {
+   156→    externalId: String(f.id),
+   157→    homeTeamId: homeTeam.id,
+   158→    awayTeamId: awayTeam.id,
+   159→    competition: f.league?.name || '',
+   160→    competitionCode: leagueCode,
+   161→    season,
+   162→    round: f.league?.round || null,
+   163→    date: new Date(f.date),
+   164→    status: mapASStatus(f.status?.short || 'NS'),
+   165→    minute: f.status?.elapsed ?? null,
+   166→    venue: null as string | null,
+   167→    homeScore: f.goals?.home ?? 0,
+   168→    awayScore: f.goals?.away ?? 0,
+   169→    halfTimeHome: f.score?.halftime?.home ?? null,
+   170→    halfTimeAway: f.score?.halftime?.away ?? null,
+   171→    source: 'api-sports',
+   172→    sourceId: String(f.id),
+   173→    lastSyncedAt: new Date(),
+   174→  }
+   175→
+   176→  try {
+   177→    await db.match.upsert({
+   178→      where: { source_sourceId: { source: 'api-sports', sourceId: String(f.id) } },
+   179→      update: matchData,
+   180→      create: matchData,
+   181→    })
+   182→    result.created++
+   183→  } catch {
+   184→    result.updated++
+   185→  }
+   186→}
+   187→
+   188→// ── API-Sports Standings Sync ──────────────────────────────────────────────
+   189→
+   190→async function syncStandingsFromApiSports(): Promise<{
+   191→  created: number
+   192→  updated: number
+   193→}> {
+   194→  const result = { created: 0, updated: 0 }
+   195→  // Free plan covers 2022-2024; 2024 = 2024/25 completed season
+   196→  const season = '2024'
+   197→  const topLeagues = AS_LEAGUES.slice(0, 10) // sync top 10 leagues
+   198→
+   199→  for (const league of topLeagues) {
+   200→    checkTimeout()
+   201→    try {
+   202→      const standingsGroups = await fetchASStandings(league.id, 2024)
+   203→      for (const group of standingsGroups) {
+   204→        for (const entry of group) {
+   205→          checkTimeout()
+   206→          try {
+   207→            await db.standingEntry.upsert({
+   208→              where: {
+   209→                competitionCode_season_teamName: {
+   210→                  competitionCode: league.code,
+   211→                  season,
+   212→                  teamName: entry.team.name,
+   213→                },
+   214→              },
+   215→              update: {
+   216→                teamLogo: entry.team.logo,
+   217→                competition: league.name,
+   218→                rank: entry.rank,
+   219→                played: entry.all.played,
+   220→                wins: entry.all.win,
+   221→                draws: entry.all.draw,
+   222→                losses: entry.all.lose,
+   223→                goalsFor: entry.all.goals.for,
+   224→                goalsAgainst: entry.all.goals.against,
+   225→                goalDiff: entry.goalsDiff,
+   226→                points: entry.points,
+   227→                form: entry.form || null,
+   228→                homeRecord: `${entry.home.win}-${entry.home.draw}-${entry.home.lose}`,
+   229→                source: 'api-sports',
+   230→                lastSyncedAt: new Date(),
+   231→              },
+   232→              create: {
+   233→                teamName: entry.team.name,
+   234→                teamLogo: entry.team.logo,
+   235→                competition: league.name,
+   236→                competitionCode: league.code,
+   237→                season,
+   238→                rank: entry.rank,
+   239→                played: entry.all.played,
+   240→                wins: entry.all.win,
+   241→                draws: entry.all.draw,
+   242→                losses: entry.all.lose,
+   243→                goalsFor: entry.all.goals.for,
+   244→                goalsAgainst: entry.all.goals.against,
+   245→                goalDiff: entry.goalsDiff,
+   246→                points: entry.points,
+   247→                form: entry.form || null,
+   248→                homeRecord: `${entry.home.win}-${entry.home.draw}-${entry.home.lose}`,
+   249→                source: 'api-sports',
+   250→              },
+   251→            })
+   252→            result.created++
+   253→          } catch {
+   254→            result.updated++
+   255→          }
+   256→        }
+   257→      }
+   258→    } catch (err: any) {
+   259→      if (err.message?.includes('timeout')) throw err
+   260→      console.warn(`[SYNC/API-Sports] Standings failed for ${league.code}:`, err.message)
+   261→    }
+   262→  }
+   263→
+   264→  return result
+   265→}
+   266→
+   267→// ═════════════════════════════════════════════════════════════════════════
+   268→// UNDERSTAT ANALYTICAL ENRICHMENT (Phase 1: team xG/xGA only)
+   269→// Runs AFTER API-Sports sync so that canonical teams exist in DB.
+   270→// ═════════════════════════════════════════════════════════════════════════
+   271→
+   272→const UNDERSTAT_LEAGUES = ['PL', 'LIGA', 'SA', 'BL', 'L1'] as const
+   273→const UNDERSTAT_SEASON = '2024' // Understat uses calendar year for 24/25 season
+   274→
+   275→async function syncUnderstatAnalytics(): Promise<{
+   276→  resolved: number
+   277→  unresolved: number
+   278→  updated: number
+   279→}> {
+   280→  const result = { resolved: 0, unresolved: 0, updated: 0 }
+   281→
+   282→  for (const leagueCode of UNDERSTAT_LEAGUES) {
+   283→    checkTimeout()
+   284→    try {
+   285→      const understatTeams = await fetchUnderstatLeagueTeams(leagueCode, parseInt(UNDERSTAT_SEASON))
+   286→      if (understatTeams.length === 0) continue
+   287→
+   288→      const { resolved, unresolved } = await resolveUnderstatTeams(
+   289→        db, understatTeams, leagueCode, UNDERSTAT_SEASON,
+   290→      )
+   291→
+   292→      result.resolved += resolved.length
+   293→      result.unresolved += unresolved.length
+   294→
+   295→      // Upsert resolved teams' analytics
+   296→      // NOTE: The new Understat API does NOT return xG/xGA at team level.
+   297→      // We compute per-game xG from match-level data via computeTeamXgFromMatches.
+   298→      // This makes one additional fetch per resolved team (rate-limited, so we
+   299→      // process only the first 3 resolved teams per league per sync cycle).
+   300→      const teamsToProcess = resolved.slice(0, 3)
+   301→
+   302→      for (const r of teamsToProcess) {
+   303→        checkTimeout()
+   304→        try {
+   305→          // Compute real xG from match history
+   306→          const xgData = await computeTeamXgFromMatches(
+   307→            r.understatTeamId, parseInt(UNDERSTAT_SEASON),
+   308→          )
+   309→
+   310→          if (!xgData || xgData.matchesPlayed === 0) {
+   311→            console.warn(`[SYNC/Understat] No xG data for ${r.matchedDbTeamName} (${r.understatTeamId})`)
+   312→            continue
+   313→          }
+   314→
+   315→          const xgPerGame = Math.round((xgData.totalXg / xgData.matchesPlayed) * 100) / 100
+   316→          const xgaPerGame = Math.round((xgData.totalXga / xgData.matchesPlayed) * 100) / 100
+   317→
+   318→          if (xgPerGame < 0 || xgaPerGame < 0) {
+   319→            console.warn(`[SYNC/Understat] Invalid xG for ${r.matchedDbTeamName}: xG=${xgPerGame}, xGA=${xgaPerGame}`)
+   320→            continue
+   321→          }
+   322→
+   323→          await db.teamAnalytic.upsert({
+   324→            where: {
+   325→              teamId_source_season_leagueCode: {
+   326→                teamId: r.dbTeamId,
+   327→                source: 'understat',
+   328→                season: UNDERSTAT_SEASON,
+   329→                leagueCode,
+   330→              },
+   331→            },
+   332→            update: {
+   333→              xgPerGame,
+   334→              xgaPerGame,
+   335→              npxGPerGame: xgData.matchesPlayed > 0
+   336→                ? Math.round((xgData.npxG / xgData.matchesPlayed) * 100) / 100
+   337→                : null,
+   338→              syncedAt: new Date(),
+   339→            },
+   340→            create: {
+   341→              teamId: r.dbTeamId,
+   342→              source: 'understat',
+   343→              season: UNDERSTAT_SEASON,
+   344→              leagueCode,
+   345→              xgPerGame,
+   346→              xgaPerGame,
+   347→              npxGPerGame: xgData.matchesPlayed > 0
+   348→                ? Math.round((xgData.npxG / xgData.matchesPlayed) * 100) / 100
+   349→                : null,
+   350→              sourceTeamId: String(r.understatTeamId),
+   351→              sourceTeamName: r.understatTeamName,
+   352→              syncedAt: new Date(),
+   353→            },
+   354→          })
+   355→          result.updated++
+   356→          console.log(`[SYNC/Understat] ${r.matchedDbTeamName}: xG/g=${xgPerGame}, xGA/g=${xgaPerGame} (${xgData.matchesPlayed} matches, ${r.confidence})`)
+   357→        } catch (err) {
+   358→          console.warn(`[SYNC/Understat] Failed to upsert for ${r.matchedDbTeamName}:`, err)
+   359→        }
+   360→      }
+   361→
+   362→      if (resolved.length > 3) {
+   363→        console.log(`[SYNC/Understat] ${leagueCode}: ${resolved.length - 3} teams deferred to next sync cycle (rate limit)`)
+   364→      }
+   365→
+   366→      // Log unresolved teams
+   367→      for (const u of unresolved) {
+   368→        console.warn(
+   369→          `[SYNC/Understat] UNRESOLVED: ${u.understatTeamName} ` +
+   370→          `(id=${u.understatTeamId}, league=${leagueCode})`,
+   371→        )
+   372→      }
+   373→    } catch (err: any) {
+   374→      if (err.message?.includes('timeout')) throw err
+   375→      console.warn(`[SYNC/Understat] Failed for ${leagueCode}:`, err.message)
+   376→    }
+   377→  }
+   378→
+   379→  await logSync('understat', 'team_analytics', 'success',
+   380→    result.resolved + result.unresolved, result.resolved, result.updated)
+   381→
+   382→  return result
+   383→}
+   384→
+   385→// ── API-Sports Teams Sync (full team info + venue) ────────────────────────
+   386→
+   387→async function syncTeamsFromApiSports(): Promise<{
+   388→  created: number
+   389→  updated: number
+   390→}> {
+   391→  const result = { created: 0, updated: 0 }
+   392→  const topLeagues = AS_LEAGUES.slice(0, 5)
+   393→
+   394→  for (const league of topLeagues) {
+   395→    checkTimeout()
+   396→    try {
+   397→      // Free plan covers 2022-2024
+   398→      const teams = await fetchLeagueTeams(league.id, 2024)
+   399→      for (const t of teams) {
+   400→        checkTimeout()
+   401→        try {
+   402→          await db.team.upsert({
+   403→            where: { source_sourceId: { source: 'api-sports', sourceId: String(t.id) } },
+   404→            update: {
+   405→              name: t.name,
+   406→              code: t.code || t.name.substring(0, 3).toUpperCase(),
+   407→              logo: t.logo,
+   408→              country: t.country,
+   409→              founded: t.founded,
+   410→              venueName: t.venue?.name,
+   411→              venueCapacity: t.venue?.capacity,
+   412→              league: league.name,
+   413→              leagueCode: league.code,
+   414→              source: 'api-sports',
+   415→              lastSyncedAt: new Date(),
+   416→            },
+   417→            create: {
+   418→              externalId: String(t.id),
+   419→              name: t.name,
+   420→              code: t.code || t.name.substring(0, 3).toUpperCase(),
+   421→              logo: t.logo,
+   422→              country: t.country,
+   423→              founded: t.founded,
+   424→              venueName: t.venue?.name,
+   425→              venueCapacity: t.venue?.capacity,
+   426→              league: league.name,
+   427→              leagueCode: league.code,
+   428→              source: 'api-sports',
+   429→              sourceId: String(t.id),
+   430→            },
+   431→          })
+   432→          result.created++
+   433→        } catch {
+   434→          result.updated++
+   435→        }
+   436→      }
+   437→    } catch (err: any) {
+   438→      if (err.message?.includes('timeout')) throw err
+   439→      console.warn(`[SYNC/API-Sports] Teams failed for ${league.code}:`, err.message)
+   440→    }
+   441→  }
+   442→
+   443→  return result
+   444→}
+   445→
+   446→// ── API-Sports Player Stats Sync (top scorers + squad info) ───────────────
+   447→
+   448→async function syncPlayersFromApiSports(): Promise<{
+   449→  created: number
+   450→  updated: number
+   451→}> {
+   452→  const result = { created: 0, updated: 0 }
+   453→  const topLeagues = AS_LEAGUES.slice(0, 5)
+   454→
+   455→  for (const league of topLeagues) {
+   456→    checkTimeout()
+   457→    try {
+   458→      // Free plan covers 2022-2024
+   459→      const scorers = await fetchTopScorers(league.id, 2024)
+   460→      for (const s of scorers) {
+   461→        checkTimeout()
+   462→        const p = s.player
+   463→        const stat = s.statistics?.[0]
+   464→        if (!stat) continue
+   465→
+   466→        // Find or create the team
+   467→        const teamSourceId = String(stat.team.id)
+   468→        let team = await db.team.findUnique({
+   469→          where: { source_sourceId: { source: 'api-sports', sourceId: teamSourceId } },
+   470→        })
+   471→        if (!team) {
+   472→          team = await db.team.create({
+   473→            data: {
+   474→              externalId: teamSourceId,
+   475→              name: stat.team.name,
+   476→              code: stat.team.name.substring(0, 3).toUpperCase(),
+   477→              logo: stat.team.logo,
+   478→              league: league.name,
+   479→              leagueCode: league.code,
+   480→              source: 'api-sports',
+   481→              sourceId: teamSourceId,
+   482→            },
+   483→          })
+   484→        }
+   485→
+   486→        try {
+   487→          await db.player.upsert({
+   488→            where: { source_sourceId: { source: 'api-sports', sourceId: String(p.id) } },
+   489→            update: {
+   490→              name: p.name,
+   491→              firstName: p.firstname,
+   492→              lastName: p.lastname,
+   493→              age: p.age,
+   494→              nationality: p.nationality,
+   495→              photo: p.photo,
+   496→              teamId: team.id,
+   497→              appearances: stat.games?.appearences || 0,
+   498→              minutesPlayed: stat.games?.minutes || 0,
+   499→              goals: stat.goals?.total || 0,
+   500→              assists: stat.goals?.assists || 0,
+   501→              yellowCards: stat.cards?.yellow || 0,
+   502→              redCards: stat.cards?.red || 0,
+   503→              rating: null, // API-Sports top scorers doesn't include rating
+   504→              season: String(league.id), // store league id for reference
+   505→              source: 'api-sports',
+   506→              lastSyncedAt: new Date(),
+   507→            },
+   508→            create: {
+   509→              externalId: String(p.id),
+   510→              name: p.name,
+   511→              firstName: p.firstname,
+   512→              lastName: p.lastname,
+   513→              age: p.age,
+   514→              nationality: p.nationality,
+   515→              photo: p.photo,
+   516→              teamId: team.id,
+   517→              appearances: stat.games?.appearences || 0,
+   518→              minutesPlayed: stat.games?.minutes || 0,
+   519→              goals: stat.goals?.total || 0,
+   520→              assists: stat.goals?.assists || 0,
+   521→              yellowCards: stat.cards?.yellow || 0,
+   522→              redCards: stat.cards?.red || 0,
+   523→              season: String(league.id),
+   524→              source: 'api-sports',
+   525→              sourceId: String(p.id),
+   526→            },
+   527→          })
+   528→          result.created++
+   529→        } catch {
+   530→          result.updated++
+   531→        }
+   532→      }
+   533→    } catch (err: any) {
+   534→      if (err.message?.includes('timeout')) throw err
+   535→      console.warn(`[SYNC/API-Sports] Players failed for ${league.code}:`, err.message)
+   536→    }
+   537→  }
+   538→
+   539→  return result
+   540→}
+   541→
+   542→// ═══════════════════════════════════════════════════════════════════════════════
+   543→// ESPN SYNC — Fallback (no API key needed, but lower quality)
+   544→// ═══════════════════════════════════════════════════════════════════════════════
+   545→
+   546→async function fetchScoreboardForLeague(league: { espnId: string; name: string; code: string }) {
+   547→  const SITE_V2 = 'https://site.api.espn.com/apis/v2/sports/soccer'
+   548→  const url = `${SITE_V2}/${league.espnId}/scoreboard`
+   549→  try {
+   550→    const res = await fetch(url, { cache: 'no-store' })
+   551→    if (!res.ok) return []
+   552→    const data = await res.json()
+   553→    const events: any[] = []
+   554→    for (const event of data.events || []) {
+   555→      const comp = event.competitions?.[0]
+   556→      if (!comp) continue
+   557→      const competitors = comp.competitors || []
+   558→      if (competitors.length < 2) continue
+   559→      const home = competitors.find((c: any) => c.homeAway === 'home') || competitors[0]
+   560→      const away = competitors.find((c: any) => c.homeAway === 'away') || competitors[1]
+   561→      const statusDetail = comp.status?.type?.detail || ''
+   562→      const minuteMatch = statusDetail.match(/(\d+)\s*'/)
+   563→      events.push({
+   564→        id: event.id?.toString() || '',
+   565→        homeTeamId: home.team?.id?.toString() || '',
+   566→        homeTeamName: home.team?.displayName || 'Unknown',
+   567→        homeTeamAbbr: home.team?.abbreviation || '???',
+   568→        homeTeamLogo: home.team?.logo || '',
+   569→        homeTeamColor: home.team?.color || '#00e676',
+   570→        awayTeamId: away.team?.id?.toString() || '',
+   571→        awayTeamName: away.team?.displayName || 'Unknown',
+   572→        awayTeamAbbr: away.team?.abbreviation || '???',
+   573→        awayTeamLogo: away.team?.logo || '',
+   574→        awayTeamColor: away.team?.color || '#ffffff',
+   575→        homeScore: parseInt(home.score) || 0,
+   576→        awayScore: parseInt(away.score) || 0,
+   577→        status: comp.status?.type?.name || 'STATUS_SCHEDULED',
+   578→        date: event.date || '',
+   579→        venue: comp.venue?.fullName || '',
+   580→        competition: event.name || league.name,
+   581→        competitionCode: league.code,
+   582→        minute: minuteMatch ? parseInt(minuteMatch[1]) : undefined,
+   583→      })
+   584→    }
+   585→    return events
+   586→  } catch (err) {
+   587→    console.error(`[SYNC/ESPN] Failed to fetch ${league.espnId}:`, err)
+   588→    return []
+   589→  }
+   590→}
+   591→
+   592→async function syncFixturesFromESPN(): Promise<{
+   593→  created: number
+   594→  updated: number
+   595→  processed: number
+   596→}> {
+   597→  const result = { created: 0, updated: 0, processed: 0 }
+   598→
+   599→  const results = await Promise.allSettled(
+   600→    ESPN_LEAGUES.map(league => fetchScoreboardForLeague(league))
+   601→  )
+   602→
+   603→  for (const r of results) {
+   604→    if (r.status !== 'fulfilled') continue
+   605→    const matches = r.value
+   606→    for (const m of matches) {
+   607→      checkTimeout()
+   608→      result.processed++
+   609→
+   610→      const homeTeam = await db.team.upsert({
+   611→        where: { source_sourceId: { source: 'espn', sourceId: m.homeTeamId } },
+   612→        update: {
+   613→          name: m.homeTeamName,
+   614→          code: m.homeTeamAbbr,
+   615→          logo: m.homeTeamLogo,
+   616→          primaryColor: m.homeTeamColor,
+   617→          leagueCode: m.competitionCode,
+   618→          source: 'espn',
+   619→          lastSyncedAt: new Date(),
+   620→        },
+   621→        create: {
+   622→          externalId: m.homeTeamId,
+   623→          name: m.homeTeamName,
+   624→          code: m.homeTeamAbbr,
+   625→          logo: m.homeTeamLogo,
+   626→          primaryColor: m.homeTeamColor,
+   627→          leagueCode: m.competitionCode,
+   628→          source: 'espn',
+   629→          sourceId: m.homeTeamId,
+   630→        },
+   631→      })
+   632→
+   633→      const awayTeam = await db.team.upsert({
+   634→        where: { source_sourceId: { source: 'espn', sourceId: m.awayTeamId } },
+   635→        update: {
+   636→          name: m.awayTeamName,
+   637→          code: m.awayTeamAbbr,
+   638→          logo: m.awayTeamLogo,
+   639→          primaryColor: m.awayTeamColor,
+   640→          leagueCode: m.competitionCode,
+   641→          source: 'espn',
+   642→          lastSyncedAt: new Date(),
+   643→        },
+   644→        create: {
+   645→          externalId: m.awayTeamId,
+   646→          name: m.awayTeamName,
+   647→          code: m.awayTeamAbbr,
+   648→          logo: m.awayTeamLogo,
+   649→          primaryColor: m.awayTeamColor,
+   650→          leagueCode: m.competitionCode,
+   651→          source: 'espn',
+   652→          sourceId: m.awayTeamId,
+   653→        },
+   654→      })
+   655→
+   656→      const matchData = {
+   657→        externalId: m.id,
+   658→        homeTeamId: homeTeam.id,
+   659→        awayTeamId: awayTeam.id,
+   660→        competition: m.competition,
+   661→        competitionCode: m.competitionCode,
+   662→        date: m.date ? new Date(m.date) : null,
+   663→        status: mapStatus(m.status),
+   664→        minute: m.minute ?? null,
+   665→        venue: m.venue,
+   666→        homeScore: m.homeScore,
+   667→        awayScore: m.awayScore,
+   668→        source: 'espn',
+   669→        sourceId: m.id,
+   670→        lastSyncedAt: new Date(),
+   671→      }
+   672→
+   673→      try {
+   674→        await db.match.upsert({
+   675→          where: { source_sourceId: { source: 'espn', sourceId: m.id } },
+   676→          update: matchData,
+   677→          create: matchData,
+   678→        })
+   679→        result.created++
+   680→      } catch {
+   681→        result.updated++
+   682→      }
+   683→    }
+   684→  }
+   685→
+   686→  return result
+   687→}
+   688→
+   689→// ── ESPN Standings Sync ────────────────────────────────────────────────────
+   690→
+   691→async function syncStandingsFromESPN(): Promise<{
+   692→  created: number
+   693→}> {
+   694→  const topLeagues = ['PL', 'LIGA', 'SA', 'BL', 'L1']
+   695→  let totalCreated = 0
+   696→  const season = String(new Date().getFullYear())
+   697→
+   698→  const results = await Promise.allSettled(
+   699→    topLeagues.map(async (code) => {
+   700→      const league = ESPN_LEAGUES.find(l => l.code === code)
+   701→      if (!league) return []
+   702→      const standings = await fetchESPNStandings(code)
+   703→      return standings.map(s => ({
+   704→        leagueCode: code,
+   705→        leagueName: league.name,
+   706→        ...s,
+   707→      }))
+   708→    })
+   709→  )
+   710→
+   711→  for (const r of results) {
+   712→    if (r.status !== 'fulfilled') continue
+   713→    for (const entry of r.value) {
+   714→      checkTimeout()
+   715→      const code = entry.leagueCode
+   716→      const leagueName = entry.leagueName
+   717→      try {
+   718→        await db.standingEntry.upsert({
+   719→          where: {
+   720→            competitionCode_season_teamName: {
+   721→              competitionCode: code,
+   722→              season,
+   723→              teamName: entry.team,
+   724→            },
+   725→          },
+   726→          update: {
+   727→            teamCode: entry.code,
+   728→            teamLogo: entry.logo,
+   729→            competition: leagueName,
+   730→            rank: entry.rank,
+   731→            played: entry.played,
+   732→            wins: entry.wins,
+   733→            draws: entry.draws,
+   734→            losses: entry.losses,
+   735→            goalsFor: entry.goalsFor,
+   736→            goalsAgainst: entry.goalsAgainst,
+   737→            goalDiff: entry.goalDiff,
+   738→            points: entry.points,
+   739→            form: entry.form || null,
+   740→            homeRecord: entry.homeRecord || null,
+   741→            source: 'espn',
+   742→            lastSyncedAt: new Date(),
+   743→          },
+   744→          create: {
+   745→            teamName: entry.team,
+   746→            teamCode: entry.code,
+   747→            teamLogo: entry.logo,
+   748→            competition: leagueName,
+   749→            competitionCode: code,
+   750→            season,
+   751→            rank: entry.rank,
+   752→            played: entry.played,
+   753→            wins: entry.wins,
+   754→            draws: entry.draws,
+   755→            losses: entry.losses,
+   756→            goalsFor: entry.goalsFor,
+   757→            goalsAgainst: entry.goalsAgainst,
+   758→            goalDiff: entry.goalDiff,
+   759→            points: entry.points,
+   760→            form: entry.form || null,
+   761→            homeRecord: entry.homeRecord || null,
+   762→            source: 'espn',
+   763→          },
+   764→        })
+   765→        totalCreated++
+   766→      } catch (err) {
+   767→        console.warn(`[SYNC/Standings] Failed to upsert ${entry.team} in ${code}:`, err)
+   768→      }
+   769→    }
+   770→  }
+   771→
+   772→  return { created: totalCreated }
+   773→}
+   774→
+   775→// ── SyncLog Helper ──────────────────────────────────────────────────────────
+   776→
+   777→async function logSync(
+   778→  source: string,
+   779→  action: string,
+   780→  status: string,
+   781→  processed: number,
+   782→  created: number,
+   783→  updated: number,
+   784→  errorMessage?: string
+   785→) {
+   786→  try {
+   787→    await db.syncLog.create({
+   788→      data: {
+   789→        source,
+   790→        action,
+   791→        status,
+   792→        recordsProcessed: processed,
+   793→        recordsCreated: created,
+   794→        recordsUpdated: updated,
+   795→        durationMs: elapsed(),
+   796→        errorMessage: errorMessage || null,
+   797→      },
+   798→    })
+   799→  } catch (err) {
+   800→    console.error('[SYNC] Failed to write SyncLog:', err)
+   801→  }
+   802→}
+   803→
+   804→// ═══════════════════════════════════════════════════════════════════════════════
+   805→// MAIN HANDLER
+   806→// ═══════════════════════════════════════════════════════════════════════════════
+   807→
+   808→export async function GET(req: NextRequest) {
+   809→  // 1. Validate cron secret
+   810→  if (!validateCron(req)) {
+   811→    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+   812→  }
+   813→
+   814→  const summary: any = {
+   815→    success: true,
+   816→    syncs: {
+   817→      fixtures: { source: 'none', created: 0, updated: 0 },
+   818→      standings: { source: 'none', created: 0, updated: 0 },
+   819→      teams: { source: 'none', created: 0, updated: 0 },
+   820→      players: { source: 'none', created: 0, updated: 0 },
+   821→      understat: { source: 'none', resolved: 0, unresolved: 0, updated: 0 },
+   822→    },
+   823→    durationMs: 0,
+   824→  }
+   825→
+   826→  try {
+   827→    // ═══ 2. API-Sports: Fixtures + Standings + Teams + Players ═══
+   828→    let apiSportsAvailable = false
+   829→
+   830→    // 2a. Fixtures (live + today's top 5 leagues)
+   831→    try {
+   832→      const fixResult = await syncFixturesFromApiSports()
+   833→      if (fixResult.processed > 0) {
+   834→        apiSportsAvailable = true
+   835→        summary.syncs.fixtures = {
+   836→          source: 'api-sports',
+   837→          created: fixResult.created,
+   838→          updated: fixResult.updated,
+   839→        }
+   840→        await logSync('api-sports', 'fixtures', 'success', fixResult.processed, fixResult.created, fixResult.updated)
+   841→      }
+   842→    } catch (err: any) {
+   843→      if (err.message?.includes('timeout')) {
+   844→        console.warn('[SYNC] API-Sports fixtures timeout')
+   845→        await logSync('api-sports', 'fixtures', 'partial', 0, 0, 0, err.message)
+   846→      } else {
+   847→        console.warn('[SYNC] API-Sports fixtures failed:', err.message)
+   848→      }
+   849→    }
+   850→
+   851→    // 2b. Standings (top 10 leagues — only if API-Sports is working)
+   852→    if (apiSportsAvailable) {
+   853→      try {
+   854→        const stResult = await syncStandingsFromApiSports()
+   855→        summary.syncs.standings = {
+   856→          source: 'api-sports',
+   857→          created: stResult.created,
+   858→          updated: stResult.updated,
+   859→        }
+   860→        await logSync('api-sports', 'standings', 'success', stResult.created, stResult.created, stResult.updated)
+   861→      } catch (err: any) {
+   862→        if (err.message?.includes('timeout')) {
+   863→          console.warn('[SYNC] API-Sports standings timeout')
+   864→          await logSync('api-sports', 'standings', 'partial', 0, 0, 0, err.message)
+   865→        } else {
+   866→          console.warn('[SYNC] API-Sports standings failed:', err.message)
+   867→        }
+   868→      }
+   869→    }
+   870→
+   871→    // 2c. Teams (top 5 leagues — venue info, country, etc.)
+   872→    if (apiSportsAvailable) {
+   873→      try {
+   874→        const tmResult = await syncTeamsFromApiSports()
+   875→        summary.syncs.teams = {
+   876→          source: 'api-sports',
+   877→          created: tmResult.created,
+   878→          updated: tmResult.updated,
+   879→        }
+   880→        await logSync('api-sports', 'teams', 'success', tmResult.created + tmResult.updated, tmResult.created, tmResult.updated)
+   881→      } catch (err: any) {
+   882→        if (err.message?.includes('timeout')) {
+   883→          console.warn('[SYNC] API-Sports teams timeout')
+   884→        } else {
+   885→          console.warn('[SYNC] API-Sports teams failed:', err.message)
+   886→        }
+   887→      }
+   888→    }
+   889→
+   890→    // 2d. Player stats (top scorers, top 5 leagues)
+   891→    if (apiSportsAvailable) {
+   892→      try {
+   893→        const plResult = await syncPlayersFromApiSports()
+   894→        summary.syncs.players = {
+   895→          source: 'api-sports',
+   896→          created: plResult.created,
+   897→          updated: plResult.updated,
+   898→        }
+   899→        await logSync('api-sports', 'players', 'success', plResult.created + plResult.updated, plResult.created, plResult.updated)
+   900→      } catch (err: any) {
+   901→        if (err.message?.includes('timeout')) {
+   902→          console.warn('[SYNC] API-Sports players timeout')
+   903→        } else {
+   904→          console.warn('[SYNC] API-Sports players failed:', err.message)
+   905→        }
+   906→      }
+   907→    }
+   908→
+   909→    // ═══ 3. Understat Analytical Enrichment ═══
+   910→    try {
+   911→      checkTimeout()
+   912→      const usResult = await syncUnderstatAnalytics()
+   913→      summary.syncs.understat = {
+   914→        source: 'understat',
+   915→        resolved: usResult.resolved,
+   916→        unresolved: usResult.unresolved,
+   917→        updated: usResult.updated,
+   918→      }
+   919→    } catch (err: any) {
+   920→      if (err.message?.includes('timeout')) {
+   921→        console.warn('[SYNC] Understat timeout')
+   922→        await logSync('understat', 'team_analytics', 'partial', 0, 0, 0, err.message)
+   923→      } else {
+   924→        console.warn('[SYNC] Understat failed:', err.message)
+   925→      }
+   926→    }
+   927→
+   928→    // ═══ 4. ESPN Fallback — only if API-Sports didn't return fixtures ═══
+   929→    if (!apiSportsAvailable) {
+   930→      try {
+   931→        const espnResult = await syncFixturesFromESPN()
+   932→        summary.syncs.fixtures = {
+   933→          source: 'espn',
+   934→          created: espnResult.created,
+   935→          updated: espnResult.updated,
+   936→        }
+   937→        await logSync('espn', 'fixtures', 'success', espnResult.processed, espnResult.created, espnResult.updated)
+   938→      } catch (err: any) {
+   939→        console.error('[SYNC] ESPN fixtures failed:', err)
+   940→        await logSync('espn', 'fixtures', 'error', 0, 0, 0, String(err))
+   941→        summary.syncs.fixtures.error = String(err)
+   942→      }
+   943→
+   944→      // ESPN Standings fallback
+   945→      try {
+   946→        const standingsResult = await syncStandingsFromESPN()
+   947→        summary.syncs.standings = {
+   948→          source: 'espn',
+   949→          created: standingsResult.created,
+   950→          updated: 0,
+   951→        }
+   952→        await logSync('espn', 'standings', 'success', standingsResult.created, standingsResult.created, 0)
+   953→      } catch (err: any) {
+   954→        if (err.message?.includes('timeout')) {
+   955→          console.warn('[SYNC] ESPN standings timeout')
+   956→          await logSync('espn', 'standings', 'partial', 0, 0, 0, err.message)
+   957→        } else {
+   958→          console.error('[SYNC] ESPN standings failed:', err)
+   959→          await logSync('espn', 'standings', 'error', 0, 0, 0, String(err))
+   960→        }
+   961→      }
+   962→    }
+   963→
+   964→    summary.durationMs = elapsed()
+   965→    console.log(`[SYNC] Complete in ${summary.durationMs}ms`, JSON.stringify(summary.syncs))
+   966→
+   967→    return NextResponse.json(summary)
+   968→  } catch (error) {
+   969→    const duration = elapsed()
+   970→    console.error(`[SYNC] Fatal error after ${duration}ms:`, error)
+   971→    summary.success = false
+   972→    summary.durationMs = duration
+   973→    summary.error = error instanceof Error ? error.message : String(error)
+   974→    return NextResponse.json(summary, { status: 500 })
+   975→  }
+   976→}
+   977→
+   978→// Also allow POST for manual triggering
+   979→export async function POST(req: NextRequest) {
+   980→  return GET(req)
+   981→}
+   982→

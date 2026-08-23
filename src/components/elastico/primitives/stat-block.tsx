@@ -27,7 +27,7 @@ export interface StatBlockProps {
   /** Semantic color intent */
   intent?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'intel' | 'brand'
   /** Data classification badge */
-  dataClass?: 'REAL' | 'DERIVED' | 'SIMULATION' | 'DEMO' | 'BUG'
+  dataClass?: 'REAL' | 'DERIVED' | 'SIMULATION' | 'DEMO' | 'BUG' | 'MISSING' | 'PROXY' | 'STALE' | 'UNAVAILABLE'
   /** Compact mode — hides sublabel, tighter spacing */
   compact?: boolean
   className?: string

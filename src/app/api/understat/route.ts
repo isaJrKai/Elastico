@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   fetchLeagueTeams, fetchLeaguePlayers, fetchMatch, fetchTeamMatches,
+  computeTeamXgFromMatches, normalizeUnderstatShot,
 } from '@/lib/understat'
 
 /**
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action') || 'teams'
 
     switch (action) {
-      // ── League Teams ─────────────────────────────────────────────────────
+      // ── League Teams (names + IDs for entity resolution) ────────────
       case 'teams': {
         const league = searchParams.get('league') || 'PL'
         const season = parseInt(searchParams.get('season') || String(new Date().getFullYear()))
@@ -37,12 +38,9 @@ export async function GET(request: NextRequest) {
           return NextResponse.json({
             success: false,
             error: 'No team data found. Check league code and season year.',
-            hint: 'Try: ?action=teams&league=PL&season=2023',
+            hint: 'Try: ?action=teams&league=PL&season=2024',
           }, { status: 404 })
         }
-
-        // Sort by points descending
-        teams.sort((a, b) => b.pts - a.pts)
 
         return NextResponse.json({
           success: true,
@@ -50,29 +48,12 @@ export async function GET(request: NextRequest) {
           league,
           season,
           count: teams.length,
+          note: 'New Understat API does NOT return xG/xGA at team level. Use ?action=team-xg&id=<teamId> for computed xG.',
           data: teams.map((t, i) => ({
             position: i + 1,
             id: t.id,
             name: t.title,
             shortName: t.short_title,
-            played: t.wins + t.draws + t.losses,
-            wins: t.wins,
-            draws: t.draws,
-            losses: t.losses,
-            scored: t.scored,
-            missed: t.missed,
-            pts: t.pts,
-            xG: +t.xG.toFixed(1),
-            xGA: +t.xGA.toFixed(1),
-            xGD: +(t.xG - t.xGA).toFixed(1),
-            npxG: +t.npxG.toFixed(1),
-            npxGA: +t.npxGA.toFixed(1),
-            xpts: +t.xpts.toFixed(1),
-            xptsDiff: +t.xpts_diff.toFixed(1),
-            ppda: t.ppda.def ? +(t.ppda.att / t.ppda.def).toFixed(1) : null,
-            ppdaAllowed: t.ppda_allowed.def ? +(t.ppda_allowed.att / t.ppda_allowed.def).toFixed(1) : null,
-            deep: t.deep,
-            deepAllowed: t.deep_allowed,
           })),
         })
       }
@@ -172,24 +153,35 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      // ── Player Stats ─────────────────────────────────────────────────────
-      case 'player': {
+      // ── Team xG computed from matches ───────────────────────────────────
+      case 'team-xg': {
         const id = parseInt(searchParams.get('id') || '')
+        const season = parseInt(searchParams.get('season') || String(new Date().getFullYear()))
         if (!id) {
           return NextResponse.json({ success: false, error: 'Missing ?id= param' }, { status: 400 })
         }
-        const stats = await fetchPlayerStats(id)
-        if (!stats) {
-          return NextResponse.json({ success: false, error: 'Player not found' }, { status: 404 })
+        const xgData = await computeTeamXgFromMatches(id, season)
+        if (!xgData) {
+          return NextResponse.json({ success: false, error: 'No xG data found for this team/season' }, { status: 404 })
         }
-        return NextResponse.json({ success: true, action, playerId: id, data: stats })
+        return NextResponse.json({
+          success: true,
+          action,
+          teamId: id,
+          season,
+          data: {
+            ...xgData,
+            xgPerGame: Math.round((xgData.totalXg / xgData.matchesPlayed) * 100) / 100,
+            xgaPerGame: Math.round((xgData.totalXga / xgData.matchesPlayed) * 100) / 100,
+          },
+        })
       }
 
       default:
         return NextResponse.json({
           success: false,
           error: `Unknown action: ${action}`,
-          validActions: ['teams', 'players', 'match', 'team-matches', 'player'],
+          validActions: ['teams', 'players', 'match', 'team-matches', 'team-xg'],
         }, { status: 400 })
     }
   } catch (error) {

@@ -209,6 +209,55 @@ model UserPreference {
   updatedAt       DateTime @updatedAt
 }
 
+// ==================== CANONICAL ENTITY MODEL (Cycle 4) ====================
+// A CanonicalTeam is the single ELASTICO identity for a real-world team.
+// Multiple source-specific Team rows (espn, api-sports, football-data, understat)
+// map to one CanonicalTeam via SourceIdentity.
+// This prevents duplicate team entities and enables cross-source analytics.
+
+model CanonicalTeam {
+  id            String   @id @default(cuid())
+  displayName   String   // ELASTICO display name (e.g. "Arsenal")
+  shortCode     String?  // 3-letter code (e.g. "ARS")
+  leagueCode    String?  // Primary league (e.g. "PL")
+  country       String?
+  logo          String?  // Best available logo across sources
+  primaryColor  String   @default("#00e676")
+  secondaryColor String  @default("#ffffff")
+  eloRating     Float    @default(1500)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // One canonical team has many source identities
+  identities    SourceIdentity[]
+  // Analytics reference the canonical team
+  analytics     TeamAnalytic[]
+
+  @@unique([displayName, leagueCode])
+  @@index([leagueCode])
+  @@index([shortCode])
+}
+
+model SourceIdentity {
+  id              String   @id @default(cuid())
+  canonicalTeamId String
+  canonicalTeam   CanonicalTeam @relation(fields: [canonicalTeamId], references: [id], onDelete: Cascade)
+  source          String   // 'espn', 'api-sports', 'football-data.org', 'understat'
+  externalId      String   // The source's own team ID
+  externalName    String   // The name as the source knows it
+  leagueCode      String?  // League code in this source's system
+  confidence      String   @default("EXACT") // EXACT, ALIAS, NORMALIZED, UNRESOLVED
+  resolutionMethod String? // How it was matched (e.g. 'alias: "Brighton" -> "Brighton and Hove Albion"')
+  isActive        Boolean  @default(true) // false if source deprecated this identity
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([source, externalId])
+  @@index([canonicalTeamId])
+  @@index([source])
+  @@index([externalName])
+}
+
 // ==================== SHARED DATA WAREHOUSE ====================
 // (Populated by /api/cron/sync worker from ESPN / API-Sports)
 
@@ -219,11 +268,15 @@ model UserPreference {
 
 model TeamAnalytic {
   id              String   @id @default(cuid())
-  teamId          String
-  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  canonicalTeamId String?
+  teamId          String?
+  canonicalTeam   CanonicalTeam?  @relation(fields: [canonicalTeamId], references: [id], onDelete: Cascade)
+  team            Team?          @relation(fields: [teamId], references: [id], onDelete: Cascade)
   source          String   // 'understat', 'the-sports-db', etc.
   season          String   // '2024', '2024-2025', etc.
   leagueCode      String?  // 'PL', 'LIGA', etc.
+  // --- Data truth classification ---
+  truthClass      String   @default("UNKNOWN") // REAL, DERIVED, PROXY, MISSING, STALE, UNAVAILABLE, DEMO, DEAD
   // --- Understat fields (null = unavailable, NOT estimated) ---
   xgPerGame      Float?
   xgaPerGame     Float?
@@ -237,13 +290,17 @@ model TeamAnalytic {
   sourceTeamId    String?  // Understat's own team ID
   sourceTeamName  String?  // Understat's team name (for alias debugging)
   // --- Provenance ---
+  dataFreshness  String?  // 'FRESH' (< 24h), 'CURRENT' (< 7d), 'SEASON' (< 90d), 'STALE' (> 90d)
   syncedAt        DateTime @default(now())
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@unique([teamId, source, season, leagueCode])
+  @@unique([canonicalTeamId, source, season, leagueCode])
   @@index([teamId])
+  @@index([canonicalTeamId])
   @@index([source, leagueCode, season])
+  @@index([truthClass])
 }
 
 model Team {
@@ -336,6 +393,10 @@ model Match {
   halfTimeAway   Int?
   homeXg          Float?
   awayXg          Float?
+  homeXgSource    String?  // 'understat', 'api-sports', 'proxy:shots_on_target*0.1', null=unavailable
+  awayXgSource    String?
+  homeXgTruthClass String?  // REAL, DERIVED, PROXY, MISSING
+  awayXgTruthClass String?
   possessionHome Float?
   possessionAway Float?
   shotsHome      Int?

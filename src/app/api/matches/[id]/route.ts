@@ -3,7 +3,7 @@ import { fetchAllLiveScores } from '@/lib/football-data'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
-function mapDbMatch(m: any, teamAnalytics?: Map<string, any> | null) {
+function mapDbMatch(m: any, homeAnalytics?: any, awayAnalytics?: any) {
   const teamMap = (t: any, analytics?: any) => ({
     id: t.id, name: t.name, code: t.code || '', logo: t.logo,
     primaryColor: t.primaryColor, secondaryColor: t.secondaryColor,
@@ -12,7 +12,9 @@ function mapDbMatch(m: any, teamAnalytics?: Map<string, any> | null) {
     goalsFor: t.goalsFor ?? 0, goalsAgainst: t.goalsAgainst ?? 0,
     xgPerGame: analytics?.xgPerGame ?? null,
     xgaPerGame: analytics?.xgaPerGame ?? null,
-    xgSource: analytics?.xgSource ?? null,
+    xgTruthClass: analytics?.truthClass ?? null,
+    xgSource: analytics?.source ?? null,
+    xgFreshness: analytics?.dataFreshness ?? null,
     possession: 50, passAccuracy: 0, pressIntensity: 0,
     players: (t.players || []).map((p: any) => ({
       id: p.id, name: p.name, number: p.number || 0,
@@ -37,8 +39,12 @@ function mapDbMatch(m: any, teamAnalytics?: Map<string, any> | null) {
     awayScore: m.awayScore ?? 0,
     halfTimeHome: m.halfTimeHome,
     halfTimeAway: m.halfTimeAway,
-    homeXg: m.homeXg ?? 0,
-    awayXg: m.awayXg ?? 0,
+    homeXg: m.homeXg ?? null,
+    awayXg: m.awayXg ?? null,
+    homeXgSource: m.homeXgSource ?? null,
+    awayXgSource: m.awayXgSource ?? null,
+    homeXgTruthClass: m.homeXgTruthClass ?? null,
+    awayXgTruthClass: m.awayXgTruthClass ?? null,
     possessionHome: m.possessionHome ?? 50,
     possessionAway: m.possessionAway ?? 50,
     shotsHome: m.shotsHome ?? 0,
@@ -51,8 +57,8 @@ function mapDbMatch(m: any, teamAnalytics?: Map<string, any> | null) {
     homeEloBefore: m.homeTeam?.eloRating ?? 1500,
     awayEloBefore: m.awayTeam?.eloRating ?? 1500,
     isSimulated: false,
-    homeTeam: teamMap(m.homeTeam),
-    awayTeam: teamMap(m.awayTeam),
+    homeTeam: teamMap(m.homeTeam, homeAnalytics),
+    awayTeam: teamMap(m.awayTeam, awayAnalytics),
     events: (m.events || []).map((e: any) => ({
       id: e.id, minute: e.minute, type: e.type, detail: e.detail,
       team: e.team, playerName: e.playerName, playerPhoto: e.playerPhoto,
@@ -87,7 +93,18 @@ export async function GET(
       }) as any
 
       if (dbMatch) {
-        return NextResponse.json({ match: mapDbMatch(dbMatch), source: 'database' })
+        // Fetch xG analytics for both teams
+        const [homeAnalytics, awayAnalytics] = await Promise.all([
+          db.teamAnalytic.findFirst({
+            where: { teamId: dbMatch.homeTeamId, source: 'understat' },
+            orderBy: { syncedAt: 'desc' },
+          }),
+          db.teamAnalytic.findFirst({
+            where: { teamId: dbMatch.awayTeamId, source: 'understat' },
+            orderBy: { syncedAt: 'desc' },
+          }),
+        ])
+        return NextResponse.json({ match: mapDbMatch(dbMatch, homeAnalytics, awayAnalytics), source: 'database' })
       }
     } catch (dbErr) {
       console.error('[MatchDetail] DB lookup failed, trying externalId:', dbErr)
@@ -105,7 +122,17 @@ export async function GET(
       }) as any
 
       if (dbMatch) {
-        return NextResponse.json({ match: mapDbMatch(dbMatch), source: 'database' })
+        const [homeAnalytics, awayAnalytics] = await Promise.all([
+          db.teamAnalytic.findFirst({
+            where: { teamId: dbMatch.homeTeamId, source: 'understat' },
+            orderBy: { syncedAt: 'desc' },
+          }),
+          db.teamAnalytic.findFirst({
+            where: { teamId: dbMatch.awayTeamId, source: 'understat' },
+            orderBy: { syncedAt: 'desc' },
+          }),
+        ])
+        return NextResponse.json({ match: mapDbMatch(dbMatch, homeAnalytics, awayAnalytics), source: 'database' })
       }
     } catch (dbErr2) {
       console.error('[MatchDetail] externalId lookup failed:', dbErr2)
@@ -122,7 +149,10 @@ export async function GET(
           primaryColor: t.color || '#00e676', secondaryColor: '#ffffff',
           eloRating: 1500, form: '',
           wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0,
-          xgPerGame: 0, xgaPerGame: 0, possession: 50, passAccuracy: 0, pressIntensity: 0,
+          xgPerGame: null, xgaPerGame: null,
+          xgTruthClass: 'MISSING',
+          xgSource: null, xgFreshness: null,
+          possession: 50, passAccuracy: 0, pressIntensity: 0,
           players: [],
         })
         const match = {
@@ -134,7 +164,9 @@ export async function GET(
           status: espnMatch.status, minute: espnMatch.minute, venue: espnMatch.venue,
           homeScore: espnMatch.homeScore, awayScore: espnMatch.awayScore,
           halfTimeHome: null, halfTimeAway: null,
-          homeXg: 0, awayXg: 0,
+          homeXg: null, awayXg: null,
+          homeXgSource: null, awayXgSource: null,
+          homeXgTruthClass: 'MISSING', awayXgTruthClass: 'MISSING',
           possessionHome: 50, possessionAway: 50,
           shotsHome: 0, shotsAway: 0, shotsOnTargetHome: 0, shotsOnTargetAway: 0,
           cornersHome: 0, cornersAway: 0,
