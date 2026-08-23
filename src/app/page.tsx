@@ -205,7 +205,7 @@ export default function Home() {
             <div className="hidden sm:flex items-center gap-4">
               <span className="truncate">ELO / Poisson / Dixon-Coles</span>
               <span className="text-muted-foreground/40">|</span>
-              <span className="text-muted-foreground/60">Data: ESPN · football-data.org</span>
+              <span className="text-muted-foreground/60">Data: ESPN · football-data.org · Understat</span>
             </div>
           </footer>
         </div>
