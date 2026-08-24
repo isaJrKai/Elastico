@@ -1,0 +1,718 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import React, { useState, useMemo } from 'react'
+     4→     4→import { cn } from '@/lib/utils'
+     5→     5→import { useElasticoStore } from '@/store/use-elastico-store'
+     6→     6→import { TYPE } from '@/lib/design-system'
+     7→     7→import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, legendProps, chartColor } from '@/lib/chart-theme'
+     8→     8→import { TeamCrest } from '@/components/elastico/primitives/team-crest'
+     9→     9→import { PlayerHeadshot } from '@/components/elastico/primitives/player-headshot'
+    10→    10→import { StatBlock } from '@/components/elastico/primitives/stat-block'
+    11→    11→import { SectionHeader } from '@/components/elastico/primitives/section-header'
+    12→    12→import { DataState } from '@/components/elastico/primitives/data-state'
+    13→    13→import { StatusBadge } from '@/components/elastico/primitives/status-badge'
+    14→    14→import { Card, CardContent } from '@/components/ui/card'
+    15→    15→import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+    16→    16→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    17→    17→import {
+    18→    18→  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+    19→    19→  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    20→    20→} from 'recharts'
+    21→    21→import { Crosshair, Swords, Zap, Shield, Target } from 'lucide-react'
+    22→    22→
+    23→    23→// ── Formation Position Map ─────────────────────────────────────────────
+    24→    24→// Normalized 0–100 pitch coordinates for common formations
+    25→    25→// Each entry: [x, y] where x=0 is own goal, x=100 is opponent goal
+    26→    26→
+    27→    27→const FORMATIONS: Record<string, { label: string; positions: { x: number; y: number; role: string }[] }> = {
+    28→    28→  '4-4-2': {
+    29→    29→    label: '4-4-2',
+    30→    30→    positions: [
+    31→    31→      { x: 5, y: 50, role: 'GK' },
+    32→    32→      { x: 20, y: 15, role: 'RB' }, { x: 18, y: 38, role: 'CB' }, { x: 18, y: 62, role: 'CB' }, { x: 20, y: 85, role: 'LB' },
+    33→    33→      { x: 38, y: 15, role: 'RM' }, { x: 35, y: 38, role: 'CM' }, { x: 35, y: 62, role: 'CM' }, { x: 38, y: 85, role: 'LM' },
+    34→    34→      { x: 48, y: 35, role: 'ST' }, { x: 48, y: 65, role: 'ST' },
+    35→    35→    ],
+    36→    36→  },
+    37→    37→  '4-3-3': {
+    38→    38→    label: '4-3-3',
+    39→    39→    positions: [
+    40→    40→      { x: 5, y: 50, role: 'GK' },
+    41→    41→      { x: 20, y: 15, role: 'RB' }, { x: 18, y: 38, role: 'CB' }, { x: 18, y: 62, role: 'CB' }, { x: 20, y: 85, role: 'LB' },
+    42→    42→      { x: 35, y: 30, role: 'CM' }, { x: 32, y: 50, role: 'CDM' }, { x: 35, y: 70, role: 'CM' },
+    43→    43→      { x: 48, y: 15, role: 'RW' }, { x: 46, y: 50, role: 'ST' }, { x: 48, y: 85, role: 'LW' },
+    44→    44→    ],
+    45→    45→  },
+    46→    46→  '4-2-3-1': {
+    47→    47→    label: '4-2-3-1',
+    48→    48→    positions: [
+    49→    49→      { x: 5, y: 50, role: 'GK' },
+    50→    50→      { x: 20, y: 15, role: 'RB' }, { x: 18, y: 38, role: 'CB' }, { x: 18, y: 62, role: 'CB' }, { x: 20, y: 85, role: 'LB' },
+    51→    51→      { x: 32, y: 38, role: 'CDM' }, { x: 32, y: 62, role: 'CDM' },
+    52→    52→      { x: 44, y: 18, role: 'RAM' }, { x: 42, y: 50, role: 'CAM' }, { x: 44, y: 82, role: 'LAM' },
+    53→    53→      { x: 50, y: 50, role: 'ST' },
+    54→    54→    ],
+    55→    55→  },
+    56→    56→  '3-5-2': {
+    57→    57→    label: '3-5-2',
+    58→    58→    positions: [
+    59→    59→      { x: 5, y: 50, role: 'GK' },
+    60→    60→      { x: 18, y: 25, role: 'CB' }, { x: 16, y: 50, role: 'CB' }, { x: 18, y: 75, role: 'CB' },
+    61→    61→      { x: 35, y: 10, role: 'RWB' }, { x: 34, y: 32, role: 'CM' }, { x: 32, y: 50, role: 'CDM' }, { x: 34, y: 68, role: 'CM' }, { x: 35, y: 90, role: 'LWB' },
+    62→    62→      { x: 48, y: 35, role: 'ST' }, { x: 48, y: 65, role: 'ST' },
+    63→    63→    ],
+    64→    64→  },
+    65→    65→  '4-1-4-1': {
+    66→    66→    label: '4-1-4-1',
+    67→    67→    positions: [
+    68→    68→      { x: 5, y: 50, role: 'GK' },
+    69→    69→      { x: 20, y: 15, role: 'RB' }, { x: 18, y: 38, role: 'CB' }, { x: 18, y: 62, role: 'CB' }, { x: 20, y: 85, role: 'LB' },
+    70→    70→      { x: 30, y: 50, role: 'CDM' },
+    71→    71→      { x: 42, y: 15, role: 'RM' }, { x: 40, y: 38, role: 'CM' }, { x: 40, y: 62, role: 'CM' }, { x: 42, y: 85, role: 'LM' },
+    72→    72→      { x: 52, y: 50, role: 'ST' },
+    73→    73→    ],
+    74→    74→  },
+    75→    75→}
+    76→    76→
+    77→    77→// ── Tactical Radar Dimensions ───────────────────────────────────────────
+    78→    78→
+    79→    79→const RADAR_DIMS = [
+    80→    80→  { key: 'attack', label: 'Attack' },
+    81→    81→  { key: 'midfield', label: 'Midfield' },
+    82→    82→  { key: 'defense', label: 'Defense' },
+    83→    83→  { key: 'pressing', label: 'Pressing' },
+    84→    84→  { key: 'possession', label: 'Possession' },
+    85→    85→  { key: 'setPiece', label: 'Set Piece' },
+    86→    86→]
+    87→    87→
+    88→    88→// ── Demo Tactical Profiles ─────────────────────────────────────────────
+    89→    89→
+    90→    90→function generateDemoProfile(team: { style: string | null; xgPerGame: number | null; xgaPerGame: number | null; possession: number; pressIntensity: number; passAccuracy: number }, seed: number) {
+    91→    91→  const hash = (s: string) => s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+    92→    92→  const base = hash(team.style || 'balanced') + seed
+    93→    93→  const jitter = (i: number, range: number) => ((base * (i + 1) * 7) % range)
+    94→    94→  // Use safe defaults when xG is null (no fabrication)
+    95→    95→  const xg = team.xgPerGame ?? 1.3
+    96→    96→  const xga = team.xgaPerGame ?? 1.1
+    97→    97→
+    98→    98→  return {
+    99→    99→    attack: Math.min(95, Math.max(30, xg * 25 + jitter(0, 20) - 10)),
+   100→   100→    midfield: Math.min(95, Math.max(30, team.possession * 0.7 + team.passAccuracy * 0.2 + jitter(1, 15) - 7)),
+   101→   101→    defense: Math.min(95, Math.max(30, 100 - xga * 30 + jitter(2, 15) - 7)),
+   102→   102→    pressing: Math.min(95, Math.max(20, team.pressIntensity + jitter(3, 20) - 10)),
+   103→   103→    possession: Math.min(95, Math.max(20, team.possession + jitter(4, 10) - 5)),
+   104→   104→    setPiece: Math.min(95, Math.max(25, 40 + jitter(5, 40))),
+   105→   105→  }
+   106→   106→}
+   107→   107→
+   108→   108→// ── Pitch Component ─────────────────────────────────────────────────────
+   109→   109→
+   110→   110→function FormationPitch({
+   111→   111→  formation,
+   112→   112→  teamColor,
+   113→   113→  mirror,
+   114→   114→  players,
+   115→   115→}: {
+   116→   116→  formation: string
+   117→   117→  teamColor: string
+   118→   118→  mirror?: boolean
+   119→   119→  players?: { name: string; number: number; position: string }[]
+   120→   120→}) {
+   121→   121→  const fmt = FORMATIONS[formation]
+   122→   122→  if (!fmt) return null
+   123→   123→
+   124→   124→  return (
+   125→   125→    <div className="relative w-full aspect-[3/4] rounded-lg border border-border/60 overflow-hidden bg-emerald-950/30">
+   126→   126→      {/* Pitch markings */}
+   127→   127→      <div className="absolute inset-2 border border-white/10 rounded-sm" />
+   128→   128→      <div className="absolute top-1/2 left-2 right-2 border-t border-white/10" />
+   129→   129→      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-24 rounded-full border border-white/10" />
+   130→   130→      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-1 rounded-full bg-white/20" />
+   131→   131→      {/* Penalty areas */}
+   132→   132→      <div className="absolute top-2 left-1/2 -translate-x-1/2 w-[40%] h-[16%] border border-white/10 border-t-0 rounded-b-md" />
+   133→   133→      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[40%] h-[16%] border border-white/10 border-b-0 rounded-t-md" />
+   134→   134→      {/* Goal areas */}
+   135→   135→      <div className="absolute top-2 left-1/2 -translate-x-1/2 w-[20%] h-[8%] border border-white/10 border-t-0" />
+   136→   136→      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[20%] h-[8%] border border-white/10 border-b-0" />
+   137→   137→
+   138→   138→      {/* Player dots */}
+   139→   139→      {fmt.positions.map((pos, i) => {
+   140→   140→        const x = mirror ? 100 - pos.x : pos.x
+   141→   141→        const y = pos.y
+   142→   142→        const player = players?.[i]
+   143→   143→        return (
+   144→   144→          <div
+   145→   145→            key={i}
+   146→   146→            className="absolute flex flex-col items-center -translate-x-1/2 -translate-y-1/2 group"
+   147→   147→            style={{ left: `${x}%`, top: `${y}%` }}
+   148→   148→          >
+   149→   149→            <div
+   150→   150→              className="size-5 rounded-full border-2 border-white/40 shadow-md flex items-center justify-center transition-transform hover:scale-125"
+   151→   151→              style={{ backgroundColor: teamColor }}
+   152→   152→            >
+   153→   153→              <span className="text-[8px] font-bold text-white leading-none">
+   154→   154→                {player?.number || (i === 0 ? '1' : '')}
+   155→   155→              </span>
+   156→   156→            </div>
+   157→   157→            {player && (
+   158→   158→              <span className="text-[8px] text-white/70 mt-0.5 whitespace-nowrap font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+   159→   159→                {player.name}
+   160→   160→              </span>
+   161→   161→            )}
+   162→   162→            {!player && (
+   163→   163→              <span className="text-[8px] text-white/40 mt-0.5 font-mono">
+   164→   164→                {pos.role}
+   165→   165→              </span>
+   166→   166→            )}
+   167→   167→          </div>
+   168→   168→        )
+   169→   169→      })}
+   170→   170→    </div>
+   171→   171→  )
+   172→   172→}
+   173→   173→
+   174→   174→// ── Main View ───────────────────────────────────────────────────────────
+   175→   175→
+   176→   176→export function TacticalView() {
+   177→   177→  const { teams, matches, selectedMatchId } = useElasticoStore()
+   178→   178→
+   179→   179→  const [homeTeamId, setHomeTeamId] = useState<string>('')
+   180→   180→  const [awayTeamId, setAwayTeamId] = useState<string>('')
+   181→   181→  const [homeFormation, setHomeFormation] = useState('4-3-3')
+   182→   182→  const [awayFormation, setAwayFormation] = useState('4-3-3')
+   183→   183→
+   184→   184→  // Resolve teams
+   185→   185→  const homeTeam = useMemo(() => teams.find((t) => t.id === homeTeamId), [teams, homeTeamId])
+   186→   186→  const awayTeam = useMemo(() => teams.find((t) => t.id === awayTeamId), [teams, awayTeamId])
+   187→   187→
+   188→   188→  // Pre-select from a selected match
+   189→   189→  React.useEffect(() => {
+   190→   190→    if (selectedMatchId && matches.length > 0) {
+   191→   191→      const m = matches.find((match) => match.id === selectedMatchId)
+   192→   192→      if (m) {
+   193→   193→        setHomeTeamId(m.homeTeamId)
+   194→   194→        setAwayTeamId(m.awayTeamId)
+   195→   195→      }
+   196→   196→    }
+   197→   197→  }, [selectedMatchId, matches])
+   198→   198→
+   199→   199→  // Auto-select first two teams if none selected
+   200→   200→  React.useEffect(() => {
+   201→   201→    if (!homeTeamId && teams.length >= 2) {
+   202→   202→      setHomeTeamId(teams[0].id)
+   203→   203→      setAwayTeamId(teams[1].id)
+   204→   204→    }
+   205→   205→  }, [teams, homeTeamId])
+   206→   206→
+   207→   207→  // Generate tactical profiles
+   208→   208→  const homeProfile = useMemo(
+   209→   209→    () => homeTeam ? generateDemoProfile(homeTeam, 1) : null,
+   210→   210→    [homeTeam],
+   211→   211→  )
+   212→   212→  const awayProfile = useMemo(
+   213→   213→    () => awayTeam ? generateDemoProfile(awayTeam, 2) : null,
+   214→   214→    [awayTeam],
+   215→   215→  )
+   216→   216→
+   217→   217→  // Radar chart data
+   218→   218→  const radarData = useMemo(() => {
+   219→   219→    if (!homeProfile || !awayProfile) return []
+   220→   220→    return RADAR_DIMS.map((dim) => ({
+   221→   221→      dimension: dim.label,
+   222→   222→      [homeTeam!.code]: Math.round(homeProfile[dim.key as keyof typeof homeProfile] * 10) / 10,
+   223→   223→      [awayTeam!.code]: Math.round(awayProfile[dim.key as keyof typeof awayProfile] * 10) / 10,
+   224→   224→    }))
+   225→   225→  }, [homeProfile, awayProfile, homeTeam, awayTeam])
+   226→   226→
+   227→   227→  // Style comparison bar chart
+   228→   228→  const styleData = useMemo(() => {
+   229→   229→    if (!homeTeam || !awayTeam) return []
+   230→   230→    return [
+   231→   231→      { metric: 'xG/Game', [homeTeam.code]: homeTeam.xgPerGame ?? null, [awayTeam.code]: awayTeam.xgPerGame ?? null, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
+   232→   232→      { metric: 'xGA/Game', [homeTeam.code]: homeTeam.xgaPerGame ?? null, [awayTeam.code]: awayTeam.xgaPerGame ?? null, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
+   233→   233→      { metric: 'Poss %', [homeTeam.code]: homeTeam.possession, [awayTeam.code]: awayTeam.possession, dataClass: (homeTeam.possession != null && awayTeam.possession != null) ? 'REAL' as const : 'MISSING' as const },
+   234→   234→      { metric: 'Pass Acc', [homeTeam.code]: homeTeam.passAccuracy, [awayTeam.code]: awayTeam.passAccuracy, dataClass: (homeTeam.passAccuracy != null && awayTeam.passAccuracy != null) ? 'REAL' as const : 'MISSING' as const },
+   235→   235→      { metric: 'Press', [homeTeam.code]: homeTeam.pressIntensity, [awayTeam.code]: awayTeam.pressIntensity, dataClass: (homeTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? 'DERIVED' as const : 'MISSING' as const },
+   236→   236→    ]
+   237→   237→  }, [homeTeam, awayTeam])
+   238→   238→
+   239→   239→  // Key players (top from each team by rating)
+   240→   240→  const homeKeyPlayers = useMemo(() => {
+   241→   241→    if (!homeTeam?.players) return []
+   242→   242→    return [...homeTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 5)
+   243→   243→  }, [homeTeam])
+   244→   244→
+   245→   245→  const awayKeyPlayers = useMemo(() => {
+   246→   246→    if (!awayTeam?.players) return []
+   247→   247→    return [...awayTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 5)
+   248→   248→  }, [awayTeam])
+   249→   249→
+   250→   250→  const hasBothTeams = homeTeam && awayTeam
+   251→   251→  const hasData = hasBothTeams && homeProfile && awayProfile
+   252→   252→
+   253→   253→  // ── Empty state ──
+   254→   254→  if (teams.length === 0) {
+   255→   255→    return (
+   256→   256→      <div className="flex flex-col gap-4 p-4 lg:p-6 max-w-7xl mx-auto w-full">
+   257→   257→        <DataState
+   258→   258→          type="empty"
+   259→   259→          message="No teams loaded. Fetch teams from the database to analyze tactics."
+   260→   260→          actionLabel="Fetch Teams"
+   261→   261→          actionOnClick={() => useElasticoStore.getState().fetchTeams()}
+   262→   262→        />
+   263→   263→      </div>
+   264→   264→    )
+   265→   265→  }
+   266→   266→
+   267→   267→  return (
+   268→   268→    <div className="flex flex-col gap-4 p-4 lg:p-6 max-w-7xl mx-auto w-full">
+   269→   269→      {/* ── Team Selector Bar ── */}
+   270→   270→      <Card className="border-border/60">
+   271→   271→        <CardContent className="p-3">
+   272→   272→          <div className="flex flex-wrap items-center gap-3">
+   273→   273→            {/* Home team */}
+   274→   274→            <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+   275→   275→              {homeTeam && (
+   276→   276→                <TeamCrest code={homeTeam.code} espnLogo={homeTeam.logo} color={homeTeam.primaryColor} size="lg" />
+   277→   277→              )}
+   278→   278→              <Select value={homeTeamId} onValueChange={setHomeTeamId}>
+   279→   279→                <SelectTrigger className="h-8 w-full text-xs" size="sm">
+   280→   280→                  <SelectValue placeholder="Home team" />
+   281→   281→                </SelectTrigger>
+   282→   282→                <SelectContent>
+   283→   283→                  {teams.map((t) => (
+   284→   284→                    <SelectItem key={t.id} value={t.id} className="text-xs">
+   285→   285→                      {t.name}
+   286→   286→                    </SelectItem>
+   287→   287→                  ))}
+   288→   288→                </SelectContent>
+   289→   289→              </Select>
+   290→   290→            </div>
+   291→   291→
+   292→   292→            <Swords className="size-4 text-muted-foreground shrink-0" />
+   293→   293→
+   294→   294→            {/* Away team */}
+   295→   295→            <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+   296→   296→              <Select value={awayTeamId} onValueChange={setAwayTeamId}>
+   297→   297→                <SelectTrigger className="h-8 w-full text-xs" size="sm">
+   298→   298→                  <SelectValue placeholder="Away team" />
+   299→   299→                </SelectTrigger>
+   300→   300→                <SelectContent>
+   301→   301→                  {teams.map((t) => (
+   302→   302→                    <SelectItem key={t.id} value={t.id} className="text-xs">
+   303→   303→                      {t.name}
+   304→   304→                    </SelectItem>
+   305→   305→                  ))}
+   306→   306→                </SelectContent>
+   307→   307→              </Select>
+   308→   308→              {awayTeam && (
+   309→   309→                <TeamCrest code={awayTeam.code} espnLogo={awayTeam.logo} color={awayTeam.primaryColor} size="lg" />
+   310→   310→              )}
+   311→   311→            </div>
+   312→   312→          </div>
+   313→   313→        </CardContent>
+   314→   314→      </Card>
+   315→   315→
+   316→   316→      {/* ── Main Content ── */}
+   317→   317→      {!hasData ? (
+   318→   318→        <DataState
+   319→   319→          type="empty"
+   320→   320→          message="Select two teams to compare tactical profiles."
+   321→   321→        />
+   322→   322→      ) : (
+   323→   323→        <Tabs defaultValue="formations" className="w-full">
+   324→   324→          <TabsList className="h-8">
+   325→   325→            <TabsTrigger value="formations" className="text-xs gap-1.5 h-7 px-3">
+   326→   326→              <Crosshair className="size-3" />
+   327→   327→              Formations
+   328→   328→            </TabsTrigger>
+   329→   329→            <TabsTrigger value="radar" className="text-xs gap-1.5 h-7 px-3">
+   330→   330→              <Target className="size-3" />
+   331→   331→              Radar
+   332→   332→            </TabsTrigger>
+   333→   333→            <TabsTrigger value="style" className="text-xs gap-1.5 h-7 px-3">
+   334→   334→              <Zap className="size-3" />
+   335→   335→              Style
+   336→   336→            </TabsTrigger>
+   337→   337→            <TabsTrigger value="players" className="text-xs gap-1.5 h-7 px-3">
+   338→   338→              <Shield className="size-3" />
+   339→   339→              Key Players
+   340→   340→            </TabsTrigger>
+   341→   341→          </TabsList>
+   342→   342→
+   343→   343→          {/* ── FORMATIONS TAB ── */}
+   344→   344→          <TabsContent value="formations">
+   345→   345→            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
+   346→   346→              {/* Home Formation */}
+   347→   347→              <Card className="border-border/60">
+   348→   348→                <CardContent className="p-4 flex flex-col gap-3">
+   349→   349→                  <div className="flex items-center justify-between">
+   350→   350→                    <div className="flex items-center gap-2">
+   351→   351→                      <TeamCrest code={homeTeam!.code} espnLogo={homeTeam!.logo} color={homeTeam!.primaryColor} size="md" />
+   352→   352→                      <span className={TYPE.h3}>{homeTeam!.name}</span>
+   353→   353→                    </div>
+   354→   354→                    <Select value={homeFormation} onValueChange={setHomeFormation}>
+   355→   355→                      <SelectTrigger className="h-7 w-24 text-xs" size="sm">
+   356→   356→                        <SelectValue />
+   357→   357→                      </SelectTrigger>
+   358→   358→                      <SelectContent>
+   359→   359→                        {Object.keys(FORMATIONS).map((f) => (
+   360→   360→                          <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>
+   361→   361→                        ))}
+   362→   362→                      </SelectContent>
+   363→   363→                    </Select>
+   364→   364→                  </div>
+   365→   365→                  <FormationPitch
+   366→   366→                    formation={homeFormation}
+   367→   367→                    teamColor={homeTeam!.primaryColor}
+   368→   368→                    players={homeKeyPlayers.map((p) => ({ name: p.name, number: p.number, position: p.position }))}
+   369→   369→                  />
+   370→   370→                  <div className="flex items-center justify-between">
+   371→   371→                    <span className={TYPE.caption}>Style: {homeTeam!.style || 'Unknown'}</span>
+   372→   372→                    <StatusBadge variant="dataclass" value="DEMO" />
+   373→   373→                  </div>
+   374→   374→                </CardContent>
+   375→   375→              </Card>
+   376→   376→
+   377→   377→              {/* Away Formation (mirrored) */}
+   378→   378→              <Card className="border-border/60">
+   379→   379→                <CardContent className="p-4 flex flex-col gap-3">
+   380→   380→                  <div className="flex items-center justify-between">
+   381→   381→                    <div className="flex items-center gap-2">
+   382→   382→                      <TeamCrest code={awayTeam!.code} espnLogo={awayTeam!.logo} color={awayTeam!.primaryColor} size="md" />
+   383→   383→                      <span className={TYPE.h3}>{awayTeam!.name}</span>
+   384→   384→                    </div>
+   385→   385→                    <Select value={awayFormation} onValueChange={setAwayFormation}>
+   386→   386→                      <SelectTrigger className="h-7 w-24 text-xs" size="sm">
+   387→   387→                        <SelectValue />
+   388→   388→                      </SelectTrigger>
+   389→   389→                      <SelectContent>
+   390→   390→                        {Object.keys(FORMATIONS).map((f) => (
+   391→   391→                          <SelectItem key={f} value={f} className="text-xs">{f}</SelectItem>
+   392→   392→                        ))}
+   393→   393→                      </SelectContent>
+   394→   394→                    </Select>
+   395→   395→                  </div>
+   396→   396→                  <FormationPitch
+   397→   397→                    formation={awayFormation}
+   398→   398→                    teamColor={awayTeam!.primaryColor}
+   399→   399→                    mirror
+   400→   400→                    players={awayKeyPlayers.map((p) => ({ name: p.name, number: p.number, position: p.position }))}
+   401→   401→                  />
+   402→   402→                  <div className="flex items-center justify-between">
+   403→   403→                    <span className={TYPE.caption}>Style: {awayTeam!.style || 'Unknown'}</span>
+   404→   404→                    <StatusBadge variant="dataclass" value="DEMO" />
+   405→   405→                  </div>
+   406→   406→                </CardContent>
+   407→   407→              </Card>
+   408→   408→            </div>
+   409→   409→
+   410→   410→            {/* Quick stat comparison row */}
+   411→   411→            <div className="grid grid-cols-3 gap-3 mt-4">
+   412→   412→              <StatBlock
+   413→   413→                label="Home xG/Game"
+   414→   414→                value={homeTeam!.xgPerGame != null ? homeTeam!.xgPerGame.toFixed(2) : 'N/A'}
+   415→   415→                dataClass={(homeTeam!.xgTruthClass as 'MISSING' | 'DERIVED' | 'REAL' | 'PROXY' | 'STALE' | 'UNAVAILABLE' | undefined) || 'MISSING'}
+   416→   416→                compact
+   417→   417→                className="p-3 rounded-lg bg-card border border-border/60"
+   418→   418→              />
+   419→   419→              <StatBlock
+   420→   420→                label="Away xG/Game"
+   421→   421→                value={awayTeam!.xgPerGame != null ? awayTeam!.xgPerGame.toFixed(2) : 'N/A'}
+   422→   422→                dataClass={(awayTeam!.xgTruthClass as 'MISSING' | 'DERIVED' | 'REAL' | 'PROXY' | 'STALE' | 'UNAVAILABLE' | undefined) || 'MISSING'}
+   423→   423→                compact
+   424→   424→                className="p-3 rounded-lg bg-card border border-border/60"
+   425→   425→              />
+   426→   426→              <StatBlock
+   427→   427→                label="Possession Gap"
+   428→   428→                value={homeTeam!.possession != null && awayTeam!.possession != null ? `${Math.abs(homeTeam!.possession - awayTeam!.possession).toFixed(0)}%` : 'N/A'}
+   429→   429→                sublabel={homeTeam!.possession != null && awayTeam!.possession != null ? (homeTeam!.possession > awayTeam!.possession ? homeTeam!.code : awayTeam!.possession > homeTeam!.possession ? awayTeam!.code : 'Even') : '—'}
+   430→   430→                dataClass={homeTeam!.possession != null && awayTeam!.possession != null ? 'DERIVED' : 'MISSING'}
+   431→   431→                compact
+   432→   432→                className="p-3 rounded-lg bg-card border border-border/60"
+   433→   433→              />
+   434→   434→            </div>
+   435→   435→          </TabsContent>
+   436→   436→
+   437→   437→          {/* ── RADAR TAB ── */}
+   438→   438→          <TabsContent value="radar">
+   439→   439→            <Card className="border-border/60 mt-3">
+   440→   440→              <CardContent className="p-4">
+   441→   441→                <div className="flex items-center justify-between mb-4">
+   442→   442→                  <SectionHeader label="Tactical Radar Comparison" />
+   443→   443→                  <StatusBadge variant="dataclass" value="DEMO" />
+   444→   444→                </div>
+   445→   445→                <div className="w-full mx-auto" style={{ maxWidth: 480 }}>
+   446→   446→                  <ResponsiveContainer width="100%" aspect={1}>
+   447→   447→                    <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
+   448→   448→                      <PolarGrid stroke="rgba(255,255,255,0.06)" />
+   449→   449→                      <PolarAngleAxis
+   450→   450→                        dataKey="dimension"
+   451→   451→                        tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-mono), ui-monospace, monospace' }}
+   452→   452→                      />
+   453→   453→                      <PolarRadiusAxis
+   454→   454→                        angle={90}
+   455→   455→                        domain={[0, 100]}
+   456→   456→                        tick={false}
+   457→   457→                        axisLine={false}
+   458→   458→                      />
+   459→   459→                      <Radar
+   460→   460→                        name={homeTeam!.code}
+   461→   461→                        dataKey={homeTeam!.code}
+   462→   462→                        stroke={chartColor(0)}
+   463→   463→                        fill={chartColor(0)}
+   464→   464→                        fillOpacity={0.15}
+   465→   465→                        strokeWidth={2}
+   466→   466→                      />
+   467→   467→                      <Radar
+   468→   468→                        name={awayTeam!.code}
+   469→   469→                        dataKey={awayTeam!.code}
+   470→   470→                        stroke={chartColor(1)}
+   471→   471→                        fill={chartColor(1)}
+   472→   472→                        fillOpacity={0.15}
+   473→   473→                        strokeWidth={2}
+   474→   474→                      />
+   475→   475→                      <Legend {...legendProps} />
+   476→   476→                      <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} wrapperStyle={{ backgroundColor: 'transparent', border: 'none' }} />
+   477→   477→                    </RadarChart>
+   478→   478→                  </ResponsiveContainer>
+   479→   479→                </div>
+   480→   480→
+   481→   481→                {/* Radar dimension breakdown */}
+   482→   482→                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
+   483→   483→                  {RADAR_DIMS.map((dim, i) => {
+   484→   484→                    const hVal = homeProfile![dim.key as keyof typeof homeProfile]
+   485→   485→                    const aVal = awayProfile![dim.key as keyof typeof awayProfile]
+   486→   486→                    const winner = hVal > aVal ? 'home' : aVal > hVal ? 'away' : 'tie'
+   487→   487→                    return (
+   488→   488→                      <div key={dim.key} className="flex flex-col gap-1 p-2 rounded-lg bg-muted/30">
+   489→   489→                        <div className="flex items-center justify-between">
+   490→   490→                          <span className={TYPE.caption}>{dim.label}</span>
+   491→   491→                          <StatusBadge variant="dataclass" value="DEMO" />
+   492→   492→                        </div>
+   493→   493→                        <div className="flex items-baseline gap-1">
+   494→   494→                          <span className={cn('text-sm font-bold tabular-nums', winner === 'home' ? 'text-emerald-400' : 'text-muted-foreground')}>
+   495→   495→                            {Math.round(hVal)}
+   496→   496→                          </span>
+   497→   497→                          <span className="text-[10px] text-muted-foreground">vs</span>
+   498→   498→                          <span className={cn('text-sm font-bold tabular-nums', winner === 'away' ? 'text-emerald-400' : 'text-muted-foreground')}>
+   499→   499→                            {Math.round(aVal)}
+   500→   500→                          </span>
+   501→   501→                        </div>
+   502→   502→                      </div>
+   503→   503→                    )
+   504→   504→                  })}
+   505→   505→                </div>
+   506→   506→              </CardContent>
+   507→   507→            </Card>
+   508→   508→          </TabsContent>
+   509→   509→
+   510→   510→          {/* ── STYLE TAB ── */}
+   511→   511→          <TabsContent value="style">
+   512→   512→            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
+   513→   513→              {/* Style comparison bar chart */}
+   514→   514→              <Card className="border-border/60 lg:col-span-2">
+   515→   515→                <CardContent className="p-4">
+   516→   516→                  <div className="flex items-center justify-between mb-4">
+   517→   517→                    <SectionHeader label="Playing Style Metrics" />
+   518→   518→                    <StatusBadge variant="dataclass" value="MIXED" />
+   519→   519→                  </div>
+   520→   520→                  <ResponsiveContainer width="100%" height={260}>
+   521→   521→                    <BarChart data={styleData} barGap={4} barCategoryGap="20%">
+   522→   522→                      <CartesianGrid {...cartesianGridProps} />
+   523→   523→                      <XAxis dataKey="metric" {...axisProps} />
+   524→   524→                      <YAxis {...axisProps} domain={[0, 'auto']} />
+   525→   525→                      <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} wrapperStyle={{ backgroundColor: 'transparent', border: 'none' }} />
+   526→   526→                      <Legend {...legendProps} />
+   527→   527→                      <Bar dataKey={homeTeam!.code} fill={chartColor(0)} radius={[3, 3, 0, 0]} maxBarSize={32} />
+   528→   528→                      <Bar dataKey={awayTeam!.code} fill={chartColor(1)} radius={[3, 3, 0, 0]} maxBarSize={32} />
+   529→   529→                    </BarChart>
+   530→   530→                  </ResponsiveContainer>
+   531→   531→                </CardContent>
+   532→   532→              </Card>
+   533→   533→
+   534→   534→              {/* Stat cards for each team */}
+   535→   535→              <Card className="border-border/60">
+   536→   536→                <CardContent className="p-4 flex flex-col gap-4">
+   537→   537→                  <div className="flex items-center gap-2">
+   538→   538→                    <TeamCrest code={homeTeam!.code} espnLogo={homeTeam!.logo} color={homeTeam!.primaryColor} size="md" />
+   539→   539→                    <span className={TYPE.h3}>{homeTeam!.name}</span>
+   540→   540→                  </div>
+   541→   541→                  <div className="grid grid-cols-2 gap-3">
+   542→   542→                    <StatBlock label="xG/Game" value={homeTeam!.xgPerGame != null ? homeTeam!.xgPerGame.toFixed(2) : '--'} dataClass={((homeTeam as any).xgTruthClass) || 'MISSING'} compact />
+   543→   543→                    <StatBlock label="xGA/Game" value={homeTeam!.xgaPerGame != null ? homeTeam!.xgaPerGame.toFixed(2) : '--'} dataClass={((homeTeam as any).xgTruthClass) || 'MISSING'} compact />
+   544→   544→                    <StatBlock label="Possession" value={`${homeTeam!.possession}%`} dataClass="REAL" compact />
+   545→   545→                    <StatBlock label="Pass Acc" value={`${homeTeam!.passAccuracy}%`} dataClass="REAL" compact />
+   546→   546→                    <StatBlock label="Press Int." value={(homeTeam!.pressIntensity ?? 0).toFixed(0)} dataClass="DERIVED" compact />
+   547→   547→                    <StatBlock label="Form" value={homeTeam!.form || '—'} dataClass="REAL" compact />
+   548→   548→                  </div>
+   549→   549→                </CardContent>
+   550→   550→              </Card>
+   551→   551→
+   552→   552→              <Card className="border-border/60">
+   553→   553→                <CardContent className="p-4 flex flex-col gap-4">
+   554→   554→                  <div className="flex items-center gap-2">
+   555→   555→                    <TeamCrest code={awayTeam!.code} espnLogo={awayTeam!.logo} color={awayTeam!.primaryColor} size="md" />
+   556→   556→                    <span className={TYPE.h3}>{awayTeam!.name}</span>
+   557→   557→                  </div>
+   558→   558→                  <div className="grid grid-cols-2 gap-3">
+   559→   559→                    <StatBlock label="xG/Game" value={awayTeam!.xgPerGame != null ? awayTeam!.xgPerGame.toFixed(2) : '--'} dataClass={((awayTeam as any).xgTruthClass) || 'MISSING'} compact />
+   560→   560→                    <StatBlock label="xGA/Game" value={awayTeam!.xgaPerGame != null ? awayTeam!.xgaPerGame.toFixed(2) : '--'} dataClass={((awayTeam as any).xgTruthClass) || 'MISSING'} compact />
+   561→   561→                    <StatBlock label="Possession" value={`${awayTeam!.possession}%`} dataClass="REAL" compact />
+   562→   562→                    <StatBlock label="Pass Acc" value={`${awayTeam!.passAccuracy}%`} dataClass="REAL" compact />
+   563→   563→                    <StatBlock label="Press Int." value={(awayTeam!.pressIntensity ?? 0).toFixed(0)} dataClass="DERIVED" compact />
+   564→   564→                    <StatBlock label="Form" value={awayTeam!.form || '—'} dataClass="REAL" compact />
+   565→   565→                  </div>
+   566→   566→                </CardContent>
+   567→   567→              </Card>
+   568→   568→            </div>
+   569→   569→          </TabsContent>
+   570→   570→
+   571→   571→          {/* ── KEY PLAYERS TAB ── */}
+   572→   572→          <TabsContent value="players">
+   573→   573→            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
+   574→   574→              {/* Home key players */}
+   575→   575→              <Card className="border-border/60">
+   576→   576→                <CardContent className="p-4">
+   577→   577→                  <div className="flex items-center gap-2 mb-3">
+   578→   578→                    <TeamCrest code={homeTeam!.code} espnLogo={homeTeam!.logo} color={homeTeam!.primaryColor} size="md" />
+   579→   579→                    <SectionHeader label={`Key Players — ${homeTeam!.name}`} />
+   580→   580→                  </div>
+   581→   581→                  {homeKeyPlayers.length === 0 ? (
+   582→   582→                    <DataState type="empty" message="No player data available for this team." />
+   583→   583→                  ) : (
+   584→   584→                    <div className="flex flex-col gap-2">
+   585→   585→                      {homeKeyPlayers.map((player, i) => (
+   586→   586→                        <button
+   587→   587→                          key={player.id}
+   588→   588→                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors w-full text-left"
+   589→   589→                          onClick={() => useElasticoStore.getState().setView('players')}
+   590→   590→                        >
+   591→   591→                          <span className="text-xs font-bold tabular-nums w-4 text-center text-muted-foreground">{i + 1}</span>
+   592→   592→                          <PlayerHeadshot name={player.name} position={player.position} size="lg" />
+   593→   593→                          <div className="flex-1 min-w-0">
+   594→   594→                            <p className={TYPE.body + ' font-medium truncate'}>{player.name}</p>
+   595→   595→                            <p className={TYPE.caption}>{player.position}</p>
+   596→   596→                          </div>
+   597→   597→                          <div className="flex items-center gap-2">
+   598→   598→                            <div className="flex flex-col items-end gap-0.5">
+   599→   599→                              <div className="flex items-center gap-1">
+   600→   600→                                <span className="text-[10px] text-muted-foreground">G</span>
+   601→   601→                                <span className="text-sm font-bold tabular-nums">{player.goals}</span>
+   602→   602→                                <StatusBadge variant="dataclass" value="REAL" />
+   603→   603→                              </div>
+   604→   604→                              <div className="flex items-center gap-1">
+   605→   605→                                <span className="text-[10px] text-muted-foreground">A</span>
+   606→   606→                                <span className="text-sm font-bold tabular-nums">{player.assists}</span>
+   607→   607→                                <StatusBadge variant="dataclass" value="REAL" />
+   608→   608→                              </div>
+   609→   609→                            </div>
+   610→   610→                            <div className="flex flex-col items-end gap-0.5">
+   611→   611→                              <span className={cn(
+   612→   612→                                'text-sm font-bold tabular-nums',
+   613→   613→                                player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400',
+   614→   614→                              )}>
+   615→   615→                                {(player.rating ?? 0).toFixed(1)}
+   616→   616→                              </span>
+   617→   617→                              <StatusBadge variant="dataclass" value="REAL" />
+   618→   618→                            </div>
+   619→   619→                          </div>
+   620→   620→                        </button>
+   621→   621→                      ))}
+   622→   622→                    </div>
+   623→   623→                  )}
+   624→   624→                </CardContent>
+   625→   625→              </Card>
+   626→   626→
+   627→   627→              {/* Away key players */}
+   628→   628→              <Card className="border-border/60">
+   629→   629→                <CardContent className="p-4">
+   630→   630→                  <div className="flex items-center gap-2 mb-3">
+   631→   631→                    <TeamCrest code={awayTeam!.code} espnLogo={awayTeam!.logo} color={awayTeam!.primaryColor} size="md" />
+   632→   632→                    <SectionHeader label={`Key Players — ${awayTeam!.name}`} />
+   633→   633→                  </div>
+   634→   634→                  {awayKeyPlayers.length === 0 ? (
+   635→   635→                    <DataState type="empty" message="No player data available for this team." />
+   636→   636→                  ) : (
+   637→   637→                    <div className="flex flex-col gap-2">
+   638→   638→                      {awayKeyPlayers.map((player, i) => (
+   639→   639→                        <button
+   640→   640→                          key={player.id}
+   641→   641→                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 transition-colors w-full text-left"
+   642→   642→                          onClick={() => useElasticoStore.getState().setView('players')}
+   643→   643→                        >
+   644→   644→                          <span className="text-xs font-bold tabular-nums w-4 text-center text-muted-foreground">{i + 1}</span>
+   645→   645→                          <PlayerHeadshot name={player.name} position={player.position} size="lg" />
+   646→   646→                          <div className="flex-1 min-w-0">
+   647→   647→                            <p className={TYPE.body + ' font-medium truncate'}>{player.name}</p>
+   648→   648→                            <p className={TYPE.caption}>{player.position}</p>
+   649→   649→                          </div>
+   650→   650→                          <div className="flex items-center gap-2">
+   651→   651→                            <div className="flex flex-col items-end gap-0.5">
+   652→   652→                              <div className="flex items-center gap-1">
+   653→   653→                                <span className="text-[10px] text-muted-foreground">G</span>
+   654→   654→                                <span className="text-sm font-bold tabular-nums">{player.goals}</span>
+   655→   655→                                <StatusBadge variant="dataclass" value="REAL" />
+   656→   656→                              </div>
+   657→   657→                              <div className="flex items-center gap-1">
+   658→   658→                                <span className="text-[10px] text-muted-foreground">A</span>
+   659→   659→                                <span className="text-sm font-bold tabular-nums">{player.assists}</span>
+   660→   660→                                <StatusBadge variant="dataclass" value="REAL" />
+   661→   661→                              </div>
+   662→   662→                            </div>
+   663→   663→                            <div className="flex flex-col items-end gap-0.5">
+   664→   664→                              <span className={cn(
+   665→   665→                                'text-sm font-bold tabular-nums',
+   666→   666→                                player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400',
+   667→   667→                              )}>
+   668→   668→                                {(player.rating ?? 0).toFixed(1)}
+   669→   669→                              </span>
+   670→   670→                              <StatusBadge variant="dataclass" value="REAL" />
+   671→   671→                            </div>
+   672→   672→                          </div>
+   673→   673→                        </button>
+   674→   674→                      ))}
+   675→   675→                    </div>
+   676→   676→                  )}
+   677→   677→                </CardContent>
+   678→   678→              </Card>
+   679→   679→            </div>
+   680→   680→
+   681→   681→            {/* Combined xG impact chart */}
+   682→   682→            {homeKeyPlayers.length > 0 && awayKeyPlayers.length > 0 && (
+   683→   683→              <Card className="border-border/60 mt-4">
+   684→   684→                <CardContent className="p-4">
+   685→   685→                  <div className="flex items-center justify-between mb-4">
+   686→   686→                    <SectionHeader label="Goal Contribution Comparison" />
+   687→   687→                    <StatusBadge variant="dataclass" value="REAL" />
+   688→   688→                  </div>
+   689→   689→                  <ResponsiveContainer width="100%" height={200}>
+   690→   690→                    <BarChart
+   691→   691→                      data={[
+   692→   692→                        ...homeKeyPlayers.slice(0, 4).map((p) => ({ name: p.name.split(' ').pop() || p.name, Goals: p.goals, Assists: p.assists, team: homeTeam!.code })),
+   693→   693→                        { name: '—', Goals: 0, Assists: 0, team: '' },
+   694→   694→                        ...awayKeyPlayers.slice(0, 4).map((p) => ({ name: p.name.split(' ').pop() || p.name, Goals: p.goals, Assists: p.assists, team: awayTeam!.code })),
+   695→   695→                      ]}
+   696→   696→                      barGap={2} barCategoryGap="16%"
+   697→   697→                    >
+   698→   698→                      <CartesianGrid {...cartesianGridProps} />
+   699→   699→                      <XAxis dataKey="name" {...axisProps} />
+   700→   700→                      <YAxis {...axisProps} />
+   701→   701→                      <Tooltip contentStyle={tooltipContentStyle} labelStyle={tooltipLabelStyle} wrapperStyle={{ backgroundColor: 'transparent', border: 'none' }} />
+   702→   702→                      <Legend {...legendProps} />
+   703→   703→                      <Bar dataKey="Goals" fill={chartColor(0)} radius={[3, 3, 0, 0]} maxBarSize={24} />
+   704→   704→                      <Bar dataKey="Assists" fill={chartColor(4)} radius={[3, 3, 0, 0]} maxBarSize={24} />
+   705→   705→                    </BarChart>
+   706→   706→                  </ResponsiveContainer>
+   707→   707→                </CardContent>
+   708→   708→              </Card>
+   709→   709→            )}
+   710→   710→          </TabsContent>
+   711→   711→        </Tabs>
+   712→   712→      )}
+   713→   713→    </div>
+   714→   714→  )
+   715→   715→}
+   716→   716→
+   717→   717→export default TacticalView
+   718→   718→

@@ -1,10 +1,20 @@
+   300→    }
+   301→    setXtLoading(true)
+   302→    fetch('/api/analytics?action=xt-match&match=3869151')
+   303→      .then(r => r.json())
+   304→      .then(data => {
+   305→        if (data.success && data.data?.leaderboard) {
+   306→          setXtLeaderboard(data.data.leaderboard)
+   307→        }
+   308→      })
+   309→      .catch(() => {})
    310→      .finally(() => setXtLoading(false))
    311→  }, [selectedMatchId])
    312→
    313→  const shotMapData = useMemo((): ShotMapPoint[] | null => {
    314→    if (sbShots.length > 0) return sbShots
    315→    // Only show generated-from-events shots for the demo match; all others → null
-   316→    if (selectedMatchId === '3869151' && match) return generateShotsFromEvents(match.events || [], match.homeXg, match.awayXg)
+   316→    if (selectedMatchId === '3869151' && match && match.homeXg != null && match.awayXg != null) return generateShotsFromEvents(match.events || [], match.homeXg, match.awayXg)
    317→    return null
    318→  }, [sbShots, match, selectedMatchId])
    319→
