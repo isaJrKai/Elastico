@@ -392,7 +392,7 @@ export default function MatchDetailView() {
                 <h2 className="text-lg font-bold">{homeTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
                   <Badge variant="outline" className="text-[10px] border-border/50">ELO {match.homeEloBefore ?? homeTeam?.eloRating ?? '—'}</Badge>
-                  <StatusBadge variant="dataclass" value="DERIVED" />
+                  <StatusBadge variant="dataclass" value={homeTeam?.xgTruthClass || 'MISSING'} />
                   {homeTeam?.form && <div className="flex gap-0.5">{homeTeam.form.split('').map((f, i) => <span key={i} className={cn('inline-flex size-4 items-center justify-center rounded text-[9px] font-bold', f === 'W' ? 'bg-emerald-500/20 text-emerald-400' : f === 'D' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400')}>{f}</span>)}</div>}
                 </div>
               </div>
@@ -434,7 +434,7 @@ export default function MatchDetailView() {
                 <h2 className="text-lg font-bold">{awayTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
                   <Badge variant="outline" className="text-[10px] border-border/50">ELO {match.awayEloBefore ?? awayTeam?.eloRating ?? '—'}</Badge>
-                  <StatusBadge variant="dataclass" value="DERIVED" />
+                  <StatusBadge variant="dataclass" value={awayTeam?.xgTruthClass || 'MISSING'} />
                   {awayTeam?.form && <div className="flex gap-0.5">{awayTeam.form.split('').map((f, i) => <span key={i} className={cn('inline-flex size-4 items-center justify-center rounded text-[9px] font-bold', f === 'W' ? 'bg-emerald-500/20 text-emerald-400' : f === 'D' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400')}>{f}</span>)}</div>}
                 </div>
               </div>

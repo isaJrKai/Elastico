@@ -81,83 +81,91 @@ export async function GET(
   try {
     const { id } = await params
 
-    // ── 1. Try database by primary ID ──────────────────────────────────────
-    try {
-      const dbMatch = await db.match.findUnique({
-        where: { id },
-        include: {
-          homeTeam: { include: { players: { orderBy: { goals: 'desc' }, take: 25 } } },
-          awayTeam: { include: { players: { orderBy: { goals: 'desc' }, take: 25 } } },
-          events: { orderBy: { minute: 'asc' } },
-        },
-      }) as any
+    // ── Detect source prefix (fd:, espn:, api-sports:) ────────────────────
+    const prefixMatch = id.match(/^(fd|espn|api-sports):(.+)/)
+    const hasPrefix = !!prefixMatch
+    const rawExternalId = hasPrefix ? prefixMatch[2] : id
+    const sourcePrefix = hasPrefix ? prefixMatch[1] : null
 
-      if (dbMatch) {
-        // Fetch xG analytics: try legacy teamId first, then CanonicalTeam name match
-        const findAnalytics = async (teamName: string, teamId: string) => {
-          // Try legacy TeamAnalytic by teamId
-          const legacy = await db.teamAnalytic.findFirst({
-            where: { teamId, source: 'understat' },
-            orderBy: { syncedAt: 'desc' },
-          })
-          if (legacy) return legacy
-          // Try CanonicalTeam-based analytic by name
-          const canonical = await db.canonicalTeam.findFirst({
-            where: { displayName: { equals: teamName, mode: 'insensitive' } },
-            include: { analytics: { orderBy: { syncedAt: 'desc' }, take: 1 } },
-          })
-          return canonical?.analytics[0] ?? null
-        }
-        const [homeAnalytics, awayAnalytics] = await Promise.all([
-          findAnalytics(dbMatch.homeTeam?.name || '', dbMatch.homeTeamId),
-          findAnalytics(dbMatch.awayTeam?.name || '', dbMatch.awayTeamId),
-        ])
-        return NextResponse.json({ match: mapDbMatch(dbMatch, homeAnalytics, awayAnalytics), source: 'database' })
+    // Shared helper to enrich a DB match with xG analytics
+    const enrichMatch = async (dbMatch: any) => {
+      const findAnalytics = async (teamName: string, teamId: string) => {
+        const legacy = await db.teamAnalytic.findFirst({
+          where: { teamId, source: 'understat' },
+          orderBy: { syncedAt: 'desc' },
+        })
+        if (legacy) return legacy
+        const canonical = await db.canonicalTeam.findFirst({
+          where: { displayName: { equals: teamName, mode: 'insensitive' } },
+          include: { analytics: { orderBy: { syncedAt: 'desc' }, take: 1 } },
+        })
+        return canonical?.analytics[0] ?? null
       }
-    } catch (dbErr) {
-      console.error('[MatchDetail] DB lookup failed, trying externalId:', dbErr)
+      const [homeAnalytics, awayAnalytics] = await Promise.all([
+        findAnalytics(dbMatch.homeTeam?.name || '', dbMatch.homeTeamId),
+        findAnalytics(dbMatch.awayTeam?.name || '', dbMatch.awayTeamId),
+      ])
+      return mapDbMatch(dbMatch, homeAnalytics, awayAnalytics)
+    }
+    const matchIncludes = {
+      homeTeam: { include: { players: { orderBy: { goals: 'desc' as const }, take: 25 } } },
+      awayTeam: { include: { players: { orderBy: { goals: 'desc' as const }, take: 25 } } },
+      events: { orderBy: { minute: 'asc' as const } },
     }
 
-    // ── 2. Try by externalId (API-Sports ID or football-data.org ID) ─────────
-    // Strip source prefixes ("fd:", "espn:") to get the raw external ID
-    const rawExternalId = id.replace(/^(fd|espn|api-sports):/, '')
+    // ── 1. Try database by primary ID (only if no source prefix) ──────────
+    if (!hasPrefix) {
+      try {
+        const dbMatch = await db.match.findUnique({
+          where: { id },
+          include: matchIncludes,
+        }) as any
+        if (dbMatch) {
+          return NextResponse.json({ match: await enrichMatch(dbMatch), source: 'database' })
+        }
+      } catch (dbErr) {
+        console.error('[MatchDetail] DB lookup failed, trying externalId:', dbErr)
+      }
+    }
+
+    // ── 2. Try by externalId (stripped prefix) ────────────────────────────
     try {
       const dbMatch = await db.match.findFirst({
         where: { externalId: rawExternalId },
-        include: {
-          homeTeam: { include: { players: { orderBy: { goals: 'desc' }, take: 25 } } },
-          awayTeam: { include: { players: { orderBy: { goals: 'desc' }, take: 25 } } },
-          events: { orderBy: { minute: 'asc' } },
-        },
+        include: matchIncludes,
       }) as any
-
       if (dbMatch) {
-        const findAnalytics = async (teamName: string, teamId: string) => {
-          const legacy = await db.teamAnalytic.findFirst({
-            where: { teamId, source: 'understat' },
-            orderBy: { syncedAt: 'desc' },
-          })
-          if (legacy) return legacy
-          const canonical = await db.canonicalTeam.findFirst({
-            where: { displayName: { equals: teamName, mode: 'insensitive' } },
-            include: { analytics: { orderBy: { syncedAt: 'desc' }, take: 1 } },
-          })
-          return canonical?.analytics[0] ?? null
-        }
-        const [homeAnalytics, awayAnalytics] = await Promise.all([
-          findAnalytics(dbMatch.homeTeam?.name || '', dbMatch.homeTeamId),
-          findAnalytics(dbMatch.awayTeam?.name || '', dbMatch.awayTeamId),
-        ])
-        return NextResponse.json({ match: mapDbMatch(dbMatch, homeAnalytics, awayAnalytics), source: 'database' })
+        return NextResponse.json({ match: await enrichMatch(dbMatch), source: 'database' })
       }
     } catch (dbErr2) {
       console.error('[MatchDetail] externalId lookup failed:', dbErr2)
     }
 
+    // ── 2.5. Fallback: fetch from football-data.org for fd: prefixed IDs ──
+    if (sourcePrefix === 'fd' && process.env.FOOTBALL_DATA_API_KEY) {
+      try {
+        const { fetchMatches } = await import('@/lib/football-data-org')
+        // Fetch all competitions' current matches and find the one by ID
+        const competitions = ['PL', 'PD', 'SA', 'BL1', 'FL1', 'CL', 'EL']
+        for (const comp of competitions) {
+          const fdMatches = await fetchMatches(comp)
+          const fdMatch = fdMatches.find((m: any) => String(m.id) === rawExternalId)
+          if (fdMatch) {
+            const { normalizeFDMatch } = await import('@/lib/football-data-org')
+            const normalized = normalizeFDMatch(fdMatch)
+            return NextResponse.json({ match: normalized, source: 'football-data.org (live)' })
+          }
+        }
+      } catch (fdErr) {
+        console.error('[MatchDetail] football-data.org fallback failed:', fdErr)
+      }
+    }
+
     // ── 3. Fallback: ESPN live data ────────────────────────────────────────
     try {
       const allMatches = await fetchAllLiveScores()
-      const espnMatch = allMatches.find((m) => m.id === id)
+      // Match by full id OR stripped id (for prefixed IDs like espn:123)
+      const espnMatch = allMatches.find((m) => m.id === id || m.id === rawExternalId)
 
       if (espnMatch) {
         const teamFromEspn = (t: any) => ({
@@ -219,8 +227,9 @@ export async function POST(
 
     const { user } = auth
     const { id } = await params
-    // Strip source prefixes ("fd:", "espn:", "api-sports:") for DB lookups
-    const rawId = id.replace(/^(fd|espn|api-sports):/, '')
+    // Strip source prefixes for DB lookups
+    const prefixMatch = id.match(/^(fd|espn|api-sports):(.+)/)
+    const rawId = prefixMatch ? prefixMatch[2] : id
     const { choice } = await req.json()
 
     if (!choice || !['home', 'draw', 'away'].includes(choice)) {

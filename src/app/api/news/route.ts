@@ -156,12 +156,18 @@ export async function GET(req: NextRequest) {
     // ── Build category filter for PostgreSQL ─────────────────────────────
     const categoryFilter = category ? buildCategoryFilter(category) : null
 
+    // ── Build DB where clause ─────────────────────────────────────────────
+    const buildDbWhere = () => {
+      const where: any = { category: 'sports' }
+      if (search) where.title = { contains: search.toLowerCase() }
+      if (categoryFilter) where.AND = [categoryFilter]
+      return where
+    }
+
+    const dbWhere = buildDbWhere()
+
     // ── Serve from DATABASE first ─────────────────────────────────────────
     if (!refresh) {
-      const dbWhere: any = { category: 'sports' }
-      if (search) dbWhere.title = { contains: search.toLowerCase() }
-      if (categoryFilter) dbWhere.AND = [categoryFilter]
-
       const dbArticles = await db.newsArticle.findMany({
         where: dbWhere,
         orderBy: { publishedAt: 'desc' },
@@ -186,9 +192,7 @@ export async function GET(req: NextRequest) {
     const savedCount = await persistNewsToDb(query, page, limit)
 
     // Re-read from DB (with category filter applied)
-    const dbWhere2: any = { category: 'sports' }
-    if (search) dbWhere2.title = { contains: search.toLowerCase() }
-    if (categoryFilter) dbWhere2.AND = [categoryFilter]
+    const dbWhere2 = buildDbWhere()
 
     if (savedCount > 0) {
       const dbArticles = await db.newsArticle.findMany({

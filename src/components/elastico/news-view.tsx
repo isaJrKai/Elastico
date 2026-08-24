@@ -155,45 +155,33 @@ export default function NewsView() {
     [activeCategory, search, setNews],
   )
 
-  // Initial fetch on category change
+  // ── Unified fetch: handles category + search changes ─────────────────
+  // Merged into a single effect to avoid race conditions between
+  // category-change and debounced-search effects.
   useEffect(() => {
-    const params = new URLSearchParams({ page: '1', limit: '12' })
-    if (activeCategory) params.set('category', activeCategory)
-    setViewState('loading')
-    fetch(`/api/news?${params}`)
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data) => {
-        const items = data.news || []
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      const params = new URLSearchParams({ page: '1', limit: '12' })
+      if (activeCategory) params.set('category', activeCategory)
+      if (search.trim()) params.set('search', search.trim())
+      setViewState('loading')
+      try {
+        const res = await fetch(`/api/news?${params}`)
+        if (cancelled) return
+        if (!res.ok) throw new Error()
+        const data = await res.json()
+        const items: NewsItem[] = data.news || []
         setNewsItems(items)
         setTotalPages(data.pagination?.totalPages || 1)
         setPage(1)
         setViewState(items.length === 0 ? 'empty' : 'success')
         if (data.news) setNews(data.news)
-      })
-      .catch(() => { setViewState('error') })
-  }, [activeCategory, setNews])
-
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const params = new URLSearchParams({ page: '1', limit: '12' })
-      if (activeCategory) params.set('category', activeCategory)
-      if (search.trim()) params.set('search', search.trim())
-      setViewState('loading')
-      fetch(`/api/news?${params}`)
-        .then((res) => (res.ok ? res.json() : Promise.reject()))
-        .then((data) => {
-          const items = data.news || []
-          setNewsItems(items)
-          setTotalPages(data.pagination?.totalPages || 1)
-          setPage(1)
-          setViewState(items.length === 0 ? 'empty' : 'success')
-          if (data.news) setNews(data.news)
-        })
-        .catch(() => { setViewState('error') })
-    }, 400)
-    return () => clearTimeout(timer)
-  }, [search, activeCategory, setNews])
+      } catch {
+        if (!cancelled) setViewState('error')
+      }
+    }, 300)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [activeCategory, search, setNews])
 
   // ── Load More ────────────────────────────────────────────────────────────
 
