@@ -625,7 +625,7 @@ export default function AdminView() {
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm font-bold">{item.value}</span>
-                        <StatusBadge variant="dataclass" value="REAL" />
+                        <StatusBadge variant="dataclass" value="DERIVED" />
                       </div>
                     </div>
                   ))}

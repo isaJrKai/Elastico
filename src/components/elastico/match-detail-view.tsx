@@ -332,7 +332,8 @@ export default function MatchDetailView() {
     { label: 'Shots', h: match.shotsHome, a: match.shotsAway },
     { label: 'Shots on Target', h: match.shotsOnTargetHome, a: match.shotsOnTargetAway },
     { label: 'Corners', h: match.cornersHome, a: match.cornersAway },
-    { label: 'Fouls', h: match.foulsHome, a: match.foulsAway },
+    // Fouls: no DB field exists. Explicitly null → renders honest N/A.
+    { label: 'Fouls', h: null, a: null },
     { label: 'Pass Accuracy', h: homeTeam?.passAccuracy ?? null, a: awayTeam?.passAccuracy ?? null, suffix: '%' },
     { label: 'Press Intensity', h: homeTeam?.pressIntensity ?? null, a: awayTeam?.pressIntensity ?? null, suffix: '%' },
     { label: 'xG', h: match.homeXg, a: match.awayXg, decimals: 2 },

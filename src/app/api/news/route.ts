@@ -24,6 +24,35 @@ const ESPN_NEWS_URLS: Record<string, string> = {
   UCL: 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/news',
 }
 
+// ── Category text-classification keywords ────────────────────────────────
+// Used to filter persisted NewsArticles by semantic category.
+// When the DB category field is generic ('sports'), we classify by title/summary content.
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  match:     ['match', 'score', 'goal ', 'result', 'fixture', 'draw ', 'defeat', 'victory', 'derby', 'final', 'semi-final'],
+  transfer:  ['transfer', 'signing', 'signed', 'deal', 'move to', 'joining', 'fee', 'contract', 'loan', 'released', 'free agent'],
+  injury:    ['injur', 'fitness', 'sideline', 'doubt', 'rehab', 'hamstring', 'knee', 'ankle', 'muscle', 'surgery'],
+  tactical:  ['tactic', 'formation', 'pressing', 'high press', 'possession', 'system', 'setup', 'approach', 'style of play', 'counter-attack'],
+  rumor:     ['rumor', 'rumour', 'reported', 'interest', 'linked with', 'could join', 'set to', 'close to', 'target', 'weighing up'],
+}
+
+/**
+ * Build a Prisma `where` filter for a given category.
+ * Uses OR conditions on title+summary for text classification.
+ * Returns null if no valid category is provided (meaning: no filter).
+ */
+function buildCategoryFilter(category: string): any | null {
+  const keywords = CATEGORY_KEYWORDS[category]
+  if (!keywords) return null
+  return {
+    OR: keywords.map(kw => ({
+      OR: [
+        { title: { contains: kw, mode: 'insensitive' } },
+        { summary: { contains: kw, mode: 'insensitive' } },
+      ],
+    })),
+  }
+}
+
 export const dynamic = 'force-dynamic'
 
 // ── Persist Newsdata.io articles to DB ──────────────────────────────────
@@ -119,16 +148,19 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const search = searchParams.get('search') || undefined
+    const category = searchParams.get('category') || undefined
     const topic = searchParams.get('topic') || undefined
     const league = searchParams.get('league') || undefined
     const refresh = searchParams.get('refresh') === 'true'
 
+    // ── Build category filter for PostgreSQL ─────────────────────────────
+    const categoryFilter = category ? buildCategoryFilter(category) : null
+
     // ── Serve from DATABASE first ─────────────────────────────────────────
     if (!refresh) {
       const dbWhere: any = { category: 'sports' }
-      if (search) {
-        dbWhere.title = { contains: search.toLowerCase() }
-      }
+      if (search) dbWhere.title = { contains: search.toLowerCase() }
+      if (categoryFilter) dbWhere.AND = [categoryFilter]
 
       const dbArticles = await db.newsArticle.findMany({
         where: dbWhere,
@@ -157,6 +189,7 @@ export async function GET(req: NextRequest) {
       // Re-read from DB to serve the persisted data
       const dbWhere: any = { category: 'sports' }
       if (search) dbWhere.title = { contains: search.toLowerCase() }
+      if (categoryFilter) dbWhere.AND = [categoryFilter]
 
       const dbArticles = await db.newsArticle.findMany({
         where: dbWhere,

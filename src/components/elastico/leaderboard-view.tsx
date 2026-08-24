@@ -130,7 +130,7 @@ export default function LeaderboardView() {
 <p className="text-sm text-muted-foreground">Top predictors leaderboard</p>
         </div>
         <Button variant="outline" size="sm" className="gap-1.5 border-border text-xs" onClick={handleExport}><Download className="size-3.5" />Export</Button>
-        <StatusBadge variant="dataclass" value="REAL" />
+        <StatusBadge variant="dataclass" value="DERIVED" />
       </div>
 
       {/* Your Position Card */}

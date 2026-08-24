@@ -118,10 +118,12 @@ export async function GET(
       console.error('[MatchDetail] DB lookup failed, trying externalId:', dbErr)
     }
 
-    // ── 2. Try by externalId (API-Sports ID) ───────────────────────────────
+    // ── 2. Try by externalId (API-Sports ID or football-data.org ID) ─────────
+    // Strip source prefixes ("fd:", "espn:") to get the raw external ID
+    const rawExternalId = id.replace(/^(fd|espn|api-sports):/, '')
     try {
       const dbMatch = await db.match.findFirst({
-        where: { externalId: id },
+        where: { externalId: rawExternalId },
         include: {
           homeTeam: { include: { players: { orderBy: { goals: 'desc' }, take: 25 } } },
           awayTeam: { include: { players: { orderBy: { goals: 'desc' }, take: 25 } } },

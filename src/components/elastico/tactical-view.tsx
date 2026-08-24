@@ -599,12 +599,10 @@ export function TacticalView() {
                               <div className="flex items-center gap-1">
                                 <span className="text-[10px] text-muted-foreground">G</span>
                                 <span className="text-sm font-bold tabular-nums">{player.goals}</span>
-                                <StatusBadge variant="dataclass" value="REAL" />
                               </div>
                               <div className="flex items-center gap-1">
                                 <span className="text-[10px] text-muted-foreground">A</span>
                                 <span className="text-sm font-bold tabular-nums">{player.assists}</span>
-                                <StatusBadge variant="dataclass" value="REAL" />
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-0.5">
@@ -614,7 +612,6 @@ export function TacticalView() {
                               )}>
                                 {(player.rating ?? 0).toFixed(1)}
                               </span>
-                              <StatusBadge variant="dataclass" value="REAL" />
                             </div>
                           </div>
                         </button>
@@ -652,12 +649,10 @@ export function TacticalView() {
                               <div className="flex items-center gap-1">
                                 <span className="text-[10px] text-muted-foreground">G</span>
                                 <span className="text-sm font-bold tabular-nums">{player.goals}</span>
-                                <StatusBadge variant="dataclass" value="REAL" />
                               </div>
                               <div className="flex items-center gap-1">
                                 <span className="text-[10px] text-muted-foreground">A</span>
                                 <span className="text-sm font-bold tabular-nums">{player.assists}</span>
-                                <StatusBadge variant="dataclass" value="REAL" />
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-0.5">
@@ -667,7 +662,6 @@ export function TacticalView() {
                               )}>
                                 {(player.rating ?? 0).toFixed(1)}
                               </span>
-                              <StatusBadge variant="dataclass" value="REAL" />
                             </div>
                           </div>
                         </button>
@@ -684,7 +678,7 @@ export function TacticalView() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-4">
                     <SectionHeader label="Goal Contribution Comparison" />
-                    <StatusBadge variant="dataclass" value="REAL" />
+                    <StatusBadge variant="dataclass" value="DERIVED" />
                   </div>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart

@@ -72,8 +72,6 @@ export interface Match {
   shotsOnTargetAway: number
   cornersHome: number
   cornersAway: number
-  foulsHome: number
-  foulsAway: number
   venue: string | null
   weather: string | null
   temperature: number | null

@@ -645,21 +645,18 @@ export function PlayerView() {
                       <span className="text-muted-foreground">Avg Rating</span>
                       <div className="flex items-center gap-1">
                         <span className={cn('font-bold', getRatingColor(parseFloat(avgRating)))}>{avgRating}</span>
-                        <StatusBadge variant="dataclass" value="REAL" />
                       </div>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Total Goals</span>
                       <div className="flex items-center gap-1">
                         <span className="font-bold">{totalGoals}</span>
-                        <StatusBadge variant="dataclass" value="REAL" />
                       </div>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Total Assists</span>
                       <div className="flex items-center gap-1">
                         <span className="font-bold">{totalAssists}</span>
-                        <StatusBadge variant="dataclass" value="REAL" />
                       </div>
                     </div>
                   </CardContent>
