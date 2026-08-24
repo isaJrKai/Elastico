@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
 
-/** GET /api/sync — DEPRECATED
- *
- *  This endpoint previously synced ESPN data into local DB tables (Team, Match).
- *  Those tables have been removed as part of the ESPN-live architecture migration.
- *  All match, team, and player data now comes directly from ESPN at request time.
- */
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth
 
     return NextResponse.json({
-      deprecated: true,
-      message: 'This sync endpoint is deprecated. Team, Match, Player, MatchEvent, NewsItem, and ApiLog tables have been removed from the database. All match, team, and player data is now fetched live from ESPN at request time. No database sync is needed.',
-      timestamp: new Date().toISOString(),
+      status: 'ok',
+      message: 'Data flows live from ESPN / API-Sports / PostgreSQL. No bulk sync needed.',
     })
   } catch (error) {
     console.error('[SYNC] Error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+/** POST /api/sync — no-op
+ *  Previously triggered a DB sync. Now data is fetched live.
+ */
+export async function POST() {
+  return NextResponse.json({ status: 'ok', message: 'No sync needed — data is fetched live.' })
 }
