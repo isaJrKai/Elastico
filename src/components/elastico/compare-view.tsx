@@ -215,6 +215,9 @@ export default function CompareView() {
   }
 
   // ── SUCCESS STATE ───────────────────────────────────────────────────────
+  // Guard: viewState ensures this, but TypeScript needs explicit narrowing
+  if (!homeTeam || !awayTeam) return null
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -261,7 +264,7 @@ export default function CompareView() {
         </div>
       </div>
 
-      {/* Team Headers */
+      {/* Team Headers */}
       <div className="grid grid-cols-3 gap-4 items-center">
         <div className="flex items-center gap-3 justify-end">
           <div className="text-right">
