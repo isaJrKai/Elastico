@@ -540,38 +540,26 @@ function NavigationPrompt() {
   const setView = useElasticoStore((s) => s.setView)
 
   return (
-    <Card className="glass-card-premium card-hover-lift rounded-xl">
-      <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
-        <div className="rounded-full bg-primary/10 p-3">
-          <Zap className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <h3 className="text-sm font-semibold">Explore More</h3>
-          <p className="text-sm text-muted-foreground mt-1 max-w-xs">
-            Navigate to Matches for detailed stats, or Predictions to submit and
-            track your forecasts.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setView('matches')}
-          >
-            <ChevronRight className="mr-1 h-3 w-3" />
-            Matches
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setView('predictions')}
-          >
-            <TrendingUp className="mr-1 h-3 w-3" />
-            Predictions
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setView('matches')}
+        className="h-8 text-xs"
+      >
+        <ChevronRight className="mr-1 h-3 w-3" />
+        Matches
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setView('predictions')}
+        className="h-8 text-xs"
+      >
+        <TrendingUp className="mr-1 h-3 w-3" />
+        Predictions
+      </Button>
+    </div>
   )
 }
 
@@ -587,42 +575,39 @@ export default function DashboardView() {
   }, [fetchLiveScores, fetchNews, fetchMatches])
 
   return (
-    <section className="space-y-6" aria-label="Dashboard">
+    <section className="space-y-5" aria-label="Dashboard">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Live scores and news from verified sources only.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Live scores and news from verified sources only.
+          </p>
+        </div>
+        <NavigationPrompt />
       </div>
 
-      {/* Main grid — only real-data widgets */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Live Score Ticker — spans 2 cols on lg */}
-        <div className="sm:col-span-2 lg:col-span-2">
+      {/* Two-column layout with separator */}
+      <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-0">
+        {/* Left column — Live Scores */}
+        <div className="min-w-0 lg:pr-6">
           <LiveScoreWidget />
         </div>
 
-        {/* Navigation prompt — right column */}
-        <div className="hidden lg:block">
-          <NavigationPrompt />
+        {/* Vertical separator — desktop only */}
+        <div className="hidden lg:flex absolute left-1/2 top-2 bottom-2 -translate-x-1/2 flex-col items-center">
+          <div className="flex-1 w-px bg-gradient-to-b from-transparent via-border to-transparent" />
+          <div className="my-3 rounded-full bg-muted/80 border border-border/50 p-1.5">
+            <Zap className="h-3 w-3 text-muted-foreground" />
+          </div>
+          <div className="flex-1 w-px bg-gradient-to-b from-transparent via-border to-transparent" />
         </div>
 
-        {/* News Feed — spans 2 cols on lg */}
-        <div className="sm:col-span-2 lg:col-span-2">
+        {/* Right column — News + Upcoming */}
+        <div className="min-w-0 lg:pl-6 space-y-5">
           <NewsWidget />
-        </div>
-
-        {/* Upcoming Matches — right column on lg */}
-        <div className="hidden lg:block">
           <QuickPredictWidget />
         </div>
-      </div>
-
-      {/* Mobile-only: stack remaining widgets below */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:hidden">
-        <NavigationPrompt />
-        <QuickPredictWidget />
       </div>
     </section>
   )
