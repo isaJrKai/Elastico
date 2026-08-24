@@ -185,19 +185,19 @@ export async function GET(req: NextRequest) {
     const query = search || topic || 'football soccer premier league champions league'
     const savedCount = await persistNewsToDb(query, page, limit)
 
-    if (savedCount > 0) {
-      // Re-read from DB to serve the persisted data
-      const dbWhere: any = { category: 'sports' }
-      if (search) dbWhere.title = { contains: search.toLowerCase() }
-      if (categoryFilter) dbWhere.AND = [categoryFilter]
+    // Re-read from DB (with category filter applied)
+    const dbWhere2: any = { category: 'sports' }
+    if (search) dbWhere2.title = { contains: search.toLowerCase() }
+    if (categoryFilter) dbWhere2.AND = [categoryFilter]
 
+    if (savedCount > 0) {
       const dbArticles = await db.newsArticle.findMany({
-        where: dbWhere,
+        where: dbWhere2,
         orderBy: { publishedAt: 'desc' },
         take: limit,
         skip: (page - 1) * limit,
       })
-      const total = await db.newsArticle.count({ where: dbWhere })
+      const total = await db.newsArticle.count({ where: dbWhere2 })
 
       if (dbArticles.length > 0) {
         return NextResponse.json({
@@ -228,7 +228,26 @@ export async function GET(req: NextRequest) {
     })
 
     if (allEspnArticles.length > 0) {
-      const newsItems = allEspnArticles.slice(0, limit).map((a: any, i: number) => ({
+      // Apply category keyword filtering on ESPN articles too
+      let filtered = allEspnArticles
+      if (category) {
+        const keywords = CATEGORY_KEYWORDS[category]
+        if (keywords) {
+          filtered = allEspnArticles.filter((a: any) => {
+            const text = `${a.headline || ''} ${a.description || ''}`.toLowerCase()
+            return keywords.some(kw => text.includes(kw))
+          })
+        }
+      }
+      if (search) {
+        const q = search.toLowerCase()
+        filtered = filtered.filter((a: any) => {
+          const text = `${a.headline || ''} ${a.description || ''}`.toLowerCase()
+          return text.includes(q)
+        })
+      }
+
+      const newsItems = filtered.slice(0, limit).map((a: any, i: number) => ({
         id: `espn-${a._league || 'PL'}-${i}-${Date.now()}`,
         title: a.headline || '',
         summary: a.description || '',
@@ -245,7 +264,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         news: newsItems,
         source: `espn:${leagues.join(',')}`,
-        pagination: { page, limit, total: newsItems.length, totalPages: 1 },
+        pagination: { page, limit, total: filtered.length, totalPages: 1 },
       })
     }
 

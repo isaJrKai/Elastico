@@ -32,16 +32,37 @@ export async function POST(
 
     const { user } = auth
     const { id } = await params
+    // Strip source prefixes for lookups
+    const rawId = id.replace(/^(fd|espn|api-sports):/, '')
 
-    // Find the match in ESPN live data
+    // Find the match: try ESPN first, then DB
     const allMatches = await fetchAllLiveScores()
-    const espnMatch = allMatches.find((m) => m.id === id)
+    let espnMatch = allMatches.find((m) => m.id === id || m.id === rawId)
 
+    // If not found in ESPN, try DB (for football-data.org matches)
     if (!espnMatch) {
-      return NextResponse.json({ error: 'Match not found in ESPN data. Simulation is available for upcoming ESPN matches.' }, { status: 404 })
+      try {
+        const dbMatch = await db.match.findFirst({
+          where: { OR: [{ id: rawId }, { externalId: rawId }] },
+          include: { homeTeam: true, awayTeam: true },
+        }) as any
+        if (dbMatch) {
+          espnMatch = {
+            id: dbMatch.id,
+            homeTeam: { id: dbMatch.homeTeam.id, name: dbMatch.homeTeam.name, abbreviation: dbMatch.homeTeam.code || '', logo: dbMatch.homeTeam.logo, color: dbMatch.homeTeam.primaryColor || '#fff' },
+            awayTeam: { id: dbMatch.awayTeam.id, name: dbMatch.awayTeam.name, abbreviation: dbMatch.awayTeam.code || '', logo: dbMatch.awayTeam.logo, color: dbMatch.awayTeam.primaryColor || '#fff' },
+            status: dbMatch.status === 'upcoming' ? 'STATUS_SCHEDULED' : dbMatch.status,
+            homeScore: 0, awayScore: 0, date: '', venue: '', competition: dbMatch.competition || '',
+          }
+        }
+      } catch {}
     }
 
-    if (espnMatch.status !== 'STATUS_SCHEDULED') {
+    if (!espnMatch) {
+      return NextResponse.json({ error: 'Match not found. Simulation requires an upcoming match.' }, { status: 404 })
+    }
+
+    if (espnMatch.status !== 'STATUS_SCHEDULED' && espnMatch.status !== 'upcoming') {
       return NextResponse.json({ error: 'Can only simulate upcoming matches' }, { status: 400 })
     }
 

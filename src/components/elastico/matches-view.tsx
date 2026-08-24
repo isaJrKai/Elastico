@@ -471,7 +471,7 @@ export default function MatchesView() {
             <span className="text-[11px] text-muted-foreground">
               {sortedMatches.length} match{sortedMatches.length !== 1 ? 'es' : ''}
             </span>
-            <span className="data-class-badge REAL">football-data.org</span>
+            <span className="source-badge">football-data.org</span>
           </div>
           {lastRefresh && (
             <span className="text-[10px] text-muted-foreground/50">

@@ -328,7 +328,7 @@ export default function MatchDetailView() {
   )
 
   const stats = [
-    { label: 'Possession', h: match.possessionHome, a: 100 - match.possessionHome, suffix: '%' },
+    { label: 'Possession', h: match.possessionHome ?? null, a: match.possessionHome != null ? (100 - match.possessionHome) : null, suffix: '%' },
     { label: 'Shots', h: match.shotsHome, a: match.shotsAway },
     { label: 'Shots on Target', h: match.shotsOnTargetHome, a: match.shotsOnTargetAway },
     { label: 'Corners', h: match.cornersHome, a: match.cornersAway },

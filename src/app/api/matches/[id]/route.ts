@@ -219,6 +219,8 @@ export async function POST(
 
     const { user } = auth
     const { id } = await params
+    // Strip source prefixes ("fd:", "espn:", "api-sports:") for DB lookups
+    const rawId = id.replace(/^(fd|espn|api-sports):/, '')
     const { choice } = await req.json()
 
     if (!choice || !['home', 'draw', 'away'].includes(choice)) {
@@ -230,12 +232,12 @@ export async function POST(
     let awayTeamName = 'Away'
 
     try {
-      const dbMatch = await db.match.findUnique({ where: { id }, include: { homeTeam: true, awayTeam: true } }) as any
+      const dbMatch = await db.match.findUnique({ where: { id: rawId }, include: { homeTeam: true, awayTeam: true } }) as any
       if (dbMatch) {
         homeTeamName = dbMatch.homeTeam.name
         awayTeamName = dbMatch.awayTeam.name
       } else {
-        const byExtId = await db.match.findFirst({ where: { externalId: id }, include: { homeTeam: true, awayTeam: true } }) as any
+        const byExtId = await db.match.findFirst({ where: { externalId: rawId }, include: { homeTeam: true, awayTeam: true } }) as any
         if (byExtId) { homeTeamName = byExtId.homeTeam.name; awayTeamName = byExtId.awayTeam.name }
       }
     } catch {}
@@ -243,7 +245,7 @@ export async function POST(
     if (homeTeamName === 'Home') {
       try {
         const allMatches = await fetchAllLiveScores()
-        const espnMatch = allMatches.find((m) => m.id === id)
+        const espnMatch = allMatches.find((m) => m.id === id || m.id === rawId)
         if (espnMatch) { homeTeamName = espnMatch.homeTeam.name; awayTeamName = espnMatch.awayTeam.name }
       } catch {}
     }

@@ -760,3 +760,20 @@
   background: rgba(161, 161, 170, 0.05);
   border-color: rgba(161, 161, 170, 0.15);
 }
+/* ── Source badge (distinct from truth-class badge) ── */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid;
+  color: #A1A1AA;
+  background: rgba(161, 161, 170, 0.08);
+  border-color: rgba(161, 161, 170, 0.2);
+  line-height: 1;
+}
