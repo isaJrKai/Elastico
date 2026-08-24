@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const league = searchParams.get('league') || undefined
 
     // ── Try database first ────────────────────────────────────────────────
-    const where: any = {}
+    const where: any = { source: { not: 'unknown' } }
     if (status) where.status = status
     if (league) where.competitionCode = league
     if (search) {
@@ -90,8 +90,8 @@ export async function GET(req: NextRequest) {
         })),
         source: m.source,
         lastSyncedAt: m.lastSyncedAt?.toISOString() || null,
-        createdAt: m.createdAt.toISOString(),
-        updatedAt: m.updatedAt.toISOString(),
+        createdAt: m.createdAt?.toISOString?.() || '',
+        updatedAt: m.updatedAt?.toISOString?.() || '',
       }))
 
       return NextResponse.json({ matches, source: 'database', total: dbMatches.length })

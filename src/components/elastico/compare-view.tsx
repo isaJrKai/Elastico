@@ -40,15 +40,15 @@ export default function CompareView() {
   const [homeTeamId, setHomeTeamId] = useState<string>('')
   const [awayTeamId, setAwayTeamId] = useState<string>('')
 
+  const homeTeam = useMemo(() => teams.find(t => t.id === homeTeamId), [teams, homeTeamId])
+  const awayTeam = useMemo(() => teams.find(t => t.id === awayTeamId), [teams, awayTeamId])
+
   // Transition to success/empty when teams load
   const viewState = useMemo<ViewState>(() => {
     if (teams.length === 0) return 'loading'
     if (!homeTeam || !awayTeam) return 'empty'
     return 'success'
-  }, [teams, homeTeamId, awayTeamId])
-
-  const homeTeam = useMemo(() => teams.find(t => t.id === homeTeamId), [teams, homeTeamId])
-  const awayTeam = useMemo(() => teams.find(t => t.id === awayTeamId), [teams, awayTeamId])
+  }, [teams, homeTeamId, awayTeamId, homeTeam, awayTeam])
 
   // Real stat comparisons — only from DB-synced data
   const statComparisons = useMemo(() => {
@@ -261,23 +261,23 @@ export default function CompareView() {
         </div>
       </div>
 
-      {/* Team Headers */}
+      {/* Team Headers */
       <div className="grid grid-cols-3 gap-4 items-center">
         <div className="flex items-center gap-3 justify-end">
           <div className="text-right">
-            <p className="text-sm font-semibold text-primary">{homeTeam!.name}</p>
-            <p className="text-xs text-muted-foreground">ELO {homeTeam!.eloRating ?? 1500}</p>
+            <p className="text-sm font-semibold text-primary">{homeTeam.name}</p>
+            <p className="text-xs text-muted-foreground">ELO {homeTeam.eloRating ?? 1500}</p>
           </div>
-          <TeamCrest code={homeTeam!.code} espnLogo={homeTeam!.logo} color={homeTeam!.primaryColor} size="xl" />
+          <TeamCrest code={homeTeam.code} espnLogo={homeTeam.logo} color={homeTeam.primaryColor} size="xl" />
         </div>
         <div className="flex items-center justify-center">
           <Badge variant="outline" className="text-xs border-border">VS</Badge>
         </div>
         <div className="flex items-center gap-3">
-          <TeamCrest code={awayTeam!.code} espnLogo={awayTeam!.logo} color={awayTeam!.primaryColor} size="xl" />
+          <TeamCrest code={awayTeam.code} espnLogo={awayTeam.logo} color={awayTeam.primaryColor} size="xl" />
           <div>
-            <p className="text-sm font-semibold text-orange-400">{awayTeam!.name}</p>
-            <p className="text-xs text-muted-foreground">ELO {awayTeam!.eloRating ?? 1500}</p>
+            <p className="text-sm font-semibold text-orange-400">{awayTeam.name}</p>
+            <p className="text-xs text-muted-foreground">ELO {awayTeam.eloRating ?? 1500}</p>
           </div>
         </div>
       </div>
@@ -293,7 +293,7 @@ export default function CompareView() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-primary">{homeTeam!.name}</span>
+                <span className="text-sm font-medium text-primary">{homeTeam.name}</span>
                 <div className="flex gap-1">
                   {homeForm.length > 0
                     ? homeForm.slice(0, 5).map((r, i) => <span key={i}>{getFormBadge(r)}</span>)
@@ -301,7 +301,7 @@ export default function CompareView() {
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-orange-400">{awayTeam!.name}</span>
+                <span className="text-sm font-medium text-orange-400">{awayTeam.name}</span>
                 <div className="flex gap-1">
                   {awayForm.length > 0
                     ? awayForm.slice(0, 5).map((r, i) => <span key={i}>{getFormBadge(r)}</span>)
@@ -402,7 +402,7 @@ export default function CompareView() {
               <div>
                 <p className="text-sm font-medium text-foreground">H2H Data Unavailable</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Head-to-head history requires shared match data between {homeTeam!.name} and {awayTeam!.name}.
+                  Head-to-head history requires shared match data between {homeTeam.name} and {awayTeam.name}.
                   This data is not yet available from the current data source.
                 </p>
               </div>

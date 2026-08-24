@@ -240,7 +240,11 @@ export async function GET(request: NextRequest) {
         // Try DB first
         if (!refresh) {
           const where: any = { competitionCode: competition, source: 'football-data.org' }
-          if (status) where.status = mapFDStatusToInternal(status)
+          if (status) {
+            // Handle comma-separated statuses like "SCHEDULED,TIMED"
+            const statuses = status.split(',').map(s => mapFDStatusToInternal(s.trim()))
+            where.status = statuses.length === 1 ? statuses[0] : { in: statuses }
+          }
           const dbMatches = await db.match.findMany({
             where,
             include: { homeTeam: true, awayTeam: true, events: true },

@@ -364,13 +364,28 @@ export default function MatchesView() {
         throw new Error(data.error || 'API reported failure')
       }
 
-      const fetched: FDMatch[] = data.data || []
+      const fetched: FDMatch[] = (data.data || []).map((m: any) => {
+        // Normalize status to internal values for client-side filtering
+        const statusMap: Record<string, string> = {
+          'SCHEDULED': 'upcoming', 'TIMED': 'upcoming', 'IN_PLAY': 'live',
+          'PAUSED': 'halftime', 'FINISHED': 'finished', 'POSTPONED': 'postponed',
+          'CANCELLED': 'postponed', 'SUSPENDED': 'postponed',
+        }
+        return { ...m, status: statusMap[m.status] || m.status }
+      })
 
-      // Client-side search filter
+      // Client-side status filter (tab-based)
       let filtered = fetched
+      if (activeTab === 'live') {
+        filtered = fetched.filter(m => m.status === 'live' || m.status === 'halftime')
+      } else if (activeTab === 'upcoming') {
+        filtered = fetched.filter(m => m.status === 'upcoming')
+      } else if (activeTab === 'finished') {
+        filtered = fetched.filter(m => m.status === 'finished')
+      }
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
-        filtered = fetched.filter(
+        filtered = filtered.filter(
           (m) =>
             m.homeTeam.name.toLowerCase().includes(q) ||
             m.awayTeam.name.toLowerCase().includes(q) ||
