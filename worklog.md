@@ -1,6 +1,25 @@
 # ELASTICO Worklog
 
 ---
+Task ID: 5.1
+Agent: main
+Task: Phase 5.1 — Production Data Integrity, Coherence & Professionalism
+
+Work Log:
+- B1 Tournament: Fixed standings API field mapping — DB StandingEntry returns {teamName,teamCode,teamLogo} but UI expects {team,code,logo}. Added normalization layer in /api/live standings handler to map DB fields to canonical shape. football-data.org fallback already returns correct shape.
+- B2 News: Fixed category filtering — UI sends ?category=match/transfer/injury/tactical/rumor but API ignored it. Added server-side text classification via PostgreSQL LIKE queries on title+summary. CATEGORY_KEYWORDS map defines classification terms per category. Both DB-first and re-read-after-persist paths now apply category filter.
+- B3 Match Navigation: Fixed fd: prefix resolution — MatchesView passes IDs like 'fd:12345' but Match Detail API looked for externalId='fd:12345' in DB where externalId is stored as '12345'. Added prefix stripping (fd:|espn:|api-sports:) before externalId lookup.
+- R11 Fouls: Removed foulsHome/foulsAway from Match interface in store (no DB fields exist). Changed stats array to explicit null for fouls, which triggers StatBarRow's N/A rendering path. No more NaN - NaN.
+- B4 Provenance: Removed 11 false REAL badges across 4 components. tactical-view: 6 player stat REAL badges removed (provenance unknown at component level), 1 chart header changed REAL→DERIVED. player-view: 3 positional breakdown REAL badges removed. leaderboard-view: 1 header REAL→DERIVED. admin-view: 1 revenue chart REAL→DERIVED. Only remaining REAL badges are on direct DB counts (totalPredictions, loginCount) which are correctly classified.
+- Verification: 0 TypeScript errors, production build passes, 0 fabrication introduced, git pushed to trigger Vercel auto-deploy.
+
+Stage Summary:
+- All 5 Phase 5.1 items implemented and verified
+- No new fabrication, no new architectural inconsistencies
+- PostgreSQL remains source of truth for all modified data paths
+- Deployed to production via git push (Vercel auto-deploy)
+
+---
 Task ID: hotfix-1
 Agent: main
 Task: Deep audit and clean — fix persistent React error #31 on Vercel
