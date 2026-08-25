@@ -44,10 +44,10 @@ type ModelKey = (typeof MODEL_OPTIONS)[number]['value']
 // ── Suggested Prompts ──────────────────────────────────────────────────────────
 
 const suggestedPrompts = [
-  'Analyze Brazil vs Argentina',
-  'Who will win the World Cup?',
-  'Best performing teams',
-  'Predictions for upcoming matches',
+  '/analyze Arsenal',
+  '/compare Arsenal Liverpool',
+  '/predict Real Madrid Barcelona',
+  '/form Man City 5',
 ]
 
 // ── Markdown-like Parser ──────────────────────────────────────────────────────
@@ -162,15 +162,12 @@ export default function ChatView() {
           body: JSON.stringify({ message: '__status_check__', model: 'pro', stream: false }),
         })
         const data = await res.json()
-        if (data.model === 'pro') {
-          setIsMockMode(false)
-          setProviderName('NVIDIA NIM (LLaMA 3.1)')
-        } else if (data.model === 'mock-fallback') {
+        if (data.model === 'mock-fallback') {
           setIsMockMode(true)
           setProviderName(null)
         } else {
           setIsMockMode(false)
-          setProviderName(data.model || 'AI Provider')
+          setProviderName('ELASTICO AI')
         }
       } catch (err) {
         console.warn('[ChatView] Provider status check failed, falling back to mock mode:', err)
@@ -394,14 +391,14 @@ export default function ChatView() {
                 {isMockMode
                   ? 'Template Mode (no AI provider)'
                   : providerName
-                    ? `Powered by ${providerName}`
-                    : 'Powered by AI Provider'}
+                    ? providerName
+                    : 'ELASTICO AI'}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
               {isMockMode
                 ? 'Template-based responses — not from a language model'
-                : 'Real-time LLM football analysis'}
+                : 'Football intelligence analyst'}
             </p>
           </div>
         </div>
@@ -492,18 +489,15 @@ export default function ChatView() {
               </div>
               <div className="text-center">
                 <h2 className="mb-1 text-lg font-semibold text-foreground">
-                  ELASTICO AI Assistant
+                  ELASTICO
                 </h2>
                 <p className="mb-2 max-w-sm text-sm text-muted-foreground">
-                  Ask me about match predictions, team analysis, tactics, or
-                  player stats. Select a match for context-aware analysis.
+                  Football intelligence analyst. Ask about tactics, predictions,
+                  team performance, or player analysis.
                 </p>
-                <div className="flex items-center justify-center gap-1.5">
-                  <Cpu className="size-3 text-primary/60" />
-                  <span className="text-[11px] text-primary/60">
-                    Using {activeModel.label}
-                  </span>
-                </div>
+                <p className="mb-3 text-[11px] text-muted-foreground/70">
+                  Commands: /analyze, /compare, /predict, /form, /player, /team, /match, /news, /help
+                </p>
               </div>
 
               {/* Suggested Prompts */}
@@ -609,7 +603,7 @@ export default function ChatView() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about match predictions, tactics, player stats..."
+              placeholder="Ask ELASTICO anything..."
               disabled={isLoading}
               className="h-10 flex-1 border-border bg-secondary/50 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-primary/30"
             />

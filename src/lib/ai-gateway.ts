@@ -9,15 +9,16 @@
  *     and keys are never sent to the browser.
  *
  * Priority order (7 providers):
- * 1. NVIDIA LLaMA 3.1 70B (primary)
- * 2. Google Gemini (best quality, 1M context)
- * 3. Groq (ultra-fast, ~200ms)
- * 4. Cerebras (insanely fast, ~2K tokens/sec)
- * 5. Mistral (huge daily token limit)
- * 6. GitHub Models (GPT-4o-mini free)
- * 7. OpenRouter (last resort, free models)
+ * 1. Groq (ultra-fast, ~200ms, free Llama 3.3 70B)
+ * 2. Cerebras (insanely fast, ~2K tokens/sec)
+ * 3. Google Gemini (best quality, 1M context)
+ * 4. OpenRouter (multi-model gateway, free tier)
+ * 5. NVIDIA NIM (LLaMA 70B — note: nvidia/ models require build.nvidia.com deploy)
+ * 6. Mistral (huge daily token limit)
+ * 7. GitHub Models (GPT-4o-mini free)
  *
  * Automatic failover: if #1 fails, tries #2, then #3, etc.
+ * The UI must never expose which provider answered — ELASTICO is the identity.
  */
 
 /**
@@ -43,22 +44,6 @@ interface Provider {
 
 const PROVIDERS: Provider[] = [
   {
-    name: 'NVIDIA',
-    baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'meta/llama-3.1-70b-instruct',
-    maxTokens: 4096,
-    envKey: 'NVIDIA_API_KEY',
-    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
-  },
-  {
-    name: 'Google Gemini',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-    model: 'gemini-2.5-flash',
-    maxTokens: 4096,
-    envKey: 'GOOGLE_AI_API_KEY',
-    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
-  },
-  {
     name: 'Groq',
     baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'llama-3.3-70b-versatile',
@@ -72,6 +57,35 @@ const PROVIDERS: Provider[] = [
     model: 'llama-4-scout-17b-16e-instruct',
     maxTokens: 4096,
     envKey: 'CEREBRAS_API_KEY',
+    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
+  },
+  {
+    name: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    model: 'gemini-2.5-flash',
+    maxTokens: 4096,
+    envKey: 'GOOGLE_AI_API_KEY',
+    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
+  },
+  {
+    name: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'google/gemma-4-26b-a4b-it:free',
+    maxTokens: 2048,
+    envKey: 'OPENROUTER_API_KEY',
+    headers: (key) => ({
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://elastico-elastico.vercel.app',
+      'X-Title': 'ELASTICO',
+    }),
+  },
+  {
+    name: 'NVIDIA',
+    baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
+    model: 'meta/llama-3.1-70b-instruct',
+    maxTokens: 4096,
+    envKey: 'NVIDIA_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
   },
   {
@@ -92,19 +106,6 @@ const PROVIDERS: Provider[] = [
       'Authorization': `Bearer ${key}`,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-    }),
-  },
-  {
-    name: 'OpenRouter',
-    baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'google/gemma-4-26b-a4b-it:free',
-    maxTokens: 2048,
-    envKey: 'OPENROUTER_API_KEY',
-    headers: (key) => ({
-      'Authorization': `Bearer ${key}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://elastico-elastico.vercel.app',
-      'X-Title': 'ELASTICO',
     }),
   },
 ]

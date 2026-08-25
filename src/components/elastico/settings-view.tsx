@@ -155,19 +155,20 @@ function SettingsSection({
   )
 }
 
-// ── NVIDIA API Status Badge ────────────────────────────────────────────────────
+// ── AI Provider Status Badge ──────────────────────────────────────────────────
 
-function NvidiaApiStatusBadge({ token }: { token?: string }) {
+function AiProviderStatusBadge({ token }: { token?: string }) {
   const [status, setStatus] = React.useState<'loading' | 'connected' | 'disconnected'>('loading')
+  const [activeCount, setActiveCount] = React.useState(0)
 
   React.useEffect(() => {
-    // Use the dedicated GET status endpoint instead of POST
     fetch('/api/chat')
       .then((res) => res.json())
       .then((data) => {
         const providers = Array.isArray(data.providers) ? data.providers : []
-        const proProvider = providers.find((p: { name?: string; configured?: boolean }) => p.name === 'pro')
-        if (proProvider?.configured) {
+        const configured = providers.filter((p: { configured?: boolean }) => p.configured)
+        setActiveCount(configured.length)
+        if (configured.length > 0) {
           setStatus('connected')
         } else {
           setStatus('disconnected')
@@ -189,7 +190,7 @@ function NvidiaApiStatusBadge({ token }: { token?: string }) {
     return (
       <Badge variant="outline" className="gap-1.5 text-xs border-emerald-500/30 text-emerald-400 bg-emerald-500/5">
         <CheckCircle2 className="size-3" />
-        Connected
+        {activeCount} provider{activeCount !== 1 ? 's' : ''} active
       </Badge>
     )
   }
@@ -197,7 +198,7 @@ function NvidiaApiStatusBadge({ token }: { token?: string }) {
   return (
     <Badge variant="outline" className="gap-1.5 text-xs border-amber-500/30 text-amber-400 bg-amber-500/5">
       <XCircle className="size-3" />
-      Not Configured
+      No providers configured
     </Badge>
   )
 }
@@ -1258,13 +1259,13 @@ export default function SettingsView() {
       {/* 8. Bandwidth & Offline (PWA) */}
       <BandwidthSection />
 
-      {/* 9. AI and NVIDIA Settings */}
+      {/* 9. AI Integration */}
       <Card className="glass-card border-border">
         <CardHeader className="pb-4">
           <SettingsSection
             icon={Cpu}
-            title="AI & NVIDIA Integration"
-            description="Configure the AI analysis engine"
+            title="AI Integration"
+            description="ELASTICO multi-provider AI analysis engine"
           />
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1275,18 +1276,18 @@ export default function SettingsView() {
                   <Cpu className="size-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">NVIDIA NIM API</p>
-                  <p className="text-xs text-muted-foreground">Powers real-time LLM football analysis</p>
+                  <p className="text-sm font-medium text-foreground">AI Provider Status</p>
+                  <p className="text-xs text-muted-foreground">Multi-provider failover: Groq, Cerebras, Gemini, OpenRouter, NVIDIA</p>
                 </div>
               </div>
-              <NvidiaApiStatusBadge token={token || undefined} />
+              <AiProviderStatusBadge token={token || undefined} />
             </div>
           </div>
           <div className="space-y-3">
-            <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Available AI Models</h4>
+            <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Provider Priority</h4>
             <div className="space-y-2">
-              <ModelRow name="ELASTICO Pro" model="Configured via NVIDIA_NIM_MODEL_ID" description="Highest quality — uses the model specified by your NVIDIA NIM configuration" icon={Cpu} recommended />
-              <ModelRow name="ELASTICO Fast" model="Configured via NVIDIA_NIM_MODEL_ID" description="Lower latency — configure a smaller model in NVIDIA_NIM_MODEL_ID to use this tier" icon={Cpu} />
+              <ModelRow name="ELASTICO Pro" model="Multi-provider (auto-failover)" description="Highest quality — routes through available providers with automatic fallback" icon={Cpu} recommended />
+              <ModelRow name="ELASTICO Fast" model="Same provider pool" description="Priority-ordered failover across all configured providers" icon={Cpu} />
             </div>
           </div>
           <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
@@ -1303,8 +1304,12 @@ export default function SettingsView() {
           <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
             <Info className="mt-0.5 size-4 shrink-0 text-primary/70" />
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              To use NVIDIA-powered AI, set the <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">NVIDIA_API_KEY</code> environment variable.
-              Without it, AI chat responses fall back to template-based analysis.
+              Set API keys via environment variables: <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">GROQ_API_KEY</code>,
+              <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">CEREBRAS_API_KEY</code>,
+              <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">GOOGLE_AI_API_KEY</code>,
+              <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">OPENROUTER_API_KEY</code>,
+              or <code className="rounded bg-secondary px-1 py-0.5 font-mono text-[10px] text-foreground">NVIDIA_API_KEY</code>.
+              Without any key, AI chat falls back to template-based responses.
             </p>
           </div>
         </CardContent>
