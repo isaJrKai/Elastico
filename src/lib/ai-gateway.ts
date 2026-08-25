@@ -9,7 +9,7 @@
  *     and keys are never sent to the browser.
  *
  * Priority order (7 providers):
- * 1. NVIDIA LLaMA 3.3 70B (primary)
+ * 1. NVIDIA LLaMA 3.1 70B (primary)
  * 2. Google Gemini (best quality, 1M context)
  * 3. Groq (ultra-fast, ~200ms)
  * 4. Cerebras (insanely fast, ~2K tokens/sec)
@@ -45,7 +45,7 @@ const PROVIDERS: Provider[] = [
   {
     name: 'NVIDIA',
     baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'nvidia/llama-3.3-nemotron-super-49b-v1',
+    model: 'meta/llama-3.1-70b-instruct',
     maxTokens: 4096,
     envKey: 'NVIDIA_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
