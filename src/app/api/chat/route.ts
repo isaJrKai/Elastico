@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
     const auth = await authenticateRequest(req)
     if (auth instanceof Response) return auth
 
-    const { message, matchId, stream: wantStream } = await req.json()
+    const { message, matchId, stream: wantStream, history, screenContext } = await req.json()
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -218,10 +218,29 @@ export async function POST(req: NextRequest) {
     }
 
     // ── AI Call ────────────────────────────────────────────────────────────
-    const messages = [
-      { role: 'system' as const, content: SYSTEM_PROMPT },
-      { role: 'user' as const, content: message },
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: SYSTEM_PROMPT },
     ]
+
+    // Inject screen context if provided
+    let userContent = message
+    if (screenContext && typeof screenContext === 'string') {
+      userContent = `[Screen context: ${screenContext}]
+
+${message}`
+    }
+
+    // Add conversation history (multi-turn memory)
+    if (Array.isArray(history) && history.length > 0) {
+      for (const msg of history) {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          messages.push({ role: msg.role, content: msg.content })
+        }
+      }
+    }
+
+    // Add the current user message
+    messages.push({ role: 'user', content: userContent })
 
     // Streaming
     if (wantStream) {

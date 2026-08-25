@@ -138,11 +138,24 @@ export default function ChatView() {
   const updateChatMessage = useElasticoStore(s => s.updateChatMessage)
   const clearChat = useElasticoStore(s => s.clearChat)
   const matches = useElasticoStore(s => s.matches)
+  const teams = useElasticoStore(s => s.teams)
   const token = useElasticoStore(s => s.token)
+  const currentView = useElasticoStore(s => s.currentView)
+  const storeSelectedMatchId = useElasticoStore(s => s.selectedMatchId)
 
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [selectedMatchId, setSelectedMatchId] = useState<string>('none')
+
+  // Auto-detect screen context: if user navigated from match-detail, pre-select that match
+  useEffect(() => {
+    if (currentView === 'match-detail' && storeSelectedMatchId) {
+      const match = matches.find((m) => m.id === storeSelectedMatchId)
+      if (match && selectedMatchId !== storeSelectedMatchId) {
+        setSelectedMatchId(storeSelectedMatchId)
+      }
+    }
+  }, [currentView, storeSelectedMatchId])
   const [selectedModel, setSelectedModel] = useState<ModelKey>('pro')
   const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null)
   const [isMockMode, setIsMockMode] = useState(false)
@@ -222,12 +235,38 @@ export default function ChatView() {
     setStreamingMsgId(aiMsgId)
 
     try {
+      // Build conversation history (last 10 messages for context)
+      const recentHistory = chatMessages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content }))
+
       const body: Record<string, unknown> = {
         message: trimmed,
         model: selectedModel,
         stream: true,
+        history: recentHistory,
       }
 
+      // Screen context
+      const screenContext: string[] = []
+      if (currentView === 'match-detail' && storeSelectedMatchId) {
+        const match = matches.find((m) => m.id === storeSelectedMatchId)
+        if (match?.homeTeam && match?.awayTeam) {
+          screenContext.push(`Current screen: Match detail — ${match.homeTeam.name} vs ${match.awayTeam.name}`)
+        }
+      } else if (currentView === 'players') {
+        screenContext.push('Current screen: Players view')
+      } else if (currentView === 'tactical') {
+        screenContext.push('Current screen: Tactical analysis view')
+      } else if (currentView === 'predictions') {
+        screenContext.push('Current screen: Predictions view')
+      }
+      if (screenContext.length > 0) {
+        body.screenContext = screenContext.join('. ')
+      }
+
+      // Manual match context selector (overrides auto-detect)
       if (selectedMatchId && selectedMatchId !== 'none') {
         body.matchId = selectedMatchId
         const match = matches.find((m) => m.id === selectedMatchId)

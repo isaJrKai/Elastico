@@ -155,9 +155,61 @@ function SettingsSection({
   )
 }
 
+// ── AI Provider List ─────────────────────────────────────────────────────────
+
+function AiProviderList() {
+  const [providers, setProviders] = React.useState<Array<{ name: string; model: string; configured: boolean; coolingDown: boolean }>>([])
+
+  React.useEffect(() => {
+    fetch('/api/chat')
+      .then((res) => res.json())
+      .then((data) => {
+        const list = Array.isArray(data.providers) ? data.providers : []
+        setProviders(list)
+      })
+      .catch(() => {})
+  }, [])
+
+  if (providers.length === 0) {
+    return <p className="text-xs text-muted-foreground">Loading provider status...</p>
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {providers.map((p, i) => (
+        <div key={p.name} className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2">
+          <div className="flex items-center gap-2.5">
+            <span className="flex size-5 items-center justify-center rounded-full bg-secondary text-[10px] font-medium text-muted-foreground">
+              {i + 1}
+            </span>
+            <div>
+              <p className="text-xs font-medium text-foreground">{p.name}</p>
+              <p className="text-[10px] text-muted-foreground">{p.model}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {p.coolingDown && (
+              <Badge variant="outline" className="text-[9px] border-amber-500/30 text-amber-400">cooldown</Badge>
+            )}
+            <Badge
+              variant="outline"
+              className={p.configured
+                ? 'text-[9px] border-emerald-500/30 text-emerald-400 bg-emerald-500/5'
+                : 'text-[9px] border-muted text-muted-foreground/50'
+              }
+            >
+              {p.configured ? 'Active' : 'No key'}
+            </Badge>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── AI Provider Status Badge ──────────────────────────────────────────────────
 
-function AiProviderStatusBadge({ token }: { token?: string }) {
+function AiProviderStatusBadge() {
   const [status, setStatus] = React.useState<'loading' | 'connected' | 'disconnected'>('loading')
   const [activeCount, setActiveCount] = React.useState(0)
 
@@ -165,14 +217,10 @@ function AiProviderStatusBadge({ token }: { token?: string }) {
     fetch('/api/chat')
       .then((res) => res.json())
       .then((data) => {
-        const providers = Array.isArray(data.providers) ? data.providers : []
-        const configured = providers.filter((p: { configured?: boolean }) => p.configured)
+        const list = Array.isArray(data.providers) ? data.providers : []
+        const configured = list.filter((p: { configured?: boolean }) => p.configured)
         setActiveCount(configured.length)
-        if (configured.length > 0) {
-          setStatus('connected')
-        } else {
-          setStatus('disconnected')
-        }
+        setStatus(configured.length > 0 ? 'connected' : 'disconnected')
       })
       .catch(() => setStatus('disconnected'))
   }, [])
@@ -1280,15 +1328,12 @@ export default function SettingsView() {
                   <p className="text-xs text-muted-foreground">Multi-provider failover: Groq, Cerebras, Gemini, OpenRouter, NVIDIA</p>
                 </div>
               </div>
-              <AiProviderStatusBadge token={token || undefined} />
+              <AiProviderStatusBadge />
             </div>
           </div>
           <div className="space-y-3">
             <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Provider Priority</h4>
-            <div className="space-y-2">
-              <ModelRow name="ELASTICO Pro" model="Multi-provider (auto-failover)" description="Highest quality — routes through available providers with automatic fallback" icon={Cpu} recommended />
-              <ModelRow name="ELASTICO Fast" model="Same provider pool" description="Priority-ordered failover across all configured providers" icon={Cpu} />
-            </div>
+            <AiProviderList />
           </div>
           <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
             <div className="flex items-center justify-between">
