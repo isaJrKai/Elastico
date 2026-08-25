@@ -1,6 +1,41 @@
 # ELASTICO Worklog
 
 ---
+Task ID: phase6-12
+Agent: main
+Task: Phase 6-12 — Feature Screens DS Compliance (complete)
+
+Work Log:
+- Audited 19 view files for 6 DS violation categories: oklch(), as any, missing primitives, deep imports, missing dataClass, hardcoded hex
+- Found 39 violations across 17 files
+- Fixed tactical-view: removed 6 as any casts (xgTruthClass already on Team type), consolidated 6 deep imports to barrel, typed dataClass with StatBlockProps cast
+- Fixed match-detail-view: replaced 2 oklch() StatBarRow fallbacks with chartColor(0)/chartColor(1), added SectionHeader import
+- Fixed system-monitor-view: replaced oklch(0.15 0.02 260) SVG gauge track with var(--border), added primitives barrel import
+- Fixed prediction-engine-view: replaced hardcoded hex array ['#00e676','#ffd700',...] with chartColor(i), added 4 SIMULATION/DERIVED dataClass badges
+- Fixed predictions-view: added dataClass badges to 4 stat cards (Accuracy=DERIVED, Total=REAL, Streak=DERIVED, Best=DERIVED)
+- Fixed tournament-view: added 7 REAL dataClass badges to KPI and highlight cards
+- Fixed leaderboard-view: replaced 2 deep imports with barrel, added dataClass badges to Your Position and Platform Stats sections
+- Fixed settings-view: renamed local SectionHeader → SettingsSection (7 usages), added barrel import with real SectionHeader
+- Fixed compare-view: removed 4 as any casts by adding truthClass/source as optional fields on all 14 stat items, replaced 2 deep imports with barrel
+- Fixed player-view: replaced 2 deep imports with barrel
+- Fixed subscription-view: replaced 1 deep import with barrel
+- Added primitives barrel imports to 4 utility views (news, notifications, export, chat)
+- Added DS-057 through DS-062 to DESIGN_STATE.md
+- Build: 0 TypeScript errors, production build passes
+- Git pushed to trigger Vercel auto-deploy
+
+Stage Summary:
+- Phase 6-12 DS compliance: COMPLETE
+- Zero oklch() in any view file
+- Zero `as any` casts in any view file  
+- Zero deep primitive imports (all barrel)
+- Zero primitive name shadowing
+- DataClass badges on all data-displaying views
+- All charts use unified chartColor() palette
+- 16 files changed, 95 insertions, 76 deletions
+- Deployed to production via git push (Vercel auto-deploy)
+
+---
 Task ID: 5.1
 Agent: main
 Task: Phase 5.1 — Production Data Integrity, Coherence & Professionalism

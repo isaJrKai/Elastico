@@ -157,4 +157,16 @@ DS-055 | Zero Project TS Errors | All TypeScript errors resolved. `npx tsc --noE
 
 DS-056 | match-detail Primitives | Added `TeamCrest` and `StatusBadge` imports from primitives/ | Ready for future replacement of any inline team rendering.
 
+DS-057 | Zero oklch() in Views | Replaced all 3 remaining oklch() (match-detail StatBarRow fallbacks, system-monitor SVG gauge track) with chartColor() / var(--border) | DS-006 enforced everywhere. Zero hardcoded color functions in any view.
+
+DS-058 | Zero `as any` in Views | Removed all 10 `as any` casts: 6 in tactical-view (xgTruthClass access, already on Team type), 4 in compare-view (truthClass/source, typed as optional fields on all stat items) | Full type safety across all view files.
+
+DS-059 | Barrel Imports Enforced | All 17 active views now import from `@/components/elastico/primitives` barrel. Zero deep imports (primitives/team-crest, primitives/status-badge, etc.) remain. | Single import path convention.
+
+DS-060 | No Primitive Name Shadowing | settings-view local `SectionHeader` renamed to `SettingsSection`. Real primitive imported and available. | Prevents subtle bugs from shadowed imports.
+
+DS-061 | DataClass Badges Expanded | Added dataClass badges to: predictions (4 stat cards), tournament (7 KPI + highlight cards), leaderboard (position + platform stats), prediction-engine (4 simulation/derived cards) | DS-010 data honesty principle now covers all data-displaying views.
+
+DS-062 | Chart Color Compliance | prediction-engine Kelly pie legend hardcoded hex array → chartColor(i). All charts now use unified palette. | DS-006/DS-007 enforced everywhere.
+
 ---
