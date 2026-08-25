@@ -1,564 +1,596 @@
 /*
- * ELASTICO Dashboard — Honest rebuild (Phase 6A audit remediation)
+ * ELASTICO Dashboard — Command Center
  *
- * Removed all fabricated widgets. Only real-data widgets remain:
- *   1. Live Score Ticker — ESPN via /api/live
- *   2. News Feed — ESPN / Newsdata.io via /api/news
- *   3. Quick Predict cards — only shown when real match data is available
- *   4. Navigation prompt — directs users to Matches / Predictions for more
+ * Answers: "What matters right now?"
  *
- * Every widget has 4 states: LOADING → SUCCESS | EMPTY | ERROR (with retry)
+ * Composition: KPI strip → Live ticker → 2:1 asymmetric main area
+ *   Left (primary):  Featured match with ELO probability bars
+ *   Right (secondary): News rail + quick actions
+ *
+ * Design reference: ChatGPT-generated ELASTICO mockups (dark analytical aesthetic)
+ * All data is real. No fabricated metrics.
  */
 
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useMemo } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Radio,
-  Newspaper,
-  TrendingUp,
-  RefreshCw,
-  AlertCircle,
-  Inbox,
-  ChevronRight,
-  Zap,
+  Radio, Newspaper, RefreshCw, AlertCircle, Zap, ChevronRight,
+  Trophy, Brain, BarChart3, Clock, ArrowRight, Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TeamCrest } from '@/components/elastico/primitives'
+import { chartColor } from '@/lib/chart-theme'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatRelativeTime(dateStr: string | null): string {
   if (!dateStr) return ''
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const diffMs = now - then
+  const diffMs = Date.now() - new Date(dateStr).getTime()
   const minutes = Math.floor(diffMs / 60000)
   if (minutes < 1) return 'just now'
   if (minutes < 60) return `${minutes}m ago`
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
+  return `${Math.floor(hours / 24)}d ago`
 }
 
-function truncate(str: string, max: number): string {
-  return str.length > max ? str.slice(0, max) + '…' : str
+function computeEloProb(homeElo: number, awayElo: number, outcome: string): number {
+  const expectedHome = 1 / (1 + Math.pow(10, (awayElo - homeElo) / 400))
+  if (outcome === 'home') return Math.round(expectedHome * 100)
+  if (outcome === 'away') return Math.round((1 - expectedHome) * 100 * 0.75)
+  return Math.round(100 - expectedHome * 100 - (1 - expectedHome) * 100 * 0.75)
 }
 
-// ─── Live Score Ticker Widget ────────────────────────────────────────────────
+// ─── KPI Strip ────────────────────────────────────────────────────────────────
 
-function LiveScoreWidget() {
-  const { liveMatches, isLiveLoading, errors, fetchLiveScores, selectMatch, setView } =
+function KpiStrip() {
+  const { liveMatches, matches, user } = useElasticoStore()
+
+  const liveCount = (liveMatches || []).filter(
+    (m: any) => m.status === 'IN_PROGRESS' || m.status === 'LIVE'
+  ).length
+
+  const upcomingCount = matches.filter(
+    (m) => !m.isSimulated && (m.status === 'upcoming' || m.status === 'live' || m.status === 'halftime')
+  ).length
+
+  const accuracy = user?.predictionAccuracy ?? null
+  const streak = user?.predictionStreak ?? 0
+
+  const kpis = [
+    {
+      label: 'LIVE NOW',
+      value: liveCount,
+      intent: liveCount > 0 ? 'danger' as const : 'default' as const,
+      icon: <Radio className="size-3.5" />,
+    },
+    {
+      label: 'UPCOMING',
+      value: upcomingCount,
+      intent: 'info' as const,
+      icon: <Clock className="size-3.5" />,
+    },
+    {
+      label: 'ACCURACY',
+      value: accuracy !== null ? `${accuracy}%` : '—',
+      intent: accuracy !== null && accuracy >= 55 ? 'success' as const : 'default' as const,
+      icon: <BarChart3 className="size-3.5" />,
+    },
+    {
+      label: 'BEST STREAK',
+      value: streak > 0 ? streak : '—',
+      intent: streak >= 3 ? 'success' as const : 'default' as const,
+      icon: <Zap className="size-3.5" />,
+    },
+  ]
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {kpis.map((kpi) => (
+        <div
+          key={kpi.label}
+          className="relative rounded-lg border border-border/40 bg-muted/20 px-4 py-3"
+        >
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className={cn(
+            'text-muted-foreground',
+            kpi.intent === 'danger' && 'text-red-400',
+            kpi.intent === 'success' && 'text-emerald-400',
+            kpi.intent === 'info' && 'text-blue-400',
+          )}>
+            {kpi.icon}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            {kpi.label}
+          </span>
+        </div>
+          <span className={cn(
+            'text-2xl font-black tabular-nums leading-none',
+            kpi.intent === 'danger' && 'text-red-400',
+            kpi.intent === 'success' && 'text-emerald-400',
+            kpi.intent === 'info' && 'text-blue-400',
+            !['danger', 'success', 'info'].includes(kpi.intent) && 'text-foreground',
+          )}>
+            {kpi.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Live Ticker ──────────────────────────────────────────────────────────────
+
+function LiveTicker() {
+  const { liveMatches, isLiveLoading, errors, fetchLiveScores, selectMatch } =
     useElasticoStore()
 
-  const handleRetry = useCallback(() => {
-    fetchLiveScores()
-  }, [fetchLiveScores])
-
-  const handleMatchClick = useCallback(
-    (id: string) => {
-      selectMatch(id)
-    },
-    [selectMatch]
+  const liveGames = useMemo(
+    () => (liveMatches || []).filter(
+      (m: any) => m.status === 'IN_PROGRESS' || m.status === 'LIVE'
+    ),
+    [liveMatches]
   )
 
-  // Loading state
   if (isLiveLoading) {
     return (
-      <Card className="glass-card-premium card-hover-lift rounded-xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold">Live Scores</CardTitle>
-            <Badge variant="outline" className="ml-auto text-xs">
-              Loading…
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-              <Skeleton className="h-8 w-16 rounded" />
+      <div className="flex items-center gap-3 border-y border-border/40 bg-muted/10 px-4 py-2">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="relative flex size-1.5">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-muted-foreground/40" />
+            <span className="relative inline-flex size-1.5 rounded-full bg-muted-foreground" />
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Live</span>
+        </div>
+        <div className="flex gap-6 overflow-hidden">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <Skeleton className="size-4 rounded-full" />
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-4" />
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="size-4 rounded-full" />
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     )
   }
 
-  // Error state
-  if (errors.fetchLiveScores) {
-    return (
-      <Card className="glass-card-premium card-hover-lift rounded-xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold">Live Scores</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <AlertCircle className="h-8 w-8 text-destructive" />
-            <p className="text-sm text-muted-foreground">
-              Failed to load live scores from ESPN.
-            </p>
-            <Button variant="outline" size="sm" onClick={handleRetry}>
-              <RefreshCw className="mr-2 h-3 w-3" />
-              Retry
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
+  if (errors.fetchLiveScores || liveGames.length === 0) return null
 
-  // Empty state
-  if (!liveMatches || liveMatches.length === 0) {
-    return (
-      <Card className="glass-card-premium card-hover-lift rounded-xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold">Live Scores</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-2 py-4 text-center">
-            <Inbox className="h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              No live matches right now.
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setView('matches')}
-              className="text-primary"
-            >
-              Browse all matches
-              <ChevronRight className="ml-1 h-3 w-3" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Success state
   return (
-    <Card className="glass-card-premium card-hover-lift rounded-xl">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <Radio className="h-4 w-4 text-primary" />
-          <CardTitle className="text-sm font-semibold">Live Scores</CardTitle>
-          <Badge variant="secondary" className="ml-auto text-xs">
-            {liveMatches.length} {liveMatches.length === 1 ? 'match' : 'matches'}
-          </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={handleRetry}
-            aria-label="Refresh live scores"
+    <div className="flex items-center gap-3 border-y border-border/40 bg-muted/10 px-4 py-2 overflow-x-auto">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span className="relative flex size-1.5">
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+          <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
+        </span>
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-red-400">
+          {liveGames.length} LIVE
+        </span>
+      </div>
+      <div className="w-px h-4 bg-border/60 shrink-0" />
+      <div className="flex gap-5">
+        {liveGames.map((m: any, idx: number) => (
+          <button
+            key={m.id || idx}
+            onClick={() => m.id && selectMatch(m.id)}
+            className="flex items-center gap-2 shrink-0 hover:bg-accent/40 rounded-md px-1.5 py-0.5 -mx-1.5 transition-colors"
           >
-            <RefreshCw className="h-3 w-3" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {liveMatches.map((match: any, idx: number) => {
-            const isLive =
-              match.status === 'IN_PROGRESS' || match.status === 'LIVE'
-            return (
-              <button
-                key={match.id || idx}
-                onClick={() => match.id && handleMatchClick(match.id)}
-                className={cn(
-                  'w-full flex items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent/50',
-                  !match.id && 'cursor-default'
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate">
-                      {match.homeTeam?.name || match.home_team || 'Home'}
-                    </span>
-                    <span className={cn(
-                      'text-sm font-bold tabular-nums',
-                      isLive ? 'text-primary' : 'text-foreground'
-                    )}>
-                      {match.homeScore ?? match.home_score ?? 0}
-                    </span>
-                    <span className="text-xs text-muted-foreground mx-1">-</span>
-                    <span className={cn(
-                      'text-sm font-bold tabular-nums',
-                      isLive ? 'text-primary' : 'text-foreground'
-                    )}>
-                      {match.awayScore ?? match.away_score ?? 0}
-                    </span>
-                    <span className="text-sm font-medium truncate">
-                      {match.awayTeam?.name || match.away_team || 'Away'}
-                    </span>
-                  </div>
-                  {match.competition && (
-                    <span className="text-xs text-muted-foreground">
-                      {match.competition}
-                    </span>
-                  )}
-                </div>
-                {isLive && (
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 shrink-0">
-                    <Zap className="h-2.5 w-2.5 mr-0.5" />
-                    LIVE
-                  </Badge>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
+            <TeamCrest
+              code={m.homeTeam?.abbreviation || ''}
+              espnLogo={m.homeTeam?.logo}
+              size="xs"
+            />
+            <span className="text-xs font-semibold tabular-nums text-foreground">
+              {m.homeScore ?? 0}
+            </span>
+            <span className="text-[10px] text-muted-foreground">-</span>
+            <span className="text-xs font-semibold tabular-nums text-foreground">
+              {m.awayScore ?? 0}
+            </span>
+            <TeamCrest
+              code={m.awayTeam?.abbreviation || ''}
+              espnLogo={m.awayTeam?.logo}
+              size="xs"
+            />
+          </button>
+        ))}
+      </div>
+      <div className="flex-1" />
+      <button
+        onClick={() => fetchLiveScores()}
+        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="Refresh live scores"
+      >
+        <RefreshCw className="size-3" />
+      </button>
+    </div>
   )
 }
 
-// ─── News Widget ─────────────────────────────────────────────────────────────
+// ─── Featured Match Panel ────────────────────────────────────────────────────
 
-function NewsWidget() {
-  const { news, errors, fetchNews, isLoading, setView } = useElasticoStore()
-
-  const handleRetry = useCallback(() => {
-    fetchNews()
-  }, [fetchNews])
-
-  // Loading state — show skeleton while store hasn't loaded yet
-  if (isLoading && news.length === 0) {
-    return (
-      <Card className="glass-card-premium card-hover-lift rounded-xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Newspaper className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold">Football News</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-3 w-2/3" />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Error state
-  if (errors.fetchNews) {
-    return (
-      <Card className="glass-card-premium card-hover-lift rounded-xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Newspaper className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold">Football News</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <AlertCircle className="h-8 w-8 text-destructive" />
-            <p className="text-sm text-muted-foreground">
-              Failed to load news feed.
-            </p>
-            <Button variant="outline" size="sm" onClick={handleRetry}>
-              <RefreshCw className="mr-2 h-3 w-3" />
-              Retry
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Empty state
-  if (!news || news.length === 0) {
-    return (
-      <Card className="glass-card-premium card-hover-lift rounded-xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Newspaper className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold">Football News</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-2 py-4 text-center">
-            <Inbox className="h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              No news articles available right now.
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setView('news')}
-              className="text-primary"
-            >
-              View all news
-              <ChevronRight className="ml-1 h-3 w-3" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Success state
-  const displayNews = news.slice(0, 8)
-
-  return (
-    <Card className="glass-card-premium card-hover-lift rounded-xl">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <Newspaper className="h-4 w-4 text-primary" />
-          <CardTitle className="text-sm font-semibold">Football News</CardTitle>
-          <Badge variant="secondary" className="ml-auto text-xs">
-            {news.length} articles
-          </Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={handleRetry}
-            aria-label="Refresh news"
-          >
-            <RefreshCw className="h-3 w-3" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3 max-h-96 overflow-y-auto">
-          {displayNews.map((item) => (
-            <article key={item.id} className="group">
-              <div className="flex items-start gap-2">
-                {item.isBreaking && (
-                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 shrink-0 mt-0.5">
-                    BREAKING
-                  </Badge>
-                )}
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-medium leading-snug group-hover:text-primary transition-colors">
-                    {item.title}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    {item.source && (
-                      <span className="text-xs text-muted-foreground">
-                        {item.source}
-                      </span>
-                    )}
-                    {item.publishedAt && (
-                      <span className="text-xs text-muted-foreground">
-                        {formatRelativeTime(item.publishedAt)}
-                      </span>
-                    )}
-                    {item.category && item.category !== 'general' && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        {item.category}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Quick Predict Widget ────────────────────────────────────────────────────
-
-function QuickPredictWidget() {
-  const { matches, isLoading, errors, fetchMatches, selectMatch, setView } =
+function FeaturedMatchPanel() {
+  const { matches, isLoading, errors, fetchMatches, selectMatch, liveMatches } =
     useElasticoStore()
 
-  const handleRetry = useCallback(() => {
-    fetchMatches()
-  }, [fetchMatches])
+  // Priority: live ESPN match → upcoming DB match → first available
+  const featured = useMemo(() => {
+    // Try live ESPN matches first
+    const espnLive = (liveMatches || []).find(
+      (m: any) => m.status === 'IN_PROGRESS' || m.status === 'LIVE'
+    )
+    if (espnLive) {
+      return {
+        id: espnLive.id,
+        homeTeam: espnLive.homeTeam,
+        awayTeam: espnLive.awayTeam,
+        homeScore: espnLive.homeScore ?? 0,
+        awayScore: espnLive.awayScore ?? 0,
+        homeElo: 1500,
+        awayElo: 1500,
+        competition: espnLive.competition,
+        status: 'live' as const,
+        source: 'espn',
+        date: espnLive.date,
+      }
+    }
+    // Try DB upcoming matches
+    const upcoming = matches.find(
+      (m) => !m.isSimulated && (m.status === 'upcoming' || m.status === 'live')
+    )
+    if (upcoming) {
+      return {
+        id: upcoming.id,
+        homeTeam: upcoming.homeTeam,
+        awayTeam: upcoming.awayTeam,
+        homeScore: upcoming.homeScore,
+        awayScore: upcoming.awayScore,
+        homeElo: upcoming.homeEloBefore ?? upcoming.homeTeam?.eloRating ?? 1500,
+        awayElo: upcoming.awayEloBefore ?? upcoming.awayTeam?.eloRating ?? 1500,
+        competition: upcoming.competition,
+        status: (upcoming.status === 'live' ? 'live' : 'upcoming') as 'live' | 'upcoming',
+        source: 'database',
+        date: upcoming.date,
+      }
+    }
+    return null
+  }, [matches, liveMatches])
 
-  // Only show upcoming or in-progress matches (real data, not simulated)
-  const realMatches = matches.filter(
-    (m) => !m.isSimulated && (m.status === 'upcoming' || m.status === 'IN_PROGRESS')
-  )
-
-  // Loading state
+  // Loading
   if (isLoading && matches.length === 0) {
     return (
-      <Card className="glass-card-premium card-hover-lift rounded-xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold">Upcoming Matches</CardTitle>
+      <div className="rounded-xl border border-border/40 bg-muted/10 p-6 animate-pulse">
+        <div className="flex items-center justify-between gap-6">
+          <div className="flex-1 flex items-center gap-4">
+            <Skeleton className="size-14 rounded-full" />
+            <div className="space-y-2"><Skeleton className="h-5 w-32" /><Skeleton className="h-3 w-16" /></div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-lg" />
-          ))}
-        </CardContent>
-      </Card>
+          <div className="text-center"><Skeleton className="h-10 w-24 mx-auto" /><Skeleton className="h-3 w-16 mt-2" /></div>
+          <div className="flex-1 flex items-center gap-4 justify-end">
+            <div className="space-y-2 text-right"><Skeleton className="h-5 w-32" /><Skeleton className="h-3 w-16" /></div>
+            <Skeleton className="size-14 rounded-full" />
+          </div>
+        </div>
+        <div className="mt-6 space-y-2">
+          <Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-3/4" />
+        </div>
+      </div>
     )
   }
 
-  // Error state
+  // Error
   if (errors.fetchMatches) {
     return (
-      <Card className="glass-card-premium card-hover-lift rounded-xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold">Upcoming Matches</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <AlertCircle className="h-8 w-8 text-destructive" />
-            <p className="text-sm text-muted-foreground">
-              Failed to load match data.
-            </p>
-            <Button variant="outline" size="sm" onClick={handleRetry}>
-              <RefreshCw className="mr-2 h-3 w-3" />
-              Retry
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-border/40 bg-muted/10 p-8 flex flex-col items-center gap-3 text-center">
+        <AlertCircle className="size-8 text-destructive" />
+        <p className="text-sm text-muted-foreground">Failed to load match data.</p>
+        <Button variant="outline" size="sm" onClick={fetchMatches} className="gap-1.5">
+          <RefreshCw className="size-3" /> Retry
+        </Button>
+      </div>
     )
   }
 
-  // Empty state — no real upcoming matches
-  if (realMatches.length === 0) {
+  // No matches
+  if (!featured) {
     return (
-      <Card className="glass-card-premium card-hover-lift rounded-xl">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-semibold">Upcoming Matches</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-2 py-4 text-center">
-            <Inbox className="h-8 w-8 text-muted-foreground/50" />
-            <p className="text-sm text-muted-foreground">
-              No upcoming real matches available.
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setView('matches')}
-              className="text-primary"
-            >
-              Browse matches
-              <ChevronRight className="ml-1 h-3 w-3" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-border/40 bg-muted/10 p-8 flex flex-col items-center gap-3 text-center">
+        <Eye className="size-10 text-muted-foreground/30" />
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">No matches available right now</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Try a different time or browse all competitions</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => useElasticoStore.getState().setView('matches')}
+          className="gap-1.5 mt-1"
+        >
+          <Trophy className="size-3" /> Browse Matches
+        </Button>
+      </div>
     )
   }
 
-  // Success state — show up to 4 real upcoming matches
-  const displayMatches = realMatches.slice(0, 4)
+  // Compute probabilities
+  const homeProb = computeEloProb(featured.homeElo, featured.awayElo, 'home')
+  const drawProb = computeEloProb(featured.homeElo, featured.awayElo, 'draw')
+  const awayProb = computeEloProb(featured.homeElo, featured.awayElo, 'away')
+
+  const isLive = featured.status === 'live'
 
   return (
-    <Card className="glass-card-premium card-hover-lift rounded-xl">
-      <CardHeader className="pb-3">
+    <div className="rounded-xl border border-border/40 bg-muted/10 overflow-hidden">
+      {/* Competition bar */}
+      <div className="flex items-center justify-between px-5 py-2.5 border-b border-border/30">
         <div className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-primary" />
-          <CardTitle className="text-sm font-semibold">Upcoming Matches</CardTitle>
-          <Badge variant="secondary" className="ml-auto text-xs">
-            {realMatches.length} upcoming
-          </Badge>
+          <Trophy className="size-3 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground font-medium">{featured.competition || 'Unknown Competition'}</span>
+          {featured.source && (
+            <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/50 border border-border/30 rounded px-1 py-px">
+              {featured.source}
+            </span>
+          )}
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {displayMatches.map((match) => (
-            <button
-              key={match.id}
-              onClick={() => selectMatch(match.id)}
-              className="w-full rounded-lg border border-border/50 px-3 py-2.5 text-left transition-colors hover:bg-accent/50"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 text-sm font-medium">
-                    <span className="truncate">
-                      {match.homeTeam?.name || match.homeTeamId}
-                    </span>
-                    <span className="text-muted-foreground text-xs">vs</span>
-                    <span className="truncate">
-                      {match.awayTeam?.name || match.awayTeamId}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    {match.competition && (
-                      <span className="text-xs text-muted-foreground">
-                        {match.competition}
-                      </span>
-                    )}
-                    {match.date && (
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(match.date).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    )}
-                  </div>
+        {isLive && (
+          <div className="flex items-center gap-1.5">
+            <span className="relative flex size-1.5">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">Live</span>
+          </div>
+        )}
+      </div>
+
+      {/* Match identity — team names, crests, score */}
+      <div className="px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between gap-4">
+          {/* Home team */}
+          <div className="flex-1 flex items-center gap-3 min-w-0">
+            <TeamCrest
+              code={featured.homeTeam?.abbreviation || featured.homeTeam?.code || '?'}
+              espnLogo={featured.homeTeam?.logo}
+              color={featured.homeTeam?.primaryColor}
+              size="2xl"
+              bordered
+            />
+            <div className="min-w-0">
+              <p className="text-base font-bold truncate">
+                {featured.homeTeam?.name || 'Home'}
+              </p>
+              <p className="text-[11px] text-muted-foreground tabular-nums font-medium">
+                ELO {featured.homeElo}
+              </p>
+            </div>
+          </div>
+
+          {/* Score / Time */}
+          <div className="shrink-0 text-center min-w-[80px]">
+            {isLive ? (
+              <>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-3xl font-black tabular-nums text-foreground">
+                    {featured.homeScore}
+                  </span>
+                  <span className="text-lg text-muted-foreground/50">:</span>
+                  <span className="text-3xl font-black tabular-nums text-foreground">
+                    {featured.awayScore}
+                  </span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </div>
-            </button>
-          ))}
+                <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">In Progress</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">vs</p>
+                {featured.date && (
+                  <p className="text-[11px] text-muted-foreground/60 mt-1">
+                    {new Date(featured.date).toLocaleDateString(undefined, {
+                      weekday: 'short', month: 'short', day: 'numeric',
+                    })}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Away team */}
+          <div className="flex-1 flex items-center gap-3 min-w-0 justify-end">
+            <div className="min-w-0 text-right">
+              <p className="text-base font-bold truncate">
+                {featured.awayTeam?.name || 'Away'}
+              </p>
+              <p className="text-[11px] text-muted-foreground tabular-nums font-medium">
+                ELO {featured.awayElo}
+              </p>
+            </div>
+            <TeamCrest
+              code={featured.awayTeam?.abbreviation || featured.awayTeam?.code || '?'}
+              espnLogo={featured.awayTeam?.logo}
+              color={featured.awayTeam?.primaryColor}
+              size="2xl"
+              bordered
+            />
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Probability bars */}
+      <div className="px-6 pb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Match Probability</span>
+          <span className="text-[9px] text-muted-foreground/40 font-mono">(ELO-derived)</span>
+        </div>
+        <div className="space-y-1.5">
+          {/* Home win bar */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0">Home</span>
+            <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${homeProb}%`, backgroundColor: chartColor(0) }}
+              />
+            </div>
+            <span className="text-xs font-bold tabular-nums w-9 text-right shrink-0" style={{ color: chartColor(0) }}>
+              {homeProb}%
+            </span>
+          </div>
+          {/* Draw bar */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0">Draw</span>
+            <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${drawProb}%`, backgroundColor: chartColor(2) }}
+              />
+            </div>
+            <span className="text-xs font-bold tabular-nums w-9 text-right shrink-0" style={{ color: chartColor(2) }}>
+              {drawProb}%
+            </span>
+          </div>
+          {/* Away win bar */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0">Away</span>
+            <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${awayProb}%`, backgroundColor: chartColor(4) }}
+              />
+            </div>
+            <span className="text-xs font-bold tabular-nums w-9 text-right shrink-0" style={{ color: chartColor(4) }}>
+              {awayProb}%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Action bar */}
+      <div className="px-6 pb-5">
+        <Button
+          className="w-full h-9 gap-2 text-sm font-semibold"
+          onClick={() => selectMatch(featured.id)}
+        >
+          <Eye className="size-3.5" />
+          Analyse Match
+          <ArrowRight className="size-3 ml-auto opacity-50" />
+        </Button>
+      </div>
+    </div>
   )
 }
 
-// ─── Navigation Prompt ───────────────────────────────────────────────────────
+// ─── News Rail ─────────────────────────────────────────────────────────────────
 
-function NavigationPrompt() {
-  const setView = useElasticoStore((s) => s.setView)
+function NewsRail() {
+  const { news, errors, fetchNews, isLoading, setView } = useElasticoStore()
+
+  const handleRetry = useCallback(() => fetchNews(), [fetchNews])
+
+  if (isLoading && news.length === 0) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="space-y-1.5">
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (errors.fetchNews) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-6 text-center">
+        <AlertCircle className="size-6 text-destructive" />
+        <p className="text-xs text-muted-foreground">News unavailable</p>
+        <Button variant="ghost" size="sm" className="text-xs h-7" onClick={handleRetry}>
+          <RefreshCw className="size-3 mr-1" /> Retry
+        </Button>
+      </div>
+    )
+  }
+
+  const articles = (news || []).slice(0, 8)
+
+  if (articles.length === 0) return null
 
   return (
-    <div className="flex items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setView('matches')}
-        className="h-8 text-xs"
-      >
-        <ChevronRight className="mr-1 h-3 w-3" />
-        Matches
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setView('predictions')}
-        className="h-8 text-xs"
-      >
-        <TrendingUp className="mr-1 h-3 w-3" />
-        Predictions
-      </Button>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Latest News
+        </span>
+        <button
+          onClick={() => setView('news')}
+          className="text-[10px] text-muted-foreground/60 hover:text-primary transition-colors flex items-center gap-0.5"
+        >
+          View all <ChevronRight className="size-2.5" />
+        </button>
+      </div>
+      <div className="space-y-0 divide-y divide-border/30">
+        {articles.map((item) => (
+          <div
+            key={item.id}
+            className="group py-2.5 first:pt-0 last:pb-0 cursor-default"
+          >
+            <div className="flex items-start gap-2">
+              {item.isBreaking && (
+                <span className="text-[9px] font-bold uppercase tracking-wider text-red-400 bg-red-400/10 px-1 py-px rounded shrink-0 mt-px">
+                  Breaking
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                  {item.title}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {item.source && (
+                    <span className="text-[10px] text-muted-foreground/60">{item.source}</span>
+                  )}
+                  {item.publishedAt && (
+                    <span className="text-[10px] text-muted-foreground/40">{formatRelativeTime(item.publishedAt)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Quick Actions ─────────────────────────────────────────────────────────────
+
+function QuickActions() {
+  const setView = useElasticoStore((s) => s.setView)
+
+  const actions = [
+    { label: 'All Matches', icon: <Trophy className="size-3.5" />, view: 'matches' as const },
+    { label: 'Predictions', icon: <BarChart3 className="size-3.5" />, view: 'predictions' as const },
+    { label: 'AI Analyst', icon: <Brain className="size-3.5" />, view: 'ai-chat' as const },
+  ]
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {actions.map((a) => (
+        <button
+          key={a.view}
+          onClick={() => setView(a.view)}
+          className="flex flex-col items-center gap-1.5 rounded-lg border border-border/30 bg-muted/10 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-accent/40 hover:border-border/60 transition-all"
+        >
+          {a.icon}
+          <span className="text-[10px] font-medium">{a.label}</span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -575,38 +607,26 @@ export default function DashboardView() {
   }, [fetchLiveScores, fetchNews, fetchMatches])
 
   return (
-    <section className="space-y-5" aria-label="Dashboard">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Live scores and news from verified sources only.
-          </p>
-        </div>
-        <NavigationPrompt />
-      </div>
+    <section className="flex flex-col gap-4" aria-label="Dashboard">
+      {/* Orientation: KPI strip */}
+      <KpiStrip />
 
-      {/* Two-column layout with separator */}
-      <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-0">
-        {/* Left column — Live Scores */}
-        <div className="min-w-0 lg:pr-6">
-          <LiveScoreWidget />
+      {/* Live ticker — full width, only when live matches exist */}
+      <LiveTicker />
+
+      {/* Main content — 2:1 asymmetric split */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-0">
+        {/* Primary: Featured match (3/5 = 60%) */}
+        <div className="lg:col-span-3 min-w-0">
+          <FeaturedMatchPanel />
         </div>
 
-        {/* Vertical separator — desktop only */}
-        <div className="hidden lg:flex absolute left-1/2 top-2 bottom-2 -translate-x-1/2 flex-col items-center">
-          <div className="flex-1 w-px bg-gradient-to-b from-transparent via-border to-transparent" />
-          <div className="my-3 rounded-full bg-muted/80 border border-border/50 p-1.5">
-            <Zap className="h-3 w-3 text-muted-foreground" />
+        {/* Secondary: News + actions (2/5 = 40%) */}
+        <div className="lg:col-span-2 min-w-0 flex flex-col gap-4">
+          <div className="rounded-xl border border-border/40 bg-muted/10 p-4 flex-1">
+            <NewsRail />
           </div>
-          <div className="flex-1 w-px bg-gradient-to-b from-transparent via-border to-transparent" />
-        </div>
-
-        {/* Right column — News + Upcoming */}
-        <div className="min-w-0 lg:pl-6 space-y-5">
-          <NewsWidget />
-          <QuickPredictWidget />
+          <QuickActions />
         </div>
       </div>
     </section>

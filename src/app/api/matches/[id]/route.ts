@@ -3,6 +3,19 @@ import { fetchAllLiveScores } from '@/lib/football-data'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
+// Normalize external status values to Elastico internal statuses
+const STATUS_MAP: Record<string, string> = {
+  'SCHEDULED': 'upcoming', 'TIMED': 'upcoming', 'STATUS_SCHEDULED': 'upcoming',
+  'IN_PLAY': 'live', 'IN_PROGRESS': 'live', 'LIVE': 'live',
+  'PAUSED': 'halftime', 'STATUS_HALFTIME': 'halftime', 'HT': 'halftime',
+  'FINISHED': 'finished', 'STATUS_FINAL': 'finished', 'FULL_TIME': 'finished',
+  'POSTPONED': 'postponed', 'CANCELLED': 'postponed', 'SUSPENDED': 'postponed',
+}
+function normalizeStatus(status: string | null | undefined): string {
+  if (!status) return 'upcoming'
+  return STATUS_MAP[status] || status
+}
+
 function mapDbMatch(m: any, homeAnalytics?: any, awayAnalytics?: any) {
   const teamMap = (t: any, analytics?: any) => ({
     id: t.id, name: t.name, code: t.code || '', logo: t.logo,
@@ -32,7 +45,7 @@ function mapDbMatch(m: any, homeAnalytics?: any, awayAnalytics?: any) {
     stage: m.round || '',
     group: null,
     date: m.date?.toISOString?.() || null,
-    status: m.status || 'upcoming',
+    status: normalizeStatus(m.status),
     minute: m.minute,
     venue: m.venue,
     homeScore: m.homeScore ?? 0,
@@ -185,7 +198,7 @@ export async function GET(
           competitionCode: (espnMatch as any).competitionCode || '',
           stage: '', group: null,
           date: espnMatch.date || null,
-          status: espnMatch.status, minute: espnMatch.minute, venue: espnMatch.venue,
+          status: normalizeStatus(espnMatch.status), minute: espnMatch.minute, venue: espnMatch.venue,
           homeScore: espnMatch.homeScore, awayScore: espnMatch.awayScore,
           halfTimeHome: null, halfTimeAway: null,
           homeXg: null, awayXg: null,

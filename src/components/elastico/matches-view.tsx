@@ -429,10 +429,10 @@ export default function MatchesView() {
 
   const handleMatchClick = useCallback(
     (matchId: string) => {
-      selectMatch(matchId)
-      setView('match-detail')
+      // Prefix with fd: so match-detail API knows to use football-data.org fallback
+      selectMatch(`fd:${matchId}`)
     },
-    [selectMatch, setView],
+    [selectMatch],
   )
 
   // ── Render helpers ─────────────────────────────────────────────────────
