@@ -16,8 +16,7 @@ import {
   Trophy, Target, Crown, Star, Flame, ArrowUp, ArrowDown, Minus,
   Search, Download, Users, BarChart3,
 } from 'lucide-react'
-import { DataState } from '@/components/elastico/primitives/data-state'
-import { StatusBadge } from '@/components/elastico/primitives/status-badge'
+import { DataState, StatusBadge, SectionHeader, StatBlock } from '@/components/elastico/primitives'
 import { cn } from '@/lib/utils'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
 import { generateCSV } from '@/lib/export'
@@ -143,10 +142,10 @@ export default function LeaderboardView() {
               <p className="text-2xl font-black text-primary">#{userRank}</p>
             </div>
             <div className="flex-1 grid grid-cols-4 gap-2 ml-4">
-              <div className="text-center"><p className="text-sm font-bold">{userEntry.predictionAccuracy}%</p><p className="text-[9px] text-muted-foreground">Accuracy</p></div>
-              <div className="text-center"><p className="text-sm font-bold text-orange-400">{userEntry.predictionStreak}</p><p className="text-[9px] text-muted-foreground">Streak</p></div>
-              <div className="text-center"><p className="text-sm font-bold">{userEntry.totalPredictions}</p><p className="text-[9px] text-muted-foreground">Predictions</p></div>
-              <div className="text-center"><p className="text-sm font-bold text-emerald-400">{userEntry.correctPredictions}</p><p className="text-[9px] text-muted-foreground">Correct</p></div>
+              <div className="text-center"><p className="text-sm font-bold">{userEntry.predictionAccuracy}%</p><div className="flex items-center justify-center gap-1"><p className="text-[9px] text-muted-foreground">Accuracy</p><StatusBadge variant="dataclass" value="DERIVED" /></div></div>
+              <div className="text-center"><p className="text-sm font-bold text-orange-400">{userEntry.predictionStreak}</p><div className="flex items-center justify-center gap-1"><p className="text-[9px] text-muted-foreground">Streak</p><StatusBadge variant="dataclass" value="DERIVED" /></div></div>
+              <div className="text-center"><p className="text-sm font-bold">{userEntry.totalPredictions}</p><div className="flex items-center justify-center gap-1"><p className="text-[9px] text-muted-foreground">Predictions</p><StatusBadge variant="dataclass" value="REAL" /></div></div>
+              <div className="text-center"><p className="text-sm font-bold text-emerald-400">{userEntry.correctPredictions}</p><div className="flex items-center justify-center gap-1"><p className="text-[9px] text-muted-foreground">Correct</p><StatusBadge variant="dataclass" value="REAL" /></div></div>
             </div>
           </CardContent>
         </Card>
@@ -290,7 +289,7 @@ export default function LeaderboardView() {
             </Card>
 
             <Card className="glass-card-premium rounded-xl">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2"><Star className="size-4 text-amber-400" />Platform Stats</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2"><Star className="size-4 text-amber-400" />Platform Stats<StatusBadge variant="dataclass" value="DERIVED" /></CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {[
                   { label: 'Total Predictors', value: predictors.length, icon: Users },

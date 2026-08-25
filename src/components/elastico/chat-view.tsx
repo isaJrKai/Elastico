@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useElasticoStore, type ChatMessage, type Match } from '@/store/use-elastico-store'
+import { SectionHeader, DataState, StatusBadge } from '@/components/elastico/primitives'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

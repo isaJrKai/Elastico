@@ -26,7 +26,7 @@ import {
 import type { MatchInput, FullMatchAnalysis, EngineConfig, InjuryAdjustment } from '@/lib/prediction-engine'
 import { cn } from '@/lib/utils'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
-import { StatusBadge } from '@/components/elastico/primitives/status-badge'
+import { StatusBadge, SectionHeader, StatBlock } from '@/components/elastico/primitives'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
@@ -541,7 +541,10 @@ export default function PredictionEngineView() {
                     </Card>
                     <Card className="glass-card border-zinc-800/50">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Expected Goals</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-xs font-medium text-zinc-400">Expected Goals</CardTitle>
+                          <StatusBadge variant="dataclass" value="SIMULATION" />
+                        </div>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-3">
                         <div className="text-center">
@@ -559,7 +562,10 @@ export default function PredictionEngineView() {
                     </Card>
                     <Card className="glass-card border-zinc-800/50">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">BTTS & Volatility</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-xs font-medium text-zinc-400">BTTS & Volatility</CardTitle>
+                          <StatusBadge variant="dataclass" value="SIMULATION" />
+                        </div>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-4">
                         <div className="text-center">
@@ -645,7 +651,10 @@ export default function PredictionEngineView() {
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                   <Card className="glass-card border-zinc-800/50">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-xs font-medium text-zinc-400">Portfolio Summary</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-xs font-medium text-zinc-400">Portfolio Summary</CardTitle>
+                        <StatusBadge variant="dataclass" value="DERIVED" />
+                      </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex justify-between text-sm">
@@ -688,7 +697,7 @@ export default function PredictionEngineView() {
                         <div className="flex flex-wrap gap-2 justify-center mt-1">
                           {kellyPie.map((p, i) => (
                             <div key={i} className="flex items-center gap-1 text-xs text-zinc-400">
-                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ['#00e676', '#ffd700', '#ff4757', '#38bdf8', '#c084fc'][i % 5] }} />
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: chartColor(i) }} />
                               {p.name}: ${p.value}
                             </div>
                           ))}
@@ -704,9 +713,12 @@ export default function PredictionEngineView() {
             <div className="lg:col-span-2">
               <Card className="glass-card border-zinc-800/50">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                    <Target className="w-4 h-4 text-emerald-400" /> Kelly Criterion Results
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                      <Target className="w-4 h-4 text-emerald-400" /> Kelly Criterion Results
+                    </CardTitle>
+                    <StatusBadge variant="dataclass" value="DERIVED" />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {!kellyResult ? (

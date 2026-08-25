@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
-import { DataState } from '@/components/elastico/primitives'
+import { DataState, StatusBadge } from '@/components/elastico/primitives'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import {
@@ -492,10 +492,10 @@ export default function PredictionsView() {
       {/* ── ACCURACY STATS CARDS ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { icon: Target, label: 'Accuracy', value: `${accuracy}%`, color: 'text-primary' },
-          { icon: Zap, label: 'Total Predictions', value: totalPredictions, color: 'text-cyan-400' },
-          { icon: Flame, label: 'Current Streak', value: streak, color: 'text-orange-400' },
-          { icon: Crown, label: 'Best Streak', value: bestStreak, color: 'text-amber-400' },
+          { icon: Target, label: 'Accuracy', value: `${accuracy}%`, color: 'text-primary', dataClass: 'DERIVED' },
+          { icon: Zap, label: 'Total Predictions', value: totalPredictions, color: 'text-cyan-400', dataClass: 'REAL' },
+          { icon: Flame, label: 'Current Streak', value: streak, color: 'text-orange-400', dataClass: 'DERIVED' },
+          { icon: Crown, label: 'Best Streak', value: bestStreak, color: 'text-amber-400', dataClass: 'DERIVED' },
         ].map(s => (
           <Card key={s.label} className="glass-card-premium card-hover-lift rounded-xl">
             <CardContent className="flex items-center gap-3 p-4">
@@ -504,7 +504,10 @@ export default function PredictionsView() {
               </div>
               <div>
                 <p className="text-lg font-bold leading-tight">{s.value}</p>
-                <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                <p className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                  <StatusBadge variant="dataclass" value={s.dataClass} />
+                </p>
               </div>
             </CardContent>
           </Card>

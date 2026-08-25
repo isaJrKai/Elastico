@@ -21,7 +21,7 @@ import {
   MessageSquare, Lock, Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SectionHeader } from '@/components/elastico/primitives/section-header'
+import { SectionHeader, DataState } from '@/components/elastico/primitives'
 
 // ── Types & Constants ────────────────────────────────────────────────────
 

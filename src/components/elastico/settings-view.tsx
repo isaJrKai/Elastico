@@ -75,6 +75,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePWA } from '@/hooks/use-pwa'
+import { SectionHeader, DataState } from '@/components/elastico/primitives'
 
 // ── Timezones ─────────────────────────────────────────────────────────────────
 
@@ -128,9 +129,9 @@ const keyboardShortcuts = [
   { keys: '⌘/', description: 'Show Shortcuts', icon: Keyboard },
 ]
 
-// ── Section Header ────────────────────────────────────────────────────────────
+// ── Settings Section ────────────────────────────────────────────────────────────
 
-function SectionHeader({
+function SettingsSection({
   icon: Icon,
   title,
   description,
@@ -269,8 +270,7 @@ function BandwidthSection() {
   return (
     <Card className="glass-card border-border">
       <CardHeader className="pb-4">
-        <SectionHeader
-          icon={Radio}
+        <SettingsSection icon={Radio}
           title="Bandwidth & Offline"
           description="PWA caching & data usage monitoring"
         />
@@ -613,7 +613,7 @@ export default function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <Card className="glass-card border-border">
         <CardHeader className="pb-4">
-          <SectionHeader
+          <SettingsSection
             icon={User}
             title="Profile"
             description="Update your personal information"
@@ -716,7 +716,7 @@ export default function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <Card className="glass-card border-border">
         <CardHeader className="pb-4">
-          <SectionHeader
+          <SettingsSection
             icon={Palette}
             title="Appearance"
             description="Customize how ELASTICO looks"
@@ -819,7 +819,7 @@ export default function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <Card className="glass-card border-border">
         <CardHeader className="pb-4">
-          <SectionHeader
+          <SettingsSection
             icon={Bell}
             title="Notifications"
             description="Choose what you want to be notified about"
@@ -915,7 +915,7 @@ export default function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <Card className="glass-card border-border">
         <CardHeader className="pb-4">
-          <SectionHeader
+          <SettingsSection
             icon={Shield}
             title="Privacy & Security"
             description="Manage your account security settings"
@@ -1115,7 +1115,7 @@ export default function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <Card className="glass-card border-border">
         <CardHeader className="pb-4">
-          <SectionHeader
+          <SettingsSection
             icon={Heart}
             title="Favorite Teams"
             description="Select teams you want to follow"
@@ -1226,7 +1226,7 @@ export default function SettingsView() {
       {/* ═══════════════════════════════════════════════════════════════════════ */}
       <Card className="glass-card border-border">
         <CardHeader className="pb-4">
-          <SectionHeader
+          <SettingsSection
             icon={Keyboard}
             title="Keyboard Shortcuts"
             description="Navigate faster with keyboard shortcuts"
@@ -1260,7 +1260,7 @@ export default function SettingsView() {
       {/* 9. AI and NVIDIA Settings */}
       <Card className="glass-card border-border">
         <CardHeader className="pb-4">
-          <SectionHeader
+          <SettingsSection
             icon={Cpu}
             title="AI & NVIDIA Integration"
             description="Configure the AI analysis engine"

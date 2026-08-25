@@ -56,8 +56,7 @@ import { useElasticoStore, type Player } from '@/store/use-elastico-store'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
-import { StatusBadge } from '@/components/elastico/primitives/status-badge'
-import { FlagIcon } from '@/components/elastico/primitives/flag-icon'
+import { StatusBadge, FlagIcon, SectionHeader, DataState, StatBlock, TeamCrest, PlayerHeadshot } from '@/components/elastico/primitives'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

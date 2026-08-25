@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
-import { TeamCrest, StatusBadge } from '@/components/elastico/primitives'
+import { TeamCrest, StatusBadge, SectionHeader } from '@/components/elastico/primitives'
 
 // ── Extended Types ──────────────────────────────────────────────────────────
 
@@ -76,8 +76,8 @@ function StatBarRow({ label, homeValue, awayValue, homeColor, awayColor, suffix 
         <span className={cn('font-semibold tabular-nums', (100 - hp) > hp ? 'text-foreground' : 'text-muted-foreground')}>{fmt(awayValue)}{suffix}</span>
       </div>
       <div className="flex h-2 gap-0.5 rounded-full overflow-hidden bg-muted">
-        <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${hp}%`, backgroundColor: homeColor || 'oklch(0.72 0.19 163)' }} />
-        <div className="h-full rounded-full transition-all duration-700 ease-out ml-auto" style={{ width: `${100 - hp}%`, backgroundColor: awayColor || 'oklch(0.68 0.15 230)' }} />
+        <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${hp}%`, backgroundColor: homeColor || chartColor(0) }} />
+        <div className="h-full rounded-full transition-all duration-700 ease-out ml-auto" style={{ width: `${100 - hp}%`, backgroundColor: awayColor || chartColor(1) }} />
       </div>
     </div>
   )

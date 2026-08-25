@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useElasticoStore, type Notification } from '@/store/use-elastico-store'
+import { SectionHeader, DataState, StatusBadge } from '@/components/elastico/primitives'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'

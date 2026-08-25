@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table'
 import { Trophy, Star, TrendingUp, Zap, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TeamCrest, SectionHeader, DataState } from '@/components/elastico/primitives'
+import { TeamCrest, SectionHeader, DataState, StatusBadge } from '@/components/elastico/primitives'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -144,7 +144,7 @@ export default function TournamentView() {
         ].map(s => (
           <Card key={s.label} className="glass-card-premium card-hover-lift rounded-xl"><CardContent className="flex items-center gap-3 p-4">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50"><s.icon className={cn('size-4', s.color)} /></div>
-            <div><p className="text-lg font-bold leading-tight truncate">{s.value}</p><p className="text-[10px] text-muted-foreground">{s.label}</p></div>
+            <div><p className="text-lg font-bold leading-tight truncate">{s.value}</p><div className="flex items-center gap-1"><p className="text-[10px] text-muted-foreground">{s.label}</p><StatusBadge variant="dataclass" value="REAL" /></div></div>
           </CardContent></Card>
         ))}
       </div>
@@ -153,7 +153,7 @@ export default function TournamentView() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {topTeam && (
           <Card className="glass-card-premium rounded-xl"><CardContent className="p-4 text-center">
-            <p className="text-[10px] text-muted-foreground mb-2">League Leader</p>
+            <div className="flex items-center justify-center gap-1 mb-2"><p className="text-[10px] text-muted-foreground">League Leader</p><StatusBadge variant="dataclass" value="REAL" /></div>
             <TeamCrest code={topTeam.code} espnLogo={topTeam.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{topTeam.team}</p>
             <p className="text-2xl font-black text-primary mt-1">{topTeam.points} pts</p>
@@ -162,7 +162,7 @@ export default function TournamentView() {
         )}
         {topScorer && (
           <Card className="glass-card-premium rounded-xl"><CardContent className="p-4 text-center">
-            <p className="text-[10px] text-muted-foreground mb-2">Most Goals Scored</p>
+            <div className="flex items-center justify-center gap-1 mb-2"><p className="text-[10px] text-muted-foreground">Most Goals Scored</p><StatusBadge variant="dataclass" value="REAL" /></div>
             <TeamCrest code={topScorer.code} espnLogo={topScorer.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{topScorer.team}</p>
             <p className="text-2xl font-black text-emerald-400 mt-1">{topScorer.goalsFor} GF</p>
@@ -171,7 +171,7 @@ export default function TournamentView() {
         )}
         {bestDefense && (
           <Card className="glass-card-premium rounded-xl"><CardContent className="p-4 text-center">
-            <p className="text-[10px] text-muted-foreground mb-2">Best Defense</p>
+            <div className="flex items-center justify-center gap-1 mb-2"><p className="text-[10px] text-muted-foreground">Best Defense</p><StatusBadge variant="dataclass" value="REAL" /></div>
             <TeamCrest code={bestDefense.code} espnLogo={bestDefense.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{bestDefense.team}</p>
             <p className="text-2xl font-black text-cyan-400 mt-1">{bestDefense.goalsAgainst} GA</p>

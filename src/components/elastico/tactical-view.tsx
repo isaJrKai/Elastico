@@ -5,12 +5,7 @@ import { cn } from '@/lib/utils'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { TYPE } from '@/lib/design-system'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, legendProps, chartColor } from '@/lib/chart-theme'
-import { TeamCrest } from '@/components/elastico/primitives/team-crest'
-import { PlayerHeadshot } from '@/components/elastico/primitives/player-headshot'
-import { StatBlock } from '@/components/elastico/primitives/stat-block'
-import { SectionHeader } from '@/components/elastico/primitives/section-header'
-import { DataState } from '@/components/elastico/primitives/data-state'
-import { StatusBadge } from '@/components/elastico/primitives/status-badge'
+import { TeamCrest, PlayerHeadshot, StatBlock, StatBlockProps, SectionHeader, DataState, StatusBadge } from '@/components/elastico/primitives'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -228,8 +223,8 @@ export function TacticalView() {
   const styleData = useMemo(() => {
     if (!homeTeam || !awayTeam) return []
     return [
-      { metric: 'xG/Game', [homeTeam.code]: homeTeam.xgPerGame ?? null, [awayTeam.code]: awayTeam.xgPerGame ?? null, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
-      { metric: 'xGA/Game', [homeTeam.code]: homeTeam.xgaPerGame ?? null, [awayTeam.code]: awayTeam.xgaPerGame ?? null, dataClass: ((homeTeam as any).xgTruthClass as string) || 'MISSING' as any },
+      { metric: 'xG/Game', [homeTeam.code]: homeTeam.xgPerGame ?? null, [awayTeam.code]: awayTeam.xgPerGame ?? null, dataClass: homeTeam.xgTruthClass || 'MISSING' },
+      { metric: 'xGA/Game', [homeTeam.code]: homeTeam.xgaPerGame ?? null, [awayTeam.code]: awayTeam.xgaPerGame ?? null, dataClass: homeTeam.xgTruthClass || 'MISSING' },
       { metric: 'Poss %', [homeTeam.code]: homeTeam.possession, [awayTeam.code]: awayTeam.possession, dataClass: (homeTeam.possession != null && awayTeam.possession != null) ? 'REAL' as const : 'MISSING' as const },
       { metric: 'Pass Acc', [homeTeam.code]: homeTeam.passAccuracy, [awayTeam.code]: awayTeam.passAccuracy, dataClass: (homeTeam.passAccuracy != null && awayTeam.passAccuracy != null) ? 'REAL' as const : 'MISSING' as const },
       { metric: 'Press', [homeTeam.code]: homeTeam.pressIntensity, [awayTeam.code]: awayTeam.pressIntensity, dataClass: (homeTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? 'DERIVED' as const : 'MISSING' as const },
@@ -539,8 +534,8 @@ export function TacticalView() {
                     <span className={TYPE.h3}>{homeTeam!.name}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <StatBlock label="xG/Game" value={homeTeam!.xgPerGame != null ? homeTeam!.xgPerGame.toFixed(2) : '--'} dataClass={((homeTeam as any).xgTruthClass) || 'MISSING'} compact />
-                    <StatBlock label="xGA/Game" value={homeTeam!.xgaPerGame != null ? homeTeam!.xgaPerGame.toFixed(2) : '--'} dataClass={((homeTeam as any).xgTruthClass) || 'MISSING'} compact />
+                    <StatBlock label="xG/Game" value={homeTeam!.xgPerGame != null ? homeTeam!.xgPerGame.toFixed(2) : '--'} dataClass={(homeTeam!.xgTruthClass || 'MISSING') as StatBlockProps['dataClass']} compact />
+                    <StatBlock label="xGA/Game" value={homeTeam!.xgaPerGame != null ? homeTeam!.xgaPerGame.toFixed(2) : '--'} dataClass={(homeTeam!.xgTruthClass || 'MISSING') as StatBlockProps['dataClass']} compact />
                     <StatBlock label="Possession" value={`${homeTeam!.possession}%`} dataClass="REAL" compact />
                     <StatBlock label="Pass Acc" value={`${homeTeam!.passAccuracy}%`} dataClass="REAL" compact />
                     <StatBlock label="Press Int." value={(homeTeam!.pressIntensity ?? 0).toFixed(0)} dataClass="DERIVED" compact />
@@ -556,8 +551,8 @@ export function TacticalView() {
                     <span className={TYPE.h3}>{awayTeam!.name}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <StatBlock label="xG/Game" value={awayTeam!.xgPerGame != null ? awayTeam!.xgPerGame.toFixed(2) : '--'} dataClass={((awayTeam as any).xgTruthClass) || 'MISSING'} compact />
-                    <StatBlock label="xGA/Game" value={awayTeam!.xgaPerGame != null ? awayTeam!.xgaPerGame.toFixed(2) : '--'} dataClass={((awayTeam as any).xgTruthClass) || 'MISSING'} compact />
+                    <StatBlock label="xG/Game" value={awayTeam!.xgPerGame != null ? awayTeam!.xgPerGame.toFixed(2) : '--'} dataClass={(awayTeam!.xgTruthClass || 'MISSING') as StatBlockProps['dataClass']} compact />
+                    <StatBlock label="xGA/Game" value={awayTeam!.xgaPerGame != null ? awayTeam!.xgaPerGame.toFixed(2) : '--'} dataClass={(awayTeam!.xgTruthClass || 'MISSING') as StatBlockProps['dataClass']} compact />
                     <StatBlock label="Possession" value={`${awayTeam!.possession}%`} dataClass="REAL" compact />
                     <StatBlock label="Pass Acc" value={`${awayTeam!.passAccuracy}%`} dataClass="REAL" compact />
                     <StatBlock label="Press Int." value={(awayTeam!.pressIntensity ?? 0).toFixed(0)} dataClass="DERIVED" compact />

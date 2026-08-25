@@ -25,8 +25,7 @@ import {
 import { useElasticoStore, type Team } from '@/store/use-elastico-store'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { TeamCrest } from '@/components/elastico/primitives/team-crest'
-import { StatusBadge } from '@/components/elastico/primitives/status-badge'
+import { TeamCrest, StatusBadge, SectionHeader, DataState, StatBlock } from '@/components/elastico/primitives'
 
 // ── State type ─────────────────────────────────────────────────────────────────
 
@@ -56,20 +55,20 @@ export default function CompareView() {
     const homeMatches = homeTeam.wins + homeTeam.draws + homeTeam.losses
     const awayMatches = awayTeam.wins + awayTeam.draws + awayTeam.losses
     return [
-      { label: 'ELO Rating', home: homeTeam.eloRating ?? null, away: awayTeam.eloRating ?? null, higher: 'higher' as const },
-      { label: 'xG per Game', home: homeTeam.xgPerGame ?? null, away: awayTeam.xgPerGame ?? null, higher: 'higher' as const, truthClass: (homeTeam.xgTruthClass as string) || 'MISSING', source: (homeTeam.xgSource as string) || null },
-      { label: 'xGA per Game', home: homeTeam.xgaPerGame ?? null, away: awayTeam.xgaPerGame ?? null, higher: 'lower' as const, truthClass: (homeTeam.xgTruthClass as string) || 'MISSING', source: (homeTeam.xgSource as string) || null },
-      { label: 'Possession %', home: homeTeam.possession ?? null, away: awayTeam.possession ?? null, higher: 'higher' as const },
-      { label: 'Pass Accuracy %', home: homeTeam.passAccuracy ?? null, away: awayTeam.passAccuracy ?? null, higher: 'higher' as const },
-      { label: 'Press Intensity', home: homeTeam.pressIntensity ?? null, away: awayTeam.pressIntensity ?? null, higher: 'higher' as const },
-      { label: 'Goals For', home: homeTeam.goalsFor ?? 0, away: awayTeam.goalsFor ?? 0, higher: 'higher' as const },
-      { label: 'Goals Against', home: homeTeam.goalsAgainst ?? 0, away: awayTeam.goalsAgainst ?? 0, higher: 'lower' as const },
-      { label: 'Wins', home: homeTeam.wins, away: awayTeam.wins, higher: 'higher' as const },
-      { label: 'Draws', home: homeTeam.draws, away: awayTeam.draws, higher: 'neutral' as const },
-      { label: 'Losses', home: homeTeam.losses, away: awayTeam.losses, higher: 'lower' as const },
-      { label: 'GD', home: homeTeam.goalsFor - homeTeam.goalsAgainst, away: awayTeam.goalsFor - awayTeam.goalsAgainst, higher: 'higher' as const },
-      { label: 'Avg Goals/Game', home: homeMatches > 0 ? +(homeTeam.goalsFor / homeMatches).toFixed(2) : 0, away: awayMatches > 0 ? +(awayTeam.goalsFor / awayMatches).toFixed(2) : 0, higher: 'higher' as const },
-      { label: 'Win Rate %', home: homeMatches > 0 ? +((homeTeam.wins / homeMatches) * 100).toFixed(1) : 0, away: awayMatches > 0 ? +((awayTeam.wins / awayMatches) * 100).toFixed(1) : 0, higher: 'higher' as const },
+      { label: 'ELO Rating', home: homeTeam.eloRating ?? null, away: awayTeam.eloRating ?? null, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'xG per Game', home: homeTeam.xgPerGame ?? null, away: awayTeam.xgPerGame ?? null, higher: 'higher' as const, truthClass: homeTeam.xgTruthClass || 'MISSING', source: homeTeam.xgSource || null },
+      { label: 'xGA per Game', home: homeTeam.xgaPerGame ?? null, away: awayTeam.xgaPerGame ?? null, higher: 'lower' as const, truthClass: homeTeam.xgTruthClass || 'MISSING', source: homeTeam.xgSource || null },
+      { label: 'Possession %', home: homeTeam.possession ?? null, away: awayTeam.possession ?? null, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'Pass Accuracy %', home: homeTeam.passAccuracy ?? null, away: awayTeam.passAccuracy ?? null, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'Press Intensity', home: homeTeam.pressIntensity ?? null, away: awayTeam.pressIntensity ?? null, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'Goals For', home: homeTeam.goalsFor ?? 0, away: awayTeam.goalsFor ?? 0, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'Goals Against', home: homeTeam.goalsAgainst ?? 0, away: awayTeam.goalsAgainst ?? 0, higher: 'lower' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'Wins', home: homeTeam.wins, away: awayTeam.wins, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'Draws', home: homeTeam.draws, away: awayTeam.draws, higher: 'neutral' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'Losses', home: homeTeam.losses, away: awayTeam.losses, higher: 'lower' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'GD', home: homeTeam.goalsFor - homeTeam.goalsAgainst, away: awayTeam.goalsFor - awayTeam.goalsAgainst, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'Avg Goals/Game', home: homeMatches > 0 ? +(homeTeam.goalsFor / homeMatches).toFixed(2) : 0, away: awayMatches > 0 ? +(awayTeam.goalsFor / awayMatches).toFixed(2) : 0, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
+      { label: 'Win Rate %', home: homeMatches > 0 ? +((homeTeam.wins / homeMatches) * 100).toFixed(1) : 0, away: awayMatches > 0 ? +((awayTeam.wins / awayMatches) * 100).toFixed(1) : 0, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
     ]
   }, [homeTeam, awayTeam])
 
@@ -330,8 +329,8 @@ export default function CompareView() {
               {statComparisons.map((stat) => {
                 // Handle null values — show N/A with provenance
                 if (stat.home === null || stat.away === null) {
-                  const tc = (stat as any).truthClass
-                  const src = (stat as any).source
+                  const tc = stat.truthClass
+                  const src = stat.source
                   return (
                     <div key={stat.label} className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground w-16 text-right shrink-0">N/A</span>
@@ -360,8 +359,8 @@ export default function CompareView() {
                 const total = Math.max(stat.home + stat.away, 0.01)
                 const homePct = Math.round((stat.home / total) * 100)
                 const homeWins = stat.higher === 'higher' ? stat.home > stat.away : stat.higher === 'lower' ? stat.home < stat.away : true
-                const tc = (stat as any).truthClass
-                const src = (stat as any).source
+                const tc = stat.truthClass
+                const src = stat.source
                 return (
                   <div key={stat.label} className="flex items-center gap-3">
                     <span className={cn('text-xs font-medium w-16 text-right shrink-0', homeWins ? 'text-primary' : 'text-muted-foreground')}>
