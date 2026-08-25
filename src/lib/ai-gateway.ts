@@ -45,7 +45,7 @@ const PROVIDERS: Provider[] = [
   {
     name: 'NVIDIA',
     baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'meta/llama-3.3-70b-instruct',
+    model: 'nvidia/llama-3.3-nemotron-super-49b-v1',
     maxTokens: 4096,
     envKey: 'NVIDIA_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
