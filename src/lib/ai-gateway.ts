@@ -9,11 +9,11 @@
  *     and keys are never sent to the browser.
  *
  * Priority order (7 providers):
- * 1. Google Gemini (best quality, 1M context)
- * 2. Groq (ultra-fast, ~200ms)
- * 3. Cerebras (insanely fast, ~2K tokens/sec)
- * 4. Mistral (huge daily token limit)
- * 5. NVIDIA (if key available)
+ * 1. NVIDIA Nemotron (primary)
+ * 2. Google Gemini (best quality, 1M context)
+ * 3. Groq (ultra-fast, ~200ms)
+ * 4. Cerebras (insanely fast, ~2K tokens/sec)
+ * 5. Mistral (huge daily token limit)
  * 6. GitHub Models (GPT-4o-mini free)
  * 7. OpenRouter (last resort, free models)
  *
@@ -42,6 +42,14 @@ interface Provider {
 }
 
 const PROVIDERS: Provider[] = [
+  {
+    name: 'NVIDIA',
+    baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
+    model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+    maxTokens: 4096,
+    envKey: 'NVIDIA_API_KEY',
+    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
+  },
   {
     name: 'Google Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
@@ -72,14 +80,6 @@ const PROVIDERS: Provider[] = [
     model: 'mistral-small-latest',
     maxTokens: 4096,
     envKey: 'MISTRAL_API_KEY',
-    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
-  },
-  {
-    name: 'NVIDIA',
-    baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'nvidia/llama-3.1-nemotron-70b-instruct',
-    maxTokens: 4096,
-    envKey: 'NVIDIA_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
   },
   {
