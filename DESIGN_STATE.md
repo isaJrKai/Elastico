@@ -170,3 +170,21 @@ DS-061 | DataClass Badges Expanded | Added dataClass badges to: predictions (4 s
 DS-062 | Chart Color Compliance | prediction-engine Kelly pie legend hardcoded hex array → chartColor(i). All charts now use unified palette. | DS-006/DS-007 enforced everywhere.
 
 ---
+
+## Phase 13: Secondary Screen DS Audit
+
+DS-063 | admin-view Chart Theme | Added chart-theme import; ChartTooltip now uses tooltipContentStyle. Typed ChartTooltip props (removed 2 `any`). | Recharts consistency enforced in admin charts.
+
+DS-064 | admin-view SectionHeader | 2 manual uppercase section labels ("Session Info", "Permission Matrix") → SectionHeader primitive. | DS-019 enforced in dialogs/overlays.
+
+---
+
+## Phase 14: Data-Truth Audit
+
+DS-065 | No Silent Catch Blocks | 20 silent `catch {}` / `.catch(() => null)` blocks across 9 views now log `console.error` or `console.warn`. User-facing error catches (toast, setError) left intact. | Errors are no longer silently swallowed — they reach the console for debugging.
+
+DS-066 | No Fabricated Defaults | Removed `|| 28` (proCount), `|| 12` (eliteCount), `|| 24` (matches) from admin-view. These were fake numbers presented as real. | Zero fabricated data in any view.
+
+DS-067 | || 0 → ?? 0 / ?? '—' | 25 `|| 0` fallbacks replaced with `?? 0` (for math) or `?? '—'` (for display) across admin, player, system-monitor views. | Falsy values (empty string, false) no longer masquerade as 0. Null data shows as '—' not fake 0.
+
+---
