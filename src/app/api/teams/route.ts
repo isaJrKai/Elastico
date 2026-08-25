@@ -43,10 +43,13 @@ export async function GET(req: NextRequest) {
     if (canonicalTeams.length > 0) {
       // Fetch legacy Team rows for logo/stats enrichment (best-effort)
       const canonicalNames = canonicalTeams.map(ct => ct.displayName)
-      const legacyTeams = await db.team.findMany({
-        where: { name: { in: canonicalNames } },
-      })
+      const leagueCode = league || 'PL'
+      const [legacyTeams, standings] = await Promise.all([
+        db.team.findMany({ where: { name: { in: canonicalNames } } }),
+        db.standingEntry.findMany({ where: { competitionCode: leagueCode } }),
+      ])
       const legacyMap = new Map(legacyTeams.map(t => [t.name, t]))
+      const formMap = new Map(standings.map(s => [s.teamName, s.form]))
 
       const teams = canonicalTeams.map(ct => {
         const legacy = legacyMap.get(ct.displayName)
@@ -80,6 +83,13 @@ export async function GET(req: NextRequest) {
           xgSource: analytic?.source ?? null,
           xgFreshness: analytic?.dataFreshness ?? null,
           xgSyncedAt: analytic?.syncedAt?.toISOString() || null,
+          // ── Form from standings (REAL — sourced from API-Sports/ESPN) ──
+          form: formMap.get(ct.displayName) || null,
+          // ── Possession/PassAccuracy/PressIntensity — not available from current sources ──
+          possession: null,
+          passAccuracy: null,
+          pressIntensity: null,
+          style: null,
         }
       })
 
@@ -91,18 +101,23 @@ export async function GET(req: NextRequest) {
     if (league) where.leagueCode = league
     if (search) where.name = { contains: search.toLowerCase() }
 
-    const dbTeams = await db.team.findMany({
-      where,
-      include: {
-        _count: { select: { players: true } },
-        analytics: {
-          where: { source: 'understat' },
-          orderBy: { syncedAt: 'desc' },
-          take: 1,
+    const leagueCode2 = league || 'PL'
+    const [dbTeams, standingsLegacy] = await Promise.all([
+      db.team.findMany({
+        where,
+        include: {
+          _count: { select: { players: true } },
+          analytics: {
+            where: { source: 'understat' },
+            orderBy: { syncedAt: 'desc' },
+            take: 1,
+          },
         },
-      },
-      orderBy: { name: 'asc' },
-    })
+        orderBy: { name: 'asc' },
+      }),
+      db.standingEntry.findMany({ where: { competitionCode: leagueCode2 } }),
+    ])
+    const formMapLegacy = new Map(standingsLegacy.map(s => [s.teamName, s.form]))
 
     if (dbTeams.length > 0) {
       const teams = dbTeams.map(t => ({
@@ -132,6 +147,12 @@ export async function GET(req: NextRequest) {
         xgSource: t.analytics[0]?.source ?? null,
         xgFreshness: t.analytics[0]?.dataFreshness ?? null,
         xgSyncedAt: t.analytics[0]?.syncedAt?.toISOString() || null,
+        // ── Form from standings ──
+        form: formMapLegacy.get(t.name) || null,
+        possession: null,
+        passAccuracy: null,
+        pressIntensity: null,
+        style: null,
       }))
 
       return NextResponse.json({ teams, source: 'database', total: teams.length })
@@ -167,6 +188,9 @@ export async function GET(req: NextRequest) {
         // xG fields: honestly unavailable from ESPN
         xgPerGame: null, xgaPerGame: null, npxGPerGame: null,
         xgTruthClass: 'MISSING', xgSource: null, xgFreshness: null,
+        // Form: derive from W/D/L in standings response
+        form: (s.form || null),
+        possession: null, passAccuracy: null, pressIntensity: null, style: null,
       }))
 
       return NextResponse.json({ teams, source: 'espn', total: teams.length })
@@ -184,6 +208,7 @@ export async function GET(req: NextRequest) {
         playerCount: 0,
         xgPerGame: null, xgaPerGame: null, npxGPerGame: null,
         xgTruthClass: 'MISSING', xgSource: null, xgFreshness: null,
+        form: null, possession: null, passAccuracy: null, pressIntensity: null, style: null,
       }))
 
       return NextResponse.json({ teams, source: 'espn', total: teams.length })

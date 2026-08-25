@@ -242,21 +242,10 @@ export default function MatchDetailView() {
   ].filter(d => d.value > 0), [match])
 
   const xgTimeline = useMemo(() => {
-    if (!match) return []
-    const homeXg = match.homeXg ?? null
-    const awayXg = match.awayXg ?? null
-    // Do not fabricate a timeline from missing data
-    if (homeXg == null || awayXg == null) return []
-    const goals = (match.events || []).filter(e => e.type === 'goal').sort((a, b) => a.minute - b.minute)
-    let hc = 0, ac = 0
-    const pts = [{ minute: "0'", Home: 0, Away: 0 }]
-    for (const g of goals) {
-      if (g.team === 'home') hc += homeXg / Math.max(goals.filter(e => e.team === 'home').length, 1)
-      else ac += awayXg / Math.max(goals.filter(e => e.team === 'away').length, 1)
-      pts.push({ minute: `${g.minute}'`, Home: +hc.toFixed(2), Away: +ac.toFixed(2) })
-    }
-    pts.push({ minute: "90'", Home: +homeXg!.toFixed(2), Away: +awayXg!.toFixed(2) })
-    return pts
+    // xG timeline requires per-shot event-level xG data (e.g., from StatsBomb/Understat).
+    // Aggregate match xG distributed across goals is NOT a valid xG timeline.
+    // Returning empty — the chart will show an honest unavailable state.
+    return []
   }, [match])
 
   // ── StatsBomb shot map (real xG + coordinates) ────────────────────────

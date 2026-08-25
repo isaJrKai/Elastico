@@ -109,9 +109,9 @@ export interface Team {
   xgTruthClass: string | null  // 'REAL', 'DERIVED', 'PROXY', 'MISSING', null
   xgSource: string | null     // 'understat', 'proxy', null
   xgFreshness: string | null  // 'FRESH', 'CURRENT', 'SEASON', 'STALE'
-  possession: number
-  passAccuracy: number
-  pressIntensity: number
+  possession: number | null
+  passAccuracy: number | null
+  pressIntensity: number | null
   logo?: string
   players?: Player[]
 }
@@ -125,7 +125,7 @@ export interface Player {
   assists: number
   yellowCards: number
   redCards: number
-  rating: number
+  rating: number | null
   marketValue: number | null
   age: number | null
 }

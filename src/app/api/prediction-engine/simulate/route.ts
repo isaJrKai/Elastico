@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       awayGoalsConceded: matchInput.awayGoalsConceded ?? 1.2,
       homeElo: matchInput.homeElo ?? 1600,
       awayElo: matchInput.awayElo ?? 1500,
-      bookmakerOdds: matchInput.bookmakerOdds || { home: 2.10, draw: 3.40, away: 3.50 },
+      bookmakerOdds: matchInput.bookmakerOdds ?? null,
       historicalResiduals: matchInput.historicalResiduals,
       injuries: matchInput.injuries,
       correlation: matchInput.correlation,

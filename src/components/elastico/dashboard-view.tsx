@@ -233,8 +233,8 @@ function FeaturedMatchPanel() {
         awayTeam: espnLive.awayTeam,
         homeScore: espnLive.homeScore ?? 0,
         awayScore: espnLive.awayScore ?? 0,
-        homeElo: 1500,
-        awayElo: 1500,
+        homeElo: null as number | null,
+        awayElo: null as number | null,
         competition: espnLive.competition,
         status: 'live' as const,
         source: 'espn',
@@ -319,10 +319,11 @@ function FeaturedMatchPanel() {
     )
   }
 
-  // Compute probabilities
-  const homeProb = computeEloProb(featured.homeElo, featured.awayElo, 'home')
-  const drawProb = computeEloProb(featured.homeElo, featured.awayElo, 'draw')
-  const awayProb = computeEloProb(featured.homeElo, featured.awayElo, 'away')
+  // Compute probabilities — only when real ELO is available
+  const hasElo = featured.homeElo != null && featured.awayElo != null
+  const homeProb = hasElo ? computeEloProb(featured.homeElo!, featured.awayElo!, 'home') : null
+  const drawProb = hasElo ? computeEloProb(featured.homeElo!, featured.awayElo!, 'draw') : null
+  const awayProb = hasElo ? computeEloProb(featured.homeElo!, featured.awayElo!, 'away') : null
 
   const isLive = featured.status === 'live'
 
@@ -367,7 +368,7 @@ function FeaturedMatchPanel() {
                 {featured.homeTeam?.name || 'Home'}
               </p>
               <p className="text-[11px] text-muted-foreground tabular-nums font-medium">
-                ELO {featured.homeElo}
+                ELO {featured.homeElo ?? 'N/A'}
               </p>
             </div>
           </div>
@@ -408,7 +409,7 @@ function FeaturedMatchPanel() {
                 {featured.awayTeam?.name || 'Away'}
               </p>
               <p className="text-[11px] text-muted-foreground tabular-nums font-medium">
-                ELO {featured.awayElo}
+                ELO {featured.awayElo ?? 'N/A'}
               </p>
             </div>
             <TeamCrest
@@ -422,7 +423,8 @@ function FeaturedMatchPanel() {
         </div>
       </div>
 
-      {/* Probability bars */}
+      {/* Probability bars — only shown when real ELO data exists */}
+      {hasElo ? (
       <div className="px-6 pb-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Match Probability</span>
@@ -470,6 +472,11 @@ function FeaturedMatchPanel() {
           </div>
         </div>
       </div>
+      ) : (
+      <div className="px-6 pb-4">
+        <p className="text-[11px] text-muted-foreground/60 text-center py-3">ELO ratings unavailable for this match — probability bars require database-backed ELO data.</p>
+      </div>
+      )}
 
       {/* Action bar */}
       <div className="px-6 pb-5">

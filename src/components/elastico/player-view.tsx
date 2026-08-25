@@ -70,16 +70,11 @@ interface EnhancedPlayer extends Player {
 }
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function generateRadarStats(p: EnhancedPlayer) {
-  return {
-    Pace: p.position === 'FWD' || p.position === 'MID' ? 75 : 55,
-    Shooting: p.position === 'FWD' ? 75 : 50,
-    Passing: p.position === 'MID' ? 75 : 55,
-    Defending: p.position === 'DEF' ? 75 : 45,
-    Physical: 65,
-    Dribbling: p.position === 'FWD' || p.position === 'MID' ? 72 : 50,
-  }
-}
+// Radar chart removed: generateRadarStats was producing entirely fabricated per-position
+// attribute values with no data source. The function has been replaced with null returns.
+// When real per-player advanced metrics (pressures, sprints, pass completion, etc.) become
+// available from a database-backed source, radar charts can be rebuilt from that data.
+// See: PR-016 in the acceptance report for details.
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -150,7 +145,7 @@ export function PlayerView() {
                 position: a.position || 'MID',
                 age: a.age || 25,
                 nationality: a.nationality || '',
-                rating: 0, // ESPN roster API does not provide match ratings
+                rating: null, // ESPN roster API does not provide match ratings
                 goals: a.goals ?? 0,
                 assists: a.assists ?? 0,
                 teamName: t.name,
@@ -230,18 +225,18 @@ export function PlayerView() {
 
   const uniqueTeams = useMemo(() => [...new Set(players.map(p => p.teamName).filter(Boolean))], [players])
 
-  // Similar players
+  // Similar players — based on same position and comparable goal/assist output
+  // (radar-based similarity removed: generated stats were fabricated)
   const similarPlayers = useMemo(() => {
     if (!selectedPlayer) return []
-    const stats = generateRadarStats(selectedPlayer)
     return players
       .filter(p => p.id !== selectedPlayer.id && p.position === selectedPlayer.position)
       .map(p => {
-        const ps = generateRadarStats(p)
-        const diff = Math.abs(stats.Pace - ps.Pace) + Math.abs(stats.Shooting - ps.Shooting) +
-          Math.abs(stats.Passing - ps.Passing) + Math.abs(stats.Defending - ps.Defending) +
-          Math.abs(stats.Physical - ps.Physical) + Math.abs(stats.Dribbling - ps.Dribbling)
-        return { player: p, similarity: 100 - Math.round(diff / 6) }
+        const goalDiff = Math.abs(p.goals - selectedPlayer.goals) * 3
+        const assistDiff = Math.abs(p.assists - selectedPlayer.assists) * 2
+        const ratingDiff = Math.abs((p.rating ?? 0) - (selectedPlayer.rating ?? 0)) * 5
+        const totalDiff = goalDiff + assistDiff + ratingDiff
+        return { player: p, similarity: Math.max(0, 100 - Math.round(totalDiff)) }
       })
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, 5)
@@ -390,8 +385,8 @@ export function PlayerView() {
                           <span className="text-[10px] text-muted-foreground truncate">{player.teamName}</span>
                         </div>
                       </div>
-                      <div className={cn('text-xl font-bold', player.rating > 0 ? getRatingColor(player.rating) : 'text-muted-foreground')}>
-                        {player.rating > 0 ? (player.rating).toFixed(1) : 'N/A'}
+                      <div className={cn('text-xl font-bold', player.rating != null && player.rating > 0 ? getRatingColor(player.rating) : 'text-muted-foreground')}>
+                        {player.rating != null && player.rating > 0 ? player.rating.toFixed(1) : 'N/A'}
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 mt-4">
@@ -473,7 +468,7 @@ export function PlayerView() {
                         <TableCell className="text-center font-medium">
                           {(p.goals / Math.max(1, (p.minutesPlayed ?? (p.appearances ?? 0) * 90) / 90)).toFixed(2)}
                         </TableCell>
-                        <TableCell className={cn('text-center font-bold', p.rating > 0 ? getRatingColor(p.rating) : 'text-muted-foreground')}>{p.rating > 0 ? (p.rating).toFixed(1) : '—'}</TableCell>
+                        <TableCell className={cn('text-center font-bold', p.rating != null && p.rating > 0 ? getRatingColor(p.rating) : 'text-muted-foreground')}>{p.rating != null && p.rating > 0 ? p.rating.toFixed(1) : '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -493,28 +488,16 @@ export function PlayerView() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {topScorers.slice(0, 6).map((player) => {
-                  const stats = generateRadarStats(player)
-                  const radarData = Object.entries(stats).map(([k, v]) => ({ stat: k, value: v }))
-                  return (
-                    <Card key={player.id} className="glass-card border-border/30">
-                      <CardContent className="p-3">
-                        <h4 className="text-sm font-semibold text-center mb-1">{player.name}</h4>
-                        <p className="text-[10px] text-center text-muted-foreground mb-2">{player.position} · {player.teamName}</p>
-                        <div className="h-48">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="65%">
-                              <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                              <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 9, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
-                              <PolarRadiusAxis tick={false} domain={[0, 100]} axisLine={false} />
-                              <Radar dataKey="value" stroke={chartColor(0)} fill={chartColor(0)} fillOpacity={0.15} strokeWidth={2} />
-                            </RadarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                {topScorers.slice(0, 6).map((player) => (                  <Card key={player.id} className="glass-card border-border/30">
+                    <CardContent className="p-3">
+                      <h4 className="text-sm font-semibold text-center mb-1">{player.name}</h4>
+                      <p className="text-[10px] text-center text-muted-foreground mb-2">{player.position} · {player.teamName}</p>
+                      <div className="h-48 flex items-center justify-center">
+                        <DataState type="empty" message="Advanced player metrics unavailable. Radar requires real per-player data (pressures, sprints, pass completion)." />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -572,30 +555,7 @@ export function PlayerView() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="h-56">
-                    <p className="text-xs text-center text-primary mb-1">{selectedPlayer.name}</p>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart data={Object.entries(generateRadarStats(selectedPlayer)).map(([k, v]) => ({ stat: k, value: v }))}>
-                        <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 9, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
-                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                        <Radar dataKey="value" stroke={chartColor(0)} fill={chartColor(0)} fillOpacity={0.15} strokeWidth={2} />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="h-56">
-                    <p className="text-xs text-center text-orange-400 mb-1">{comparePlayer.name}</p>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart data={Object.entries(generateRadarStats(comparePlayer)).map(([k, v]) => ({ stat: k, value: v }))}>
-                        <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 9, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
-                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                        <Radar dataKey="value" stroke={chartColor(1)} fill={chartColor(1)} fillOpacity={0.15} strokeWidth={2} />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
+                <DataState type="empty" message="Player radar comparison unavailable. Advanced per-player metrics (pace, pressing, sprint distance) are not available from current data sources." />
               </CardContent>
             </Card>
           )}
@@ -629,8 +589,8 @@ export function PlayerView() {
         <TabsContent value="positions">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Object.entries(positionalGroups).map(([pos, group]) => {
-              const rated = group.filter(p => p.rating > 0)
-              const avgRating = rated.length > 0 ? (rated.reduce((s, p) => s + p.rating, 0) / rated.length).toFixed(1) : 'N/A'
+              const rated = group.filter(p => p.rating != null && p.rating > 0)
+              const avgRating = rated.length > 0 ? (rated.reduce((s, p) => s + p.rating!, 0) / rated.length).toFixed(1) : 'N/A'
               const totalGoals = group.reduce((s, p) => s + p.goals, 0)
               const totalAssists = group.reduce((s, p) => s + p.assists, 0)
               return (
@@ -883,7 +843,7 @@ export function PlayerView() {
 
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Rating', value: selectedPlayer.rating > 0 ? (selectedPlayer.rating).toFixed(1) : 'N/A', color: selectedPlayer.rating > 0 ? getRatingColor(selectedPlayer.rating) : 'text-muted-foreground' },
+                  { label: 'Rating', value: selectedPlayer.rating != null && selectedPlayer.rating > 0 ? selectedPlayer.rating.toFixed(1) : 'N/A', color: selectedPlayer.rating != null && selectedPlayer.rating > 0 ? getRatingColor(selectedPlayer.rating) : 'text-muted-foreground' },
                   { label: 'Goals', value: selectedPlayer.goals, color: 'text-primary' },
                   { label: 'Assists', value: selectedPlayer.assists, color: 'text-primary' },
                   { label: 'Appearances', value: selectedPlayer.appearances || '-', color: 'text-foreground' },
@@ -899,16 +859,8 @@ export function PlayerView() {
                 ))}
               </div>
 
-              <div className="h-48">
-                <p className="text-xs text-muted-foreground mb-2 text-center">Attribute Radar</p>
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={Object.entries(generateRadarStats(selectedPlayer)).map(([k, v]) => ({ stat: k, value: v }))}>
-                    <PolarGrid stroke="rgba(255,255,255,0.06)" />
-                    <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--muted-foreground)', fontSize: 10, fontFamily: 'var(--font-mono), ui-monospace, monospace' }} />
-                    <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar dataKey="value" stroke={chartColor(0)} fill={chartColor(0)} fillOpacity={0.15} strokeWidth={2} />
-                  </RadarChart>
-                </ResponsiveContainer>
+              <div className="h-48 flex items-center justify-center">
+                <DataState type="empty" message="Attribute radar unavailable — no advanced per-player metrics source." />
               </div>
 
               <Button variant="outline" className="w-full gap-2" onClick={() => { setSelectedPlayer(null); setComparePlayer(selectedPlayer) }}>

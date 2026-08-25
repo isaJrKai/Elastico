@@ -268,7 +268,7 @@ export default function CompareView() {
         <div className="flex items-center gap-3 justify-end">
           <div className="text-right">
             <p className="text-sm font-semibold text-primary">{homeTeam.name}</p>
-            <p className="text-xs text-muted-foreground">ELO {homeTeam.eloRating ?? 1500}</p>
+            <p className="text-xs text-muted-foreground">ELO {homeTeam.eloRating ?? 'N/A'}</p>
           </div>
           <TeamCrest code={homeTeam.code} espnLogo={homeTeam.logo} color={homeTeam.primaryColor} size="xl" />
         </div>
@@ -279,7 +279,7 @@ export default function CompareView() {
           <TeamCrest code={awayTeam.code} espnLogo={awayTeam.logo} color={awayTeam.primaryColor} size="xl" />
           <div>
             <p className="text-sm font-semibold text-orange-400">{awayTeam.name}</p>
-            <p className="text-xs text-muted-foreground">ELO {awayTeam.eloRating ?? 1500}</p>
+            <p className="text-xs text-muted-foreground">ELO {awayTeam.eloRating ?? 'N/A'}</p>
           </div>
         </div>
       </div>

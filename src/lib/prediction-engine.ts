@@ -116,7 +116,7 @@ export interface MatchInput {
   awayGoalsConceded: number
   homeElo: number
   awayElo: number
-  bookmakerOdds: { home: number; draw: number; away: number }
+  bookmakerOdds?: { home: number; draw: number; away: number } | null
   historicalResiduals?: { home: number[]; away: number[] }
   injuries?: InjuryAdjustment[]
   correlation?: number
@@ -677,14 +677,14 @@ export function adjustForLuck(
 export interface FullMatchAnalysis {
   matchInput: MatchInput
   simulation: StochasticMatchResult
-  kellyResults: {
+  kellyResults?: {
     home: KellyResult
     draw: KellyResult
     away: KellyResult
     over25: KellyResult
     under25: KellyResult
   }
-  portfolioAllocation: PortfolioAllocation
+  portfolioAllocation?: PortfolioAllocation
   marketSignal: MarketSignal | null
   luckAdjustment: {
     home: ReturnType<typeof adjustForLuck>
@@ -728,8 +728,8 @@ export function runFullMatchAnalysis(
   }
   const simulation = runStochasticSimulation(adjustedInput, config)
 
-  // Step 3: Kelly Criterion for each market
-  const kellyResults = {
+  // Step 3: Kelly Criterion for each market (only when real odds provided)
+  const kellyResults = input.bookmakerOdds ? {
     home: calculateKelly(
       simulation.matchProbabilities.homeVictory,
       input.bookmakerOdds.home,
@@ -760,35 +760,41 @@ export function runFullMatchAnalysis(
       bankroll,
       config.kellyFraction
     ),
-  }
+  } : null
 
-  // Step 4: Portfolio allocation
-  const portfolioAllocation = calculatePortfolioAllocation([
+  // Step 4: Portfolio allocation (only when real odds provided)
+  const portfolioAllocation = input.bookmakerOdds
+    ? calculatePortfolioAllocation([
     { label: `Home Win (${input.homeTeam})`, modelProb: simulation.matchProbabilities.homeVictory, odds: input.bookmakerOdds.home },
     { label: `Draw`, modelProb: simulation.matchProbabilities.draw, odds: input.bookmakerOdds.draw },
     { label: `Away Win (${input.awayTeam})`, modelProb: simulation.matchProbabilities.awayVictory, odds: input.bookmakerOdds.away },
   ], bankroll)
+    : null
 
   // Step 5: Market signals
-  const marketSignal = openingOdds
+  const marketSignal = (openingOdds && input.bookmakerOdds)
     ? analyzeMarketSignals(openingOdds, input.bookmakerOdds, input.homeTeamId || '', input.homeTeam, input.awayTeam)
     : null
 
   // Step 6: Generate recommendation
-  const bestBet = [kellyResults.home, kellyResults.draw, kellyResults.away]
-    .filter(k => k.action === 'BET')
-    .sort((a, b) => b.edgePercentage - a.edgePercentage)[0]
+  const bestBet = kellyResults
+    ? [kellyResults.home, kellyResults.draw, kellyResults.away]
+      .filter(k => k.action === 'BET')
+      .sort((a, b) => b.edgePercentage - a.edgePercentage)[0]
+    : null
 
   const recommendation = bestBet
     ? `RECOMMENDED: ${bestBet.edgePercentage.toFixed(1)}% edge detected. Suggested wager: $${bestBet.suggestedWager.toFixed(2)} (${(bestBet.suggestedFraction * 100).toFixed(2)}% of bankroll). Model probability: ${(bestBet.modelProbability * 100).toFixed(1)}% vs market implied: ${(bestBet.impliedProbability * 100).toFixed(1)}%.`
-    : 'No positive expected value bets found for this match. The market appears efficiently priced.'
+    : input.bookmakerOdds
+    ? 'No positive expected value bets found for this match. The market appears efficiently priced.'
+    : 'No bookmaker odds provided. Kelly criterion and market analysis unavailable. Supply real odds for full analysis.'
 
   // Risk rating
-  const maxEdge = Math.max(
+  const maxEdge = kellyResults ? Math.max(
     kellyResults.home.edgePercentage,
     kellyResults.draw.edgePercentage,
     kellyResults.away.edgePercentage
-  )
+  ) : 0
   const riskRating: FullMatchAnalysis['riskRating'] =
     simulation.volatilityIndex > 70 ? 'very-high' :
     simulation.volatilityIndex > 50 ? 'high' :
@@ -797,8 +803,8 @@ export function runFullMatchAnalysis(
   return {
     matchInput: adjustedInput,
     simulation,
-    kellyResults,
-    portfolioAllocation,
+    kellyResults: kellyResults ?? undefined,
+    portfolioAllocation: portfolioAllocation ?? undefined,
     marketSignal,
     luckAdjustment: { home: homeLuck, away: awayLuck },
     recommendation,

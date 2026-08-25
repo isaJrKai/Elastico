@@ -80,24 +80,31 @@ const RADAR_DIMS = [
   { key: 'setPiece', label: 'Set Piece' },
 ]
 
-// ── Demo Tactical Profiles ─────────────────────────────────────────────
+// ── Derived Tactical Profiles ───────────────────────────────────────────
+// Generates tactical dimensions from real team metrics where available.
+// Dimensions without real data are set to null (NOT fabricated).
+// The function name uses 'derived' to reflect that these are computed, not measured.
 
-function generateDemoProfile(team: { style: string | null; xgPerGame: number | null; xgaPerGame: number | null; possession: number; pressIntensity: number; passAccuracy: number }, seed: number) {
-  const hash = (s: string) => s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  const base = hash(team.style || 'balanced') + seed
-  const jitter = (i: number, range: number) => ((base * (i + 1) * 7) % range)
-  // Use safe defaults when xG is null (no fabrication)
-  const xg = team.xgPerGame ?? 1.3
-  const xga = team.xgaPerGame ?? 1.1
+function deriveTacticalProfile(team: { style: string | null; xgPerGame: number | null; xgaPerGame: number | null; possession: number | null; pressIntensity: number | null; passAccuracy: number | null }, seed: number) {
+  // Only compute a dimension if the underlying data actually exists.
+  // xG-based attack: requires real xgPerGame
+  const attack = team.xgPerGame != null ? Math.min(95, Math.max(20, team.xgPerGame * 25)) : null
+  // Defense: inverse of xGA — requires real xgaPerGame
+  const defense = team.xgaPerGame != null ? Math.min(95, Math.max(20, 100 - team.xgaPerGame * 30)) : null
+  // Midfield: weighted from possession + pass accuracy — both must exist
+  const midfield = (team.possession != null && team.passAccuracy != null)
+    ? Math.min(95, Math.max(20, team.possession * 0.7 + team.passAccuracy * 0.2))
+    : null
+  // Pressing: requires pressIntensity data
+  const pressing = team.pressIntensity != null && team.pressIntensity > 0
+    ? Math.min(95, Math.max(20, team.pressIntensity))
+    : null
+  // Possession: requires possession data
+  const possession = team.possession != null ? Math.min(95, Math.max(20, team.possession)) : null
+  // Set piece: no reliable data source — always null
+  const setPiece = null as null
 
-  return {
-    attack: Math.min(95, Math.max(30, xg * 25 + jitter(0, 20) - 10)),
-    midfield: Math.min(95, Math.max(30, team.possession * 0.7 + team.passAccuracy * 0.2 + jitter(1, 15) - 7)),
-    defense: Math.min(95, Math.max(30, 100 - xga * 30 + jitter(2, 15) - 7)),
-    pressing: Math.min(95, Math.max(20, team.pressIntensity + jitter(3, 20) - 10)),
-    possession: Math.min(95, Math.max(20, team.possession + jitter(4, 10) - 5)),
-    setPiece: Math.min(95, Math.max(25, 40 + jitter(5, 40))),
-  }
+  return { attack, midfield, defense, pressing, possession, setPiece }
 }
 
 // ── Pitch Component ─────────────────────────────────────────────────────
@@ -201,22 +208,39 @@ export function TacticalView() {
 
   // Generate tactical profiles
   const homeProfile = useMemo(
-    () => homeTeam ? generateDemoProfile(homeTeam, 1) : null,
+    () => homeTeam ? deriveTacticalProfile(homeTeam, 1) : null,
     [homeTeam],
   )
   const awayProfile = useMemo(
-    () => awayTeam ? generateDemoProfile(awayTeam, 2) : null,
+    () => awayTeam ? deriveTacticalProfile(awayTeam, 2) : null,
     [awayTeam],
   )
 
   // Radar chart data
+  // Count how many dimensions have real data for both teams
+  const dataAvailability = useMemo(() => {
+    if (!homeProfile || !awayProfile) return 0
+    let count = 0
+    for (const dim of RADAR_DIMS) {
+      const hVal = homeProfile[dim.key as keyof typeof homeProfile]
+      const aVal = awayProfile[dim.key as keyof typeof awayProfile]
+      if (hVal != null && aVal != null) count++
+    }
+    return count
+  }, [homeProfile, awayProfile])
+
   const radarData = useMemo(() => {
     if (!homeProfile || !awayProfile) return []
-    return RADAR_DIMS.map((dim) => ({
-      dimension: dim.label,
-      [homeTeam!.code]: Math.round(homeProfile[dim.key as keyof typeof homeProfile] * 10) / 10,
-      [awayTeam!.code]: Math.round(awayProfile[dim.key as keyof typeof awayProfile] * 10) / 10,
-    }))
+    return RADAR_DIMS.map((dim) => {
+      const hVal = homeProfile[dim.key as keyof typeof homeProfile]
+      const aVal = awayProfile[dim.key as keyof typeof awayProfile]
+      return {
+        dimension: dim.label,
+        [homeTeam!.code]: hVal != null ? Math.round(hVal * 10) / 10 : null,
+        [awayTeam!.code]: aVal != null ? Math.round(aVal * 10) / 10 : null,
+        hasData: hVal != null && aVal != null,
+      }
+    })
   }, [homeProfile, awayProfile, homeTeam, awayTeam])
 
   // Style comparison bar chart
@@ -227,19 +251,19 @@ export function TacticalView() {
       { metric: 'xGA/Game', [homeTeam.code]: homeTeam.xgaPerGame ?? null, [awayTeam.code]: awayTeam.xgaPerGame ?? null, dataClass: homeTeam.xgTruthClass || 'MISSING' },
       { metric: 'Poss %', [homeTeam.code]: homeTeam.possession, [awayTeam.code]: awayTeam.possession, dataClass: (homeTeam.possession != null && awayTeam.possession != null) ? 'REAL' as const : 'MISSING' as const },
       { metric: 'Pass Acc', [homeTeam.code]: homeTeam.passAccuracy, [awayTeam.code]: awayTeam.passAccuracy, dataClass: (homeTeam.passAccuracy != null && awayTeam.passAccuracy != null) ? 'REAL' as const : 'MISSING' as const },
-      { metric: 'Press', [homeTeam.code]: homeTeam.pressIntensity, [awayTeam.code]: awayTeam.pressIntensity, dataClass: (homeTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? 'DERIVED' as const : 'MISSING' as const },
+      { metric: 'Press', [homeTeam.code]: homeTeam.pressIntensity, [awayTeam.code]: awayTeam.pressIntensity, dataClass: (homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0) ? 'DERIVED' as const : 'MISSING' as const },
     ]
   }, [homeTeam, awayTeam])
 
   // Key players (top from each team by rating)
   const homeKeyPlayers = useMemo(() => {
     if (!homeTeam?.players) return []
-    return [...homeTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 5)
+    return [...homeTeam.players].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 5)
   }, [homeTeam])
 
   const awayKeyPlayers = useMemo(() => {
     if (!awayTeam?.players) return []
-    return [...awayTeam.players].sort((a, b) => b.rating - a.rating).slice(0, 5)
+    return [...awayTeam.players].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 5)
   }, [awayTeam])
 
   const hasBothTeams = homeTeam && awayTeam
@@ -363,8 +387,8 @@ export function TacticalView() {
                     players={homeKeyPlayers.map((p) => ({ name: p.name, number: p.number, position: p.position }))}
                   />
                   <div className="flex items-center justify-between">
-                    <span className={TYPE.caption}>Style: {homeTeam!.style || 'Unknown'}</span>
-                    <StatusBadge variant="dataclass" value="DEMO" />
+                    <span className={TYPE.caption}>Style: {homeTeam!.style || 'Tactical style unavailable'}</span>
+                    <StatusBadge variant="dataclass" value={homeTeam!.style ? 'DERIVED' : 'MISSING'} />
                   </div>
                 </CardContent>
               </Card>
@@ -395,8 +419,8 @@ export function TacticalView() {
                     players={awayKeyPlayers.map((p) => ({ name: p.name, number: p.number, position: p.position }))}
                   />
                   <div className="flex items-center justify-between">
-                    <span className={TYPE.caption}>Style: {awayTeam!.style || 'Unknown'}</span>
-                    <StatusBadge variant="dataclass" value="DEMO" />
+                    <span className={TYPE.caption}>Style: {awayTeam!.style || 'Tactical style unavailable'}</span>
+                    <StatusBadge variant="dataclass" value={awayTeam!.style ? 'DERIVED' : 'MISSING'} />
                   </div>
                 </CardContent>
               </Card>
@@ -435,8 +459,11 @@ export function TacticalView() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <SectionHeader label="Tactical Radar Comparison" />
-                  <StatusBadge variant="dataclass" value="DEMO" />
+                  <StatusBadge variant="dataclass" value={dataAvailability >= 4 ? 'DERIVED' : dataAvailability > 0 ? 'PARTIAL' : 'MISSING'} />
                 </div>
+                {dataAvailability === 0 ? (
+                  <DataState type="empty" message="Insufficient real data for tactical radar. Requires xG, possession, passing, and pressing data from database." />
+                ) : (
                 <div className="w-full mx-auto" style={{ maxWidth: 480 }}>
                   <ResponsiveContainer width="100%" aspect={1}>
                     <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
@@ -472,27 +499,35 @@ export function TacticalView() {
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
+                )}
 
                 {/* Radar dimension breakdown */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
                   {RADAR_DIMS.map((dim, i) => {
                     const hVal = homeProfile![dim.key as keyof typeof homeProfile]
                     const aVal = awayProfile![dim.key as keyof typeof awayProfile]
-                    const winner = hVal > aVal ? 'home' : aVal > hVal ? 'away' : 'tie'
+                    const hasData = hVal != null && aVal != null
+                    const winner = hasData ? (hVal! > aVal! ? 'home' : aVal! > hVal! ? 'away' : 'tie') : null
                     return (
                       <div key={dim.key} className="flex flex-col gap-1 p-2 rounded-lg bg-muted/30">
                         <div className="flex items-center justify-between">
                           <span className={TYPE.caption}>{dim.label}</span>
-                          <StatusBadge variant="dataclass" value="DEMO" />
+                          <StatusBadge variant="dataclass" value={hasData ? 'DERIVED' : 'MISSING'} />
                         </div>
                         <div className="flex items-baseline gap-1">
-                          <span className={cn('text-sm font-bold tabular-nums', winner === 'home' ? 'text-emerald-400' : 'text-muted-foreground')}>
-                            {Math.round(hVal)}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">vs</span>
-                          <span className={cn('text-sm font-bold tabular-nums', winner === 'away' ? 'text-emerald-400' : 'text-muted-foreground')}>
-                            {Math.round(aVal)}
-                          </span>
+                          {hasData ? (
+                            <>
+                              <span className={cn('text-sm font-bold tabular-nums', winner === 'home' ? 'text-emerald-400' : 'text-muted-foreground')}>
+                                {Math.round(hVal!)}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">vs</span>
+                              <span className={cn('text-sm font-bold tabular-nums', winner === 'away' ? 'text-emerald-400' : 'text-muted-foreground')}>
+                                {Math.round(aVal!)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">N/A</span>
+                          )}
                         </div>
                       </div>
                     )
@@ -536,10 +571,10 @@ export function TacticalView() {
                   <div className="grid grid-cols-2 gap-3">
                     <StatBlock label="xG/Game" value={homeTeam!.xgPerGame != null ? homeTeam!.xgPerGame.toFixed(2) : '--'} dataClass={(homeTeam!.xgTruthClass || 'MISSING') as StatBlockProps['dataClass']} compact />
                     <StatBlock label="xGA/Game" value={homeTeam!.xgaPerGame != null ? homeTeam!.xgaPerGame.toFixed(2) : '--'} dataClass={(homeTeam!.xgTruthClass || 'MISSING') as StatBlockProps['dataClass']} compact />
-                    <StatBlock label="Possession" value={`${homeTeam!.possession}%`} dataClass="REAL" compact />
-                    <StatBlock label="Pass Acc" value={`${homeTeam!.passAccuracy}%`} dataClass="REAL" compact />
-                    <StatBlock label="Press Int." value={(homeTeam!.pressIntensity ?? 0).toFixed(0)} dataClass="DERIVED" compact />
-                    <StatBlock label="Form" value={homeTeam!.form || '—'} dataClass="REAL" compact />
+                    <StatBlock label="Possession" value={homeTeam!.possession != null ? `${homeTeam!.possession}%` : 'N/A'} dataClass={homeTeam!.possession != null ? 'REAL' : 'MISSING'} compact />
+                    <StatBlock label="Pass Acc" value={homeTeam!.passAccuracy != null ? `${homeTeam!.passAccuracy}%` : 'N/A'} dataClass={homeTeam!.passAccuracy != null ? 'REAL' : 'MISSING'} compact />
+                    <StatBlock label="Press Int." value={homeTeam!.pressIntensity != null && homeTeam!.pressIntensity > 0 ? homeTeam!.pressIntensity.toFixed(0) : 'N/A'} dataClass={homeTeam!.pressIntensity != null && homeTeam!.pressIntensity > 0 ? 'DERIVED' : 'MISSING'} compact />
+                    <StatBlock label="Form" value={homeTeam!.form || 'N/A'} dataClass={homeTeam!.form ? 'REAL' : 'MISSING'} compact />
                   </div>
                 </CardContent>
               </Card>
@@ -553,10 +588,10 @@ export function TacticalView() {
                   <div className="grid grid-cols-2 gap-3">
                     <StatBlock label="xG/Game" value={awayTeam!.xgPerGame != null ? awayTeam!.xgPerGame.toFixed(2) : '--'} dataClass={(awayTeam!.xgTruthClass || 'MISSING') as StatBlockProps['dataClass']} compact />
                     <StatBlock label="xGA/Game" value={awayTeam!.xgaPerGame != null ? awayTeam!.xgaPerGame.toFixed(2) : '--'} dataClass={(awayTeam!.xgTruthClass || 'MISSING') as StatBlockProps['dataClass']} compact />
-                    <StatBlock label="Possession" value={`${awayTeam!.possession}%`} dataClass="REAL" compact />
-                    <StatBlock label="Pass Acc" value={`${awayTeam!.passAccuracy}%`} dataClass="REAL" compact />
-                    <StatBlock label="Press Int." value={(awayTeam!.pressIntensity ?? 0).toFixed(0)} dataClass="DERIVED" compact />
-                    <StatBlock label="Form" value={awayTeam!.form || '—'} dataClass="REAL" compact />
+                    <StatBlock label="Possession" value={awayTeam!.possession != null ? `${awayTeam!.possession}%` : 'N/A'} dataClass={awayTeam!.possession != null ? 'REAL' : 'MISSING'} compact />
+                    <StatBlock label="Pass Acc" value={awayTeam!.passAccuracy != null ? `${awayTeam!.passAccuracy}%` : 'N/A'} dataClass={awayTeam!.passAccuracy != null ? 'REAL' : 'MISSING'} compact />
+                    <StatBlock label="Press Int." value={awayTeam!.pressIntensity != null && awayTeam!.pressIntensity > 0 ? awayTeam!.pressIntensity.toFixed(0) : 'N/A'} dataClass={awayTeam!.pressIntensity != null && awayTeam!.pressIntensity > 0 ? 'DERIVED' : 'MISSING'} compact />
+                    <StatBlock label="Form" value={awayTeam!.form || 'N/A'} dataClass={awayTeam!.form ? 'REAL' : 'MISSING'} compact />
                   </div>
                 </CardContent>
               </Card>
@@ -603,9 +638,9 @@ export function TacticalView() {
                             <div className="flex flex-col items-end gap-0.5">
                               <span className={cn(
                                 'text-sm font-bold tabular-nums',
-                                player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400',
+                                player.rating != null && player.rating >= 7 ? 'text-emerald-400' : player.rating != null && player.rating >= 6 ? 'text-amber-400' : 'text-muted-foreground',
                               )}>
-                                {(player.rating ?? 0).toFixed(1)}
+                                {player.rating != null ? player.rating.toFixed(1) : 'N/A'}
                               </span>
                             </div>
                           </div>
@@ -653,9 +688,9 @@ export function TacticalView() {
                             <div className="flex flex-col items-end gap-0.5">
                               <span className={cn(
                                 'text-sm font-bold tabular-nums',
-                                player.rating >= 7 ? 'text-emerald-400' : player.rating >= 6 ? 'text-amber-400' : 'text-red-400',
+                                player.rating != null && player.rating >= 7 ? 'text-emerald-400' : player.rating != null && player.rating >= 6 ? 'text-amber-400' : 'text-muted-foreground',
                               )}>
-                                {(player.rating ?? 0).toFixed(1)}
+                                {player.rating != null ? player.rating.toFixed(1) : 'N/A'}
                               </span>
                             </div>
                           </div>
