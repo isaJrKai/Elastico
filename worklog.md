@@ -37,3 +37,36 @@ Stage Summary:
 - Produced: /home/z/my-project/download/ELASTICO_Comprehensive_Project_Report.pdf (13 pages, 245 KB)
 - Report covers: executive summary, technical architecture, design system, ML pipeline, data integrity/blockers, feature inventory, known issues, recommendations, build/deployment
 - Critical blocker documented: Understat xG pipeline failure + 2 missing API keys
+
+---
+Task ID: A5+A6
+Agent: fullstack-developer
+Task: Build data provenance API + demo data cleanup
+
+Work Log:
+- Created /api/data-provenance GET endpoint
+- Created clean-demo-data.ts script
+- Verified TypeScript compiles (tsc --noEmit zero errors)
+
+Stage Summary:
+- Data provenance API exposes table counts, xG classification, blockers
+- Demo cleanup script nullifies fake xG=0 on unknown-source matches
+
+---
+Task ID: A7+A8
+Agent: main
+Task: Add odds sync to cron + Data Foundation UI in system monitor
+
+Work Log:
+- Added step 3.5 to cron/sync: odds snapshot ingestion from The Odds API (up to 50 per run)
+- Created DataFoundationPanel component in system-monitor-view.tsx
+- Added 'Data Foundation' tab to admin system monitor showing per-table provenance
+- Panel displays: weighted completion %, active blockers list, per-table fill rates, xG status
+- Fixed DataState prop API (type vs state)
+- Verified: tsc --noEmit = 0 errors
+- Recorded DS-068, DS-069, DS-070 in DESIGN_STATE.md
+
+Stage Summary:
+- Odds sync now runs on every cron execution (was never triggered before)
+- System Monitor > Data Foundation tab provides real-time visibility into data pipeline health
+- /api/data-provenance endpoint available for programmatic access

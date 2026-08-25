@@ -955,6 +955,70 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // ═══ 3.5 Odds Snapshot (The Odds API — key configured, sync never triggered) ═══
+    try {
+      checkTimeout()
+      const { fetchSoccerOdds } = await import('@/lib/the-odds-api')
+      const rawOdds = await fetchSoccerOdds()
+      let oddsSaved = 0
+      const now = new Date()
+      for (const o of rawOdds.slice(0, 50)) { // Limit to 50 to stay within time budget
+        checkTimeout()
+        let homeWin: number | null = null
+        let draw: number | null = null
+        let awayWin: number | null = null
+        let bookmaker = ''
+        for (const bm of o.bookmakers || []) {
+          for (const market of bm.markets || []) {
+            if (market.key === 'h2h' && !homeWin) {
+              const h = market.outcomes.find((x: { name: string }) => x.name === o.home_team)
+              const d = market.outcomes.find((x: { name: string }) => x.name === 'Draw')
+              const a = market.outcomes.find((x: { name: string }) => x.name === o.away_team)
+              if (h && a) {
+                homeWin = h.price > 0 ? (h.price / 100) + 1 : (100 / Math.abs(h.price)) + 1
+                draw = d ? (d.price > 0 ? (d.price / 100) + 1 : (100 / Math.abs(d.price)) + 1) : null
+                awayWin = a.price > 0 ? (a.price / 100) + 1 : (100 / Math.abs(a.price)) + 1
+                bookmaker = bm.title
+              }
+            }
+          }
+          if (homeWin) break
+        }
+        if (!homeWin) continue
+        try {
+          await db.oddsSnapshot.create({
+            data: {
+              externalId: o.id,
+              source: 'the-odds-api',
+              sportKey: o.sport_key,
+              homeTeam: o.home_team,
+              awayTeam: o.away_team,
+              commenceTime: o.commence_time ? new Date(o.commence_time) : null,
+              homeWinOdds: homeWin,
+              drawOdds: draw,
+              awayWinOdds: awayWin,
+              bookmaker,
+              rawData: JSON.stringify(o.bookmakers?.slice(0, 2) || []),
+              fetchedAt: now,
+            },
+          })
+          oddsSaved++
+        } catch {
+          // Duplicate snapshot — already exists
+        }
+      }
+      summary.syncs.odds = { source: 'the-odds-api', saved: oddsSaved }
+      await logSync('the-odds-api', 'odds', 'success', oddsSaved, oddsSaved, 0)
+      console.log(`[SYNC] Odds: ${oddsSaved} snapshots saved`)
+    } catch (err: any) {
+      if (err.message?.includes('timeout')) {
+        console.warn('[SYNC] Odds timeout')
+      } else {
+        console.error('[SYNC] Odds failed:', err)
+        await logSync('the-odds-api', 'odds', 'error', 0, 0, 0, String(err))
+      }
+    }
+
     // ═══ 4. ESPN Fallback — only if API-Sports didn't return fixtures ═══
     if (!apiSportsAvailable) {
       try {

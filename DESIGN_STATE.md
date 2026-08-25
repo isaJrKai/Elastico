@@ -188,3 +188,9 @@ DS-066 | No Fabricated Defaults | Removed `|| 28` (proCount), `|| 12` (eliteCoun
 DS-067 | || 0 → ?? 0 / ?? '—' | 25 `|| 0` fallbacks replaced with `?? 0` (for math) or `?? '—'` (for display) across admin, player, system-monitor views. | Falsy values (empty string, false) no longer masquerade as 0. Null data shows as '—' not fake 0.
 
 ---
+
+DS-068 | Data Foundation Tab | System Monitor gets a 5th tab "Data Foundation" showing per-table provenance, completion %, and active blockers | Makes data pipeline health visible to admins; enforces the "can I trace this number to PostgreSQL" standard
+
+DS-069 | Odds Sync in Cron | Cron sync (step 3.5) now persists odds snapshots from The Odds API | THE_ODDS_API_KEY was configured but sync was never triggered; OddsSnapshot table was empty
+
+DS-070 | Data Provenance API | GET /api/data-provenance returns table counts, xG classification, blockers, and weighted completion % | Single endpoint to verify the entire data foundation from one call

@@ -326,6 +326,157 @@ function NonAdminSystemMonitor() {
   )
 }
 
+// ── Data Foundation Panel ─────────────────────────────────────────────
+
+interface ProvenanceTable {
+  total: number
+  withProvenance: number
+  withoutProvenance: number
+  realXg?: number
+  demoXg?: number
+  nullXg?: number
+}
+
+interface ProvenanceResponse {
+  timestamp: string
+  tables: Record<string, ProvenanceTable>
+  blockers: string[]
+  completionPct: number
+}
+
+function DataFoundationPanel() {
+  const [data, setData] = useState<ProvenanceResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchProvenance = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/data-provenance')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      setData(json)
+    } catch (err) {
+      console.error('[DataFoundation] Fetch failed:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load provenance data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchProvenance() }, [])
+
+  if (loading) return <DataState type="loading" />
+  if (error) return <DataState type="error" message={error} onRetry={fetchProvenance} />
+  if (!data) return <DataState type="empty" message="No provenance data available" />
+
+  const tableOrder = ['Team', 'Match', 'Player', 'StandingEntry', 'TeamAnalytic', 'OddsSnapshot', 'NewsArticle', 'Prediction', 'CanonicalTeam', 'SourceIdentity', 'SyncLog']
+  const pct = data.completionPct
+  const pctColor = pct >= 60 ? 'text-emerald-400' : pct >= 30 ? 'text-amber-400' : 'text-red-400'
+
+  return (
+    <>
+      {/* Completion Gauge */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="sm:col-span-1">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Data Foundation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-black tabular-nums ${pctColor}`}>{pct}%</div>
+            <p className="text-xs text-muted-foreground mt-1">Overall completion (weighted)</p>
+          </CardContent>
+        </Card>
+        <Card className="sm:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Blockers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.blockers.length === 0 ? (
+              <p className="text-sm text-emerald-400">No blockers detected</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {data.blockers.map((b, i) => (
+                  <li key={i} className="text-xs text-red-400 flex items-start gap-1.5">
+                    <AlertTriangle className="size-3 mt-0.5 shrink-0" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Refresh Button */}
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={fetchProvenance} className="gap-1.5">
+          <RefreshCw className="size-3" /> Refresh
+        </Button>
+      </div>
+
+      {/* Table-by-Table Breakdown */}
+      <div className="rounded-lg border border-border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Table</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">With Provenance</TableHead>
+              <TableHead className="text-right">Without</TableHead>
+              <TableHead className="text-right">Fill Rate</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tableOrder.map(name => {
+              const t = data.tables[name]
+              if (!t) return null
+              const rate = t.total > 0 ? (t.withProvenance / t.total) * 100 : 0
+              const isMatch = name === 'Match' && t.realXg !== undefined
+              const hasRealXg = isMatch && (t.realXg ?? 0) > 0
+              const hasDemoXg = isMatch && (t.demoXg ?? 0) > 0
+              return (
+                <TableRow key={name}>
+                  <TableCell className="font-medium text-sm">{name}</TableCell>
+                  <TableCell className="text-right tabular-nums text-sm">{t.total}</TableCell>
+                  <TableCell className="text-right tabular-nums text-sm">{t.withProvenance}</TableCell>
+                  <TableCell className="text-right tabular-nums text-sm">{t.withoutProvenance}</TableCell>
+                  <TableCell className="text-right tabular-nums text-sm">
+                    <span className={rate >= 80 ? 'text-emerald-400' : rate >= 40 ? 'text-amber-400' : 'text-red-400'}>
+                      {rate.toFixed(0)}%
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {isMatch ? (
+                      <div className="flex items-center gap-1">
+                        {hasRealXg && <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px]">REAL xG</Badge>}
+                        {hasDemoXg && <Badge className="bg-amber-500/20 text-amber-400 text-[10px]">DEMO xG</Badge>}
+                        {!hasRealXg && !hasDemoXg && <Badge className="bg-red-500/20 text-red-400 text-[10px]">NO xG</Badge>}
+                      </div>
+                    ) : (
+                      t.withProvenance > 0
+                        ? <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px]">OK</Badge>
+                        : t.total > 0
+                          ? <Badge className="bg-red-500/20 text-red-400 text-[10px]">EMPTY</Badge>
+                          : <Badge className="bg-slate-500/20 text-slate-400 text-[10px]">N/A</Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <p className="text-[10px] text-muted-foreground">
+        Source: /api/data-provenance &middot; Every number visible in the UI should trace to a row in this table.
+      </p>
+    </>
+  )
+}
+
 // ── Admin View (Full Infrastructure Dashboard) ─────────────────────────────
 
 function AdminSystemMonitor() {
@@ -614,6 +765,9 @@ function AdminSystemMonitor() {
           </TabsTrigger>
           <TabsTrigger value="timesfm" className="gap-1.5">
             <Brain className="size-3.5" /> TimesFM 2.5
+          </TabsTrigger>
+          <TabsTrigger value="data-foundation" className="gap-1.5">
+            <Database className="size-3.5" /> Data Foundation
           </TabsTrigger>
         </TabsList>
 
@@ -1150,6 +1304,9 @@ function AdminSystemMonitor() {
         {/* ═══════════════════════════════════════════════════════════════════
            TAB 4: TIMESFM 2.5
            ═══════════════════════════════════════════════════════════════════ */}
+        <TabsContent value="data-foundation" className="space-y-6 mt-4">
+          <DataFoundationPanel />
+        </TabsContent>
         <TabsContent value="timesfm" className="space-y-6 mt-4">
           {/* Model Status + Conditioning Panel */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
