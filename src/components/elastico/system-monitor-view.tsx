@@ -150,7 +150,8 @@ async function checkServiceHealth(url: string, timeoutMs = 5000): Promise<{ ok: 
     clearTimeout(timer)
     const data = await res.json().catch(() => null)
     return { ok: res.ok, timeMs: Date.now() - start, data }
-  } catch {
+  } catch (err) {
+    console.warn('[SystemMonitor] Health check failed for', url, err)
     return { ok: false, timeMs: Date.now() - start }
   }
 }
@@ -373,7 +374,7 @@ function AdminSystemMonitor() {
         try {
           const errBody = await res.json()
           if (errBody.error) details = errBody.error
-        } catch { /* use default message */ }
+        } catch { /* non-JSON error body, using default message */ }
         setAuditLogs(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -382,7 +383,8 @@ function AdminSystemMonitor() {
           details,
         }, ...prev])
       }
-    } catch {
+    } catch (err) {
+      console.error('[SystemMonitor] Audit request failed for', type, err)
       setAuditLogs(prev => [{
         id: String(Date.now()),
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -425,7 +427,7 @@ function AdminSystemMonitor() {
         }
       } else {
         let errorMsg = 'Service unavailable'
-        try { const err = await res.json(); errorMsg = err.error || errorMsg } catch { /* */ }
+        try { const err = await res.json(); errorMsg = err.error || errorMsg } catch { /* non-JSON error body */ }
         setHealingEvents(prev => [{
           id: String(Date.now()),
           timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -434,7 +436,8 @@ function AdminSystemMonitor() {
           status: 'FAILED',
         }, ...prev])
       }
-    } catch {
+    } catch (err) {
+      console.error('[SystemMonitor] Diagnostic request failed:', err)
       await new Promise(r => setTimeout(r, 800))
     }
     setHealingLoading(false)
@@ -469,7 +472,7 @@ function AdminSystemMonitor() {
         setSecurityLogs(prev => [{
           id: String(Date.now()),
           time: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          event: `Audit complete: ${data.fileCount || 0} files hashed at ${data.timestamp || 'unknown'}`,
+          event: `Audit complete: ${data.fileCount ?? 0} files hashed at ${data.timestamp ?? 'unknown'}`,
           severity: 'info' as const,
         }, ...prev])
       } else {
@@ -480,7 +483,8 @@ function AdminSystemMonitor() {
           severity: 'warning' as const,
         }, ...prev])
       }
-    } catch {
+    } catch (err) {
+      console.error('[SystemMonitor] Integrity check failed:', err)
       setSecurityLogs(prev => [{
         id: String(Date.now()),
         time: new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -511,7 +515,7 @@ function AdminSystemMonitor() {
           setModelStatus('CONNECTED')
         }
       })
-      .catch(() => {})
+      .catch((err) => { console.warn('[SystemMonitor] Failed to fetch prediction-engine config:', err) })
   }, [])
 
   const runForecast = async () => {
@@ -559,7 +563,8 @@ function AdminSystemMonitor() {
           model: `error: ${errBody.error || res.status}`,
         }, ...prev])
       }
-    } catch {
+    } catch (err) {
+      console.error('[SystemMonitor] Forecast failed:', err)
       setForecastResult({ projection: 0, model: 'error' })
       setForecasts(prev => [{
         id: String(Date.now()),

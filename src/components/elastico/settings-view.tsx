@@ -260,7 +260,7 @@ function BandwidthSection() {
       try {
         const mod = await import('@/lib/compressed-data-stream')
         setBandwidth(mod.BandwidthTracker.summary())
-      } catch {}
+      } catch (err) { console.warn('[SettingsView] BandwidthTracker import failed:', err) }
     }
     load()
     const interval = setInterval(load, 2000)
@@ -434,7 +434,8 @@ export default function SettingsView() {
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>(() => {
     try {
       return user?.favoriteTeams ? JSON.parse(user.favoriteTeams) : []
-    } catch {
+    } catch (err) {
+      console.warn('[SettingsView] Failed to parse favoriteTeams:', err)
       return []
     }
   })
@@ -453,8 +454,8 @@ export default function SettingsView() {
           const data = await res.json()
           setAvailableTeams(data.teams || [])
         }
-      } catch {
-        // Silent error
+      } catch (err) {
+        console.error('[SettingsView] Failed to fetch teams:', err)
       } finally {
         setTeamsLoading(false)
       }

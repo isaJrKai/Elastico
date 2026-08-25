@@ -59,7 +59,7 @@ export default function LoginView() {
 
   useEffect(() => { setLogoAnim(true) }, [])
   useEffect(() => {
-    fetch('/api/admin/announcements').then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d) }).catch(() => {})
+    fetch('/api/admin/announcements').then(r => r.json()).then(d => { if (Array.isArray(d)) setAnnouncements(d) }).catch((err) => { console.warn('[LoginView] Failed to fetch announcements:', err) })
   }, [])
 
   const dismiss = useCallback((id: string) => { setDismissed(prev => new Set(prev).add(id)) }, [])

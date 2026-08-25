@@ -165,7 +165,7 @@ export default function MatchDetailView() {
     try {
       await fetch(`/api/matches/${selectedMatchId}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ choice }) })
       fetchMatch()
-    } catch { /* silent */ }
+    } catch (err) { console.error('[MatchDetail] Vote submission failed:', err) }
   }, [selectedMatchId, token, fetchMatch])
 
   const handleToggleBookmark = useCallback(async () => {
@@ -182,7 +182,7 @@ export default function MatchDetailView() {
           toast.success('Match bookmarked')
         }
       }
-    } catch { /* silent */ }
+    } catch (err) { console.error('[MatchDetail] Bookmark toggle failed:', err) }
   }, [selectedMatchId, token, bookmarked])
 
   const handleSimulate = useCallback(async () => {
@@ -219,7 +219,7 @@ export default function MatchDetailView() {
     fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ message: `Analyze the match ${match.homeTeam?.name} vs ${match.awayTeam?.name}. ELO: ${match.homeEloBefore} vs ${match.awayEloBefore}. Score: ${match.homeScore}-${match.awayScore}. xG: ${match.homeXg}-${match.awayXg}.`, matchId: selectedMatchId }),
-    }).then(() => { setView('ai-chat'); setAiLoading(false) }).catch(() => { setAiLoading(false) })
+    }).then(() => { setView('ai-chat'); setAiLoading(false) }).catch((err) => { console.error('[MatchDetail] AI analysis request failed:', err); setAiLoading(false) })
   }, [match, token, selectedMatchId, setView])
 
   // Derived
@@ -282,7 +282,7 @@ export default function MatchDetailView() {
           setSbSource(`StatsBomb: ${data.homeTeam} vs ${data.awayTeam}`)
         }
       })
-      .catch(() => {})
+      .catch((err) => { console.warn('[MatchDetail] StatsBomb fetch failed:', err) })
       .finally(() => setSbLoading(false))
   }, [selectedMatchId])
 
@@ -306,7 +306,7 @@ export default function MatchDetailView() {
           setXtLeaderboard(data.data.leaderboard)
         }
       })
-      .catch(() => {})
+      .catch((err) => { console.warn('[MatchDetail] xT leaderboard fetch failed:', err) })
       .finally(() => setXtLoading(false))
   }, [selectedMatchId])
 

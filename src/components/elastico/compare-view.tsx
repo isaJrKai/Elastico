@@ -79,7 +79,7 @@ export default function CompareView() {
       const parsed = JSON.parse(homeTeam.form) as string[]
       if (Array.isArray(parsed) && parsed.length > 0) return parsed
       return []
-    } catch { return [] }
+    } catch (err) { console.warn('[CompareView] Failed to parse homeTeam.form:', err); return [] }
   }, [homeTeam])
 
   const awayForm = useMemo(() => {
@@ -88,7 +88,7 @@ export default function CompareView() {
       const parsed = JSON.parse(awayTeam.form) as string[]
       if (Array.isArray(parsed) && parsed.length > 0) return parsed
       return []
-    } catch { return [] }
+    } catch (err) { console.warn('[CompareView] Failed to parse awayTeam.form:', err); return [] }
   }, [awayTeam])
 
   // Real player matchups — only when both teams have player data

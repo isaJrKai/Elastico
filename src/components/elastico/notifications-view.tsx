@@ -150,8 +150,8 @@ export default function NotificationsView() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id }),
         })
-      } catch {
-        // Silently handle — still update locally
+      } catch (err) {
+        console.warn('[NotificationsView] Failed to mark notification as read:', err)
       }
       markNotificationRead(id)
     },
@@ -174,8 +174,8 @@ export default function NotificationsView() {
           }),
         ),
       )
-    } catch {
-      // Silently handle
+    } catch (err) {
+      console.warn('[NotificationsView] Failed to mark all as read:', err)
     }
     unreadIds.forEach((id) => markNotificationRead(id))
     toast.success('All caught up!', {

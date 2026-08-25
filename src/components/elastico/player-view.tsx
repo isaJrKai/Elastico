@@ -120,8 +120,8 @@ export function PlayerView() {
             return
           }
         }
-      } catch {
-        // DB empty — fallback to ESPN
+      } catch (err) {
+        console.warn('[PlayerView] DB player fetch failed, falling back to ESPN:', err)
       }
 
       // ESPN fallback: fetch teams for selected league, then fetch rosters
@@ -151,23 +151,23 @@ export function PlayerView() {
                 age: a.age || 25,
                 nationality: a.nationality || '',
                 rating: 0, // ESPN roster API does not provide match ratings
-                goals: a.goals || 0,
-                assists: a.assists || 0,
+                goals: a.goals ?? 0,
+                assists: a.assists ?? 0,
                 teamName: t.name,
                 teamCode: t.abbreviation || t.code,
                 teamColor: t.color || '#00e676',
                 teamId: String(t.id || ''),
-                appearances: a.appearances || 0,
+                appearances: a.appearances ?? 0,
                 minutesPlayed: 0,
-                shirtNumber: a.shirtNumber || a.jersey || 0,
+                shirtNumber: a.shirtNumber ?? a.jersey ?? 0,
               } as unknown as EnhancedPlayer)
             }
-          } catch { /* skip this team */ }
+          } catch (err) { console.warn('[PlayerView] Failed to fetch roster for team:', err) }
         }))
 
         if (allPlayers.length > 0) setPlayers(allPlayers)
-      } catch {
-        // ESPN fallback also failed
+      } catch (err) {
+        console.error('[PlayerView] ESPN fallback also failed:', err)
       }
     }
     fetchPlayers()
@@ -180,12 +180,12 @@ export function PlayerView() {
     if (positionFilter !== 'all') result = result.filter(p => p.position === positionFilter)
     if (teamFilter !== 'all') result = result.filter(p => p.teamName === teamFilter)
     result.sort((a, b) => {
-      if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0)
+      if (sortBy === 'rating') return (b.rating ?? 0) - (a.rating ?? 0)
       if (sortBy === 'goals') return b.goals - a.goals
       if (sortBy === 'assists') return b.assists - a.assists
       if (sortBy === 'name') return a.name.localeCompare(b.name)
-      if (sortBy === 'age') return (a.age || 0) - (b.age || 0)
-      if (sortBy === 'marketValue') return (b.marketValue || 0) - (a.marketValue || 0)
+      if (sortBy === 'age') return (a.age ?? 0) - (b.age ?? 0)
+      if (sortBy === 'marketValue') return (b.marketValue ?? 0) - (a.marketValue ?? 0)
       return 0
     })
     return result
@@ -195,7 +195,7 @@ export function PlayerView() {
   const totalPages = Math.ceil(filteredPlayers.length / perPage)
 
   const topScorers = useMemo(() => [...players].sort((a, b) => b.goals - a.goals).slice(0, 10), [players])
-  const topByValue = useMemo(() => [...players].filter(p => p.marketValue).sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0)).slice(0, 10), [players])
+  const topByValue = useMemo(() => [...players].filter(p => p.marketValue).sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0)).slice(0, 10), [players])
 
   const positionalGroups = useMemo(() => {
     const groups: Record<string, EnhancedPlayer[]> = {}
@@ -223,7 +223,7 @@ export function PlayerView() {
     const map: Record<string, number> = {}
     for (const p of players) {
       const nat = p.nationality || 'Unknown'
-      map[nat] = (map[nat] || 0) + 1
+      map[nat] = (map[nat] ?? 0) + 1
     }
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 10)
   }, [players])
@@ -469,9 +469,9 @@ export function PlayerView() {
                         </TableCell>
                         <TableCell className="text-center font-bold text-primary">{p.goals}</TableCell>
                         <TableCell className="text-center">{p.assists}</TableCell>
-                        <TableCell className="text-center text-muted-foreground">{p.minutesPlayed || (p.appearances || 0) * 90}</TableCell>
+                        <TableCell className="text-center text-muted-foreground">{p.minutesPlayed ?? (p.appearances ?? 0) * 90}</TableCell>
                         <TableCell className="text-center font-medium">
-                          {(p.goals / Math.max(1, (p.minutesPlayed || (p.appearances || 0) * 90) / 90)).toFixed(2)}
+                          {(p.goals / Math.max(1, (p.minutesPlayed ?? (p.appearances ?? 0) * 90) / 90)).toFixed(2)}
                         </TableCell>
                         <TableCell className={cn('text-center font-bold', p.rating > 0 ? getRatingColor(p.rating) : 'text-muted-foreground')}>{p.rating > 0 ? (p.rating).toFixed(1) : '—'}</TableCell>
                       </TableRow>

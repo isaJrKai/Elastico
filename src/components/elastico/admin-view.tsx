@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
-import { StatusBadge } from '@/components/elastico/primitives'
+import { StatusBadge, SectionHeader } from '@/components/elastico/primitives'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from '@/components/ui/checkbox'
 import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
+import { tooltipContentStyle } from '@/lib/chart-theme'
 import {
   Tooltip as RTooltip,
   ResponsiveContainer, Cell, PieChart, Pie
@@ -111,12 +112,12 @@ function SectionCard({ title, icon: Icon, children, className = '' }: { title: s
   )
 }
 
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number; color?: string }>; label?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="glass-card p-2 rounded-lg text-xs border border-border">
+    <div className="glass-card p-2 rounded-lg text-xs border border-border" style={tooltipContentStyle}>
       <p className="text-muted-foreground mb-1">{label}</p>
-      {payload.map((p: any, i: number) => (
+      {payload.map((p, i: number) => (
         <p key={i} className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
           <span className="text-foreground">{p.name}:</span>
@@ -236,7 +237,7 @@ export default function AdminView() {
       const aVal = a[userSortField]
       const bVal = b[userSortField]
       if (typeof aVal === 'string' && typeof bVal === 'string') return userSortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
-      return userSortDir === 'asc' ? (aVal || 0) - (bVal || 0) : (bVal || 0) - (aVal || 0)
+      return userSortDir === 'asc' ? (aVal ?? 0) - (bVal ?? 0) : (bVal ?? 0) - (aVal ?? 0)
     })
     return result
   }, [users, userSearch, userPlanFilter, userRoleFilter, userStatusFilter, userSortField, userSortDir])
@@ -381,7 +382,7 @@ export default function AdminView() {
       try {
         const res = await fetch(`/api/admin/users/${userId}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(data) })
         if (res.ok) success++
-      } catch { /* skip */ }
+      } catch (err) { console.error('[AdminView] Bulk action failed for user:', err) }
     }
     toast.success(`Bulk action completed: ${success}/${selectedUsers.size} users updated`)
     setSelectedUsers(new Set())
@@ -473,7 +474,7 @@ export default function AdminView() {
         setUsers(data.users || [])
         setUserPagination(data.pagination || { page: 1, totalPages: 1, total: 0 })
       }
-    } catch { /* silent */ }
+    } catch (err) { console.error('[AdminView] fetchUsersPage failed:', err) }
   }
 
   const fetchLogsPage = async (page: number) => {
@@ -486,17 +487,17 @@ export default function AdminView() {
         setLogs(data.logs || [])
         setLogPagination(data.pagination || { page: 1, totalPages: 1, total: 0 })
       }
-    } catch { /* silent */ }
+    } catch (err) { console.error('[AdminView] fetchLogsPage failed:', err) }
   }
 
 
 
   const revenueByPlan = useMemo(() => {
-    const free = stats?.totalUsers ? stats.totalUsers - (stats.proCount || 0) - (stats.eliteCount || 0) : 0
+    const free = stats?.totalUsers ? stats.totalUsers - (stats.proCount ?? 0) - (stats.eliteCount ?? 0) : 0
     return [
       { name: 'Free', value: free, color: '#6b7280' },
-      { name: 'Pro', value: stats?.proCount || 28, color: '#00b4d8' },
-      { name: 'Elite', value: stats?.eliteCount || 12, color: '#ffd700' },
+      { name: 'Pro', value: stats?.proCount ?? 0, color: '#00b4d8' },
+      { name: 'Elite', value: stats?.eliteCount ?? 0, color: '#ffd700' },
     ]
   }, [stats])
 
@@ -585,11 +586,11 @@ export default function AdminView() {
         <TabsContent value="overview" className="space-y-6 mt-6">
           {/* Feature 1: KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <StatCard title="Total Users" value={stats?.totalUsers || 0} icon={Users} color="emerald" dataClass="REAL" />
-            <StatCard title="Active Today" value={stats?.activeToday || 0} icon={Activity} color="blue" dataClass="REAL" />
-            <StatCard title="MRR Revenue" value={`$${(stats?.revenueEstimate || 0).toFixed(0)}`} icon={DollarSign} color="gold" dataClass="DERIVED" />
-            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate || 0) * 2).toFixed(1) : '—'}`} icon={Target} color="emerald" dataClass="DERIVED" />
-            <StatCard title="AI Queries" value={stats?.totalApiCalls24h || 0} icon={Brain} color="purple" dataClass="REAL" />
+            <StatCard title="Total Users" value={stats?.totalUsers ?? '—'} icon={Users} color="emerald" dataClass="REAL" />
+            <StatCard title="Active Today" value={stats?.activeToday ?? '—'} icon={Activity} color="blue" dataClass="REAL" />
+            <StatCard title="MRR Revenue" value={stats?.revenueEstimate != null ? `$${stats.revenueEstimate.toFixed(0)}` : '—'} icon={DollarSign} color="gold" dataClass="DERIVED" />
+            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate ?? 0) * 2).toFixed(1) : '—'}`} icon={Target} color="emerald" dataClass="DERIVED" />
+            <StatCard title="AI Queries" value={stats?.totalApiCalls24h ?? '—'} icon={Brain} color="purple" dataClass="REAL" />
             <StatCard title="Uptime" value={stats?.uptime ?? '—'} icon={Server} color="emerald" dataClass="REAL" />
           </div>
 
@@ -634,7 +635,7 @@ export default function AdminView() {
                     <span>Pro + Elite Revenue</span>
                     <div className="flex items-center gap-1.5">
                       <span className="text-emerald-400 font-bold text-sm">
-                        ${((stats?.proCount || 0) * 9.99 + (stats?.eliteCount || 0) * 24.99).toFixed(2)}/mo
+                        ${((stats?.proCount ?? 0) * 9.99 + (stats?.eliteCount ?? 0) * 24.99).toFixed(2)}/mo
                       </span>
                       <StatusBadge variant="dataclass" value="DERIVED" />
                     </div>
@@ -918,12 +919,12 @@ export default function AdminView() {
                           <TableCell>
                             <div className="flex items-center gap-1.5">
                               <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(u.predictionAccuracy || 0, 100)}%` }} />
+                                <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(u.predictionAccuracy ?? 0, 100)}%` }} />
                               </div>
-                              <span className="text-xs font-mono">{u.predictionAccuracy || 0}%</span>
+                              <span className="text-xs font-mono">{u.predictionAccuracy != null ? `${u.predictionAccuracy}%` : '—'}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm">{u.totalPredictions || 0}</TableCell>
+                          <TableCell className="text-sm">{u.totalPredictions ?? 0}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : 'Never'}
                           </TableCell>
@@ -1000,35 +1001,35 @@ export default function AdminView() {
                       <div className="p-3 rounded-lg bg-muted/30">
                         <p className="text-xs text-muted-foreground">Predictions</p>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-lg font-bold">{selectedUser.totalPredictions || 0}</p>
+                          <p className="text-lg font-bold">{selectedUser.totalPredictions ?? '—'}</p>
                           <StatusBadge variant="dataclass" value="REAL" />
                         </div>
                       </div>
                       <div className="p-3 rounded-lg bg-muted/30">
                         <p className="text-xs text-muted-foreground">Accuracy</p>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-lg font-bold text-emerald-400">{selectedUser.predictionAccuracy || 0}%</p>
+                          <p className="text-lg font-bold text-emerald-400">{selectedUser.predictionAccuracy != null ? `${selectedUser.predictionAccuracy}%` : '—'}</p>
                           <StatusBadge variant="dataclass" value="DERIVED" />
                         </div>
                       </div>
                       <div className="p-3 rounded-lg bg-muted/30">
                         <p className="text-xs text-muted-foreground">Best Streak</p>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-lg font-bold text-amber-400">{selectedUser.bestStreak || 0}</p>
+                          <p className="text-lg font-bold text-amber-400">{selectedUser.bestStreak ?? '—'}</p>
                           <StatusBadge variant="dataclass" value="DERIVED" />
                         </div>
                       </div>
                       <div className="p-3 rounded-lg bg-muted/30">
                         <p className="text-xs text-muted-foreground">Login Count</p>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-lg font-bold">{selectedUser.loginCount || 0}</p>
+                          <p className="text-lg font-bold">{selectedUser.loginCount ?? '—'}</p>
                           <StatusBadge variant="dataclass" value="REAL" />
                         </div>
                       </div>
                     </div>
                     <Separator />
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Session Info</p>
+                      <SectionHeader label="Session Info" />
                       <div className="flex justify-between text-sm">
                         <span>Last Login</span>
                         <span>{selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleString() : 'Never'}</span>
@@ -1039,7 +1040,7 @@ export default function AdminView() {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Failed Logins</span>
-                        <span className={selectedUser.failedLogins > 0 ? 'text-red-400' : ''}>{selectedUser.failedLogins || 0}</span>
+                        <span className={selectedUser.failedLogins > 0 ? 'text-red-400' : ''}>{selectedUser.failedLogins ?? 0}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>2FA Enabled</span>
@@ -1395,8 +1396,8 @@ export default function AdminView() {
         <TabsContent value="finance" className="space-y-6 mt-6">
           {/* Feature 23: Revenue Dashboard */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard title="MRR" value={`$${(stats?.revenueEstimate || 0).toFixed(2)}`} icon={DollarSign} color="emerald" dataClass="DERIVED" />
-            <StatCard title="ARR" value={`$${((stats?.revenueEstimate || 0) * 12).toFixed(0)}`} icon={TrendingUp} color="emerald" dataClass="DERIVED" />
+            <StatCard title="MRR" value={stats?.revenueEstimate != null ? `$${stats.revenueEstimate.toFixed(2)}` : '—'} icon={DollarSign} color="emerald" dataClass="DERIVED" />
+            <StatCard title="ARR" value={stats?.revenueEstimate != null ? `$${(stats.revenueEstimate * 12).toFixed(0)}` : '—'} icon={TrendingUp} color="emerald" dataClass="DERIVED" />
             <StatCard title="Churn Rate" value={stats?.churnRate ? `${stats.churnRate}%` : '—'} icon={TrendingDown} color="red" dataClass="DERIVED" />
             <StatCard title="LTV" value={stats?.ltv ? `$${stats.ltv}` : '—'} icon={Crown} color="gold" dataClass="DERIVED" />
             <StatCard title="ARPU" value={stats?.arpu ? `$${stats.arpu}` : '—'} icon={Users} color="blue" dataClass="DERIVED" />
@@ -1472,7 +1473,7 @@ export default function AdminView() {
             <ScrollArea className="max-h-72">
               <div className="space-y-2">
                 {featureFlags.map((flag: any) => {
-                  const targetRoles: string[] = (() => { try { return JSON.parse(flag.targetRoles || '[]') } catch { return [] } })()
+                  const targetRoles: string[] = (() => { try { return JSON.parse(flag.targetRoles || '[]') } catch (err) { console.warn('[AdminView] Failed to parse targetRoles:', err); return [] } })()
                   return (
                     <div key={flag.id} className="p-3 rounded-lg bg-muted/20 space-y-2">
                       <div className="flex items-center justify-between">
@@ -1593,7 +1594,7 @@ export default function AdminView() {
 
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="p-2 rounded-lg bg-muted/20 text-center">
-                    <p className="font-bold text-red-400">{users.filter((u: any) => u.failedLogins > 0).reduce((sum: number, u: any) => sum + (u.failedLogins || 0), 0)}</p>
+                    <p className="font-bold text-red-400">{users.filter((u: any) => u.failedLogins > 0).reduce((sum: number, u: any) => sum + (u.failedLogins ?? 0), 0)}</p>
                     <p className="text-[10px] text-muted-foreground">Failed Logins</p>
                   </div>
                   <div className="p-2 rounded-lg bg-muted/20 text-center">
@@ -1601,7 +1602,7 @@ export default function AdminView() {
                     <p className="text-[10px] text-muted-foreground">Locked Accounts</p>
                   </div>
                   <div className="p-2 rounded-lg bg-muted/20 text-center">
-                    <p className="font-bold text-emerald-400">{stats?.activeToday || 0}</p>
+                    <p className="font-bold text-emerald-400">{stats?.activeToday ?? '—'}</p>
                     <p className="text-[10px] text-muted-foreground">Active Sessions</p>
                   </div>
                   <div className="p-2 rounded-lg bg-muted/20 text-center">
@@ -1612,7 +1613,7 @@ export default function AdminView() {
 
                 {/* Permission Matrix */}
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Permission Matrix</p>
+                  <SectionHeader label="Permission Matrix" className="mb-2" />
                   <ScrollArea className="max-h-32">
                     <Table>
                       <TableHeader>
@@ -1664,14 +1665,14 @@ export default function AdminView() {
             <SectionCard title="Database Health" icon={Database}>
               <div className="space-y-3">
                 {[
-                  { label: 'Users', count: stats?.totalUsers || users.length, icon: Users },
-                  { label: 'Matches', count: stats?.totalMatches || 24, icon: Target },
-                  { label: 'Predictions', count: stats?.totalPredictions || 0, icon: Brain },
+                  { label: 'Users', count: stats?.totalUsers ?? users.length, icon: Users },
+                  { label: 'Matches', count: stats?.totalMatches ?? 0, icon: Target },
+                  { label: 'Predictions', count: stats?.totalPredictions ?? 0, icon: Brain },
                   { label: 'News Articles', count: newsItems.length, icon: Newspaper },
                   { label: 'Announcements', count: announcements.length, icon: Bell },
                   { label: 'Feature Flags', count: featureFlags.length, icon: ToggleLeft },
-                  { label: 'API Logs (24h)', count: stats?.totalApiCalls24h || logs.length, icon: FileText },
-                  { label: 'Sessions', count: stats?.activeToday || 0, icon: Key },
+                  { label: 'API Logs (24h)', count: stats?.totalApiCalls24h ?? logs.length, icon: FileText },
+                  { label: 'Sessions', count: stats?.activeToday ?? 0, icon: Key },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center justify-between p-2 rounded-lg bg-muted/20">
                     <div className="flex items-center gap-2">

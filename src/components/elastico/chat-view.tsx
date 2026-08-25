@@ -172,7 +172,8 @@ export default function ChatView() {
           setIsMockMode(false)
           setProviderName(data.model || 'AI Provider')
         }
-      } catch {
+      } catch (err) {
+        console.warn('[ChatView] Provider status check failed, falling back to mock mode:', err)
         setIsMockMode(true)
         setProviderName(null)
       } finally {
