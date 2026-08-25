@@ -90,3 +90,24 @@ Stage Summary:
 - Final status: READY WITH KNOWN LIMITATIONS
 - 3 upstream blockers identified (Understat, TheOdds API, Newsdata.io keys)
 - Produced: /home/z/my-project/download/ELASTICO_Acceptance_Audit_Report.pdf
+
+---
+Task ID: MEGA-AUDIT
+Agent: main
+Task: Full-System Forensic Audit — Every View, Route, Table, and Repository
+
+Work Log:
+- Determined authoritative copy: src/ (newest timestamps, unique files like data-provenance, veronica-heal, cron, entity-resolution)
+- 4.1 Security: Found Neon credential STILL EXPOSED on GitHub HEAD cf7c798 (local fix uncommitted); hardcoded JWT fallback secret; inconsistent JWT handling between auth.ts and rbac.ts; only 2/51 routes rate-limited; 40/51 routes unauthenticated
+- 4.2 Prediction: Confirmed LSTM weight 0.15 persists in Python backend (but irrelevant — Python backend completely disconnected from UI); /api/predictions/compute confirmed connected (Finding #6); TimesFM endpoint unauthenticated; ELO values are hand-curated PROXY
+- 4.3 Data Pipeline: Understat getMatchData/getMatchData confirmed HTTP 404 (live curl test); getLeagueData/getPlayersStats confirmed HTTP 200; found 5 ?? 0 null-to-zero transforms; understat.ts uses || 0 on 12+ shot fields; local DB has 0 rows in ALL 19 tables; 4 Prisma models lack tables; API_SPORTS_KEY and NEWSDATA_API_KEY unconfigured
+- 4.4 Views: Audited all 21 views via subagent + direct verification. Found 3 FABRICATED items (player-view minutesPlayed, propagated goals/90min, understat || 0 on xG); 3 null-to-zero bypasses in compare-view; 3 views missing LOADING state, 2 missing ERROR, 1 missing EMPTY. No Math.random() found. Prior fabrication cleanup confirmed effective.
+- 4.5 API Routes: 51 total routes. 12 orphaned (including 2 self-deprecated, 2 expected external/cron). 2 self-deprecated (the-odds, players/[id]). Only 8 authenticated, only 2 rate-limited.
+- 4.6 Database: Schema defines 21 models, local SQLite has 19 tables (missing 4: CanonicalTeam, SourceIdentity, OddsSnapshot, NewsArticle). ALL 19 tables at 0 rows. Schema says postgresql, .env says SQLite.
+- 4.7 Cross-Repo: Zero references from ELASTICO src/ to Python backend. Two repos architecturally disconnected. mega-predict bridge route removed from canonical copy. LSTM weight irrelevant to live product.
+
+Stage Summary:
+- Total findings: 10 security issues, 3 fabrication items, 12 orphaned routes, 4 schema/DB mismatches, 2 disconnected repos
+- Critical: Neon credential still public on GitHub; local DB completely empty; Python backend unreachable
+- All findings line-cited with actual code snippets; no prose-only claims
+- No fixes applied — read-only forensic audit
