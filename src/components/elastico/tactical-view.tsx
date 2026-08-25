@@ -85,7 +85,7 @@ const RADAR_DIMS = [
 // Dimensions without real data are set to null (NOT fabricated).
 // The function name uses 'derived' to reflect that these are computed, not measured.
 
-function deriveTacticalProfile(team: { style: string | null; xgPerGame: number | null; xgaPerGame: number | null; possession: number | null; pressIntensity: number | null; passAccuracy: number | null }, seed: number) {
+function deriveTacticalProfile(team: { style: string | null; xgPerGame: number | null; xgaPerGame: number | null; possession: number | null; pressIntensity: number | null; passAccuracy: number | null }) {
   // Only compute a dimension if the underlying data actually exists.
   // xG-based attack: requires real xgPerGame
   const attack = team.xgPerGame != null ? Math.min(95, Math.max(20, team.xgPerGame * 25)) : null
@@ -208,11 +208,11 @@ export function TacticalView() {
 
   // Generate tactical profiles
   const homeProfile = useMemo(
-    () => homeTeam ? deriveTacticalProfile(homeTeam, 1) : null,
+    () => homeTeam ? deriveTacticalProfile(homeTeam) : null,
     [homeTeam],
   )
   const awayProfile = useMemo(
-    () => awayTeam ? deriveTacticalProfile(awayTeam, 2) : null,
+    () => awayTeam ? deriveTacticalProfile(awayTeam) : null,
     [awayTeam],
   )
 

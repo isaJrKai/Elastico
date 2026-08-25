@@ -143,18 +143,18 @@ export function PlayerView() {
                 id: String(a.id || ''),
                 name: a.name || a.displayName || 'Unknown',
                 position: a.position || 'MID',
-                age: a.age || 25,
+                age: a.age ?? null,
                 nationality: a.nationality || '',
                 rating: null, // ESPN roster API does not provide match ratings
-                goals: a.goals ?? 0,
-                assists: a.assists ?? 0,
+                goals: a.goals ?? null,
+                assists: a.assists ?? null,
                 teamName: t.name,
                 teamCode: t.abbreviation || t.code,
                 teamColor: t.color || '#00e676',
                 teamId: String(t.id || ''),
-                appearances: a.appearances ?? 0,
-                minutesPlayed: 0,
-                shirtNumber: a.shirtNumber ?? a.jersey ?? 0,
+                appearances: a.appearances ?? null,
+                minutesPlayed: null,
+                shirtNumber: a.shirtNumber ?? a.jersey ?? null,
               } as unknown as EnhancedPlayer)
             }
           } catch (err) { console.warn('[PlayerView] Failed to fetch roster for team:', err) }
@@ -176,10 +176,10 @@ export function PlayerView() {
     if (teamFilter !== 'all') result = result.filter(p => p.teamName === teamFilter)
     result.sort((a, b) => {
       if (sortBy === 'rating') return (b.rating ?? 0) - (a.rating ?? 0)
-      if (sortBy === 'goals') return b.goals - a.goals
-      if (sortBy === 'assists') return b.assists - a.assists
+      if (sortBy === 'goals') return (b.goals ?? 0) - (a.goals ?? 0)
+      if (sortBy === 'assists') return (b.assists ?? 0) - (a.assists ?? 0)
       if (sortBy === 'name') return a.name.localeCompare(b.name)
-      if (sortBy === 'age') return (a.age ?? 0) - (b.age ?? 0)
+      if (sortBy === 'age') return (a.age ?? 99) - (b.age ?? 99)
       if (sortBy === 'marketValue') return (b.marketValue ?? 0) - (a.marketValue ?? 0)
       return 0
     })
@@ -204,11 +204,11 @@ export function PlayerView() {
   const ageData = useMemo(() => {
     const buckets: Record<string, number> = { '18-21': 0, '22-25': 0, '26-29': 0, '30-33': 0, '34+': 0 }
     for (const p of players) {
-      const age = p.age || 25
-      if (age <= 21) buckets['18-21']++
-      else if (age <= 25) buckets['22-25']++
-      else if (age <= 29) buckets['26-29']++
-      else if (age <= 33) buckets['30-33']++
+      if (!p.age) continue // skip players with unknown age — no fabrication
+      if (p.age <= 21) buckets['18-21']++
+      else if (p.age <= 25) buckets['22-25']++
+      else if (p.age <= 29) buckets['26-29']++
+      else if (p.age <= 33) buckets['30-33']++
       else buckets['34+']++
     }
     return Object.entries(buckets).map(([range, count]) => ({ range, count }))
@@ -234,7 +234,7 @@ export function PlayerView() {
       .map(p => {
         const goalDiff = Math.abs(p.goals - selectedPlayer.goals) * 3
         const assistDiff = Math.abs(p.assists - selectedPlayer.assists) * 2
-        const ratingDiff = Math.abs((p.rating ?? 0) - (selectedPlayer.rating ?? 0)) * 5
+        const ratingDiff = (p.rating != null && selectedPlayer.rating != null) ? Math.abs(p.rating - selectedPlayer.rating) * 5 : 25
         const totalDiff = goalDiff + assistDiff + ratingDiff
         return { player: p, similarity: Math.max(0, 100 - Math.round(totalDiff)) }
       })
@@ -712,23 +712,11 @@ export function PlayerView() {
               <CardTitle className="text-sm font-medium">Substitution Frequency</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {players.slice(0, 10).map(p => {
-                  const startPct = 75
-                  const subPct = 100 - startPct
-                  return (
-                    <div key={p.id} className="space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="truncate">{p.name}</span>
-                        <span className="text-muted-foreground">{startPct}% starter</span>
-                      </div>
-                      <div className="flex h-2 rounded-full overflow-hidden bg-muted/50">
-                        <div className="bg-primary/70" style={{ width: `${startPct}%` }} />
-                        <div className="bg-orange-500/60" style={{ width: `${subPct}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Users className="size-10 mb-3 opacity-30" />
+                <p className="text-sm font-medium">Substitution data not available</p>
+                <p className="text-xs mt-1">Per-player substitution frequency requires a dedicated data source (e.g., API-Sports player statistics with sub_on/sub_off fields).</p>
+                <StatusBadge variant="dataclass" value="UNAVAILABLE" className="mt-2" />
               </div>
             </CardContent>
           </Card>

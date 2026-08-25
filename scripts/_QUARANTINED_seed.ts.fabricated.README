@@ -1,0 +1,6 @@
+# DEPRECATED — DO NOT USE
+# This seed script contains 16 hardcoded teams with fabricated statistics
+# (xG, possession, passAccuracy, pressIntensity, etc.).
+# Running this against production would inject fake data.
+# Use prisma/seed.ts instead (creates only 3 demo users + system settings).
+# Quarantined on 2026-08-25 per ELASTICO data integrity audit.
