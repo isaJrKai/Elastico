@@ -148,7 +148,7 @@ export async function GET(
         })
         if (legacy) return legacy
         const canonical = await db.canonicalTeam.findFirst({
-          where: { displayName: { equals: teamName, mode: 'insensitive' } },
+          where: { displayName: { equals: teamName } },
           include: { analytics: { orderBy: { syncedAt: 'desc' }, take: 1 } },
         })
         return canonical?.analytics[0] ?? null
@@ -213,6 +213,10 @@ export async function GET(
       console.error(`[MatchDetail] STAGE 2 ERROR: externalId lookup failed (${((performance.now() - t2) | 0)}ms):`, dbErr2)
     }
 
+    // ── Track honest error messages from each stage ─────────────────────
+    let apiSportsError: string | null = null
+    let fdError: string | null = null
+
     // ── 2.5. Fallback: fetch from football-data.org for fd: prefixed IDs ──
     if (sourcePrefix === 'fd') {
       const hasKey = !!process.env.FOOTBALL_DATA_API_KEY
@@ -241,7 +245,10 @@ export async function GET(
           console.log(`[MatchDetail] STAGE 2.5 MISS: football-data.org no match for id="${rawExternalId}" (${totalFetched} searched, ${((performance.now() - t25) | 0)}ms)`)
         } catch (fdErr) {
           console.error(`[MatchDetail] STAGE 2.5 ERROR: football-data.org failed (${((performance.now() - t25) | 0)}ms):`, fdErr)
+          fdError = `football-data.org error: ${fdErr instanceof Error ? fdErr.message : String(fdErr)}`
         }
+      } else {
+        fdError = 'FOOTBALL_DATA_API_KEY not configured'
       }
     } else {
       console.log(`[MatchDetail] STAGE 2.5 SKIPPED: sourcePrefix is "${sourcePrefix}", not "fd"`)
@@ -370,15 +377,19 @@ export async function GET(
       console.log(`[MatchDetail] STAGE 4: sourcePrefix=${sourcePrefix}, API_SPORTS_KEY=${hasAsKey ? 'present' : 'MISSING'}`)
       if (hasAsKey) {
         try {
-          const { fetchPrediction, mapASStatus, normalizeASFixture } = await import('@/lib/api-sports')
-          // Try /fixtures?id= first (direct lookup), fall back to /predictions?fixture=
+          const { normalizeASFixture } = await import('@/lib/api-sports')
           const AS_BASE = 'https://v3.football.api-sports.io'
           const fixtureRes = await fetch(`${AS_BASE}/fixtures?id=${rawExternalId}`, {
             headers: { 'x-apisports-key': process.env.API_SPORTS_KEY! },
             next: { revalidate: 120 },
           })
-          if (fixtureRes.ok) {
-            const fixtureData = await fixtureRes.json()
+          const fixtureData = await fixtureRes.json()
+          // API-Sports returns HTTP 200 even on auth errors — check for error object
+          const asError = fixtureData.errors?.token || fixtureData.errors?.message
+          if (asError) {
+            console.error(`[MatchDetail] STAGE 4 AUTH ERROR: API-Sports rejected key: "${asError}" (${((performance.now() - t4) | 0)}ms)`)
+            apiSportsError = `API-Sports auth failed: ${asError}`
+          } else {
             const fixture = fixtureData.response?.[0]
             if (fixture) {
               console.log(`[MatchDetail] STAGE 4 HIT: API-Sports fixture found "${fixture.teams?.home?.name} vs ${fixture.teams?.away?.name}" (${((performance.now() - t4) | 0)}ms)`)
@@ -401,13 +412,15 @@ export async function GET(
               setCache(id, result)
               return NextResponse.json(result)
             }
+            console.log(`[MatchDetail] STAGE 4 MISS: API-Sports /fixtures returned no match for id="${rawExternalId}" (${((performance.now() - t4) | 0)}ms)`)
           }
-          console.log(`[MatchDetail] STAGE 4 MISS: API-Sports /fixtures returned no match for id="${rawExternalId}" (${((performance.now() - t4) | 0)}ms)`)
         } catch (asErr) {
           console.error(`[MatchDetail] STAGE 4 ERROR: API-Sports fallback failed (${((performance.now() - t4) | 0)}ms):`, asErr)
+          apiSportsError = `API-Sports fetch error: ${asErr instanceof Error ? asErr.message : String(asErr)}`
         }
       } else {
         console.log(`[MatchDetail] STAGE 4 SKIPPED: API_SPORTS_KEY not configured`)
+        apiSportsError = 'API_SPORTS_KEY not configured'
       }
     } else {
       console.log(`[MatchDetail] STAGE 4 SKIPPED: sourcePrefix="${sourcePrefix}", not api-sports and no AS key`)
@@ -423,6 +436,9 @@ export async function GET(
       isNumericId ? 'espn:summary' : null,
       (sourcePrefix === 'api-sports' || (isNumericId && hasAsKey)) ? 'api-sports' : null,
     ].filter(Boolean)
+    const providerErrors: Record<string, string> = {}
+    if (fdError) providerErrors['football-data.org'] = fdError
+    if (apiSportsError) providerErrors['api-sports'] = apiSportsError
     return NextResponse.json({
       error: 'Match not found',
       id,
@@ -430,7 +446,12 @@ export async function GET(
       rawExternalId,
       isNumericId,
       stagesAttempted,
-      hint: isNumericId
+      providerErrors: Object.keys(providerErrors).length > 0 ? providerErrors : undefined,
+      hint: apiSportsError?.includes('auth failed')
+        ? `API-Sports key is invalid (provider rejected it). ESPN fallback also found no match. ${isNumericId ? 'Try an ESPN event ID from today\'s or recent matches.' : 'Use prefix espn: for ESPN IDs.'}`
+        : fdError?.includes('not configured')
+        ? 'football-data.org requires an API key (FOOTBALL_DATA_API_KEY). Use prefix espn: for ESPN IDs which need no key.'
+        : isNumericId
         ? 'The ID looks like an ESPN event ID but was not found on any ESPN league scoreboard or summary. The match may be from a league not yet configured, or the ESPN API returned an error.'
         : looksLikeEspnId
         ? 'This ID appears to be an ESPN event ID. It was not found in the database or ESPN live data.'

@@ -27,7 +27,8 @@
  */
 export function resolveKey(envKey: string): string {
   const envVal = process.env[envKey]
-  if (envVal && envVal.length > 5) return envVal
+  // Require non-empty keys — some providers issue short keys
+  if (envVal && envVal.length > 0) return envVal
   return ''
 }
 
@@ -180,7 +181,7 @@ export async function callAi(
   // Filter to only those with API keys configured via environment variables
   const available = providers.filter(p => {
     const key = resolveKey(p.envKey)
-    return !!key && key.length > 5
+    return !!key && key.length > 0
   })
 
   if (available.length === 0) {
@@ -310,7 +311,7 @@ export async function callAiStream(
 
   const available = providers.filter(p => {
     const key = resolveKey(p.envKey)
-    return !!key && key.length > 5
+    return !!key && key.length > 0
   })
 
   if (available.length === 0) return null
@@ -419,7 +420,7 @@ export function getProviderStatus(): Array<{
 }> {
   return PROVIDERS.map(p => {
     const envVal = process.env[p.envKey]
-    const hasEnv = !!envVal && envVal.length > 5
+    const hasEnv = !!envVal && envVal.length > 0
     return {
       name: p.name,
       model: p.model,

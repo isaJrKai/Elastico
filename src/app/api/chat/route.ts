@@ -114,43 +114,43 @@ You can also ask naturally — ELASTICO detects the intent.`
   return null // Not a built-in command, let AI handle it
 }
 
-// ── Mock Fallback ─────────────────────────────────────────────────────────────
+// ── Honest Fallback (no AI provider configured) ─────────────────────────────────────
 
-function generateFootballAnalysis(message: string, matchContext: Record<string, unknown> | null): string {
-  const msg = message.toLowerCase()
+function honestNoAiResponse(message: string, matchContext: Record<string, unknown> | null): string {
+  // Built-in commands still work without AI
+  const cmd = handleCommand(message)
+  if (cmd) return cmd
+
+  const lines = [
+    '## ELASTICO — No AI Provider Configured',
+    '',
+    'AI-powered analysis requires at least one configured provider. Currently **no LLM API keys are set**.',
+    '',
+    '**Available providers** (set any one in environment variables):',
+    '| Provider | Env Variable | Status |',
+    '|----------|-------------|--------|',
+    '| Groq | `GROQ_API_KEY` | Not configured |',
+    '| Cerebras | `CEREBRAS_API_KEY` | Not configured |',
+    '| Google Gemini | `GOOGLE_AI_API_KEY` | Not configured |',
+    '| OpenRouter | `OPENROUTER_API_KEY` | Not configured |',
+    '| NVIDIA NIM | `NVIDIA_API_KEY` | Not configured |',
+    '| Mistral | `MISTRAL_API_KEY` | Not configured |',
+    '| GitHub Models | `GITHUB_TOKEN` | Not configured |',
+    '',
+    'Once a key is set, ELASTICO will use it automatically with failover across all configured providers.',
+    '',
+    '**What still works without AI:**',
+    '- `/help` — list all commands',
+    '- Match data from ESPN (live scores, standings, results)',
+    '- Prediction engine (ELO, Poisson, Dixon-Coles models)',
+    '- Community votes and leaderboards',
+  ]
 
   if (matchContext) {
-    const homeName = (matchContext.homeTeam as string) || 'Home Team'
-    const awayName = (matchContext.awayTeam as string) || 'Away Team'
-
-    if (msg.includes('predict') || msg.includes('outcome') || msg.includes('who') || msg.includes('win')) {
-      let a = `## Match Analysis: ${homeName} vs ${awayName}\n\n`
-      a += `**Note:** Detailed stats are fetched live from ESPN. For the most accurate predictions, check the match details page.\n\n`
-      a += `Based on current form and available data, this looks like a competitive fixture. Check the match page for ELO ratings, xG, and community predictions.\n\n`
-      a += `**Key Factors:**\n`
-      a += `- Review recent form and head-to-head records\n`
-      a += `- Check injury reports and squad availability\n`
-      a += `- Consider home/away advantage\n\n`
-      a += `**Verdict:** Use the prediction tool on the match page for a detailed statistical prediction!`
-      return a
-    }
-
-    if (msg.includes('tactic') || msg.includes('strategy') || msg.includes('style')) {
-      let a = `## Tactical Preview\n\n`
-      a += `**${homeName}** vs **${awayName}\n\n`
-      a += `Detailed tactical data is available on the team and match pages. Check for playing style, possession stats, press intensity, and key player matchups.\n\n`
-      a += `For the best tactical analysis, visit the match detail page where live ESPN data provides up-to-date statistics.\n`
-      return a
-    }
-
-    return `## ${homeName} vs ${awayName}\n\nDetailed match data is now fetched live from ESPN. Check the match page for the latest stats, or ask me about predictions, tactics, or form for analysis guidance!`
+    lines.push('', '**This match context was detected** but cannot be analyzed without an AI provider. Set a key to enable match intelligence.')
   }
 
-  if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
-    return `## ELASTICO\n\nAsk me about any match for detailed analysis — predictions, tactics, form, key players. Select a match first for the best results.`
-  }
-
-  return `## ELASTICO\n\nAsk me about any match for detailed analysis — predictions, tactics, form, key players. Select a match first for the best results!`
+  return lines.join('\n')
 }
 
 // ── Check if any AI provider is configured ───────────────────────────────────
@@ -159,7 +159,7 @@ function hasAnyAiProvider(): boolean {
   const keys = ['GOOGLE_AI_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY', 'NVIDIA_API_KEY', 'CEREBRAS_API_KEY', 'GITHUB_TOKEN', 'OPENROUTER_API_KEY']
   return keys.some(k => {
     const v = resolveKey(k)
-    return !!v && v.length > 5
+    return !!v && v.length > 0
   })
 }
 
@@ -209,12 +209,13 @@ export async function POST(req: NextRequest) {
 
     // ── No AI provider configured — use mock ───────────────────────────────
     if (!hasAnyAiProvider()) {
-      const response = generateFootballAnalysis(message, matchContext)
+      const response = honestNoAiResponse(message, matchContext)
       return NextResponse.json({
         response,
-        model: 'mock-fallback',
+        model: 'no-provider',
         provider: 'none',
         context: contextMeta,
+        aiStatus: 'no_provider_configured',
       })
     }
 
@@ -256,8 +257,8 @@ export async function POST(req: NextRequest) {
     if (wantStream) {
       const result = await callAiStream(messages, { temperature: 0.7 })
       if (!result) {
-        const response = generateFootballAnalysis(message, matchContext)
-        return NextResponse.json({ response, model: 'mock-fallback', provider: 'none', context: contextMeta })
+        const response = honestNoAiResponse(message, matchContext)
+        return NextResponse.json({ response, model: 'no-provider', provider: 'none', context: contextMeta, aiStatus: 'stream_failed_all_providers' })
       }
 
       const header = JSON.stringify({
@@ -295,8 +296,8 @@ export async function POST(req: NextRequest) {
     // Non-streaming
     const result = await callAi(messages, { temperature: 0.7 })
     if (!result.text) {
-      const response = generateFootballAnalysis(message, matchContext)
-      return NextResponse.json({ response, model: 'mock-fallback', provider: 'none', context: contextMeta })
+      const response = honestNoAiResponse(message, matchContext)
+      return NextResponse.json({ response, model: 'no-provider', provider: 'failed', context: contextMeta, aiStatus: 'all_providers_failed' })
     }
 
     return NextResponse.json({

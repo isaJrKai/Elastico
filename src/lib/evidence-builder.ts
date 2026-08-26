@@ -34,7 +34,7 @@ const MAX_EVIDENCE_CHARS = 6000 // keep the evidence package bounded and cheap
 async function findTeamByName(nameFragment: string) {
   if (!nameFragment || nameFragment.length < 3) return null
   return db.team.findFirst({
-    where: { name: { contains: nameFragment, mode: 'insensitive' } },
+    where: { name: { contains: nameFragment } },
   })
 }
 
@@ -95,8 +95,8 @@ async function buildNewsSection(teamName: string): Promise<EvidenceSection> {
   const articles = await db.newsArticle.findMany({
     where: {
       OR: [
-        { title: { contains: teamName, mode: 'insensitive' } },
-        { summary: { contains: teamName, mode: 'insensitive' } },
+        { title: { contains: teamName } },
+        { summary: { contains: teamName } },
       ],
     },
     orderBy: { publishedAt: 'desc' },
@@ -190,8 +190,8 @@ async function buildExistingPredictionSection(matchId: string): Promise<Evidence
 async function buildOddsSection(homeTeamName: string, awayTeamName: string): Promise<EvidenceSection> {
   const odds = await db.oddsSnapshot.findFirst({
     where: {
-      homeTeam: { contains: homeTeamName, mode: 'insensitive' },
-      awayTeam: { contains: awayTeamName, mode: 'insensitive' },
+      homeTeam: { contains: homeTeamName },
+      awayTeam: { contains: awayTeamName },
     },
     orderBy: { fetchedAt: 'desc' },
   })
@@ -220,7 +220,7 @@ async function buildOddsSection(homeTeamName: string, awayTeamName: string): Pro
 
 async function buildStandingSection(teamName: string): Promise<EvidenceSection> {
   const standing = await db.standingEntry.findFirst({
-    where: { teamName: { contains: teamName, mode: 'insensitive' } },
+    where: { teamName: { contains: teamName } },
     orderBy: { lastSyncedAt: 'desc' },
   })
 
