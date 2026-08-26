@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
 import { callAi, callAiStream, getProviderStatus, resolveKey } from '@/lib/ai-gateway'
 import { rateLimit } from '@/lib/rate-limit'
+import { buildEvidence } from '@/lib/evidence-builder'
 
 // ── System Prompt ────────────────────────────────────────────────────────────
 
@@ -198,7 +199,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Build context meta if matchId provided (no DB queries — just note the ID)
+    // Build context meta if matchId provided
     let contextMeta: Record<string, unknown> | null = null
     let matchContext: Record<string, unknown> | null = null
     if (matchId) {
@@ -217,17 +218,26 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // ── Stage 1: Build real evidence BEFORE calling the LLM ─────────────
+    const evidence = await buildEvidence({ message, matchId: matchId ?? null })
+
     // ── AI Call ────────────────────────────────────────────────────────────
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       { role: 'system', content: SYSTEM_PROMPT },
     ]
 
+    // Inject evidence block as a system message so the LLM sees real data
+    if (evidence.charCount > 0) {
+      messages.push({
+        role: 'system',
+        content: `EVIDENCE (retrieved from ELASTICO database, ${new Date().toISOString()}):\n\n${evidence.formatted}`,
+      })
+    }
+
     // Inject screen context if provided
     let userContent = message
     if (screenContext && typeof screenContext === 'string') {
-      userContent = `[Screen context: ${screenContext}]
-
-${message}`
+      userContent = `[Screen context: ${screenContext}]\n\n${message}`
     }
 
     // Add conversation history (multi-turn memory)
@@ -250,7 +260,13 @@ ${message}`
         return NextResponse.json({ response, model: 'mock-fallback', provider: 'none', context: contextMeta })
       }
 
-      const header = JSON.stringify({ type: 'header', model: result.model, provider: result.provider, context: contextMeta }) + '\n'
+      const header = JSON.stringify({
+        type: 'header',
+        model: result.model,
+        provider: result.provider,
+        context: contextMeta,
+        evidenceSections: evidence.sections.map(s => ({ label: s.label, truthClass: s.truthClass })),
+      }) + '\n'
       const headerStream = new ReadableStream<Uint8Array>({
         start(controller) {
           controller.enqueue(new TextEncoder().encode(header))
@@ -290,6 +306,7 @@ ${message}`
       latencyMs: result.latencyMs,
       tokensUsed: result.tokensUsed,
       context: contextMeta,
+      evidenceSections: evidence.sections.map(s => ({ label: s.label, truthClass: s.truthClass })),
     })
   } catch (error) {
     console.error('Chat error:', error)
