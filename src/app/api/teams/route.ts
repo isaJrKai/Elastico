@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { fetchTeams, fetchStandings } from '@/lib/football-data'
 
+import { rateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
 
 /**
@@ -19,6 +20,13 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   try {
+    // Rate limiting
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = rateLimit(`teams:${ip}`, 30, 60000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const { searchParams } = new URL(req.url)
     const league = searchParams.get('league') || undefined
     const search = searchParams.get('search') || undefined

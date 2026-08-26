@@ -3,6 +3,8 @@
 
 import { NextResponse } from 'next/server'
 import http from 'http'
+import { authenticateRequest } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -145,6 +147,14 @@ function buildCovariateDescription(indicators: number[]): string {
 
 export async function POST(request: Request) {
   try {
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
+    const identifier = auth.user.id
+    const rl = rateLimit(`timesfm:${identifier}`, 5, 60_000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const body = await request.json()
     const { coreHistory, recentIndicators } = body
 

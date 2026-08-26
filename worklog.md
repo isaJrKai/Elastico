@@ -165,3 +165,66 @@ Stage Summary:
 - MODIFIED: src/components/elastico/predictions-view.tsx (hero typography 2xl/black for stat cards)
 - Root cause of match detail 404: FOOTBALL_DATA_API_KEY not configured → fd: fallback silently skipped → ESPN fallback searches by fd: ID which never matches ESPN's numeric IDs → all stages exhausted
 - tsc --noEmit: 0 errors, next build: PASS
+---
+Task ID: STAGE2-GATE
+Agent: stage2-embeddings
+Task: ELASTICO AI Stage 2 Gate Check — Embeddings & Semantic Retrieval
+
+Work Log:
+- Gate Check 1 (pgvector / DB type): FAILED
+  - DATABASE_URL=file:/home/z/my-project/db/custom.db (SQLite)
+  - No NEON or POSTGRES env vars set
+  - No DIRECT_URL set
+  - .env.example shows expected Neon Postgres URL but actual .env uses SQLite
+  - Prisma schema declares provider="postgresql" but runtime DB is SQLite
+  - SQLite has NO vector extension — pgvector is PostgreSQL-only
+- Gate Check 2 (NVIDIA_API_KEY): FAILED
+  - printenv NVIDIA_API_KEY returns empty (unset)
+  - .env file has no NVIDIA_API_KEY line
+  - .env.example lists NVIDIA_API_KEY= (empty placeholder)
+- Gate Check 3 (NVIDIA API test): SKIPPED — no key available to test
+
+BLOCKER REPORT — IMPLEMENTATION STOPPED
+========================================
+
+Stage 2 (Embeddings & Semantic Retrieval) has TWO hard blockers that prevent ANY implementation:
+
+BLOCKER 1: No PostgreSQL/pgvector Database
+------------------------------------------
+- The application currently runs on SQLite (file:/home/z/my-project/db/custom.db).
+- pgvector (the only practical vector similarity search extension for Prisma) requires PostgreSQL 14+.
+- SQLite cannot store embedding vectors or perform cosine/inner-product similarity searches.
+- The Prisma schema already declares provider="postgresql" and references DIRECT_URL, suggesting the project was DESIGNED for Neon Postgres but the local dev environment was downgraded to SQLite.
+
+What must happen:
+  a) Obtain a Neon Postgres connection string (or any PostgreSQL 14+ host).
+  b) Set DATABASE_URL and DIRECT_URL in .env to the Postgres connection string.
+  c) Run `npx prisma db push` or `npx prisma migrate dev` to sync the schema.
+  d) Enable the pgvector extension on the Postgres database:
+     CREATE EXTENSION IF NOT EXISTS vector;
+  e) Verify with: SELECT * FROM pg_extension WHERE extname = 'vector';
+
+BLOCKER 2: No NVIDIA Embedding API Key
+--------------------------------------
+- NVIDIA_API_KEY is not set in any environment variable or .env file.
+- The planned embedding model (nvidia/nv-embed-v1) requires a valid NVIDIA Build API key.
+- Without this key, generateEmbedding() cannot call the embedding endpoint.
+
+What must happen:
+  a) Register at https://build.nvidia.com/ and create an API key.
+  b) Set NVIDIA_API_KEY=<your-key> in .env (and in Vercel env vars for production).
+  c) Verify with: curl -s -X POST "https://integrate.api.nvidia.com/v1/embeddings" \
+       -H "Authorization: Bearer $NVIDIA_API_KEY" \
+       -H "Content-Type: application/json" \
+       -d '{"model":"nvidia/nv-embed-v1","input":"test"}' | head -c 500
+
+SECONDARY CONCERN: Empty Local Database
+----------------------------------------
+- The mega-audit (worklog entry MEGA-AUDIT) confirmed ALL 19 local tables have 0 rows.
+- Even after unblocking, the backfill script (Task 3) will have no NewsArticle rows to embed.
+- News data requires NEWSDATA_API_KEY (also unconfigured per the audit).
+
+Stage Summary:
+- Gate: HARD FAIL — 2 of 3 checks failed, 1 skipped
+- No implementation code written (per directive)
+- Next action: Resolve both blockers above, then re-run Stage 2 gate check

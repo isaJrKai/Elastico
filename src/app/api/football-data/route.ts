@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { rateLimit } from '@/lib/rate-limit'
 import {
   fetchStandings, fetchMatches, fetchTodaysMatches, fetchScorers,
   fetchCompetitions, fetchMatchesWithOdds, normalizeFDMatch,
@@ -178,6 +179,13 @@ function mapFDStatusToInternal(status: string): string {
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = rateLimit(`football-data:${ip}`, 15, 60000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action') || 'today'
     const competition = searchParams.get('competition') || 'PL'

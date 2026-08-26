@@ -1,11 +1,20 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
-// Fallback secret long enough for production (>=32 chars) — used when no env var set
-const FALLBACK_SECRET = 'elastico-demo-fallback-secret-2026-production-min-length-ok'
-const JWT_SECRET = process.env.JWT_SECRET || FALLBACK_SECRET
+const JWT_SECRET = process.env.JWT_SECRET
 const JWT_MIN_LENGTH = 32
 const isProduction = process.env.NODE_ENV === 'production'
+
+function assertJwtSecret(): string {
+  if (!JWT_SECRET || JWT_SECRET.length < 32) {
+    throw new Error(
+      `[AUTH CRITICAL] JWT_SECRET must be set in environment and be >= 32 characters. ` +
+      `Current length: ${JWT_SECRET ? JWT_SECRET.length : 0}. ` +
+      `Refusing to operate without a secure secret.`
+    )
+  }
+  return JWT_SECRET
+}
 
 // ── Public User type (stripped of sensitive fields) ─────────────────────────
 
@@ -33,10 +42,12 @@ export interface AuthUser {
   [key: string]: unknown // Allow extra fields from DB
 }
 
-// Log warning at import time, but only throw at actual usage time
-// (Next.js evaluates modules during build, so we can't throw here)
-if (process.env.NODE_ENV !== 'production' && (!JWT_SECRET || JWT_SECRET.length < 16)) {
-  console.error(`[CRITICAL] JWT_SECRET must be >= 16 chars in dev. Current: ${JWT_SECRET.length}. Set it in env vars.`)
+// Log at import time (build-safe). Actual enforcement happens in assertJwtSecret().
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  console.error(
+    `[AUTH CRITICAL] JWT_SECRET is ${!JWT_SECRET ? 'not set' : 'too short (' + JWT_SECRET.length + ' chars, need >= 32)'}. ` +
+    `Authentication will fail at first usage. Set it in environment variables.`
+  )
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -48,11 +59,11 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export function generateToken(payload: { userId: string; email: string; role: string; plan: string }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d', algorithm: 'HS256' })
+  return jwt.sign(payload, assertJwtSecret(), { expiresIn: '7d', algorithm: 'HS256' })
 }
 
 export function verifyToken(token: string): { userId: string; email: string; role: string; plan: string } {
-  return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { userId: string; email: string; role: string; plan: string }
+  return jwt.verify(token, assertJwtSecret(), { algorithms: ['HS256'] }) as { userId: string; email: string; role: string; plan: string }
 }
 
 /** Check if a real database connection is likely available */

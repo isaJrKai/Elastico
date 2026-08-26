@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { authenticateRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
+
     const url = req.nextUrl.searchParams
     const model = url.get('model') || 'all'
     const startDate = url.get('startDate')
@@ -16,7 +20,7 @@ export async function GET(req: NextRequest) {
     const predictions = await db.prediction.findMany({
       where,
       include: {
-        user: { select: { id: true, name: true, displayName: true, email: true } },
+        user: { select: { id: true, name: true, displayName: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,

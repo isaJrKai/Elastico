@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 import { calculateKelly, calculatePortfolioAllocation, type KellyResult, type PortfolioAllocation } from '@/lib/prediction-engine'
 
 // ── POST /api/prediction-engine/kelly ───────────────────────────────────────────
@@ -9,6 +10,8 @@ export async function POST(request: Request) {
   try {
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth
+    const rl = rateLimit(`kelly:${auth.user.id}`, 20, 60_000)
+    if (!rl.allowed) return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
 
     const body = await request.json()
     const mode = body.mode || 'single'

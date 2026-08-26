@@ -5,11 +5,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchTeams, fetchStandings, ESPN_LEAGUES } from '@/lib/football-data'
 
+import { rateLimit } from '@/lib/rate-limit'
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Rate limiting
+    const ip = _req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = rateLimit(`team-detail:${ip}`, 20, 60000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const { id } = await params
 
     // Search for the team across all leagues

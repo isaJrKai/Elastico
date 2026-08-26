@@ -6,6 +6,10 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req)
     if (auth instanceof Response) return auth
+    if (!auth.user || auth.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
     const flags = await db.featureFlag.findMany({
       orderBy: { name: 'asc' },
     })

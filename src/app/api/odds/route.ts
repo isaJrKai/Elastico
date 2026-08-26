@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+import { rateLimit } from '@/lib/rate-limit'
 /**
  * GET /api/odds?competition=PL&refresh=true
  *
@@ -240,6 +241,13 @@ async function persistFootballDataOddsToDb(competition: string) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = rateLimit(`odds:${ip}`, 10, 60000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const { searchParams } = new URL(request.url)
     const competition = searchParams.get('competition') || 'PL'
     const refresh = searchParams.get('refresh') === 'true'

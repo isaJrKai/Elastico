@@ -3,6 +3,7 @@ import { fetchAllLiveScores } from '@/lib/football-data'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
+import { rateLimit } from '@/lib/rate-limit'
 // ── Server-side response cache (in-memory, per-instance) ─────────────────────
 const matchCache = new Map<string, { data: any; timestamp: number }>()
 const CACHE_TTL = 30_000 // 30 seconds
@@ -105,6 +106,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Rate limiting
+    const ip = _req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = rateLimit(`match-detail:${ip}`, 30, 60000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const { id } = await params
 
     // ── Detect source prefix (fd:, espn:, api-sports:) ────────────────────

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { authenticateRequest } from '@/lib/auth';
 
 /**
  * Table-level provenance report for one table.
@@ -45,8 +46,11 @@ function sourceProvenanceWhere() {
 
 // ---------- GET handler ----------
 
-export async function GET(): Promise<NextResponse<DataProvenanceResponse>> {
+export async function GET(request: Request): Promise<NextResponse<DataProvenanceResponse>> {
   try {
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth as any
+
     const timestamp = new Date().toISOString();
 
     // ---- Team ----

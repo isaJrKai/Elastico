@@ -28,6 +28,9 @@ async function setConfig(config: EngineConfig): Promise<void> {
 export async function GET(req: Request) {
   const auth = await authenticateRequest(req)
   if (auth instanceof Response) return auth
+  if (!auth.user || auth.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+  }
   const config = await getConfig()
   return NextResponse.json({
     success: true,

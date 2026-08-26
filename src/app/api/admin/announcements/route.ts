@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
+    if (!auth.user || auth.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
     const announcements = await db.announcement.findMany({
       where: {
         isActive: true,

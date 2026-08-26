@@ -10,14 +10,12 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
-    const { allowed } = rateLimit(`simulate:${ip}`, 5, 60_000)
-    if (!allowed) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-    }
-
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth
+    const rl = rateLimit(`simulate:${auth.user.id}`, 5, 60_000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
 
     const body = await request.json()
     const matchInput: MatchInput = body.matchInput

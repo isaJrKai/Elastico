@@ -4,6 +4,8 @@
 
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/rbac'
+
+import { rateLimit } from '@/lib/rate-limit'
 import { writeFile, unlink } from 'fs/promises'
 import { exec } from 'child_process'
 import { promisify } from 'util'
@@ -179,10 +181,16 @@ async function handleQuarantineTest(patchCode: string, filename: string): Promis
 // ── POST Handler ───────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
-  const authResult = await requireAdmin(request)
-  if (authResult instanceof NextResponse) return authResult
-
   try {
+    const authResult = await requireAdmin(request)
+    if (authResult instanceof NextResponse) return authResult
+
+    // Rate limiting (admin user)
+    const rl = rateLimit(`veronica-heal:${authResult.userId}`, 3, 60_000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const body = await request.json()
     const { action, brokenCode, errorTraceback, filename, patchCode } = body
 

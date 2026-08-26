@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchAllLiveScores } from '@/lib/football-data'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 
 // Simple ELO-based simulation using team names from ESPN data.
 // Since matches are now ESPN-live, simulation works on ESPN match data.
@@ -29,6 +30,8 @@ export async function POST(
   try {
     const auth = await authenticateRequest(req)
     if (auth instanceof Response) return auth
+    const rl = rateLimit(`match-simulate:${auth.user.id}`, 10, 60_000)
+    if (!rl.allowed) return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
 
     const { user } = auth
     const { id } = await params

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { fetchFootballNews, normalizeNDArticle } from '@/lib/newsdata'
 
+import { rateLimit } from '@/lib/rate-limit'
 /**
  * GET /api/news
  *
@@ -144,6 +145,13 @@ async function fetchESPNNewsDirect(leagueCode: string): Promise<any[]> {
 
 export async function GET(req: NextRequest) {
   try {
+    // Rate limiting
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = rateLimit(`news:${ip}`, 15, 60000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const { searchParams } = new URL(req.url)
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)

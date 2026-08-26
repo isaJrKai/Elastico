@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchSoccerOdds, fetchAllSoccerOdds, extractTheOddsData } from '@/lib/the-odds-api'
 
+import { rateLimit } from '@/lib/rate-limit'
 /**
  * GET /api/the-odds
  *
@@ -17,6 +18,13 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = rateLimit(`the-odds:${ip}`, 10, 60000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const { searchParams } = new URL(request.url)
     const league = searchParams.get('league') || undefined
     const all = searchParams.get('all') === 'true'

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
 import { analyzeMarketSignals, type MarketSignal } from '@/lib/prediction-engine'
+import { rateLimit } from '@/lib/rate-limit'
 
 // ── POST /api/prediction-engine/market-signals ─────────────────────────────────
 // Analyze market line movements for sharp money detection.
@@ -10,6 +11,11 @@ export async function POST(request: Request) {
   try {
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth
+    const identifier = auth.user.id
+    const rl = rateLimit(`market-signals:${identifier}`, 20)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
 
     const body = await request.json()
     const { openingOdds, currentOdds, matchId, homeTeam, awayTeam, source } = body
@@ -42,7 +48,10 @@ export async function POST(request: Request) {
 // ── GET /api/prediction-engine/market-signals ──────────────────────────────────
 // Returns market signal system info + available real odds from football-data.org
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await authenticateRequest(request)
+  if (auth instanceof Response) return auth
+
   const hasApiKey = !!process.env.FOOTBALL_DATA_API_KEY
 
   return NextResponse.json({

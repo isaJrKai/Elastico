@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rate-limit'
 import {
   fetchLeagueTeams, fetchLeaguePlayers, fetchMatch, fetchTeamMatches,
   computeTeamXgFromMatches, normalizeUnderstatShot,
@@ -24,6 +25,13 @@ export const maxDuration = 15
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = rateLimit(`understat:${ip}`, 15, 60000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action') || 'teams'
 

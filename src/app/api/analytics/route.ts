@@ -12,6 +12,8 @@ import {
   type GameState, type TaggedEvent,
 } from '@/lib/game-state-engine'
 import { fetchEvents, extractShots, extractPasses } from '@/lib/statsbomb'
+
+import { rateLimit } from '@/lib/rate-limit'
 import {
   calculateXG, shotAngle, shotDistance, batchCalculateXG,
   passCompletionProbability, passInterceptionCDA, expectedAssist,
@@ -47,6 +49,13 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = rateLimit(`analytics:${ip}`, 15, 60000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
+    }
+
     const { searchParams } = new URL(request.url)
     const action = searchParams.get('action') || 'xt-grid'
 
