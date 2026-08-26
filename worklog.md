@@ -228,3 +228,43 @@ Stage Summary:
 - Gate: HARD FAIL — 2 of 3 checks failed, 1 skipped
 - No implementation code written (per directive)
 - Next action: Resolve both blockers above, then re-run Stage 2 gate check
+
+---
+Task ID: 2
+Agent: main
+Task: Phase 2 — Authentication & Rate Limiting Coverage
+
+Work Log:
+- Classified all 51 API routes: PUBLIC-READ, USER-SPECIFIC, ADMIN, EXTERNAL-COST
+- Task 4: Fixed JWT fallback inconsistency
+  - auth.ts: Removed hardcoded FALLBACK_SECRET, added assertJwtSecret() that throws if JWT_SECRET < 32 chars
+  - rbac.ts: Replaced empty-string fallback with same assertJwtSecret() pattern
+  - Both files now fail loudly at runtime if JWT_SECRET is unconfigured
+- Task 2: Applied authentication
+  - admin/announcements GET: Added auth + admin role check (was public)
+  - admin/feature-flags GET: Added admin role check (was auth-only)
+  - prediction-engine/config GET: Added admin role check (was auth-only)
+  - analytics/predictions GET: Added auth (was public, leaked user emails — removed email from select)
+  - data-provenance GET: Added auth (exposed internal schema/table names)
+  - prediction-engine/market-signals GET: Added auth (was public)
+  - prediction-engine/timesfm POST: Added auth (was public — calls NVIDIA paid API)
+  - Auth routes: 8 → 25
+- Task 3: Applied rate limiting
+  - IP-based RL added to 16 EXTERNAL-COST public routes (api-sports, football-data, live, news, odds, matches, matches/[id], players, players/[id], teams, teams/[id], standings, the-sports-db, the-odds, understat, statsbomb, analytics)
+  - User-based RL added to 5 authenticated routes (kelly, simulate, match-simulate, market-signals, timesfm)
+  - Admin-based RL added to veronica-heal (NVIDIA calls)
+  - RL routes: 2 → 34
+- Task 5: Specifically fixed /api/prediction-engine/timesfm
+  - Added authenticateRequest (was zero auth)
+  - Added rateLimit 5/min per user (was zero RL)
+  - Both before any NVIDIA API call
+- TypeScript: tsc --noEmit → 0 errors
+- Build: next build → PASS
+- Verified: chat/route.ts NOT modified, prisma/schema.prisma NOT modified
+
+Stage Summary:
+- 34 files changed, 570 insertions, 29 deletions
+- Routes with auth: 8 → 25 (17 routes hardened)
+- Routes with RL: 2 → 34 (32 routes hardened)
+- Commit: 3b743b2
+- AI Stage 2: BLOCKED (SQLite + no NVIDIA key — separate blocker report)
