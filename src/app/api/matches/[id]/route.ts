@@ -3,6 +3,25 @@ import { fetchAllLiveScores } from '@/lib/football-data'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 
+// ── Server-side response cache (in-memory, per-instance) ─────────────────────
+const matchCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_TTL = 30_000 // 30 seconds
+
+function getCached(id: string): any | null {
+  const entry = matchCache.get(id)
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL) return entry.data
+  if (entry) matchCache.delete(id)
+  return null
+}
+function setCache(id: string, data: any) {
+  matchCache.set(id, { data, timestamp: Date.now() })
+  // Evict oldest entries if cache grows too large
+  if (matchCache.size > 200) {
+    const oldest = [...matchCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)
+    for (let i = 0; i < 50; i++) matchCache.delete(oldest[i][0])
+  }
+}
+
 // Normalize external status values to Elastico internal statuses
 const STATUS_MAP: Record<string, string> = {
   'SCHEDULED': 'upcoming', 'TIMED': 'upcoming', 'STATUS_SCHEDULED': 'upcoming',
@@ -29,12 +48,6 @@ function mapDbMatch(m: any, homeAnalytics?: any, awayAnalytics?: any) {
     xgSource: analytics?.source ?? null,
     xgFreshness: analytics?.dataFreshness ?? null,
     possession: t.possession ?? null, passAccuracy: t.passAccuracy ?? null, pressIntensity: t.pressIntensity ?? null,
-    players: (t.players || []).map((p: any) => ({
-      id: p.id, name: p.name, number: p.number || 0,
-      position: p.position || '', goals: p.goals || 0, assists: p.assists || 0,
-      yellowCards: p.yellowCards || 0, redCards: p.redCards || 0,
-      rating: p.rating ?? 0, marketValue: null, age: p.age,
-    })),
   })
 
   return {
@@ -121,9 +134,15 @@ export async function GET(
       return mapDbMatch(dbMatch, homeAnalytics, awayAnalytics)
     }
     const matchIncludes = {
-      homeTeam: { include: { players: { orderBy: { goals: 'desc' as const }, take: 25 } } },
-      awayTeam: { include: { players: { orderBy: { goals: 'desc' as const }, take: 25 } } },
+      homeTeam: true,
+      awayTeam: true,
       events: { orderBy: { minute: 'asc' as const } },
+    }
+
+    // ── 0. Check cache ────────────────────────────────────────────────
+    const cached = getCached(id)
+    if (cached) {
+      return NextResponse.json(cached)
     }
 
     // ── 1. Try database by primary ID (only if no source prefix) ──────────
@@ -134,7 +153,9 @@ export async function GET(
           include: matchIncludes,
         }) as any
         if (dbMatch) {
-          return NextResponse.json({ match: await enrichMatch(dbMatch), source: 'database' })
+          const result = { match: await enrichMatch(dbMatch), source: 'database' }
+          setCache(id, result)
+          return NextResponse.json(result)
         }
       } catch (dbErr) {
         console.error('[MatchDetail] DB lookup failed, trying externalId:', dbErr)
@@ -148,7 +169,9 @@ export async function GET(
         include: matchIncludes,
       }) as any
       if (dbMatch) {
-        return NextResponse.json({ match: await enrichMatch(dbMatch), source: 'database' })
+        const result = { match: await enrichMatch(dbMatch), source: 'database' }
+        setCache(id, result)
+        return NextResponse.json(result)
       }
     } catch (dbErr2) {
       console.error('[MatchDetail] externalId lookup failed:', dbErr2)
@@ -157,16 +180,20 @@ export async function GET(
     // ── 2.5. Fallback: fetch from football-data.org for fd: prefixed IDs ──
     if (sourcePrefix === 'fd' && process.env.FOOTBALL_DATA_API_KEY) {
       try {
-        const { fetchMatches } = await import('@/lib/football-data-org')
-        // Fetch all competitions' current matches and find the one by ID
+        const { fetchMatches, normalizeFDMatch } = await import('@/lib/football-data-org')
         const competitions = ['PL', 'PD', 'SA', 'BL1', 'FL1', 'CL', 'EL']
-        for (const comp of competitions) {
-          const fdMatches = await fetchMatches(comp)
-          const fdMatch = fdMatches.find((m: any) => String(m.id) === rawExternalId)
+        // Parallel fetch all competitions instead of sequential
+        const allResults = await Promise.allSettled(
+          competitions.map(comp => fetchMatches(comp).catch(() => []))
+        )
+        for (const result of allResults) {
+          if (result.status !== 'fulfilled') continue
+          const fdMatch = result.value.find((m: any) => String(m.id) === rawExternalId)
           if (fdMatch) {
-            const { normalizeFDMatch } = await import('@/lib/football-data-org')
             const normalized = normalizeFDMatch(fdMatch)
-            return NextResponse.json({ match: normalized, source: 'football-data.org (live)' })
+            const response = { match: normalized, source: 'football-data.org (live)' }
+            setCache(id, response)
+            return NextResponse.json(response)
           }
         }
       } catch (fdErr) {
@@ -190,9 +217,8 @@ export async function GET(
           xgTruthClass: 'MISSING',
           xgSource: null, xgFreshness: null,
           possession: null, passAccuracy: null, pressIntensity: null,
-          players: [],
         })
-        const match = {
+        const matchData = {
           id: espnMatch.id,
           competition: espnMatch.competition,
           competitionCode: (espnMatch as any).competitionCode || '',
@@ -217,7 +243,9 @@ export async function GET(
           _count: { predictions: 0, events: 0 },
           source: 'espn',
         }
-        return NextResponse.json({ match, source: 'espn' })
+        const result = { match: matchData, source: 'espn' }
+        setCache(id, result)
+        return NextResponse.json(result)
       }
     } catch (espnErr) {
       console.error('[MatchDetail] ESPN lookup failed:', espnErr)

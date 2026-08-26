@@ -242,11 +242,13 @@ export default function MatchDetailView() {
   ].filter(d => d.value > 0), [match])
 
   const xgTimeline = useMemo(() => {
-    // xG timeline requires per-shot event-level xG data (e.g., from StatsBomb/Understat).
-    // Aggregate match xG distributed across goals is NOT a valid xG timeline.
-    // Returning empty — the chart will show an honest unavailable state.
     return []
-  }, [match])
+  }, [])
+
+  const sortedEvents = useMemo(() =>
+    (match?.events || []).sort((a, b) => a.minute - b.minute),
+    [match?.events]
+  )
 
   // ── StatsBomb shot map (real xG + coordinates) ────────────────────────
   const [sbShots, setSbShots] = useState<ShotMapPoint[]>([])
@@ -498,11 +500,11 @@ export default function MatchDetailView() {
           <TabsContent value="timeline" className="mt-4">
             <Card className="glass-card-premium rounded-xl"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Activity className="size-4 text-primary" />Match Events</h3>
-              {(match.events || []).length === 0 ? (
+              {sortedEvents.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No events recorded</p>
               ) : (
                 <div className="relative ml-4 border-l-2 border-border/30 space-y-4">
-                  {(match.events || []).sort((a, b) => a.minute - b.minute).map((ev, i) => (
+                  {sortedEvents.map((ev, i) => (
                     <div key={ev.id || i} className="relative pl-6 animate-slide-in-left" style={{ animationDelay: `${i * 50}ms` }}>
                       <div className="absolute -left-[9px] top-0.5 size-4 rounded-full bg-background border-2 border-border flex items-center justify-center text-[10px]">{getEventIcon(ev.type)}</div>
                       <div className="flex items-center gap-2">
