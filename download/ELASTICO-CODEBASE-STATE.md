@@ -2,9 +2,11 @@
 
 > **Purpose**: This document gives ChatGPT the full current state of ELASTICO so it can design and implement the Intelligence Orchestration Layer against the real codebase.
 >
-> **Generated**: 2026-08-26
+> **Generated**: 2026-08-26 (with Architectural Addendum)
 > **Project root**: `/home/z/my-project/`
 > **Stack**: Next.js 16.1.1, React 19, Prisma (PostgreSQL/Neon), Zustand, Tailwind v4, shadcn/ui, TypeScript strict
+>
+> **CRITICAL: Read §19 (Architectural Addendum) FIRST.** It contains mandatory design corrections that override assumptions in earlier sections.
 
 ---
 
@@ -600,3 +602,394 @@ Data APIs:
 5. **50 players fetched** in match detail but never displayed
 6. **Zero caching** on most data fetches (only match detail has 30s cache)
 7. **News has no entity extraction** — can't filter by team ID
+
+---
+
+## 19. ARCHITECTURAL ADDENDUM — MANDATORY DESIGN CORRECTIONS
+
+> **THIS SECTION OVERRIDES ANY CONFLICTING ASSUMPTIONS IN SECTIONS 1-18.**
+> Read this section first. It was written after the codebase audit and contains critical architectural decisions from the product owner.
+
+### 19.1 The LLM Is NOT the Intelligence
+
+**The most important principle:**
+
+> ELASTICO should become a **football intelligence system with an AI reasoning interface**.
+> The LLM is the reasoning/interface layer. PostgreSQL + analytics models + retrieval + prediction models + current news + historical outcomes form the actual knowledge and evidence system.
+
+**What this means concretely:**
+- The system IS intelligent. The LLM REASONS OVER that intelligence.
+- No prediction number should come from the LLM's parametric knowledge. Ever.
+- No current-affairs claim should reach the AI without provenance.
+- No model should be called "intelligent" merely because it has a large number of parameters.
+
+### 19.2 Do NOT Build a Neural Network
+
+> Do not try to make ELASTICO intelligent by embedding a neural network into the app. That is almost certainly the wrong abstraction.
+
+What you actually want is **multiple specialized intelligence models** (deterministic and statistical), orchestrated by a retrieval and evidence system, with the LLM explaining the output.
+
+The system should have specialized engines:
+- **Prediction Engine** — ELO, Poisson, Dixon-Coles, Monte Carlo, Stochastic (these already exist in `src/lib/predictions.ts` and `src/lib/prediction-engine.ts`)
+- **Tactical Engine** — event data → possession sequences → pressing → xT → team style
+- **Player Intelligence** — events → role detection → performance metrics → trend detection → similar player retrieval
+- **News Intelligence** — articles → entity extraction → team/player linking → event classification → importance scoring
+
+### 19.3 The Sacred Data Flow
+
+This is the absolute architectural law:
+
+```
+External Source → PostgreSQL → Intelligence Layer → AI → UI
+```
+
+Never:
+- External Source → AI directly
+- AI → number without PostgreSQL trace
+- News article → AI context without entity extraction
+- User prediction → AI without prediction engine computation
+
+Specifically for every data type:
+
+```
+Football API → PostgreSQL → Analytics Engine → TeamAnalytic → AI context → answer
+
+NewsData API → NewsArticle (PostgreSQL) → [future: embedding → pgvector → retrieval] → AI context → answer
+
+Odds API → OddsSnapshot (PostgreSQL) → historical odds analysis → prediction engine → AI context → answer
+
+Match events → MatchEvent (PostgreSQL) → tactical analysis → AI context → answer
+```
+
+### 19.4 News Must Become Structured Events
+
+Current state: `NewsArticle` is a flat cache — title, summary, content, sentiment.
+
+Required state: News should be transformed into **structured football events** that the prediction engine and AI can actually consume.
+
+Example — this news article:
+> "Mbappé missed training today."
+
+Must become:
+```typescript
+{
+  type: "PLAYER_AVAILABILITY",
+  player: "Mbappé",
+  team: "Real Madrid",
+  status: "QUESTIONABLE",
+  source: "NewsData",
+  publishedAt: "...",
+  confidence: 0.91,
+  impact: "HIGH"
+}
+```
+
+This is the difference between:
+- **AI that reads news** (current)
+- **AI that incorporates news into football reasoning** (required)
+
+**Implementation note:** For Stage 1, entity extraction from news titles/content can use simple string matching against team/player names in the DB. LLM-based extraction can come later.
+
+### 19.5 Granular Provenance System
+
+The current truth classification (REAL/DERIVED/ANALYSIS/UNKNOWN) is too coarse. Every piece of intelligence should carry:
+
+```typescript
+{
+  value: any,
+  truthClass: "REAL" | "DERIVED" | "MODELLED" | "RETRIEVED" | "ANALYSIS" | "ESTIMATED" | "STALE" | "UNKNOWN",
+  source: string,        // "Understat", "API-Sports", "ESPN", "Prediction Engine", "NewsData"
+  sourceUrl: string?,   // link to original data
+  timestamp: Date,      // when was this data point created/fetched
+  confidence: number,   // 0-1
+  method: string,       // "measured", "calculated:poisson", "estimated:proxy", "reported:news"
+  freshness: "FRESH" | "CURRENT" | "SEASON" | "STALE",
+}
+```
+
+The AI must be able to say:
+> "This xG is directly sourced from Understat, synced 2 hours ago."
+
+vs:
+
+> "This tactical assessment is an inference from event data."
+
+vs:
+
+> "This injury report comes from a news article published 3 hours ago, not yet confirmed."
+
+### 19.6 Evidence Before Reasoning — The Required Data Contract
+
+Before ELASTICO is allowed to produce any analytical response, it must:
+
+1. **Classify intent** — what kind of question is this?
+2. **Resolve entities** — which teams/players/competitions are mentioned?
+3. **Determine required evidence** — what data is needed to answer?
+4. **Retrieve from PostgreSQL** — get the actual data with provenance
+5. **Call analytical models** — run prediction engines with real inputs
+6. **Validate evidence completeness** — what's missing?
+7. **Build reasoning context** — assemble evidence into a concise prompt
+8. **Call LLM** — let it reason OVER the evidence
+9. **Validate output** — ensure no fabricated numbers, every stat has provenance
+10. **Return** — structured response with metadata
+
+For a prediction query, the required data contract might look like:
+```typescript
+interface PredictionContext {
+  fixture: { homeTeam, awayTeam, competition, kickoff, venue, homeOrAway }
+  homeTeam: { elo, xg, xga, form, injuries, news, recentResults, homeRecord }
+  awayTeam: { elo, xg, xga, form, injuries, news, recentResults, awayRecord }
+  modelOutputs: { elo: EloResult, poisson: PoissonResult, dixonColes: DixonColesResult, monteCarlo: MonteCarloResult }
+  currentEvents: Array<{ type, player, team, status, impact, source, confidence }>
+  odds: { home, draw, away, source, timestamp } | null
+  dataQuality: { available: string[], missing: string[], stale: string[] }
+}
+```
+
+Then:
+```
+if required_data_missing:
+    don't fabricate
+    explain what is missing
+    if partial data exists, reason over what IS available
+```
+
+### 19.7 The Target Architecture (North Star)
+
+```
+                 EXTERNAL WORLD
+                       │
+       ┌───────────────┼────────────────┐
+       │               │                │
+ Football APIs       News             Odds
+       │               │                │
+       └───────────────┼────────────────┘
+                       ↓
+                 INGESTION LAYER
+               (existing cron/routes)
+                       ↓
+                 POSTGRESQL
+                       │
+          ┌────────────┼────────────┐
+          │            │            │
+       Structured   Analytics    Embeddings
+       Data         Data         (future:
+          │            │          pgvector)
+          │            │
+          └────────────┼────────────┘
+                       ↓
+              INTELLIGENCE ENGINE
+                       │
+        ┌──────────────┼───────────────┐
+        │              │               │
+    Prediction      Tactical        Scouting
+      Engine         Engine       Intelligence
+        │              │               │
+        └──────────────┼───────────────┘
+                       ↓
+                EVIDENCE BUILDER
+                       ↓
+                 LLM GATEWAY
+            (existing ai-gateway.ts)
+                       ↓
+              TRUTH / SAFETY LAYER
+                       ↓
+                  ELASTICO AI
+                       ↓
+                       UI
+```
+
+### 19.8 Build in Stages — Do NOT Build Everything at Once
+
+The implementation must follow this staged approach:
+
+| Stage | What | Depends On |
+|-------|------|------------|
+| **1** | **Reliable structured data retrieval** — Intent engine, entity resolver, DB queries, evidence assembly. The AI gets REAL data from PostgreSQL before answering. | Existing Prisma models, existing prediction functions |
+| **2** | **Analytics engine integration** — Connect prediction models (ELO, Poisson, Dixon-Coles, Monte Carlo) to the intelligence layer. `/predict` produces numbers from actual model runs. | Stage 1 |
+| **3** | **Prediction models in chat** — Full prediction pipeline: retrieve data → run models → present structured output with model consensus table. | Stages 1-2 |
+| **4** | **News intelligence** — Entity extraction from NewsArticle, structured event creation, news context in predictions. | Stage 1 |
+| **5** | **Embeddings + pgvector** — Semantic search over news, match reports, historical analysis. Requires pgvector extension on Neon. | Stage 4 |
+| **6** | **Reranking** — Determine which retrieved evidence actually matters for the current query. | Stage 5 |
+| **7** | **Evidence-aware LLM** — LLM receives structured evidence package, must reason over it, cannot fabricate. Output validation. | Stages 1-6 |
+| **8** | **Outcome tracking** — Store predictions vs actual results. Model versioning. Feature audit trail. | Stage 3 |
+| **9** | **Model evaluation** — Which models are calibrated? Which features matter? Systematic over/underestimation by team? | Stage 8 |
+| **10** | **Model improvement** — Ensemble weighting, feature selection, recalibration based on outcomes. | Stage 9 |
+| **11** | **Autonomous intelligence** — Self-learning, proactive insights, alert generation. | Stages 1-10 |
+
+**For this implementation, focus on STAGES 1-3.** Stages 4+ are future work that the architecture should support but not implement yet.
+
+### 19.9 Future Model Ensemble Architecture
+
+The system should eventually support weighted model ensembles:
+
+```
+                 MATCH
+                   ↓
+        ┌─────────────────────┐
+        │ Prediction Ensemble  │
+        └─────────────────────┘
+
+        ELO Model       23%
+        xG Model        31%
+        Form Model      14%
+        Tactical Model  12%
+        Player Model     9%
+        Market/Odds      6%
+        News Model       5%
+                   ↓
+            Ensemble Output
+                   ↓
+            LLM explains WHY
+```
+
+But this is NOT the starting point. Start with structured retrieval + existing models.
+
+### 19.10 Referenced GitHub Repositories (For Audit, Not Blind Installation)
+
+These were identified as potentially useful reference implementations. **Audit before using** — check license, data licensing, maintenance, methodology, compatibility.
+
+| Repo | What It Offers | Relevance |
+|------|---------------|-----------|
+| `github.com/carrba/football-data-xg` | End-to-end XGBoost xG pipeline from StatsBomb data | xG model training patterns |
+| `github.com/Lephim/football-intelligence-copilot` | Separates: ingestion → analytics → training → visualization → API. Treats LLM as layer ON TOP of analytics. | Architecture reference |
+| `github.com/ronniepiku/MatchMind` | Prediction, tactical analysis, scouting, executive reporting, analytical queries | Feature scope reference |
+| `github.com/ML-KULeuven/soccer_xg` | xG with Opta, Wyscout, StatsBomb event streams | xG methodology |
+| `github.com/itzmore-mph/football-analytics-dashboard` | XGBoost xG, NetworkX passing networks, Streamlit dashboard | Visualization patterns |
+| `github.com/PriorLabs/tabpfn-football-predictions` | TabPFN for football match prediction | Alternative prediction approach |
+| `github.com/vishnu8406/football-analytics` | Football analytics | General reference |
+| `github.com/pgvector/pgvector` | Vector similarity search for Postgres | Stage 5 dependency |
+
+**DO NOT install these as dependencies.** Study their architecture and methodology.
+
+### 19.11 North Star Design References
+
+Visual design references from the ChatGPT conversation:
+- **Behance FUI**: https://www.behance.net/gallery/119098909/FUI-Functional-User-Interfaces — Functional UI design patterns
+- **SportsInsight472**: https://www.sportsinsight472.com/sports_dashboard.png — Sports analytics dashboard mockup
+- **Caiq.ai**: https://caiq.ai/assets/dashboard-mockup-De03kwQY.png — AI dashboard mockup
+- **Dribbble UI references** (3 shots): football analytics dashboard patterns
+
+### 19.12 The 10,000 Character Constraint Is Real
+
+The AI gateway (`ai-gateway.ts`) has a hard input limit: if total message content exceeds 10,000 characters, it returns an empty response.
+
+This means the evidence package sent to the LLM MUST be concise. Strategies:
+- Summarize retrieved data into key metrics only
+- Use tables instead of prose
+- Omit raw data — only include derived/analyzed values
+- The intelligence layer does the heavy lifting; the LLM gets a brief but complete evidence summary
+
+### 19.13 No Tool Calling / Function Calling
+
+The AI gateway only supports plain text messages. There is no OpenAI-style tool calling or function calling. The intelligence layer must execute all retrieval and computation BEFORE calling the LLM.
+
+This is actually correct for the architecture — the system retrieves and computes, then hands the LLM a complete evidence package to reason over.
+
+### 19.14 Prediction Outcome Learning (Future)
+
+Eventually ELASTICO should learn from its own predictions:
+
+```typescript
+interface PredictionOutcome {
+  predictionId: string
+  predicted: { homeWin: number, draw: number, awayWin: number }
+  actual: { homeGoals: number, awayGoals: number, result: 'home' | 'draw' | 'away' }
+  modelVersion: string
+  featuresUsed: string[]
+  newsAvailableAtPredictionTime: string[]
+  dataQuality: { available: string[], missing: string[] }
+  provider: string
+  timestamp: Date
+}
+```
+
+Questions the evaluation engine should answer:
+- Which models are consistently calibrated?
+- Which features actually matter?
+- When does news improve predictions?
+- When does ELO become misleading?
+- Which teams are systematically over/underestimated?
+
+This is NOT training the LLM. This is the SYSTEM learning from outcomes.
+
+### 19.15 Prisma Schema Changes Needed
+
+The intelligence layer will likely require new models. Since the project uses `prisma db push` (no migrations), new models can be added directly to the schema.
+
+Potential new models (not definitive — design as you build):
+
+```prisma
+// AI Chat logging
+model AiChatLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  sessionId   String?
+  intent      String   // PREDICTION, MATCH_ANALYSIS, TEAM_ANALYSIS, etc.
+  entities    String   // JSON: resolved team/player IDs
+  dataRetrieved String  // JSON: what was retrieved, what was missing
+  provider    String   // which AI provider answered
+  model       String   // which model
+  latencyMs   Int
+  tokensUsed  Int?
+  createdAt   DateTime @default(now())
+}
+
+// Structured news events (extracted from NewsArticle)
+model FootballEvent {
+  id            String   @id @default(cuid())
+  type          String   // PLAYER_AVAILABILITY, TRANSFER, MANAGER_CHANGE, TACTICAL, SUSPENSION
+  teamId        String?  // resolved team
+  playerId      String?  // resolved player (free text if not in DB)
+  playerName    String
+  teamName      String
+  status        String   // CONFIRMED, QUESTIONABLE, DOUBTFUL, RUMOUR
+  impact        String   // HIGH, MEDIUM, LOW
+  confidence    Float    @default(0)
+  sourceArticleId String?  // FK to NewsArticle
+  source        String
+  publishedAt   DateTime?
+  extractedAt   DateTime @default(now())
+}
+
+// Prediction tracking for outcome evaluation
+model PredictionRecord {
+  id            String   @id @default(cuid())
+  matchId       String
+  homeTeam      String
+  awayTeam      String
+  predicted     String   // JSON: { homeWin, draw, awayWin }
+  actual        String?  // JSON: { homeGoals, awayGoals, result }
+  modelsUsed    String   // JSON: ["elo", "poisson", "dixon_coles"]
+  featuresUsed  String   // JSON: ["elo", "xg", "form", "injuries"]
+  dataQuality   String   // JSON: { available: [...], missing: [...] }
+  provider      String   // which AI provider
+  isCorrect     Boolean?
+  createdAt     DateTime @default(now())
+  resolvedAt    DateTime?
+}
+
+// News embeddings (for pgvector — Stage 5)
+// model NewsEmbedding {
+//   id          String   @id @default(cuid())
+//   articleId   String
+//   embedding   Unsupported("vector(1536)")
+//   createdAt   DateTime @default(now())
+// }
+```
+
+### 19.16 The Hard Invariant
+
+> **The LLM is never the source of truth for ELASTICO data.**
+
+If the user asks "Predict Real Madrid":
+- The LLM does NOT decide "Real Madrid probably have a higher ELO."
+- The system retrieves Real Madrid's actual ELO from PostgreSQL
+- The system runs prediction models with actual data
+- The LLM receives the results and EXPLAINS them
+
+This applies to every data type: stats, news, odds, form, injuries, everything.
+
+---
+
+## END OF DOCUMENT

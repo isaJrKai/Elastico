@@ -1,0 +1,877 @@
+I read what GLM proposed, and I think it's pointing in the right direction but it's aiming at the wrong layer.
+
+You're trying to build HAL for football. ELASTICO's AI should not become "a chatbot with a bigger model." It should become a football intelligence operating system. That means intelligence comes from architecture, memory, reasoning, retrieval, simulation, and learning—not from stuffing a 15,000-node neural network into the app.
+
+I'm going to give you the architecture I would build. This is what I would hand to GLM 5 as the permanent AI layer for ELASTICO.
+
+# ELASTICO AI 2.0 — The Intelligence Architecture
+
+# HAL for Football
+
+System Constitution
+
+Production Architecture
+
+Mission
+
+ELASTICO AI is not a chatbot.
+
+ELASTICO AI is a Football Intelligence Operating System that observes football, remembers football, reasons about football, predicts football, explains football, and continuously learns from football.
+
+# The North Star
+
+![2026世界杯香港官方網站 - 國際足聯世界杯權威平台](https://images.openai.com/static-rsc-4/KqXyAcbkv_Mcxp4LlarlZz96b6pg61r9hnCHG3-c5gTe6_1niz0kZRlYjNL6WyAEM5pb3OAYQ8bDKYZpdQ51HgMXXVVbuY3f_QgVIrnQK4IApFW0pZl6NPfdqAjmeo_425X9FC30xdrkiOhrPzGFKkFlfzsn1iH0lptaQblKlC8?purpose=inline)
+
+![Matchboard ⎻ Football Match Dashboard by Panggih for Callour Studio on Dribbble](https://images.openai.com/static-rsc-4/0UR3lkO00WG41eIahMilALL2o8mJABUtIRsDa1n_rDMbsEvnF58IbCvjyW4II_DaLGb_AWokR-0HsXWY3-8DzlJ6Hxeo3oEP9_9JPAKEtYOHypI667ONAP4LuOjmIRh5YOHkE73NYYiaAT531JVrdoVsQQrgQVZ1Uor8ktpAc9k?purpose=inline)
+
+![Como Palmeiras e Corinthians se ajustaram pós-pandemia para chegarem à final do Paulistão - ESPN](https://images.openai.com/static-rsc-4/GgTNDFjKSZ4JaKAcWJb-J0BlOzuhfA84JW1BIgSXC8pvzCzNLewytu8EKn2eIn6Y9-UybMNRjCBtzke3JOhrK22Sk2eVFLqK96FjiSLiimQcjQuMF2CaeWKKuG88TkUe0_O1PxhPKXeUqA5IjkIFdrzGIwS8q8uM1CNJkVjq1dY?purpose=inline)
+
+7
+
+Everything in ELASTICO AI revolves around one loop:
+
+![](data\:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb\(13%2C%2013%2C%2013\)%22%20viewBox%3D%220%200%20760%20220%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cdefs%3E%3Cmarker%20id%3D%22arrow%22%20markerWidth%3D%228%22%20markerHeight%3D%228%22%20refX%3D%227%22%20refY%3D%224%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M0%2C0%20L8%2C4%20L0%2C8%20Z%22%20fill%3D%22%2316a34a%22%2F%3E%3C%2Fmarker%3E%3C%2Fdefs%3E%3Crect%20x%3D%2220%22%20y%3D%2280%22%20width%3D%22110%22%20height%3D%2260%22%20rx%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%2316a34a%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%2275%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2214%22%20fill%3D%22%2316a34a%22%3EObserve%3C%2Ftext%3E%3Crect%20x%3D%22180%22%20y%3D%2280%22%20width%3D%22110%22%20height%3D%2260%22%20rx%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22235%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2214%22%20fill%3D%22%232563eb%22%3EUnderstand%3C%2Ftext%3E%3Crect%20x%3D%22340%22%20y%3D%2280%22%20width%3D%22110%22%20height%3D%2260%22%20rx%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%237c3aed%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22395%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2214%22%20fill%3D%22%237c3aed%22%3EReason%3C%2Ftext%3E%3Crect%20x%3D%22500%22%20y%3D%2280%22%20width%3D%22110%22%20height%3D%2260%22%20rx%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%23ea580c%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22555%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2214%22%20fill%3D%22%23ea580c%22%3EPredict%3C%2Ftext%3E%3Crect%20x%3D%22640%22%20y%3D%2280%22%20width%3D%22100%22%20height%3D%2260%22%20rx%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%23dc2626%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22690%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2214%22%20fill%3D%22%23dc2626%22%3ELearn%3C%2Ftext%3E%3Cline%20x1%3D%22130%22%20y1%3D%22110%22%20x2%3D%22180%22%20y2%3D%22110%22%20stroke%3D%22%2316a34a%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23arrow\)%22%2F%3E%3Cline%20x1%3D%22290%22%20y1%3D%22110%22%20x2%3D%22340%22%20y2%3D%22110%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23arrow\)%22%2F%3E%3Cline%20x1%3D%22450%22%20y1%3D%22110%22%20x2%3D%22500%22%20y2%3D%22110%22%20stroke%3D%22%237c3aed%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23arrow\)%22%2F%3E%3Cline%20x1%3D%22610%22%20y1%3D%22110%22%20x2%3D%22640%22%20y2%3D%22110%22%20stroke%3D%22%23ea580c%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23arrow\)%22%2F%3E%3Cpath%20d%3D%22M690%20140%20C690%20190%2C120%20190%2C75%20145%22%20fill%3D%22none%22%20stroke%3D%22%23dc2626%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23arrow\)%22%2F%3E%3C%2Fsvg%3E)
+
+Every conversation goes through that cycle.
+
+# THE 12-LAYER INTELLIGENCE STACK
+
+| Layer               | Purpose |
+| ------------------- | ------- |
+|                     |         |
+| L1. Data Foundation |         |
+
+| APIs → PostgreSQL → Truth. |
+|
+
+L2. Knowledge Graph
+
+| Relationships between clubs, players, matches, managers. |
+|
+
+L3. Memory Engine
+
+| Persistent football memory. |
+|
+
+L4. Retrieval Engine
+
+| Semantic search over football knowledge. |
+|
+
+L5. Tactical Brain
+
+| Football reasoning. |
+|
+
+L6. Prediction Brain
+
+| ELO, Dixon-Coles, Poisson, Monte Carlo. |
+|
+
+L7. News Intelligence
+
+| Understands breaking football news. |
+|
+
+L8. Conversation Engine
+
+| Personalized chat. |
+|
+
+L9. Learning Engine
+
+| Improves after every prediction. |
+|
+
+L10. Simulation Engine
+
+| What-if football simulations. |
+|
+
+L11. Scouting Engine
+
+| Player similarity and recruitment. |
+|
+
+L12. HAL Governance
+
+| Truth classification, provenance, safety. |
+
+# LAYER 1 — DATA FOUNDATION (THE GOLDEN RULE)
+
+This is your architecture.
+
+![DB Design | Design & Share Database Diagrams](https://images.openai.com/static-rsc-4/vfQ38vcSFp5_7hRYbSH4LqprwdJlcsmUDWrmjLjUX9gXq-ZceSGLJPAlpGTDXRJ57HZ6maTCtexgbLOFtT9EmC5tMT7ZOtmSgNupgB0JAjDUnTRR5cyOgzcI0240gtyYkRH8LopeODMSKTZYAndJDD_01_Lme8uGt0bDQpYHGdI?purpose=inline)
+
+![20 Best Free Sports Datasets for ML 2025 - unidata.pro](https://images.openai.com/static-rsc-4/53kcU-hgG1dLfFX-zkd5z0-ui6WvrXVMa5zSB40Wf0ezpMJey9OAkYO0bUhzjRVngHhjxeDSt-wkJE6TBG8gBSQQXIFLSE2cLN1XWH-CbgqeAxQilXBhztsrkMBn01j_wsYRJQ7xb2hSk0SS5R4aqLAIBFIH2mBwrq-ze8_Na64?purpose=inline)
+
+![How you can design a data pipeline with key considerations? | by Rahul Sounder | Medium](https://images.openai.com/static-rsc-4/J0nK-9mjHgupqp8L2VBPJleMQcFKIn0IP8OcyXBXUpilkyKprP2SF0B9gU7euwz2LIaoP8v35LGqzxfxElSLHKvtYRDbG-PypaYc311O8GeazxWd8CctL0Y-jjmlhFMlOgv-vz-csfx2yrKgF43QW7G8XrA5aRk1Zoxj4K7eKvg?purpose=inline)
+
+6
+
+![](data\:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb\(13%2C%2013%2C%2013\)%22%20viewBox%3D%220%200%20760%20260%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cdefs%3E%3Cmarker%20id%3D%22a%22%20markerWidth%3D%228%22%20markerHeight%3D%228%22%20refX%3D%227%22%20refY%3D%224%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M0%2C0%20L8%2C4%20L0%2C8%20Z%22%20fill%3D%22%2316a34a%22%2F%3E%3C%2Fmarker%3E%3C%2Fdefs%3E%3Crect%20x%3D%2210%22%20y%3D%2220%22%20width%3D%22120%22%20height%3D%2240%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22%2316a34a%22%2F%3E%3Ctext%20x%3D%2270%22%20y%3D%2245%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EFootball%20APIs%3C%2Ftext%3E%3Crect%20x%3D%2210%22%20y%3D%2280%22%20width%3D%22120%22%20height%3D%2240%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22%2316a34a%22%2F%3E%3Ctext%20x%3D%2270%22%20y%3D%22105%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3ENews%20APIs%3C%2Ftext%3E%3Crect%20x%3D%2210%22%20y%3D%22140%22%20width%3D%22120%22%20height%3D%2240%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22%2316a34a%22%2F%3E%3Ctext%20x%3D%2270%22%20y%3D%22165%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EOdds%20APIs%3C%2Ftext%3E%3Crect%20x%3D%22240%22%20y%3D%2260%22%20width%3D%22160%22%20height%3D%22100%22%20rx%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22320%22%20y%3D%22110%22%20text-anchor%3D%22middle%22%20font-size%3D%2213%22%3EPostgreSQL%3C%2Ftext%3E%3Ctext%20x%3D%22320%22%20y%3D%22128%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3ECanonical%20Truth%20Database%3C%2Ftext%3E%3Crect%20x%3D%22470%22%20y%3D%2270%22%20width%3D%22120%22%20height%3D%2280%22%20rx%3D%2214%22%20fill%3D%22none%22%20stroke%3D%22%237c3aed%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22530%22%20y%3D%22110%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EAPI%20Layer%3C%2Ftext%3E%3Crect%20x%3D%22630%22%20y%3D%2270%22%20width%3D%22110%22%20height%3D%2280%22%20rx%3D%2214%22%20fill%3D%22none%22%20stroke%3D%22%23ea580c%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22685%22%20y%3D%22110%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EELASTICO%20UI%3C%2Ftext%3E%3Cline%20x1%3D%22130%22%20y1%3D%2240%22%20x2%3D%22240%22%20y2%3D%2285%22%20stroke%3D%22%2316a34a%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23a\)%22%2F%3E%3Cline%20x1%3D%22130%22%20y1%3D%22100%22%20x2%3D%22240%22%20y2%3D%22110%22%20stroke%3D%22%2316a34a%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23a\)%22%2F%3E%3Cline%20x1%3D%22130%22%20y1%3D%22160%22%20x2%3D%22240%22%20y2%3D%22135%22%20stroke%3D%22%2316a34a%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23a\)%22%2F%3E%3Cline%20x1%3D%22400%22%20y1%3D%22110%22%20x2%3D%22470%22%20y2%3D%22110%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23a\)%22%2F%3E%3Cline%20x1%3D%22590%22%20y1%3D%22110%22%20x2%3D%22630%22%20y2%3D%22110%22%20stroke%3D%22%237c3aed%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23a\)%22%2F%3E%3C%2Fsvg%3E)
+
+## Every provider follows ONE pipeline
+
+| Provider          | Table(s)                                 |
+| ----------------- | ---------------------------------------- |
+| Football-data.org | Competitions, Teams, Standings, Fixtures |
+| API-Sports        | Players, Events, Lineups, Injuries       |
+| Understat         | TeamAnalytics, PlayerAnalytics, Match xG |
+| The Odds API      | OddsSnapshot                             |
+| NewsData          | NewsArticle                              |
+| Groq / Gemini     | AIConversation, AIResponseLog            |
+
+## Permanent Rule
+
+ELASTICO Constitutional Rule 001
+
+# No API ever talks directly to the UI.
+
+Every API call writes to PostgreSQL first.
+
+Every UI screen reads from PostgreSQL.
+
+Every number has provenance.
+
+# LAYER 2 — THE KNOWLEDGE GRAPH
+
+This is missing today.
+
+![Cerebro Dynamics — Software & Technology](https://images.openai.com/static-rsc-4/UqpSFFtDNK6E4bB1qg1VOvVReT0EcZJzindhH-JCbFkUCkhf5BGjh3TdVV37Igj_PuHVEN7xjadKy5qR72gu8_wjVdEOBzUD6GTAbTLbo9Kf3-sdz1En3-__CKan9kMvFqSUjVqqbs_p130fHwSNj6A8oEmMs9LEvalF3wYg_JM?purpose=inline)
+
+![Knowledge Graph designs, themes, templates and downloadable graphic elements on Dribbble](https://images.openai.com/static-rsc-4/E2IAbYl0MRZlhzkn21wnMlLhvKgb6hnHeteym70SPRoUgKsTNGTojYipZoxd0q69gOUuual-kehtQ5qGjXvOAl7iQhtswdXwuyReVq90vaQTA_b32qk6satkyw1jyMofGwwcZzNcdPiPc6oFtgI2a6PfEOJXgH_R41SI7anRKAM?purpose=inline)
+
+![Visualising a football match as a Network Graph using Gephi | picnicerror.net](https://images.openai.com/static-rsc-4/yQT9yTMxYEFM11QczeuwcTvdOkUnHgM2s4rFuo73qP82VM1N3OH3m0WGPZoTfS21mXN91XDazGdllDKH0VT4woMFMux2kTJYKfFewpTLXUpcyo4vwzIl3xPUn4Wmfsd1YF5nJIC9IAVwAHq9nHLdKS2VsVWSCuEgLsJ_5GbfMrE?purpose=inline)
+
+5
+
+Instead of isolated tables...
+
+Build relationships.
+
+![](data\:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb\(13%2C%2013%2C%2013\)%22%20viewBox%3D%220%200%20760%20300%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2290%22%20cy%3D%22150%22%20r%3D%2232%22%20fill%3D%22none%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%2290%22%20y%3D%22155%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EArsenal%3C%2Ftext%3E%3Ccircle%20cx%3D%22260%22%20cy%3D%2260%22%20r%3D%2226%22%20fill%3D%22none%22%20stroke%3D%22%2316a34a%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22260%22%20y%3D%2265%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3EArteta%3C%2Ftext%3E%3Ccircle%20cx%3D%22260%22%20cy%3D%22150%22%20r%3D%2226%22%20fill%3D%22none%22%20stroke%3D%22%23ea580c%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22260%22%20y%3D%22155%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3ESaka%3C%2Ftext%3E%3Ccircle%20cx%3D%22260%22%20cy%3D%22240%22%20r%3D%2226%22%20fill%3D%22none%22%20stroke%3D%22%237c3aed%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22260%22%20y%3D%22245%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3ERice%3C%2Ftext%3E%3Ccircle%20cx%3D%22470%22%20cy%3D%22150%22%20r%3D%2230%22%20fill%3D%22none%22%20stroke%3D%22%23dc2626%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22470%22%20y%3D%22155%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3EMatch%3C%2Ftext%3E%3Ccircle%20cx%3D%22650%22%20cy%3D%2290%22%20r%3D%2226%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22650%22%20y%3D%2295%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3EOdds%3C%2Ftext%3E%3Ccircle%20cx%3D%22650%22%20cy%3D%22210%22%20r%3D%2226%22%20fill%3D%22none%22%20stroke%3D%22%230891b2%22%20stroke-width%3D%222%22%2F%3E%3Ctext%20x%3D%22650%22%20y%3D%22215%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3ENews%3C%2Ftext%3E%3Cline%20x1%3D%22122%22%20y1%3D%22150%22%20x2%3D%22234%22%20y2%3D%2265%22%20stroke%3D%22%232563eb%22%2F%3E%3Cline%20x1%3D%22122%22%20y1%3D%22150%22%20x2%3D%22234%22%20y2%3D%22150%22%20stroke%3D%22%232563eb%22%2F%3E%3Cline%20x1%3D%22122%22%20y1%3D%22150%22%20x2%3D%22234%22%20y2%3D%22235%22%20stroke%3D%22%232563eb%22%2F%3E%3Cline%20x1%3D%22286%22%20y1%3D%22150%22%20x2%3D%22440%22%20y2%3D%22150%22%20stroke%3D%22%23ea580c%22%2F%3E%3Cline%20x1%3D%22500%22%20y1%3D%22150%22%20x2%3D%22624%22%20y2%3D%2290%22%20stroke%3D%22%23dc2626%22%2F%3E%3Cline%20x1%3D%22500%22%20y1%3D%22150%22%20x2%3D%22624%22%20y2%3D%22210%22%20stroke%3D%22%23dc2626%22%2F%3E%3C%2Fsvg%3E)
+
+Now ELASTICO knows:
+
+* Arsenal has manager Arteta.
+
+* Arsenal has player Saka.
+
+* Arsenal played match vs Chelsea.
+
+* Match generated odds.
+
+* Match generated news.
+
+* News references Arsenal.
+
+The AI reasons over relationships.
+
+# LAYER 3 — MEMORY ENGINE
+
+This is HAL Memory adapted to football.
+
+## Four memories
+
+| Memory              | Purpose |
+| ------------------- | ------- |
+|                     |         |
+| Conversation Memory |         |
+
+| What Isaac asked yesterday. |
+|
+
+Football Memory
+
+| Every match, tactic, player trend. |
+|
+
+Prediction Memory
+
+| Every prediction and whether it was correct. |
+|
+
+Learning Memory
+
+| What improved prediction accuracy. |
+
+## New PostgreSQL tables
+
+| Table                | Stores |
+| -------------------- | ------ |
+|                      |        |
+| `ConversationMemory` |        |
+
+| User conversations. |
+|
+
+`FootballMemory`
+
+| Important football facts. |
+|
+
+`PredictionMemory`
+
+| Prediction history. |
+|
+
+`InsightMemory`
+
+| Generated tactical insights. |
+|
+
+`LearningMemory`
+
+| Model improvements. |
+
+# LAYER 4 — NVIDIA EMBEDDINGS + PGVECTOR
+
+This is where NVIDIA belongs.
+
+![Navigating the World of Vector Embeddings: From Basics to Visualization | by Anand | Medium](https://images.openai.com/static-rsc-4/piYQXFC8TnMjzgFOJMLxwUHiwrx0yMDhcfLgA78k-qCB_wpTxUQtqJCMGsJ8l-Aw69WbCHuUhV-GJysdf_6zsrIprC3czzfW9BgW22PPUixQsRjRrEej5TShgIz_BVNKAnfhq9COgkIg4y-8yrCpZPs9Gpayuq_xbuI7gTBXx7k?purpose=inline)
+
+![What vector database are you using in your AI project?
+Pinecone? Milvus? Weaviate? Qdrant?
+I use Pinecone for quick starts and testing. Easy to set up, good DX, works well at small scale.
+But as… | Simeon Emanuilov](https://images.openai.com/static-rsc-4/7rhtCrfCVs1ndnsElso6FVSIzxg-EeTlbxvxrWZfJ4_XY8sku8Gddk53spaHgR41GLeEdXXBCFB8lN1VAg9M6jDEMr9kJzb_C5hz7RJWkaXyM5zkYQAeZiOSMsbiPtimyx90ilBiAcOFHzxvIW72VM58wev3W7n0o8NITjz4_Sc?purpose=inline)
+
+![What Is pgvector? PostgreSQL Vector Search Extension Explained](https://images.openai.com/static-rsc-4/xuYbz3ppqKnv98aZTX2H8CRTaTcjSqfecjfE9ONOLtCdfG9fOCJezqvSnu0leW8NGDpmLvVSdKH-9qrDnDjgQNf7Ge4s5aLW-6ot8VYGSg0H0aNCgRbXjoDS9-Xv8oYKf9Iy-qRMXhlapfnhPULXKNz18CPA9hPOSRbVyAXTleI?purpose=inline)
+
+5
+
+## Your NVIDIA Models
+
+| Model               | Purpose |
+| ------------------- | ------- |
+|                     |         |
+| nemotron-3-embed-1b |         |
+
+| Create embeddings. |
+|
+
+llama-nemotron-rerank-vl-1b-v2
+
+| Rerank retrieved knowledge. |
+
+## PostgreSQL becomes a Vector Database
+
+![What Is pgvector? PostgreSQL Vector Search Extension Explained](https://images.openai.com/static-rsc-4/xuYbz3ppqKnv98aZTX2H8CRTaTcjSqfecjfE9ONOLtCdfG9fOCJezqvSnu0leW8NGDpmLvVSdKH-9qrDnDjgQNf7Ge4s5aLW-6ot8VYGSg0H0aNCgRbXjoDS9-Xv8oYKf9Iy-qRMXhlapfnhPULXKNz18CPA9hPOSRbVyAXTleI?purpose=inline)
+
+![🔎 Build Semantic Search with LLM Embeddings](https://images.openai.com/static-rsc-4/GcqZHzcqDvG9xlO0k5EByO-uI_UzAC3yfPqxZqKcNjDFIvL7iWjPCMtihnMKksMPdY79NZdauom787tBHChtRQbRxzkltGAiLEGuEk23rcE0jUhgxs1ols6N7nBrO_0BoiHmvSLgI5mlVY31y79bC7guxkYY80utb0tiTyxekFo?purpose=inline)
+
+![Postgres + pgvector: Production Retrieval on a Budget | by Velorum | Medium](https://images.openai.com/static-rsc-4/_2fHRueVyzC-v9F93vsAeaOiklPzANdEmVb0PQyz5r_E-eY4XgtInnGRLTOzAiRXm8aSIqkZzyZd88lg5laPROSmS8GsngxKrdLJ_MFzj2PqKkTa-yl0pop1whyHaLnIKzOoJ7u9VY6l_wUSDtVN2WfAL47128oUuoL9E_2IKBU?purpose=inline)
+
+6
+
+New table:
+
+| Table                | Contents |
+| -------------------- | -------- |
+|                      |          |
+| `KnowledgeEmbedding` |          |
+
+| Vectors for matches, news, tactics, players, reports. |
+
+## Retrieval pipeline
+
+![](data\:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb\(13%2C%2013%2C%2013\)%22%20viewBox%3D%220%200%20760%20220%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cdefs%3E%3Cmarker%20id%3D%22arr%22%20markerWidth%3D%228%22%20markerHeight%3D%228%22%20refX%3D%227%22%20refY%3D%224%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M0%2C0%20L8%2C4%20L0%2C8%20Z%22%20fill%3D%22%2316a34a%22%2F%3E%3C%2Fmarker%3E%3C%2Fdefs%3E%3Crect%20x%3D%2220%22%20y%3D%2280%22%20width%3D%22120%22%20height%3D%2260%22%20rx%3D%2214%22%20fill%3D%22none%22%20stroke%3D%22%2316a34a%22%2F%3E%3Ctext%20x%3D%2280%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EUser%20Question%3C%2Ftext%3E%3Crect%20x%3D%22190%22%20y%3D%2270%22%20width%3D%22130%22%20height%3D%2280%22%20rx%3D%2214%22%20fill%3D%22none%22%20stroke%3D%22%232563eb%22%2F%3E%3Ctext%20x%3D%22255%22%20y%3D%22108%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EEmbedding%3C%2Ftext%3E%3Ctext%20x%3D%22255%22%20y%3D%22124%22%20text-anchor%3D%22middle%22%20font-size%3D%2210%22%3ENemotron%3C%2Ftext%3E%3Crect%20x%3D%22380%22%20y%3D%2270%22%20width%3D%22130%22%20height%3D%2280%22%20rx%3D%2214%22%20fill%3D%22none%22%20stroke%3D%22%237c3aed%22%2F%3E%3Ctext%20x%3D%22445%22%20y%3D%22108%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3Epgvector%3C%2Ftext%3E%3Ctext%20x%3D%22445%22%20y%3D%22124%22%20text-anchor%3D%22middle%22%20font-size%3D%2210%22%3ESemantic%20Search%3C%2Ftext%3E%3Crect%20x%3D%22560%22%20y%3D%2270%22%20width%3D%22160%22%20height%3D%2280%22%20rx%3D%2214%22%20fill%3D%22none%22%20stroke%3D%22%23ea580c%22%2F%3E%3Ctext%20x%3D%22640%22%20y%3D%22108%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EReranker%3C%2Ftext%3E%3Ctext%20x%3D%22640%22%20y%3D%22124%22%20text-anchor%3D%22middle%22%20font-size%3D%2210%22%3ETop%205%20Chunks%3C%2Ftext%3E%3Cline%20x1%3D%22140%22%20y1%3D%22110%22%20x2%3D%22190%22%20y2%3D%22110%22%20stroke%3D%22%2316a34a%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23arr\)%22%2F%3E%3Cline%20x1%3D%22320%22%20y1%3D%22110%22%20x2%3D%22380%22%20y2%3D%22110%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23arr\)%22%2F%3E%3Cline%20x1%3D%22510%22%20y1%3D%22110%22%20x2%3D%22560%22%20y2%3D%22110%22%20stroke%3D%22%237c3aed%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23arr\)%22%2F%3E%3C%2Fsvg%3E)
+
+# LAYER 5 — FOOTBALL REASONING ENGINE
+
+This is where ELASTICO becomes unique.
+
+![3-4-3のビルドアップ｜フットボールガイド](https://images.openai.com/static-rsc-4/BFFXkcMxufYwV7YH9_VwBaoievMvOkoNn2MtGUnT5SEbOPkFbpe4P13-jA9Y84v6fFYSc3Yc7O9rku0_7JrJux6hb6VQou0ZxsO6uVt2oqgUYKHyFOI1_AH3Zdjb_z2cDjh8v99v6PFtHtZrPahazwA6ASqKCBfwTNP45gH0DwY?purpose=inline)
+
+![Beyond Expected Threat: My Custom Approach to Pitch Value Mapping — Zone Threat | by krzysksiezyc | Medium](https://images.openai.com/static-rsc-4/m_3Ig3vjWq5liZRnul4cI5OJhJXVPZc5Pqw6w-xAHKGVBF6F8qFRYyuzxxVLGUbHnlPBPWCDxggiWzI0niai2Uu8YuuUKVtodQ50IFBjYhuzKkUVX_QkeF_io7QmMI03nS9Rzvw_Anbl9jJeM6pUeg74bxGYInJxBdHrQuR7tFg?purpose=inline)
+
+![How to effectively scout your opposition - 2023 Advent Calendar Series
+– Scott Martin Media](https://images.openai.com/static-rsc-4/v9zWPhnFSmRGug2Dz1zRE2go2WKS9b4a4LaDHpfQDHbY6pxoLXE8ZWuoPxXDdOgBLC6HiAj4UckFHHqIsHlxYC1LuWDFFihRasaExM4vZ6N8ukCQIHOpnNlTXYbQ0X5WC-nojWdwmZrVaxJPRRyYYSRJJWfcD4lLncpBetap-l0?purpose=inline)
+
+6
+
+The AI does not answer directly.
+
+It reasons through specialists.
+
+## Specialized Football Brains
+
+| Brain          | Responsibility |
+| -------------- | -------------- |
+|                |                |
+| Tactical Brain |                |
+
+| Pressing, formations, build-up. |
+|
+
+Prediction Brain
+
+| Win probabilities. |
+|
+
+Scouting Brain
+
+| Player similarity. |
+|
+
+Performance Brain
+
+| Form, fatigue, injuries. |
+|
+
+Market Brain
+
+| Odds movement. |
+|
+
+News Brain
+
+| Context from news. |
+
+# LAYER 6 — MULTI-MODEL PREDICTION ENGINE
+
+You already built these.
+
+![2026世界杯进球数分析\_大小球预测专家\_进球大师 - 进球大师分析网](https://images.openai.com/static-rsc-4/9YPnOsEfi7RUYEPPXSFlBmrPLODg-9sYrfbqncJpMN0_d1cLiLdw2-6uaBpryE9CAxPil65V8INVW74YL7_Z4wOtT31ayQ6KBvjFcInm9JbCAN5T028XCNwPKVmL0qOgnfo0t3EcPk8wgpR4FdaclJZagSQsv18-1dyGCvbswBM?purpose=inline)
+
+![Running Monte Carlo Simulations in Python](https://images.openai.com/static-rsc-4/wri_yup8a8JoqE-hk1a87i5w11aegwo2l2GqZ8A7Bkm_BUiqJ9yOnc26b-igsqOEqpPTRVFP0rnCapYWVAtRvn-qqIt4iPK_h-_kYf05LdjPBY3H0WWgG__B3twS2L6xKMAYATYeVJ5Ow8C20YHEgwzRXb2f-sIpDPeRyJWbxVc?purpose=inline)
+
+![Medium](https://images.openai.com/static-rsc-4/SCL0wpKZAo03GQ3tThWMGbZQK_eHK5W30XhFC4x1E4HDLX7UCDtO9k3k6P0rbxMtnoSLgPIHg25IlWtY7Y4xO-DOiZ7OviMqQXCHrggH6w5y-OvZwGefVL8UD8NwZGbGiEu_6ur20FCrJVLAE-RidFxTgCSCFK38-uYsp_5lgR8?purpose=inline)
+
+6
+
+## Existing Models
+
+| Model       | Status               |
+| ----------- | -------------------- |
+| ELO         | Production.          |
+| Poisson     | Production.          |
+| Dixon-Coles | Production.          |
+| Monte Carlo | Production.          |
+| Stochastic  | Research.            |
+| XGBoost     | Production Baseline. |
+
+## What changes?
+
+The AI explains predictions.
+
+![WinAI: Football Tips Forecast | AppFollow | App’s reputation platform](https://images.openai.com/static-rsc-4/HXpINTvWSJlX5YPL2iwruMDYXFBa3llufdbbGnmvFe2k82gD3PECpYWTab6XOXx8N4PH2NJ8dj_VGlTE18gKiTdZrh59a6b6bYB6XZDEAAcg51VVpAlFmRVZhL2Q_zEs_YHr_NIeRit5_stDGIS_vx9iM763eHa4xmKoWbY4loA?purpose=inline)
+
+![GAME-X AI — Reporting tactique automatisé pour le football](https://images.openai.com/static-rsc-4/c8ACYNpeWAjem7CF5WWCjN_Vec0SvFjN10NiUjPMRXzdzH9nAt6_hG0rs2bQQEkOlF0cjYWCWpoaahTdanOuO-wCgZs0ResyP_mMyTyz0QmRWJBrX-g3tHNHnrFEqjrFQmVUhfFW_xgiuU7B-fa4VMe8FViJeq85aYTPEVbR4VU?purpose=inline)
+
+![The xG Philosophy (@xGPhilosophy) on X](https://images.openai.com/static-rsc-4/TXXVwsis_PAlpWHNDGAUA-KfpXbibKJqHInhwpnHSqa-8FuHcCIJm16g1GfXM69VsqWnt3h0S6CHaOOzuD8Igdqj_kMXn47IXX0__mu6F_6R2orjBQoxDWeCIhNUWTpXOoo8oI_mLBppbZMG_i-gSWAmoRT6IAP8NDhUJ9EJTXE?purpose=inline)
+
+6
+
+Instead of:
+
+> Real Madrid 45%.
+
+It returns:
+
+# Real Madrid vs Barcelona
+
+Prediction Confidence
+
+# 78 / 100
+
+| Outcome         | Probability |
+| --------------- | ----------- |
+| Real Madrid Win | 46%         |
+| Draw            | 29%         |
+| Barcelona Win   | 25%         |
+
+Model agreement
+
+| Model       | Home Win |
+| ----------- | -------- |
+| ELO         | 47%      |
+| Poisson     | 44%      |
+| Dixon-Coles | 46%      |
+| Monte Carlo | 45%      |
+
+Why
+
+* Madrid's expected goals have been higher over the last five league matches.
+
+* Barcelona's away defensive xG allowed has increased.
+
+* Market odds have shortened toward Madrid.
+
+* Injury news reduced Barcelona's midfield availability.
+
+# LAYER 7 — NEWS INTELLIGENCE
+
+![Fantasy League Dashboard](https://images.openai.com/static-rsc-4/JfgG4A13YA9ZPPb0AzNKs1zPzSmV_CPc1bZQzbeLfz0JLfGrWAsjpHSAOM0joaHeXrKLDT6v8Q-Bx1ZMF55r0Slq5f7Km1EWZisz4aflfCOJXBwWSgkWk82vfWQEw41GsOj-wyjUBNh4ASMJ4135_2Fb9UQfwHLpPuR8LnrJol0?purpose=inline)
+
+![Europa league prize money being wrong - Europe Competition Issues](https://images.openai.com/static-rsc-4/oRpKkPSNT1vb9Fvr63n9FgL38n9Yl_qJCmUxefrVgfQCKV3n8tg-KiWs40DorXFJQmlFhvBsSERgTPFINWn67zFisxkcMHlRmzUvKaHkHdF20hza40qvmNKLJEr8osiI3G71xzTzv6vxdRhJTLyyz09_8DFO1-FMVo35SXYRr8Y?purpose=inline)
+
+![Enhancing ESPN’s Game Recaps for Underserved Sports Using AI - ESPN Front Row](https://images.openai.com/static-rsc-4/vCMNXF3QeM_zMKq4fi5Pmtfj-sSKs3CFUxI3sOC-GiYAcrqBxdUBiwds2tCY6GIRkci7y0JuK4RWNurmK_k_knpk38JF6LqLvn4U36GkJ4wt4b550z6PPmDJkzkD1lfnSVko5PfaP0rZFwt2kB07kTH40yrn0BcvqkftI1VqtUc?purpose=inline)
+
+5
+
+Your AI should understand news.
+
+Pipeline:
+
+News API → PostgreSQL → Embeddings → AI
+
+![](data\:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb\(13%2C%2013%2C%2013\)%22%20viewBox%3D%220%200%20760%20220%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cdefs%3E%3Cmarker%20id%3D%22ar%22%20markerWidth%3D%228%22%20markerHeight%3D%228%22%20refX%3D%227%22%20refY%3D%224%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M0%2C0%20L8%2C4%20L0%2C8%20Z%22%20fill%3D%22%2316a34a%22%2F%3E%3C%2Fmarker%3E%3C%2Fdefs%3E%3Crect%20x%3D%2220%22%20y%3D%2280%22%20width%3D%22120%22%20height%3D%2260%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22%2316a34a%22%2F%3E%3Ctext%20x%3D%2280%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3ENewsData%20API%3C%2Ftext%3E%3Crect%20x%3D%22190%22%20y%3D%2280%22%20width%3D%22120%22%20height%3D%2260%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22%232563eb%22%2F%3E%3Ctext%20x%3D%22250%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3ENews%20Table%3C%2Ftext%3E%3Crect%20x%3D%22360%22%20y%3D%2280%22%20width%3D%22140%22%20height%3D%2260%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22%237c3aed%22%2F%3E%3Ctext%20x%3D%22430%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EEmbeddings%3C%2Ftext%3E%3Crect%20x%3D%22560%22%20y%3D%2280%22%20width%3D%22160%22%20height%3D%2260%22%20rx%3D%2212%22%20fill%3D%22none%22%20stroke%3D%22%23ea580c%22%2F%3E%3Ctext%20x%3D%22640%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20font-size%3D%2212%22%3EAI%20Analysis%3C%2Ftext%3E%3Cline%20x1%3D%22140%22%20y1%3D%22110%22%20x2%3D%22190%22%20y2%3D%22110%22%20stroke%3D%22%2316a34a%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23ar\)%22%2F%3E%3Cline%20x1%3D%22310%22%20y1%3D%22110%22%20x2%3D%22360%22%20y2%3D%22110%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23ar\)%22%2F%3E%3Cline%20x1%3D%22500%22%20y1%3D%22110%22%20x2%3D%22560%22%20y2%3D%22110%22%20stroke%3D%22%237c3aed%22%20stroke-width%3D%222%22%20marker-end%3D%22url\(%23ar\)%22%2F%3E%3C%2Fsvg%3E)
+
+The AI answers using current news.
+
+# LAYER 8 — THE CONVERSATION ENGINE
+
+This is the biggest redesign.
+
+![AI Chat Interface by Zeynab Khoshnood on Dribbble](https://images.openai.com/static-rsc-4/zk1VTFAxCpiAz4Jk3uNfnIFvk5xPSQHLjh4Wp2c0u1dEfISExWig7LTC_z0kyRBgcZA4uSlYYJPWV1VTAG8GRIrgs3KPMfM2dcis0jdBuqzQ8vOhz-xEaxx0DdYCzA-wc-5_SRmQ-BeWvnZs6BtyQGjjZJy4xH3zgsE0YeamquY?purpose=inline)
+
+![Apple Intelligence brings powerful AI capabilities into everyday experiences - Apple (MY)](https://images.openai.com/static-rsc-4/tWVcIBw4l0rljh0-bQsIxvWXLtSbRvoJ6JyryOWnl1KBV4AkDhloB0x9dNCsnWGRzkQTZTVc2Arrw9zGAXP92SRaqZFTMa1ubiDj1PpWUiPzI-Ie1VxJO7B66iR8R3upI-AVr1O5AGU34mjlqJOSK0YJFH43iyEwumgS12PkWOM?purpose=inline)
+
+![Agentic Infrastructure - Vercel](https://images.openai.com/static-rsc-4/UtwSDK5HQZduuqrcfRznekgfPN-tPMgR3FskOz7qBb-nQc0QiaYYjSmzEa4Hvspg4AR_n7JVvYXs6cBJU8IZbvCaJVAyMthycEQFPklxzayKLQuJGw9-Ghug5sBB3RDm6a3Il8nT_1neGQJzH14hhci1u4EKgfAUjjwBEkijTxY?purpose=inline)
+
+6
+
+## Conversation Layout
+
+![](https://images.openai.com/static-rsc-4/6WrP1TRAlmDOfrwychytADO0XJB6fd6Cun7wu2lWbvoncRCOhhRmF_W-Ysu3kUSVFxuzpBn5lSfVpB_zI8j64KQYeQyLQzlFu6oPOWln8-aOkM01YGj1iM51IZ5uXP_MHjqupWJWaccOhiorwxlz9yHQ7mRDJQ0ZJyrlvQeC53M?purpose=inline)
+
+![AI Buddy - Your iMessage AI Assistant](https://images.openai.com/static-rsc-4/MUEMDIOhWnvDOjF9cB8JAWL6SbbjiFZ9p1av48H-4eyLEM4GTbaiBi01YsI9PpzQs2f8O2hIumybZ9Hy5uBkG4MKxUHWi1-MpmxxOq0Ulx9Q2_bcUVSBsXKdwLKKj_YoyBT6wa5zxmUMvMOWQ_ik3a9q58LGxiPDs8uHoFO2NzM?purpose=inline)
+
+![Agentic Infrastructure - Vercel](https://images.openai.com/static-rsc-4/UtwSDK5HQZduuqrcfRznekgfPN-tPMgR3FskOz7qBb-nQc0QiaYYjSmzEa4Hvspg4AR_n7JVvYXs6cBJU8IZbvCaJVAyMthycEQFPklxzayKLQuJGw9-Ghug5sBB3RDm6a3Il8nT_1neGQJzH14hhci1u4EKgfAUjjwBEkijTxY?purpose=inline)
+
+5
+
+## Every answer has structure
+
+REAL
+
+Live Football Analysis
+
+# Real Madrid vs Barcelona
+
+Executive Summary
+
+Two short paragraphs.
+
+### Win Probabilities
+
+| Outcome   | Probability |
+| --------- | ----------- |
+| Madrid    | 46%         |
+| Draw      | 29%         |
+| Barcelona | 25%         |
+
+### Tactical Picture
+
+* Madrid attacking left half-space.
+
+* Barcelona vulnerable during transition.
+
+### Team News
+
+Injury bullets.
+
+### Model Evidence
+
+Small expandable table.
+
+### Confidence
+
+Why confidence is 78.
+
+No walls of text.
+
+# CHAT PERSONALITY
+
+![ELEGANCE - Luxury Fashion Web & Mobile UI Kit :: Behance](https://images.openai.com/static-rsc-4/S5D58OYnT2llKosmKyVDRwi6byvq8MTBrdcV83lxY1KnQ040hnwtRkTJKaexqcPvHPOKvcYaDLxOYv_o64Iq4Zli15KEzLT92lzid1xkMuyL-UGF8nN6Kgy30sJM0oBcBzDDd2WzKKNR_kwD1GpfZPX1vTZES6AqF6b7ln2lHzQ?purpose=inline)
+
+![iOS 16 Typography - UI Design for iOS 16 in Sketch - Design+Code](https://images.openai.com/static-rsc-4/eVgN5KTRX23ZXMskcsXn9ZWdwY5BM0Jf_5E_cGy-y2AkjUpz7g2lE-KuEpQHmji-IzLTEdEUzET3Vx1xab1_vna-h93PgS47gBBvyKeBtH7nRPW8F_VYP7L7iIfmc1tHvHx6usVqAO_-3f2rSdaGzizfOsKpWt2wu5id9QeR01w?purpose=inline)
+
+![Design systems and UI kits](https://images.openai.com/static-rsc-4/4xenJj-5vlmwFmXfAfcwPBspLiqL3hm44-ad4sVR-KyJ-tg_bB7Q0L_-cRmgnag8zyiC4T9XoliOrtVqgRTOnw61mlu2eLEIj3hHp7oHUgHK1Vw4T3tYqmrV81EHk1fjAcAp8-hQvrnB2YicxHUfEIKQUH6MVaiMs1ap2Ni9AYQ?purpose=inline)
+
+5
+
+## Typography
+
+| Element | Style                  |
+| ------- | ---------------------- |
+| Titles  | Inter Display 28–34px. |
+| Body    | Inter 16px.            |
+| Labels  | 13px uppercase.        |
+| Numbers | Tabular numeric.       |
+
+## Color Language
+
+| Badge    | Meaning           |
+| -------- | ----------------- |
+| REAL     | Verified DB.      |
+| DERIVED  | Computed.         |
+| ANALYSIS | AI reasoning.     |
+| UNKNOWN  | Missing evidence. |
+
+## Memory Ribbon
+
+![Our Blog | Ribbon](https://images.openai.com/static-rsc-4/jn0C13jnufC6ga5R51z61tvNodZwSD8Bk5sSVTmZlSZa_MIDqFJ4BMM_Be_OtLdWWY-Eh9Sf9KNbzn3DjgYCTGSj6Zc-nU-dYTYNLTkO7Jx6ezCm86LAm9u2iHgBU2Qr2byZ12AQXZvinlwTPBqCeOgfhK4dP_SnZbqdCMyZwQw?purpose=inline)
+
+![MemoryPlugin Review - Give Your AI the Gift of Memory in 2025 | Uneed](https://images.openai.com/static-rsc-4/jfXXW7rrhR52Uc8hQmqhu2-YlW3zugnmuBTXGlXCd7BHIL-q66j9HlfcyyZtEHOhJo-GblzOPY1RV1VLPKtyqP55rs9fagR2WEIXr5AaaDHcrjmRvAVkle2q-QdsUII2Gh039vT4tEvrwK9KCloF8uMcv_be_fj4F6fmsdu38Yg?purpose=inline)
+
+![MemoryBase — Unified Memory for Every AI Tool](https://images.openai.com/static-rsc-4/ZtEjPmud3njX7f6Y0_WwXRt_LiY0WQ54U7-i4pLyhGS_Xskq3cZE6WD-qvgTv7b8QPTsgfJk6oIusKDUeaDuAOQgGtpIgZCE_rNIxx0E3SebU8R0VXLGCwx2cyDT9acFQr1zMAoS0gN8anSCcvLesjZahWbkBJJY_-oywn2nvNI?purpose=inline)
+
+5
+
+Top of every chat.
+
+> Continuing from yesterday's Arsenal tactical analysis.
+
+# LAYER 9 — LEARNING ENGINE
+
+This is where 15,000 nodes are the wrong solution.
+
+## DON'T BUILD THIS
+
+![Computer Scientists Prove Why Bigger Neural Networks Do Better
+\| DEXL](https://images.openai.com/static-rsc-4/06eJRvddjmHR9ARZI9uo9_YpEMPR0QkeTAN25nFW_wodCaeWr2KHGa42FVJw_Hsm0OwMnuPxZcW4jYlYY6ko08Rj8F1dcQSIZQ8neal3HAqwqU2FlTWLMcoTsnMQ1VlggrE95E3BadUCXhrn3ZkeYb9U2L14LfxeVlOokjBFSlc?purpose=inline)
+
+![Why large language models are mysterious – even to their creators | Aeon Videos](https://images.openai.com/static-rsc-4/Tpr5hy8A4CX3aHAbWqICvsP-VsruWlwFlrjnB9sB276nXqsqcoKICeQanGoX83D9HxktdzhxtNYnPzxkQFec8CaivpHqNfVeF-26yb5G1kTfepAHgBXJgUters6fbil5oVKrPal5mYl_MbubYJk-laVfEc272B4_yiRGFKJ7kgo?purpose=inline)
+
+![Light-Speed Minds: A 40,000-Neuron Photonic Network Sets New Benchmarks for AI On A Budget - NeuromorphicCore.ai](https://images.openai.com/static-rsc-4/kTfY0T0EVolzT5i01bDWpy0Jwpx0iYAkuBgAT1Xm3pS1N_odrwe1Stmo5hLdRM9QIul_NU5l14hHmVFw_3430hdqaznzRlnWUx4vXyKrL8eqkI5xsdDN14CTyUJ98mj5HJ-v3VoJFKQJ46Jy0oI2Av8dCmm5rvpX__Qm0K1k3x0?purpose=inline)
+
+4
+
+A massive neural network inside ELASTICO will:
+
+* use enormous memory,
+
+* require GPU training,
+
+* still know nothing if your database is empty.
+
+## BUILD THIS
+
+![Model feedback as part of ML pipelines](https://images.openai.com/static-rsc-4/OsoyvRCES_ndYZCLbEhcc3GQKOLEWuyzmqTHbthYjbsgWT2OSiMdDCrm2O_tbb3l6GivfUBF3w-dZqFPN2RJkT-D7V_45ezFw_Jx-RJhj3g8rYnM4NKwp5J03jEWRibKHsE3LMpS8-Z3mIjVAJUS1-C3nQ8FicHkc8tKhSPxquA?purpose=inline)
+
+![What is Data Science? - Matt on ML.NET](https://images.openai.com/static-rsc-4/-xzWPsSi480t6hh08V8MKNdniXMGQ1_eKbdEeYz7FrTW_PPfytG005BHdonTDtE2RVyYYI8vCAXgDI1BBo7pzRpYPONg-uOGlrJ7nmzG5UCvFf67z0kzPeYwIzH_xh8lpLJC70p0tkUHGESqRTp7C04GbyLhUZHOXmRgZeqp314?purpose=inline)
+
+![Predictive AI | DataRobot](https://images.openai.com/static-rsc-4/r14vfzJNsNBmtwpFia9spFBRP4tDMNpI1PIbZ75pUeIfeJXBDQe1mDTa6JoVu2D_mB6WjSg4Iw1fY8R0Pcx4l4Bz3_BeBYmfZs3f8_yW413i-IvVBqXwEetXBQ6HrlzX82C2bZfJV2t_OvixU4uzVmrxAoVNFdIC9HlCcEvOXdk?purpose=inline)
+
+6
+
+Learning tables.
+
+| Table               | Learns                        |
+| ------------------- | ----------------------------- |
+| PredictionOutcome   | Prediction correctness.       |
+| ModelCalibration    | Brier, Log Loss, ECE.         |
+| ProviderPerformance | Groq latency, Gemini latency. |
+| ConversationQuality | User feedback.                |
+
+The AI improves continuously.
+
+# LAYER 10 — SCOUTING ENGINE
+
+![Data'Scout (@DataScout\_) on X](https://images.openai.com/static-rsc-4/SPTLuzvtdOcFLazVLX5R87oD2MUAUJpqrFOqo-6NBpP9CXTlYLkwOUP_6ooAZfolDDTlRFBZq9vZr57IMTAk2YyGr0o81Roy8Eobh-IGTUyQp6CjhzvYohaMuakXrmxaqqO0w5rV6mE_pVWl9eBUFzT4jtNZcdSWQkiKMF3SHhs?purpose=inline)
+
+![Hudl Tracking Data](https://images.openai.com/static-rsc-4/2swx7X3Jykf4xwi28oOc3MqJFxsky9TNT07qsOLBKYmfl0mfok3gk4etMSQJpT9544P4W7XmEDLbwCSB8Sr4mLIT1h35-DSZVhFdChIVq9ANTb3LUK7xf0E76wdLrhMbfyD7nkNsqi8BDfZVal-nn21LzKM3ap0iH7VsXSnhswA?purpose=inline)
+
+![InScout Network - Football Recruitment for Players, Agents, Scouts & Clubs](https://images.openai.com/static-rsc-4/E3wAzpuMhIqpld7u9BC5_IS-a0JsTOuhMGSzziyw8-nmlYtASqW_FBegSgQfZp_FwoTdAtgUK9gQ5qCyTiDcN7J8IYWXkY1TdKpBeb3wy5Y7qfH7h7xEtk2Cj2LEwB5Hnajd9XoJy9igv4EYu1P2vpEAcfH5CKZH_jOXaPANf98?purpose=inline)
+
+6
+
+The AI becomes a scout.
+
+Input:
+
+> Find me another Declan Rice.
+
+Output:
+
+| Player        | Similarity |
+| ------------- | ---------- |
+| João Gomes    | 93%        |
+| Ederson       | 91%        |
+| Manuel Ugarte | 89%        |
+
+Uses vectors.
+
+# LAYER 11 — SIMULATION ENGINE
+
+![Dixon Coles and xG: together at last](https://images.openai.com/static-rsc-4/TP-f-LHviu-EiUtsdGA8ITXq0jveEMZKzjWn2VeuVmY0_-3ZTk2h0hlUreEL_vTJEicQnk0NfrFWefVdJsmVrnhVvXzDVtBxjOdUXYHCg-JaTyDYO4fVlvlRugc-MyrZa8qm08KGDzBTKDHlR9KVA-qxfGjfSo7uOnGiwnWY-nA?purpose=inline)
+
+![FootScore AI Predictor | Built with Blink](https://images.openai.com/static-rsc-4/x3UdHrXQjHyaLK3h7udptFTq3JaZ_TL8wyKKDjQBXDfbHvsZaLImfN1GgWVje8J2AwQ-6tH7vWVP6V298-rAurAeuDkXI4GPbIdMRxM-A6hlufVx3wnZouopE6pgO04nJio6PSsGgQBINTDkZakgWR3MAvajeVDUmkKJXUHExS4?purpose=inline)
+
+![Simulating Football Players’ Decision-Making Process | BIASlab](https://images.openai.com/static-rsc-4/8ueVVzS4Is97BsUsd9XKnyi67q1gdNBPqv2easWsMUziSiIZcN1mDjDOqtLyIzbxCF207chyIwMQJgUssb_ZCfJ4gV61U2oS6RR6y1AgCna9Dj5hemBxTTbeLhdhkQgp1T9Fjvzph8S13nbuMNGvX7Yf5JQIIbHL4uuXhcIJKSw?purpose=inline)
+
+4
+
+User asks:
+
+> What happens if Mbappé doesn't play?
+
+The AI reruns:
+
+* ELO adjustment.
+
+* xG adjustment.
+
+* Monte Carlo.
+
+* Dixon-Coles.
+
+* Kelly.
+
+Returns new probabilities.
+
+# LAYER 12 — MULTI-PROVIDER AI GATEWAY
+
+You have five providers.
+
+![5 Enterprise AI Gateways Dominating 2026 | by Deep concept | Let’s Code Future | Mar, 2026 | Medium](https://images.openai.com/static-rsc-4/Omb6vE5csp-eScXIYmNbZyOiZjxQZQeXxUa9msYmbV-quXqEBN-09LZgPXA6jScJbtpoqOXaonTnTOtvMWOY6ysq96oxzf6sQlVL9p9NQv80PHSJ_bKl-9-ghVh7KF4OhVvabjRaO_CWM36kWU3iRu32GHS5athb4k4It1XyfhU?purpose=inline)
+
+![LLM Gateway - Multi-Provider Routing - Syllable AI](https://images.openai.com/static-rsc-4/9jU0-hhjONP_O4HmkDPOfYya8Gq8O5xwqQMVbKLw9pbP3DP1BSgNGNNpu_j-Es1sYpxVN_bKSDQ-zcuIlEk8LCCVG_eFjxB-xAahCXWUi_YpKNI_uueHhZ4QcGuIS8eHM9elEi1aA-o9dt2_r2P76LU_hKLvpx9GXWdwXaDhxrg?purpose=inline)
+
+![Bifrost vs LiteLLM: Choosing the Right AI Gateway](https://images.openai.com/static-rsc-4/0W0Al7AAw0bDdaQDed3JfSBITYgmJbvgTJnW-ndS4nmofdujm4lVVCkld9gQXEQMt6D85m94kTdfTXliFV0pMHfcfs_hOqVNHqFQgVSuN7bNrBBTwU4MFERQOMeHmvZ8Ey07UllE9K1CaOBwYlhNAzT7LbTRTZ109tEIdWg4d_w?purpose=inline)
+
+5
+
+## ELASTICO AI Gateway
+
+| Provider | Role |
+| -------- | ---- |
+|          |      |
+| Groq     |      |
+
+| Fast football conversations. |
+|
+
+Gemini
+
+| Deep reasoning and long reports. |
+|
+
+Cerebras
+
+| Large context scouting. |
+|
+
+OpenRouter
+
+| Fallback router. |
+|
+
+NVIDIA
+
+| Embeddings and reranking. |
+
+## Router Logic
+
+![](data\:image/svg+xml;charset=utf-8,%3Csvg%20font-family%3D%22-apple-system-body%2C%20ui-sans-serif%2C%20-apple-system%2C%20system-ui%2C%20%26quot%3BSegoe%20UI%26quot%3B%2C%20Helvetica%2C%20%26quot%3BApple%20Color%20Emoji%26quot%3B%2C%20Arial%2C%20sans-serif%2C%20%26quot%3BSegoe%20UI%20Emoji%26quot%3B%2C%20%26quot%3BSegoe%20UI%20Symbol%26quot%3B%22%20font-weight%3D%22400%22%20data-d-component%3D%22svg%22%20fill%3D%22currentColor%22%20style%3D%22color%3Argb\(13%2C%2013%2C%2013\)%22%20viewBox%3D%220%200%20760%20260%22%20width%3D%22100%25%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cdefs%3E%3Cmarker%20id%3D%22arr2%22%20markerWidth%3D%228%22%20markerHeight%3D%228%22%20refX%3D%227%22%20refY%3D%224%22%20orient%3D%22auto%22%3E%3Cpath%20d%3D%22M0%2C0%20L8%2C4%20L0%2C8%20Z%22%20fill%3D%22%2316a34a%22%2F%3E%3C%2Fmarker%3E%3C%2Fdefs%3E%3Crect%20x%3D%22290%22%20y%3D%2220%22%20width%3D%22180%22%20height%3D%2250%22%20rx%3D%2214%22%20fill%3D%22none%22%20stroke%3D%22%2316a34a%22%2F%3E%3Ctext%20x%3D%22380%22%20y%3D%2250%22%20text-anchor%3D%22middle%22%20font-size%3D%2213%22%3EAI%20Gateway%20Router%3C%2Ftext%3E%3Crect%20x%3D%2260%22%20y%3D%22120%22%20width%3D%22120%22%20height%3D%2244%22%20rx%3D%2210%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%2F%3E%3Ctext%20x%3D%22120%22%20y%3D%22146%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3EGroq%3C%2Ftext%3E%3Cline%20x1%3D%22380%22%20y1%3D%2270%22%20x2%3D%22120%22%20y2%3D%22120%22%20stroke%3D%22%2316a34a%22%20marker-end%3D%22url\(%23arr2\)%22%2F%3E%3Crect%20x%3D%22210%22%20y%3D%22120%22%20width%3D%22120%22%20height%3D%2244%22%20rx%3D%2210%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%2F%3E%3Ctext%20x%3D%22270%22%20y%3D%22146%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3EGemini%3C%2Ftext%3E%3Cline%20x1%3D%22380%22%20y1%3D%2270%22%20x2%3D%22270%22%20y2%3D%22120%22%20stroke%3D%22%2316a34a%22%20marker-end%3D%22url\(%23arr2\)%22%2F%3E%3Crect%20x%3D%22380%22%20y%3D%22120%22%20width%3D%22120%22%20height%3D%2244%22%20rx%3D%2210%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%2F%3E%3Ctext%20x%3D%22440%22%20y%3D%22146%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3ECerebras%3C%2Ftext%3E%3Cline%20x1%3D%22380%22%20y1%3D%2270%22%20x2%3D%22440%22%20y2%3D%22120%22%20stroke%3D%22%2316a34a%22%20marker-end%3D%22url\(%23arr2\)%22%2F%3E%3Crect%20x%3D%22550%22%20y%3D%22120%22%20width%3D%22120%22%20height%3D%2244%22%20rx%3D%2210%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%2F%3E%3Ctext%20x%3D%22610%22%20y%3D%22146%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3EOpenRouter%3C%2Ftext%3E%3Cline%20x1%3D%22380%22%20y1%3D%2270%22%20x2%3D%22610%22%20y2%3D%22120%22%20stroke%3D%22%2316a34a%22%20marker-end%3D%22url\(%23arr2\)%22%2F%3E%3Crect%20x%3D%22290%22%20y%3D%22200%22%20width%3D%22120%22%20height%3D%2244%22%20rx%3D%2210%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%2F%3E%3Ctext%20x%3D%22350%22%20y%3D%22226%22%20text-anchor%3D%22middle%22%20font-size%3D%2211%22%3ENVIDIA%20Embeddings%3C%2Ftext%3E%3Cline%20x1%3D%22380%22%20y1%3D%2270%22%20x2%3D%22350%22%20y2%3D%22200%22%20stroke%3D%22%2316a34a%22%20marker-end%3D%22url\(%23arr2\)%22%2F%3E%3C%2Fsvg%3E)
+
+The gateway decides.
+
+# WHICH MODEL ANSWERS WHAT?
+
+| User Task         | Provider   |
+| ----------------- | ---------- |
+| Quick prediction  | Groq       |
+| Tactical analysis | Gemini     |
+| Scouting report   | Cerebras   |
+| Fallback          | OpenRouter |
+| Embeddings        | NVIDIA     |
+
+# SHOULD YOU USE HUGGING FACE?
+
+## Yes — but not for the chat model.
+
+Use Hugging Face for football intelligence components.
+
+![Karun Singh (@karun1710) on X](https://images.openai.com/static-rsc-4/wdheum073fW_YMj6VAItCzCTUjL9CQgZwOokHibcvYIvei3meglac89KX_nGzW02WtCPAYlPH34XFZt1AEzUr7d3bbgE2t3bI38KHhAYYozdkHR4fXrW9rEZta3bFgvvBSFkcNbL3hi5_xkldono4mbWRlq-Wed6t1CRV0j_c-s?purpose=inline)
+
+![Word Embedding Explained, a comparison and code tutorial | by Duncan Cam-Stei | Medium](https://images.openai.com/static-rsc-4/f0Mo07q6xKf8c24cburQ0Z91F5YSBEJtD-K785GVoS15DegYwc9Fckp7BlHXYva4iu4kdvlGIZHfzlYxHKKgVdggKQtTW2usC_lrd4or9MZLAcYfQsqoQsRDKe5C-RxPzosqDkUN0EfaAwtR8VbMSkVcibMhXb6xW5dk9YrvoUw?purpose=inline)
+
+![A Step-by-Step Guide to Similarity and Semantic Search Using Sentence Transformers | by Hassanmustafa | Medium](https://images.openai.com/static-rsc-4/3liSwVvxnVWJ5yUixg1nMoY1l3uhqCX1UOWcd71q-KHrF4p9aAMixtiA7QnQF5wZh8x94fk0LXNmV1oTufYxFcXO1p4x8UWRqug5LU1hfaUjVRD4raf0-oVYxyjz3JLBxwqWL8kmdvV9KuABSEyCZnfr_lklZO83V2uy0A-MPWA?purpose=inline)
+
+5
+
+### High-value repositories
+
+| Purpose                | Model                           |
+| ---------------------- | ------------------------------- |
+| Player similarity      | Sentence Transformers           |
+| NER over football news | DeBERTa/BERT football fine-tune |
+| Summarization          | BART/T5                         |
+| Sentiment              | RoBERTa                         |
+
+# THE ELASTICO AI DATABASE (NEW TABLES)
+
+| Category  | New Tables                                           |
+| --------- | ---------------------------------------------------- |
+| Memory    | ConversationMemory, FootballMemory, PredictionMemory |
+| Retrieval | KnowledgeEmbedding                                   |
+| Learning  | PredictionOutcome, ModelCalibration                  |
+| Providers | AIProviderHealth, AIRequestLog                       |
+| Insights  | InsightMemory, TacticalInsight                       |
+
+Everything lives in PostgreSQL.
+
+# THE CHAT SHOULD FEEL LIKE THIS
+
+![Add AI Assistants to Community Chats | Watchers](https://images.openai.com/static-rsc-4/8pTwpOCbcLSCf2DNQwuVWTF-zYZWKVXaaXuvNg9lRPn6nOZ8DCz68-AJuJPFL5JIeDU4UQ9rCk-38Jwh-5hpvuxOwWWnesF3EqyneS-DasutG148qGNuKFieJsS-rYDXn_HS2G0J8PWj9FbBM2t0RetaK4c3RjyzyY1FuNZYuu8?purpose=inline)
+
+![【WWDC25】Apple IntelligenceのFoundation Modelとチャットできるアプリがオープンソース公開。その実力はどのくらい？（CloseBox） 1枚目の写真・画像 | テクノエッジ TechnoEdge](https://images.openai.com/static-rsc-4/uBYDCld9OsHuQ6w0IYrSZWzRp-b5jyLcZHAzMpYcB7p7sHUs3JOQE4RJJN0x4aKs3Qq7tYgWw7MoD0wSE_lciBaXX9v5BDHT-UBeNuBbIg3Uy4N7FWnMJX_dOHRQ64SoYSE--eJ7DBeUbhqAWbgn9wHdj9lwGIo6R5pc5ULiHS0?purpose=inline)
+
+![Premier League designs, themes, templates and downloadable graphic elements on Dribbble](https://images.openai.com/static-rsc-4/mICgVIyArS4v5qpDlsz9bB_wAD0EjzIyE7CuWNPuRJqsIrLWNQ8x3tF4uMCp2M93_JGIP8edDJszWWkup0p1D5YrvE11Tit4qVMKQaezGKtQ4fxExJ7jIZE1duRpOYx2LtjftRAZK5R3JxBsNOniM9F_ubzF5mfJ0J6fjAvNWlc?purpose=inline)
+
+6
+
+A user asks:
+
+> Predict Liverpool vs Arsenal.
+
+The AI response becomes a football intelligence report, not plain text.
+
+REAL
+
+Fresh Data
+
+Premier League
+
+# Liverpool vs Arsenal — Match Intelligence Report
+
+Two-paragraph executive summary.
+
+Win probabilities
+
+Table + confidence.
+
+Team News
+
+Injury bullets from News table.
+
+Tactical Matchup
+
+Three football insights.
+
+Evidence
+
+Every claim references PostgreSQL provenance.
+
+Risk Factors
+
+What could change the prediction.
+
+It reads like Opta + The Athletic + an AI analyst.
+
+# THE MASTER ENGINEERING DIRECTIVE FOR GLM 5
+
+This is what I would give GLM.
+
+Edit
+
+# ELASTICO AI 2.0 — MASTER INTELLIGENCE DIRECTIVE
+
+## Constitutional Rule
+
+Every AI capability must follow:
+
+SOURCE → POSTGRESQL → EMBEDDINGS → RETRIEVAL → REASONING → API → UI
+
+Never allow:
+
+API → UI.
+
+Never allow:
+
+LLM → UI without retrieval.
+
+Never allow:
+
+Fabricated football knowledge.
+
+## AI Stack
+
+1. PostgreSQL is the permanent knowledge source.
+
+2. pgvector stores embeddings.
+
+3. NVIDIA Nemotron generates embeddings.
+
+4. NVIDIA Reranker ranks retrieved context.
+
+5. Groq/Gemini/Cerebras/OpenRouter generate responses.
+
+6. AI Gateway chooses provider.
+
+7. Every response includes provenance.
+
+8. Every prediction stores outcome for learning.
+
+9. Every conversation stores memory.
+
+10. Every insight stores evidence.
+
+## Completion Definition
+
+ELASTICO AI is complete only when:
+
+* Every football fact is retrievable from PostgreSQL.
+
+* Every AI answer is grounded in retrieved football context.
+
+* Every prediction explains why.
+
+* Every answer shows provenance.
+
+* Every provider is health-monitored.
+
+* Every conversation contributes to memory.
+
+* Every prediction contributes to learning.
+
+# My recommendation: This becomes Phase 6 of ELASTICO
+
+You've already completed:
+
+* ✅ Data Foundation (PostgreSQL truth pipeline)
+
+* ✅ Prediction Engine (ELO, Poisson, Dixon-Coles, Monte Carlo)
+
+* ✅ Fabrication Audit
+
+* ✅ Canonical Entity Model
+
+* ✅ API Gateway
+
+The next major milestone is Phase 6: ELASTICO AI Intelligence System.
+
+### Phase 6 roadmap (in order)
+
+| Priority | Build |
+| -------- | ----- |
+|          |       |
+| P0       |       |
+
+| AI Gateway 2.0 (Groq + Gemini + Cerebras + OpenRouter routing) |
+|
+
+P1
+
+| Conversation Engine (memory, formatting, modes, personalized responses) |
+|
+
+P2
+
+| NVIDIA Embeddings + pgvector RAG over PostgreSQL |
+|
+
+P3
+
+| Knowledge Graph + Football Memory |
+|
+
+P4
+
+| Learning Engine (prediction calibration, feedback, model health) |
+
+This architecture is much more powerful than adding a giant neural network. It gives ELASTICO something more valuable: persistent football intelligence that grows every day as your PostgreSQL database grows.
