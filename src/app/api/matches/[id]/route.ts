@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchAllLiveScores } from '@/lib/football-data'
+import { fetchAllLiveScores, ESPN_LEAGUES } from '@/lib/football-data'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
-
 import { rateLimit } from '@/lib/rate-limit'
+
+const ESPN_SITE_V2 = 'https://site.api.espn.com/apis/v2/sports/soccer'
+
+async function fetchEspnSummary(leagueSlug: string, eventId: string): Promise<any | null> {
+  try {
+    const url = `${ESPN_SITE_V2}/${leagueSlug}/summary?event=${eventId}`
+    const res = await fetch(url, { next: { revalidate: 60 } })
+    if (!res.ok) return null
+    return res.json()
+  } catch {
+    return null
+  }
+}
 // ── Server-side response cache (in-memory, per-instance) ─────────────────────
 const matchCache = new Map<string, { data: any; timestamp: number }>()
 const CACHE_TTL = 30_000 // 30 seconds
@@ -121,6 +133,10 @@ export async function GET(
     const rawExternalId = hasPrefix ? prefixMatch[2] : id
     const sourcePrefix = hasPrefix ? prefixMatch[1] : null
 
+    // Auto-infer ESPN prefix for pure numeric IDs (dashboard passes raw ESPN IDs)
+    const looksLikeEspnId = !hasPrefix && /^\d+$/.test(id)
+    const effectivePrefix = sourcePrefix || (looksLikeEspnId ? 'espn' : null)
+
     // Shared helper to enrich a DB match with xG analytics
     const enrichMatch = async (dbMatch: any) => {
       const findAnalytics = async (teamName: string, teamId: string) => {
@@ -155,8 +171,8 @@ export async function GET(
     }
     console.log(`[MatchDetail] id="${id}" hasPrefix=${hasPrefix} sourcePrefix=${sourcePrefix} rawExternalId="${rawExternalId}"`)
 
-    // ── 1. Try database by primary ID (only if no source prefix) ──────────
-    if (!hasPrefix) {
+    // ── 1. Try database by primary ID (only if no source prefix and not a numeric ESPN ID) ──
+    if (!hasPrefix && !looksLikeEspnId) {
       try {
         const dbMatch = await db.match.findUnique({
           where: { id },
@@ -226,13 +242,14 @@ export async function GET(
       console.log(`[MatchDetail] STAGE 2.5 SKIPPED: sourcePrefix is "${sourcePrefix}", not "fd"`)
     }
 
-    // ── 3. Fallback: ESPN live data ────────────────────────────────────────
-    console.log(`[MatchDetail] STAGE 3: trying ESPN fallback for id="${id}" rawExternalId="${rawExternalId}"`)
+    // ── 3. Fallback: ESPN scoreboard (live/today data) ─────────────────────
+    console.log(`[MatchDetail] STAGE 3: trying ESPN scoreboard for id="${id}" rawExternalId="${rawExternalId}"`)
     try {
       const allMatches = await fetchAllLiveScores()
       console.log(`[MatchDetail] STAGE 3: ESPN returned ${allMatches.length} matches`)
-      // Match by full id OR stripped id (for prefixed IDs like espn:123)
-      const espnMatch = allMatches.find((m) => m.id === id || m.id === rawExternalId)
+      // Match by stripped raw ID (the ESPN event ID) — never match against the full id
+      // because it may contain a prefix like fd:123 which won't match any ESPN ID
+      const espnMatch = allMatches.find((m) => m.id === rawExternalId)
 
       if (espnMatch) {
         console.log(`[MatchDetail] STAGE 3 HIT: ESPN found "${espnMatch.homeTeam?.name} vs ${espnMatch.awayTeam?.name}"`)
@@ -275,19 +292,93 @@ export async function GET(
         setCache(id, result)
         return NextResponse.json(result)
       }
-      console.log(`[MatchDetail] STAGE 3 MISS: ESPN did not contain a match with id="${rawExternalId}"`)
+      console.log(`[MatchDetail] STAGE 3 MISS: ESPN scoreboard did not contain id="${rawExternalId}"`)
     } catch (espnErr) {
-      console.error('[MatchDetail] STAGE 3 ERROR: ESPN lookup failed:', espnErr)
+      console.error('[MatchDetail] STAGE 3 ERROR: ESPN scoreboard lookup failed:', espnErr)
     }
 
-    // ── 4. All fallbacks exhausted ────────────────────────────────────────
-    console.log(`[MatchDetail] ALL STAGES EXHAUSTED for id="${id}" (prefix=${sourcePrefix}, rawId="${rawExternalId}")`)
+    // ── 3b. Fallback: ESPN per-match summary (works for past/off-scoreboard matches) ──
+    const isNumericId = /^\d+$/.test(rawExternalId)
+    if (isNumericId) {
+      console.log(`[MatchDetail] STAGE 3b: trying ESPN summary endpoint for numeric id="${rawExternalId}"`)
+      const summaryResults = await Promise.allSettled(
+        ESPN_LEAGUES.map(l => fetchEspnSummary(l.espnId, rawExternalId))
+      )
+      for (const r of summaryResults) {
+        if (r.status !== 'fulfilled' || !r.value) continue
+        const boxscore = r.value.boxscore
+        if (!boxscore) continue
+        const comp = r.value.header?.competitions?.[0]
+        if (!comp) continue
+        const home = comp.competitors?.find((c: any) => c.homeAway === 'home') || comp.competitors?.[0]
+        const away = comp.competitors?.find((c: any) => c.homeAway === 'away') || comp.competitors?.[1]
+        if (!home || !away) continue
+        console.log(`[MatchDetail] STAGE 3b HIT: ESPN summary found "${home.team?.displayName} vs ${away.team?.displayName}"`)
+        const teamFromEspn = (c: any) => ({
+          id: c.team?.id || '', name: c.team?.displayName || 'Unknown', code: c.team?.abbreviation || '',
+          logo: c.team?.logo || '', primaryColor: c.team?.color || '#00e676', secondaryColor: '#ffffff',
+          eloRating: 1500, form: '', wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0,
+          xgPerGame: null, xgaPerGame: null, xgTruthClass: 'MISSING', xgSource: null, xgFreshness: null,
+          possession: null, passAccuracy: null, pressIntensity: null,
+        })
+        const statusDetail = comp.status?.type?.detail || ''
+        const minuteMatch = statusDetail.match(/(\d+)\s*'/)
+        const matchData = {
+          id: rawExternalId,
+          competition: comp.name || r.value.header?.name || '',
+          competitionCode: '', stage: '', group: null,
+          date: r.value.header?.date || comp.startDate || null,
+          status: normalizeStatus(comp.status?.type?.name), minute: minuteMatch ? parseInt(minuteMatch[1]) : undefined,
+          venue: comp.venue?.fullName || '',
+          homeScore: parseInt(home.score) || 0, awayScore: parseInt(away.score) || 0,
+          halfTimeHome: null, halfTimeAway: null,
+          homeXg: null, awayXg: null, homeXgSource: null, awayXgSource: null,
+          homeXgTruthClass: 'MISSING', awayXgTruthClass: 'MISSING',
+          possessionHome: null, possessionAway: null,
+          shotsHome: parseInt(home.statistics?.find((s: any) => s.name === 'shotsTotal')?.displayValue) || 0,
+          shotsAway: parseInt(away.statistics?.find((s: any) => s.name === 'shotsTotal')?.displayValue) || 0,
+          shotsOnTargetHome: parseInt(home.statistics?.find((s: any) => s.name === 'shotsOnTarget')?.displayValue) || 0,
+          shotsOnTargetAway: parseInt(away.statistics?.find((s: any) => s.name === 'shotsOnTarget')?.displayValue) || 0,
+          cornersHome: parseInt(home.statistics?.find((s: any) => s.name === 'cornersTotal')?.displayValue) || 0,
+          cornersAway: parseInt(away.statistics?.find((s: any) => s.name === 'cornersTotal')?.displayValue) || 0,
+          homeWinProb: null, drawProb: null, awayWinProb: null, homeEloBefore: null, awayEloBefore: null,
+          isSimulated: false,
+          homeTeam: teamFromEspn(home), awayTeam: teamFromEspn(away),
+          events: [], voteDistribution: { home: 0, draw: 0, away: 0 }, votes: [], predictions: [],
+          _count: { predictions: 0, events: 0 }, source: 'espn-summary',
+        }
+        const result = { match: matchData, source: 'espn (summary)' }
+        setCache(id, result)
+        return NextResponse.json(result)
+      }
+      console.log(`[MatchDetail] STAGE 3b MISS: no ESPN league returned summary for id="${rawExternalId}"`)
+    } else {
+      console.log(`[MatchDetail] STAGE 3b SKIPPED: id is not numeric ("${rawExternalId}")`)
+    }
+
+    // ── 5. All fallbacks exhausted ────────────────────────────────────────
+    console.log(`[MatchDetail] ALL STAGES EXHAUSTED for id="${id}" (prefix=${effectivePrefix}, rawId="${rawExternalId}")`)
+    const stagesAttempted = [
+      'database:id',
+      'database:externalId',
+      sourcePrefix === 'fd' ? 'football-data.org' : null,
+      'espn:scoreboard',
+      isNumericId ? 'espn:summary' : null,
+    ].filter(Boolean)
     return NextResponse.json({
       error: 'Match not found',
       id,
-      sourcePrefix,
+      effectivePrefix,
       rawExternalId,
-      stagesAttempted: ['database:id', 'database:externalId', sourcePrefix === 'fd' ? 'football-data.org' : null, 'espn'].filter(Boolean),
+      isNumericId,
+      stagesAttempted,
+      hint: isNumericId
+        ? 'The ID looks like an ESPN event ID but was not found on any ESPN league scoreboard or summary. The match may be from a league not yet configured, or the ESPN API returned an error.'
+        : looksLikeEspnId
+        ? 'This ID appears to be an ESPN event ID. It was not found in the database or ESPN live data.'
+        : !hasPrefix
+        ? 'No source prefix detected. Try prefixing with fd: (football-data.org), espn: (ESPN), or api-sports: (API-Sports) to help the fallback chain.'
+        : `Source prefix "${sourcePrefix}:" was recognized but the ID was not found via any available fallback for that source.`,
     }, { status: 404 })
   } catch (error) {
     console.error('Match detail error:', error)

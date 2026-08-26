@@ -179,7 +179,7 @@ function LiveTicker() {
         {liveGames.map((m: any, idx: number) => (
           <button
             key={m.id || idx}
-            onClick={() => m.id && selectMatch(m.id)}
+            onClick={() => m.id && selectMatch(`espn:${m.id}`)}
             className="flex items-center gap-2 shrink-0 hover:bg-accent/40 rounded-md px-1.5 py-0.5 -mx-1.5 transition-colors"
           >
             <TeamCrest
@@ -482,7 +482,7 @@ function FeaturedMatchPanel() {
       <div className="px-6 pb-5">
         <Button
           className="w-full h-9 gap-2 text-sm font-semibold"
-          onClick={() => selectMatch(featured.id)}
+          onClick={() => selectMatch(featured.source === 'espn' ? `espn:${featured.id}` : featured.id)}
         >
           <Eye className="size-3.5" />
           Analyse Match

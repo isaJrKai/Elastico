@@ -154,8 +154,9 @@ export default function MatchDetailView() {
         const stages = body.stagesAttempted?.length
           ? `\nStages tried: ${body.stagesAttempted.join(' → ')}`
           : ''
+        const hint = body.hint ? `\n${body.hint}` : ''
         throw new Error(body.error === 'Match not found'
-          ? `Match not found. ID: ${selectedMatchId}${stages}`
+          ? `Match not found. ID: ${selectedMatchId}${stages}${hint}`
           : body.error || `Failed to fetch match (${res.status})`)
       }
       const data = await res.json()
