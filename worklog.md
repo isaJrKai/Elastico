@@ -268,3 +268,27 @@ Stage Summary:
 - Routes with RL: 2 → 34 (32 routes hardened)
 - Commit: 3b743b2
 - AI Stage 2: BLOCKED (SQLite + no NVIDIA key — separate blocker report)
+
+---
+Task ID: 3
+Agent: main
+Task: Phase 11 — Match Detail Load Diagnosis
+
+Work Log:
+- Traced full click-to-render chain: 4 frontend click sites → Zustand store → API route → 4-layer fallback
+- Identified 4 root causes:
+  1. ESPN scoreboard only returns TODAY's matches — finished matches fall off, causing Stage 3 MISS
+  2. No ESPN per-match summary fallback — only searched the live scoreboard, not individual match endpoints
+  3. `fd:` prefixed IDs tried `m.id === "fd:499238"` in ESPN find() — impossible match
+  4. Dashboard passes raw ESPN IDs without `espn:` prefix — wasted DB CUID lookup in Stage 1
+- Fix 1: Added Stage 3b — ESPN per-match summary endpoint (`/{league}/summary?event={id}`) tried across all 19 ESPN leagues via Promise.allSettled
+- Fix 2: Auto-detect pure numeric IDs as ESPN IDs (skip Stage 1 DB CUID lookup for them)
+- Fix 3: ESPN Stage 3 now matches only on `rawExternalId` (never on the full prefixed id)
+- Fix 4: Dashboard LiveTicker + FeaturedMatch now pass `espn:` prefix for ESPN-sourced matches
+- Fix 5: 404 response includes `hint` field with actionable explanation, frontend displays it
+- Verified: tsc --noEmit → 0 errors, next build → PASS
+
+Stage Summary:
+- Fallback chain: 4 stages → 5 stages (added 3b: ESPN summary)
+- Dashboard now correctly prefixes ESPN IDs with `espn:`
+- Commit: 4f72922
