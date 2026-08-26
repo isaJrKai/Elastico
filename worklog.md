@@ -292,3 +292,30 @@ Stage Summary:
 - Fallback chain: 4 stages → 5 stages (added 3b: ESPN summary)
 - Dashboard now correctly prefixes ESPN IDs with `espn:`
 - Commit: 4f72922
+
+---
+Task ID: 3b
+Agent: main
+Task: Phase 11b — Match Detail Diagnosis (continued session)
+
+Work Log:
+- Full re-trace of click-to-render: 4 frontend callers confirmed (matches-view fd:, dashboard espn:, dashboard featured conditional, command-palette raw DB)
+- Diagnosed env: ESPN ✅ works (public), FOOTBALL_DATA_API_KEY ❌ missing, API_SPORTS_KEY ❌ missing
+- Found 3 bugs:
+  1. chat-view.tsx lines 153, 254, 272: matches.find(m => m.id === storeSelectedMatchId) fails for prefixed IDs (fd:, espn:) because DB matches have raw UUIDs
+  2. tactical-view.tsx line 193: same prefix-ID lookup failure
+  3. No api-sports: fallback stage existed despite prefix being recognized
+- Fix 1: chat-view.tsx — 3 match lookups now strip prefix + check externalId
+- Fix 2: tactical-view.tsx — same fix
+- Fix 3: Added STAGE 4 — api-sports fallback using /fixtures?id= direct lookup with normalizeASFixture
+- Fix 4: Added externalId? field to Match interface in Zustand store
+- Enhancement: Added performance.now() timing to ALL fallback stages (cache, DB id, DB externalId, fd:, ESPN scoreboard, ESPN summary, api-sports, total)
+- Updated 404 stagesAttempted array to include api-sports
+- Verified: tsc --noEmit → 0 errors
+
+Stage Summary:
+- 4 files changed, 95 insertions, 22 deletions
+- Fallback chain: 5 stages → 6 stages (added Stage 4: api-sports)
+- All stages now have ms-level timing in server logs
+- Frontend prefix-ID bug fixed in 4 locations
+- Commit: 276807d
