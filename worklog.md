@@ -319,3 +319,32 @@ Stage Summary:
 - All stages now have ms-level timing in server logs
 - Frontend prefix-ID bug fixed in 4 locations
 - Commit: 276807d
+
+---
+Task ID: 12a
+Agent: main
+Task: Phase 12a — Honest Failure Pipeline & 12-Layer Verification Foundation
+
+Work Log:
+- Audited all 5 .env files + full source tree for API keys (GROQ, CEREBRAS, GOOGLE_AI, NVIDIA, OPENROUTER, MISTRAL, GITHUB_TOKEN, API_SPORTS, FOOTBALL_DATA, THE_ODDS, NEWSDATA)
+- Finding: ZERO AI keys configured in any environment. API_SPORTS_KEY=123 set per user but rejected by provider (returns HTTP 200 with error body)
+- .env restructured with clear comments documenting what is and isn't configured
+- Fixed match-detail 404 to include providerErrors object with REAL error messages from each failed provider
+- API-Sports stage now checks response body for errors.token (API-Sports returns 200 even on auth failure)
+- football-data.org stage now reports 'not configured' when FOOTBALL_DATA_API_KEY is missing
+- Replaced fake mock AI responses (generateFootballAnalysis) with honest honestNoAiResponse that lists all 7 providers and their env vars
+- Removed arbitrary key length gate (>5 chars) from resolveKey, hasAnyAiProvider, callAi, callAiStream, getProviderStatus
+- SQLite compatibility: removed mode:'insensitive' from evidence-builder.ts (5 locations) and match detail enrichMatch (1 location)
+- Prisma schema: switched provider from postgresql to sqlite for local dev (revert before deploy)
+- Fixed JWT_SECRET to >=32 chars to eliminate auth startup warning
+- End-to-end verified 3 endpoints:
+  - GET /api/matches -> {matches:[], source:'espn', total:0} — ESPN fallback chain works
+  - GET /api/matches/api-sports:999 -> 404 with providerErrors.api-sports showing real auth error
+  - GET /api/matches/fd:456 -> 404 with providerErrors for both football-data.org and api-sports
+  - Server logs show full diagnostic timing trace for every stage
+
+Stage Summary:
+- 5 files changed in src/: chat/route.ts, matches/[id]/route.ts, ai-gateway.ts, evidence-builder.ts, prisma/schema.prisma
+- Key principle applied: 'missing keys is not an acceptable stopping point' — system now ATTEMPTS every provider and reports the REAL error
+- No more silent skips, no more fake analysis pretending to have data
+- Commit: 912807e
