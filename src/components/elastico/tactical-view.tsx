@@ -188,9 +188,13 @@ export function TacticalView() {
   const awayTeam = useMemo(() => teams.find((t) => t.id === awayTeamId), [teams, awayTeamId])
 
   // Pre-select from a selected match
+  // NOTE: selectedMatchId may be prefixed (fd:, espn:), so also match by externalId
   React.useEffect(() => {
     if (selectedMatchId && matches.length > 0) {
-      const m = matches.find((match) => match.id === selectedMatchId)
+      const rawId = selectedMatchId.replace(/^(fd|espn|api-sports):/, '')
+      const m = matches.find(
+        (match) => match.id === selectedMatchId || match.id === rawId || match.externalId === rawId,
+      )
       if (m) {
         setHomeTeamId(m.homeTeamId)
         setAwayTeamId(m.awayTeamId)

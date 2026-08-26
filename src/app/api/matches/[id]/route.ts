@@ -127,6 +127,8 @@ export async function GET(
 
     const { id } = await params
 
+    const t0 = performance.now()
+
     // ── Detect source prefix (fd:, espn:, api-sports:) ────────────────────
     const prefixMatch = id.match(/^(fd|espn|api-sports):(.+)/)
     const hasPrefix = !!prefixMatch
@@ -166,52 +168,55 @@ export async function GET(
     // ── 0. Check cache ────────────────────────────────────────────────
     const cached = getCached(id)
     if (cached) {
-      console.log(`[MatchDetail] CACHE HIT id="${id}"`)
+      console.log(`[MatchDetail] CACHE HIT id="${id}" (${((performance.now() - t0) | 0)}ms)`)
       return NextResponse.json(cached)
     }
     console.log(`[MatchDetail] id="${id}" hasPrefix=${hasPrefix} sourcePrefix=${sourcePrefix} rawExternalId="${rawExternalId}"`)
 
     // ── 1. Try database by primary ID (only if no source prefix and not a numeric ESPN ID) ──
     if (!hasPrefix && !looksLikeEspnId) {
+      const t1 = performance.now()
       try {
         const dbMatch = await db.match.findUnique({
           where: { id },
           include: matchIncludes,
         }) as any
         if (dbMatch) {
-          console.log(`[MatchDetail] STAGE 1 HIT: database by primary id="${id}")`)
+          console.log(`[MatchDetail] STAGE 1 HIT: database by primary id="${id}" (${((performance.now() - t1) | 0)}ms)`)
           const result = { match: await enrichMatch(dbMatch), source: 'database' }
           setCache(id, result)
           return NextResponse.json(result)
         }
-        console.log(`[MatchDetail] STAGE 1 MISS: no DB row with id="${id}"`)
+        console.log(`[MatchDetail] STAGE 1 MISS: no DB row with id="${id}" (${((performance.now() - t1) | 0)}ms)`)
       } catch (dbErr) {
-        console.error('[MatchDetail] STAGE 1 ERROR: DB lookup failed:', dbErr)
+        console.error(`[MatchDetail] STAGE 1 ERROR: DB lookup failed (${((performance.now() - t1) | 0)}ms):`, dbErr)
       }
     } else {
       console.log(`[MatchDetail] STAGE 1 SKIPPED: has prefix "${sourcePrefix}:"`)
     }
 
     // ── 2. Try by externalId (stripped prefix) ────────────────────────────
+    const t2 = performance.now()
     try {
       const dbMatch = await db.match.findFirst({
         where: { externalId: rawExternalId },
         include: matchIncludes,
       }) as any
       if (dbMatch) {
-        console.log(`[MatchDetail] STAGE 2 HIT: database by externalId="${rawExternalId}"`)
+        console.log(`[MatchDetail] STAGE 2 HIT: database by externalId="${rawExternalId}" (${((performance.now() - t2) | 0)}ms)`)
         const result = { match: await enrichMatch(dbMatch), source: 'database' }
         setCache(id, result)
         return NextResponse.json(result)
       }
-      console.log(`[MatchDetail] STAGE 2 MISS: no DB row with externalId="${rawExternalId}"`)
+      console.log(`[MatchDetail] STAGE 2 MISS: no DB row with externalId="${rawExternalId}" (${((performance.now() - t2) | 0)}ms)`)
     } catch (dbErr2) {
-      console.error('[MatchDetail] STAGE 2 ERROR: externalId lookup failed:', dbErr2)
+      console.error(`[MatchDetail] STAGE 2 ERROR: externalId lookup failed (${((performance.now() - t2) | 0)}ms):`, dbErr2)
     }
 
     // ── 2.5. Fallback: fetch from football-data.org for fd: prefixed IDs ──
     if (sourcePrefix === 'fd') {
       const hasKey = !!process.env.FOOTBALL_DATA_API_KEY
+      const t25 = performance.now()
       console.log(`[MatchDetail] STAGE 2.5: sourcePrefix=fd, FOOTBALL_DATA_API_KEY=${hasKey ? 'present' : 'MISSING'}`)
       if (hasKey) {
         try {
@@ -226,16 +231,16 @@ export async function GET(
             totalFetched += result.value.length
             const fdMatch = result.value.find((m: any) => String(m.id) === rawExternalId)
             if (fdMatch) {
-              console.log(`[MatchDetail] STAGE 2.5 HIT: football-data.org found match (searched ${totalFetched} matches across ${competitions.length} competitions)`)
+              console.log(`[MatchDetail] STAGE 2.5 HIT: football-data.org found match (${totalFetched} matches, ${competitions.length} comps, ${((performance.now() - t25) | 0)}ms)`)
               const normalized = normalizeFDMatch(fdMatch)
               const response = { match: normalized, source: 'football-data.org (live)' }
               setCache(id, response)
               return NextResponse.json(response)
             }
           }
-          console.log(`[MatchDetail] STAGE 2.5 MISS: football-data.org did not contain id="${rawExternalId}" (searched ${totalFetched} matches)`)
+          console.log(`[MatchDetail] STAGE 2.5 MISS: football-data.org no match for id="${rawExternalId}" (${totalFetched} searched, ${((performance.now() - t25) | 0)}ms)`)
         } catch (fdErr) {
-          console.error('[MatchDetail] STAGE 2.5 ERROR: football-data.org fallback failed:', fdErr)
+          console.error(`[MatchDetail] STAGE 2.5 ERROR: football-data.org failed (${((performance.now() - t25) | 0)}ms):`, fdErr)
         }
       }
     } else {
@@ -243,16 +248,17 @@ export async function GET(
     }
 
     // ── 3. Fallback: ESPN scoreboard (live/today data) ─────────────────────
-    console.log(`[MatchDetail] STAGE 3: trying ESPN scoreboard for id="${id}" rawExternalId="${rawExternalId}"`)
+    const t3 = performance.now()
+    console.log(`[MatchDetail] STAGE 3: ESPN scoreboard, rawExternalId="${rawExternalId}"`)
     try {
       const allMatches = await fetchAllLiveScores()
-      console.log(`[MatchDetail] STAGE 3: ESPN returned ${allMatches.length} matches`)
+      console.log(`[MatchDetail] STAGE 3: ESPN returned ${allMatches.length} matches (${((performance.now() - t3) | 0)}ms)`)
       // Match by stripped raw ID (the ESPN event ID) — never match against the full id
       // because it may contain a prefix like fd:123 which won't match any ESPN ID
       const espnMatch = allMatches.find((m) => m.id === rawExternalId)
 
       if (espnMatch) {
-        console.log(`[MatchDetail] STAGE 3 HIT: ESPN found "${espnMatch.homeTeam?.name} vs ${espnMatch.awayTeam?.name}"`)
+        console.log(`[MatchDetail] STAGE 3 HIT: ESPN found "${espnMatch.homeTeam?.name} vs ${espnMatch.awayTeam?.name}" (${((performance.now() - t3) | 0)}ms)`)
         const teamFromEspn = (t: any) => ({
           id: t.id, name: t.name, code: t.abbreviation || '', logo: t.logo,
           primaryColor: t.color || '#00e676', secondaryColor: '#ffffff',
@@ -292,7 +298,7 @@ export async function GET(
         setCache(id, result)
         return NextResponse.json(result)
       }
-      console.log(`[MatchDetail] STAGE 3 MISS: ESPN scoreboard did not contain id="${rawExternalId}"`)
+      console.log(`[MatchDetail] STAGE 3 MISS: ESPN scoreboard no match for id="${rawExternalId}" (${((performance.now() - t3) | 0)}ms)`)
     } catch (espnErr) {
       console.error('[MatchDetail] STAGE 3 ERROR: ESPN scoreboard lookup failed:', espnErr)
     }
@@ -300,7 +306,8 @@ export async function GET(
     // ── 3b. Fallback: ESPN per-match summary (works for past/off-scoreboard matches) ──
     const isNumericId = /^\d+$/.test(rawExternalId)
     if (isNumericId) {
-      console.log(`[MatchDetail] STAGE 3b: trying ESPN summary endpoint for numeric id="${rawExternalId}"`)
+      const t3b = performance.now()
+      console.log(`[MatchDetail] STAGE 3b: ESPN summary endpoint for numeric id="${rawExternalId}"`)
       const summaryResults = await Promise.allSettled(
         ESPN_LEAGUES.map(l => fetchEspnSummary(l.espnId, rawExternalId))
       )
@@ -313,7 +320,7 @@ export async function GET(
         const home = comp.competitors?.find((c: any) => c.homeAway === 'home') || comp.competitors?.[0]
         const away = comp.competitors?.find((c: any) => c.homeAway === 'away') || comp.competitors?.[1]
         if (!home || !away) continue
-        console.log(`[MatchDetail] STAGE 3b HIT: ESPN summary found "${home.team?.displayName} vs ${away.team?.displayName}"`)
+        console.log(`[MatchDetail] STAGE 3b HIT: ESPN summary found "${home.team?.displayName} vs ${away.team?.displayName}" (${((performance.now() - t3b) | 0)}ms)`)
         const teamFromEspn = (c: any) => ({
           id: c.team?.id || '', name: c.team?.displayName || 'Unknown', code: c.team?.abbreviation || '',
           logo: c.team?.logo || '', primaryColor: c.team?.color || '#00e676', secondaryColor: '#ffffff',
@@ -351,19 +358,70 @@ export async function GET(
         setCache(id, result)
         return NextResponse.json(result)
       }
-      console.log(`[MatchDetail] STAGE 3b MISS: no ESPN league returned summary for id="${rawExternalId}"`)
+      console.log(`[MatchDetail] STAGE 3b MISS: no ESPN league returned summary for id="${rawExternalId}" (${((performance.now() - t3b) | 0)}ms)`)
     } else {
       console.log(`[MatchDetail] STAGE 3b SKIPPED: id is not numeric ("${rawExternalId}")`)
     }
 
+    // ── 4. Fallback: API-Sports (for api-sports: prefixed or numeric IDs) ──
+    const hasAsKey = !!process.env.API_SPORTS_KEY
+    if (sourcePrefix === 'api-sports' || (isNumericId && hasAsKey)) {
+      const t4 = performance.now()
+      console.log(`[MatchDetail] STAGE 4: sourcePrefix=${sourcePrefix}, API_SPORTS_KEY=${hasAsKey ? 'present' : 'MISSING'}`)
+      if (hasAsKey) {
+        try {
+          const { fetchPrediction, mapASStatus, normalizeASFixture } = await import('@/lib/api-sports')
+          // Try /fixtures?id= first (direct lookup), fall back to /predictions?fixture=
+          const AS_BASE = 'https://v3.football.api-sports.io'
+          const fixtureRes = await fetch(`${AS_BASE}/fixtures?id=${rawExternalId}`, {
+            headers: { 'x-apisports-key': process.env.API_SPORTS_KEY! },
+            next: { revalidate: 120 },
+          })
+          if (fixtureRes.ok) {
+            const fixtureData = await fixtureRes.json()
+            const fixture = fixtureData.response?.[0]
+            if (fixture) {
+              console.log(`[MatchDetail] STAGE 4 HIT: API-Sports fixture found "${fixture.teams?.home?.name} vs ${fixture.teams?.away?.name}" (${((performance.now() - t4) | 0)}ms)`)
+              const normalized = normalizeASFixture(fixture)
+              const matchData = {
+                ...normalized,
+                id: rawExternalId,
+                homeXg: null, awayXg: null,
+                homeXgSource: null, awayXgSource: null,
+                homeXgTruthClass: 'MISSING', awayXgTruthClass: 'MISSING',
+                possessionHome: null, possessionAway: null,
+                homeWinProb: null, drawProb: null, awayWinProb: null,
+                homeEloBefore: null, awayEloBefore: null, isSimulated: false,
+                events: [], voteDistribution: { home: 0, draw: 0, away: 0 },
+                votes: [], predictions: [],
+                _count: { predictions: 0, events: 0 },
+                source: 'api-sports',
+              }
+              const result = { match: matchData, source: 'api-sports' }
+              setCache(id, result)
+              return NextResponse.json(result)
+            }
+          }
+          console.log(`[MatchDetail] STAGE 4 MISS: API-Sports /fixtures returned no match for id="${rawExternalId}" (${((performance.now() - t4) | 0)}ms)`)
+        } catch (asErr) {
+          console.error(`[MatchDetail] STAGE 4 ERROR: API-Sports fallback failed (${((performance.now() - t4) | 0)}ms):`, asErr)
+        }
+      } else {
+        console.log(`[MatchDetail] STAGE 4 SKIPPED: API_SPORTS_KEY not configured`)
+      }
+    } else {
+      console.log(`[MatchDetail] STAGE 4 SKIPPED: sourcePrefix="${sourcePrefix}", not api-sports and no AS key`)
+    }
+
     // ── 5. All fallbacks exhausted ────────────────────────────────────────
-    console.log(`[MatchDetail] ALL STAGES EXHAUSTED for id="${id}" (prefix=${effectivePrefix}, rawId="${rawExternalId}")`)
+    console.log(`[MatchDetail] ALL STAGES EXHAUSTED for id="${id}" (prefix=${effectivePrefix}, rawId="${rawExternalId}", total=${((performance.now() - t0) | 0)}ms)`)
     const stagesAttempted = [
       'database:id',
       'database:externalId',
       sourcePrefix === 'fd' ? 'football-data.org' : null,
       'espn:scoreboard',
       isNumericId ? 'espn:summary' : null,
+      (sourcePrefix === 'api-sports' || (isNumericId && hasAsKey)) ? 'api-sports' : null,
     ].filter(Boolean)
     return NextResponse.json({
       error: 'Match not found',

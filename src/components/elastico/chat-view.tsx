@@ -148,9 +148,13 @@ export default function ChatView() {
   const [selectedMatchId, setSelectedMatchId] = useState<string>('none')
 
   // Auto-detect screen context: if user navigated from match-detail, pre-select that match
+  // NOTE: storeSelectedMatchId may be prefixed (fd:, espn:), so also match by externalId
   useEffect(() => {
     if (currentView === 'match-detail' && storeSelectedMatchId) {
-      const match = matches.find((m) => m.id === storeSelectedMatchId)
+      const rawId = storeSelectedMatchId.replace(/^(fd|espn|api-sports):/, '')
+      const match = matches.find(
+        (m) => m.id === storeSelectedMatchId || m.id === rawId || m.externalId === rawId,
+      )
       if (match && selectedMatchId !== storeSelectedMatchId) {
         setSelectedMatchId(storeSelectedMatchId)
       }
@@ -251,7 +255,10 @@ export default function ChatView() {
       // Screen context
       const screenContext: string[] = []
       if (currentView === 'match-detail' && storeSelectedMatchId) {
-        const match = matches.find((m) => m.id === storeSelectedMatchId)
+        const rawId = storeSelectedMatchId.replace(/^(fd|espn|api-sports):/, '')
+        const match = matches.find(
+          (m) => m.id === storeSelectedMatchId || m.id === rawId || m.externalId === rawId,
+        )
         if (match?.homeTeam && match?.awayTeam) {
           screenContext.push(`Current screen: Match detail — ${match.homeTeam.name} vs ${match.awayTeam.name}`)
         }
@@ -269,7 +276,10 @@ export default function ChatView() {
       // Manual match context selector (overrides auto-detect)
       if (selectedMatchId && selectedMatchId !== 'none') {
         body.matchId = selectedMatchId
-        const match = matches.find((m) => m.id === selectedMatchId)
+        const rawCtxId = selectedMatchId.replace(/^(fd|espn|api-sports):/, '')
+        const match = matches.find(
+          (m) => m.id === selectedMatchId || m.id === rawCtxId || m.externalId === rawCtxId,
+        )
         if (match?.homeTeam && match?.awayTeam) {
           body.context = `${match.homeTeam.name} vs ${match.awayTeam.name}`
         }

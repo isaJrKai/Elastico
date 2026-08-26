@@ -50,6 +50,7 @@ export interface User {
 
 export interface Match {
   id: string
+  externalId?: string | null
   homeTeamId: string
   awayTeamId: string
   competition: string
