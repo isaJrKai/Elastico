@@ -93,7 +93,7 @@ function KpiStrip() {
       {kpis.map((kpi) => (
         <div
           key={kpi.label}
-          className="relative rounded-lg border border-border/40 bg-muted/20 px-4 py-3"
+          className="relative rounded-xl border border-border/40 bg-muted/20 px-4 py-3"
         >
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className={cn(
@@ -592,7 +592,7 @@ function QuickActions() {
         <button
           key={a.view}
           onClick={() => setView(a.view)}
-          className="flex flex-col items-center gap-1.5 rounded-lg border border-border/30 bg-muted/10 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-accent/40 hover:border-border/60 transition-all"
+          className="flex flex-col items-center gap-1.5 rounded-xl border border-border/30 bg-muted/10 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-accent/40 hover:border-border/60 transition-all"
         >
           {a.icon}
           <span className="text-[10px] font-medium">{a.label}</span>
@@ -614,7 +614,7 @@ export default function DashboardView() {
   }, [fetchLiveScores, fetchNews, fetchMatches])
 
   return (
-    <section className="flex flex-col gap-4" aria-label="Dashboard">
+    <section className="flex flex-col gap-4 animate-fade-in-up" aria-label="Dashboard">
       {/* Orientation: KPI strip */}
       <KpiStrip />
 

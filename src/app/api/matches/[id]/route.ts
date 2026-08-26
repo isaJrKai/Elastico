@@ -142,8 +142,10 @@ export async function GET(
     // ── 0. Check cache ────────────────────────────────────────────────
     const cached = getCached(id)
     if (cached) {
+      console.log(`[MatchDetail] CACHE HIT id="${id}"`)
       return NextResponse.json(cached)
     }
+    console.log(`[MatchDetail] id="${id}" hasPrefix=${hasPrefix} sourcePrefix=${sourcePrefix} rawExternalId="${rawExternalId}"`)
 
     // ── 1. Try database by primary ID (only if no source prefix) ──────────
     if (!hasPrefix) {
@@ -153,13 +155,17 @@ export async function GET(
           include: matchIncludes,
         }) as any
         if (dbMatch) {
+          console.log(`[MatchDetail] STAGE 1 HIT: database by primary id="${id}")`)
           const result = { match: await enrichMatch(dbMatch), source: 'database' }
           setCache(id, result)
           return NextResponse.json(result)
         }
+        console.log(`[MatchDetail] STAGE 1 MISS: no DB row with id="${id}"`)
       } catch (dbErr) {
-        console.error('[MatchDetail] DB lookup failed, trying externalId:', dbErr)
+        console.error('[MatchDetail] STAGE 1 ERROR: DB lookup failed:', dbErr)
       }
+    } else {
+      console.log(`[MatchDetail] STAGE 1 SKIPPED: has prefix "${sourcePrefix}:"`)
     }
 
     // ── 2. Try by externalId (stripped prefix) ────────────────────────────
@@ -169,45 +175,59 @@ export async function GET(
         include: matchIncludes,
       }) as any
       if (dbMatch) {
+        console.log(`[MatchDetail] STAGE 2 HIT: database by externalId="${rawExternalId}"`)
         const result = { match: await enrichMatch(dbMatch), source: 'database' }
         setCache(id, result)
         return NextResponse.json(result)
       }
+      console.log(`[MatchDetail] STAGE 2 MISS: no DB row with externalId="${rawExternalId}"`)
     } catch (dbErr2) {
-      console.error('[MatchDetail] externalId lookup failed:', dbErr2)
+      console.error('[MatchDetail] STAGE 2 ERROR: externalId lookup failed:', dbErr2)
     }
 
     // ── 2.5. Fallback: fetch from football-data.org for fd: prefixed IDs ──
-    if (sourcePrefix === 'fd' && process.env.FOOTBALL_DATA_API_KEY) {
-      try {
-        const { fetchMatches, normalizeFDMatch } = await import('@/lib/football-data-org')
-        const competitions = ['PL', 'PD', 'SA', 'BL1', 'FL1', 'CL', 'EL']
-        // Parallel fetch all competitions instead of sequential
-        const allResults = await Promise.allSettled(
-          competitions.map(comp => fetchMatches(comp).catch(() => []))
-        )
-        for (const result of allResults) {
-          if (result.status !== 'fulfilled') continue
-          const fdMatch = result.value.find((m: any) => String(m.id) === rawExternalId)
-          if (fdMatch) {
-            const normalized = normalizeFDMatch(fdMatch)
-            const response = { match: normalized, source: 'football-data.org (live)' }
-            setCache(id, response)
-            return NextResponse.json(response)
+    if (sourcePrefix === 'fd') {
+      const hasKey = !!process.env.FOOTBALL_DATA_API_KEY
+      console.log(`[MatchDetail] STAGE 2.5: sourcePrefix=fd, FOOTBALL_DATA_API_KEY=${hasKey ? 'present' : 'MISSING'}`)
+      if (hasKey) {
+        try {
+          const { fetchMatches, normalizeFDMatch } = await import('@/lib/football-data-org')
+          const competitions = ['PL', 'PD', 'SA', 'BL1', 'FL1', 'CL', 'EL']
+          const allResults = await Promise.allSettled(
+            competitions.map(comp => fetchMatches(comp).catch(() => []))
+          )
+          let totalFetched = 0
+          for (const result of allResults) {
+            if (result.status !== 'fulfilled') continue
+            totalFetched += result.value.length
+            const fdMatch = result.value.find((m: any) => String(m.id) === rawExternalId)
+            if (fdMatch) {
+              console.log(`[MatchDetail] STAGE 2.5 HIT: football-data.org found match (searched ${totalFetched} matches across ${competitions.length} competitions)`)
+              const normalized = normalizeFDMatch(fdMatch)
+              const response = { match: normalized, source: 'football-data.org (live)' }
+              setCache(id, response)
+              return NextResponse.json(response)
+            }
           }
+          console.log(`[MatchDetail] STAGE 2.5 MISS: football-data.org did not contain id="${rawExternalId}" (searched ${totalFetched} matches)`)
+        } catch (fdErr) {
+          console.error('[MatchDetail] STAGE 2.5 ERROR: football-data.org fallback failed:', fdErr)
         }
-      } catch (fdErr) {
-        console.error('[MatchDetail] football-data.org fallback failed:', fdErr)
       }
+    } else {
+      console.log(`[MatchDetail] STAGE 2.5 SKIPPED: sourcePrefix is "${sourcePrefix}", not "fd"`)
     }
 
     // ── 3. Fallback: ESPN live data ────────────────────────────────────────
+    console.log(`[MatchDetail] STAGE 3: trying ESPN fallback for id="${id}" rawExternalId="${rawExternalId}"`)
     try {
       const allMatches = await fetchAllLiveScores()
+      console.log(`[MatchDetail] STAGE 3: ESPN returned ${allMatches.length} matches`)
       // Match by full id OR stripped id (for prefixed IDs like espn:123)
       const espnMatch = allMatches.find((m) => m.id === id || m.id === rawExternalId)
 
       if (espnMatch) {
+        console.log(`[MatchDetail] STAGE 3 HIT: ESPN found "${espnMatch.homeTeam?.name} vs ${espnMatch.awayTeam?.name}"`)
         const teamFromEspn = (t: any) => ({
           id: t.id, name: t.name, code: t.abbreviation || '', logo: t.logo,
           primaryColor: t.color || '#00e676', secondaryColor: '#ffffff',
@@ -247,11 +267,20 @@ export async function GET(
         setCache(id, result)
         return NextResponse.json(result)
       }
+      console.log(`[MatchDetail] STAGE 3 MISS: ESPN did not contain a match with id="${rawExternalId}"`)
     } catch (espnErr) {
-      console.error('[MatchDetail] ESPN lookup failed:', espnErr)
+      console.error('[MatchDetail] STAGE 3 ERROR: ESPN lookup failed:', espnErr)
     }
 
-    return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+    // ── 4. All fallbacks exhausted ────────────────────────────────────────
+    console.log(`[MatchDetail] ALL STAGES EXHAUSTED for id="${id}" (prefix=${sourcePrefix}, rawId="${rawExternalId}")`)
+    return NextResponse.json({
+      error: 'Match not found',
+      id,
+      sourcePrefix,
+      rawExternalId,
+      stagesAttempted: ['database:id', 'database:externalId', sourcePrefix === 'fd' ? 'football-data.org' : null, 'espn'].filter(Boolean),
+    }, { status: 404 })
   } catch (error) {
     console.error('Match detail error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

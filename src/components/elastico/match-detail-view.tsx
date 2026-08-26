@@ -149,7 +149,15 @@ export default function MatchDetailView() {
       const headers: Record<string, string> = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
       const res = await fetch(`/api/matches/${selectedMatchId}`, { headers })
-      if (!res.ok) throw new Error(`Failed to fetch match`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Unknown error' }))
+        const stages = body.stagesAttempted?.length
+          ? `\nStages tried: ${body.stagesAttempted.join(' → ')}`
+          : ''
+        throw new Error(body.error === 'Match not found'
+          ? `Match not found. ID: ${selectedMatchId}${stages}`
+          : body.error || `Failed to fetch match (${res.status})`)
+      }
       const data = await res.json()
       setMatch(data.match)
       setBookmarked((data.match._count?.bookmarks ?? 0) > 0)
@@ -313,8 +321,13 @@ export default function MatchDetailView() {
 
   if (error || !match) return (
     <div className="flex flex-col items-center justify-center py-20 animate-fade-in-up">
-      <AlertCircle className="size-12 text-destructive mb-4" /><h3 className="text-lg font-semibold mb-2">Failed to Load Match</h3>
-      <Button variant="outline" onClick={() => setView('matches')} className="gap-2 border-border"><ArrowLeft className="size-4" />Back to Matches</Button>
+      <AlertCircle className="size-12 text-destructive mb-4" />
+      <h3 className="text-lg font-semibold mb-2">Failed to Load Match</h3>
+      {error && <p className="text-xs text-muted-foreground max-w-md text-center whitespace-pre-line mb-4">{error}</p>}
+      <div className="flex gap-3">
+        <Button variant="outline" size="sm" className="gap-2 border-border" onClick={fetchMatch}><RefreshCw className="size-3.5" />Retry</Button>
+        <Button variant="outline" size="sm" className="gap-2 border-border" onClick={() => setView('matches')}><ArrowLeft className="size-4" />Back to Matches</Button>
+      </div>
     </div>
   )
 
@@ -382,7 +395,7 @@ export default function MatchDetailView() {
                 </div>
                 <h2 className="text-lg font-bold">{homeTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
-                  <Badge variant="outline" className="text-[10px] border-border/50">ELO {match.homeEloBefore ?? homeTeam?.eloRating ?? '—'}</Badge>
+                  <Badge variant="outline" className="text-[10px] border-border/50 tabular-nums">ELO {match.homeEloBefore ?? homeTeam?.eloRating ?? '—'}</Badge>
                   <StatusBadge variant="dataclass" value={homeTeam?.xgTruthClass || 'MISSING'} />
                   {homeTeam?.form && <div className="flex gap-0.5">{homeTeam.form.split('').map((f, i) => <span key={i} className={cn('inline-flex size-4 items-center justify-center rounded text-[9px] font-bold', f === 'W' ? 'bg-emerald-500/20 text-emerald-400' : f === 'D' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400')}>{f}</span>)}</div>}
                 </div>
@@ -404,12 +417,12 @@ export default function MatchDetailView() {
                     </div>
                     <div className="flex items-center justify-center gap-3 mt-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-cyan-400 font-medium">xG {match.homeXg != null ? match.homeXg.toFixed(1) : 'N/A'}</span>
+                        <span className="text-[11px] text-cyan-400 font-medium tabular-nums">xG {match.homeXg != null ? match.homeXg.toFixed(1) : 'N/A'}</span>
                         <StatusBadge variant="dataclass" value={match.homeXgTruthClass || 'MISSING'} />
                       </div>
                       <span className="text-muted-foreground">·</span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-cyan-400 font-medium">xG {match.awayXg != null ? match.awayXg.toFixed(1) : 'N/A'}</span>
+                        <span className="text-[11px] text-cyan-400 font-medium tabular-nums">xG {match.awayXg != null ? match.awayXg.toFixed(1) : 'N/A'}</span>
                         <StatusBadge variant="dataclass" value={match.awayXgTruthClass || 'MISSING'} />
                       </div>
                     </div>
@@ -424,7 +437,7 @@ export default function MatchDetailView() {
                 </div>
                 <h2 className="text-lg font-bold">{awayTeam?.name}</h2>
                 <div className="flex items-center justify-center gap-2 mt-1">
-                  <Badge variant="outline" className="text-[10px] border-border/50">ELO {match.awayEloBefore ?? awayTeam?.eloRating ?? '—'}</Badge>
+                  <Badge variant="outline" className="text-[10px] border-border/50 tabular-nums">ELO {match.awayEloBefore ?? awayTeam?.eloRating ?? '—'}</Badge>
                   <StatusBadge variant="dataclass" value={awayTeam?.xgTruthClass || 'MISSING'} />
                   {awayTeam?.form && <div className="flex gap-0.5">{awayTeam.form.split('').map((f, i) => <span key={i} className={cn('inline-flex size-4 items-center justify-center rounded text-[9px] font-bold', f === 'W' ? 'bg-emerald-500/20 text-emerald-400' : f === 'D' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400')}>{f}</span>)}</div>}
                 </div>

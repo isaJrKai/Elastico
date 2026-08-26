@@ -141,3 +141,27 @@ Stage Summary:
 - Claude's verification checklist item 1 (field names) — DONE and corrected 5 errors
 - Items 2 (tsc) and 4 (MAX_EVIDENCE_CHARS bound) — VERIFIED
 - Item 3 (manual test) — requires live AI provider + DB data, left to user
+
+---
+Task ID: PHASE11-12
+Agent: main
+Task: Phase 11 (Match Detail Load Diagnosis) + Phase 12 (UI/UX Craft Pass)
+
+Work Log:
+- Phase 11.1: Added structured [MatchDetail] logging at all 4 fallback stages (cache, DB by id, DB by externalId, football-data.org, ESPN) plus final ALL STAGES EXHAUSTED log
+- Phase 11.2: Confirmed ID prefix chain is correct (matches-view always sends fd: prefix, route detects it, falls through to stage 2.5)
+- Phase 11.3: Confirmed FOOTBALL_DATA_API_KEY is empty in .env.example (and likely .env.local) — the fd: fallback is silently skipped because of `sourcePrefix === 'fd' && process.env.FOOTBALL_DATA_API_KEY`
+- Phase 11.4: Improved match-detail-view error state: now parses 404 body for stagesAttempted, shows the actual ID + stages tried, added Retry button alongside Back button, uses whitespace-pre-line for multi-line error display
+- Phase 11.4b: Changed 404 response from bare `{error: 'Match not found'}` to include id, sourcePrefix, rawExternalId, stagesAttempted array
+- Phase 12.1: Ran structured audit across Dashboard, Match Detail, Predictions against 9-item checklist (weight hierarchy, card uniformity, symmetry, tabular-nums, signature motif, spacing, typography, motion, composition)
+- Phase 12.2: Fixed dashboard KPI cards rounded-lg → rounded-xl (consistent with rest of app), quick actions rounded-lg → rounded-xl, added animate-fade-in-up entrance animation to dashboard section
+- Phase 12.3: Fixed predictions stat card hero values text-lg font-bold → text-2xl font-black tabular-nums (was the #1 visual deficit — most important numbers on the page rendered at chrome size)
+- Phase 12.4: Added tabular-nums to match-detail ELO badges (home + away) and xG value labels
+
+Stage Summary:
+- MODIFIED: src/app/api/matches/[id]/route.ts (instrumented all 4 fallback stages, enriched 404 response)
+- MODIFIED: src/components/elastico/match-detail-view.tsx (improved error state with stages tried + retry, tabular-nums on ELO/xG)
+- MODIFIED: src/components/elastico/dashboard-view.tsx (rounded-xl consistency, entrance animation)
+- MODIFIED: src/components/elastico/predictions-view.tsx (hero typography 2xl/black for stat cards)
+- Root cause of match detail 404: FOOTBALL_DATA_API_KEY not configured → fd: fallback silently skipped → ESPN fallback searches by fd: ID which never matches ESPN's numeric IDs → all stages exhausted
+- tsc --noEmit: 0 errors, next build: PASS

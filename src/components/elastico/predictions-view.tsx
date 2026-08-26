@@ -410,7 +410,7 @@ export default function PredictionsView() {
                   <s.icon className={cn('size-4', s.color)} />
                 </div>
                 <div>
-                  <p className="text-lg font-bold leading-tight">{s.value}</p>
+                  <p className="text-2xl font-black tabular-nums leading-none">{s.value}</p>
                   <p className="text-[10px] text-muted-foreground">{s.label}</p>
                 </div>
               </CardContent>
@@ -503,8 +503,8 @@ export default function PredictionsView() {
                 <s.icon className={cn('size-4', s.color)} />
               </div>
               <div>
-                <p className="text-lg font-bold leading-tight">{s.value}</p>
-                <p className="flex items-center gap-1.5">
+                <p className="text-2xl font-black tabular-nums leading-none">{s.value}</p>
+                <p className="flex items-center gap-1.5 mt-0.5">
                   <span className="text-[10px] text-muted-foreground">{s.label}</span>
                   <StatusBadge variant="dataclass" value={s.dataClass} />
                 </p>
