@@ -121,8 +121,8 @@ export function PlayerView() {
 
       // ESPN fallback: fetch teams for selected league, then fetch rosters
       try {
-        const leagueCode = teamFilter !== 'all' ? undefined : 'PL'
-        const teamsRes = await fetch(`/api/live?action=teams&league=${teamFilter !== 'all' ? teamFilter : 'PL'}`)
+        const activeLeague = teamFilter !== 'all' ? teamFilter : 'PL'
+        const teamsRes = await fetch(`/api/live?action=teams&league=${activeLeague}`)
         const teamsData = await teamsRes.json()
         const espnTeams = teamsData.data || teamsData.teams || []
 
@@ -134,7 +134,7 @@ export function PlayerView() {
 
         await Promise.allSettled(teamsToFetch.map(async (t: any) => {
           try {
-            const rosterRes = await fetch(`/api/live?action=roster&league=PL&team=${t.id}`)
+            const rosterRes = await fetch(`/api/live?action=roster&league=${activeLeague}&team=${t.id}`)
             if (!rosterRes.ok) return
             const rosterData = await rosterRes.json()
             const athletes = rosterData.data || rosterData.athletes || []
@@ -154,7 +154,8 @@ export function PlayerView() {
                 teamId: String(t.id || ''),
                 appearances: a.appearances ?? null,
                 minutesPlayed: null,
-                shirtNumber: a.shirtNumber ?? a.jersey ?? null,
+                number: a.shirtNumber ?? a.jersey ?? a.number ?? null,
+                shirtNumber: a.shirtNumber ?? a.jersey ?? a.number ?? null,
               } as unknown as EnhancedPlayer)
             }
           } catch (err) { console.warn('[PlayerView] Failed to fetch roster for team:', err) }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   GitCompareArrows,
@@ -42,6 +42,11 @@ export default function CompareView() {
   const homeTeam = useMemo(() => teams.find(t => t.id === homeTeamId), [teams, homeTeamId])
   const awayTeam = useMemo(() => teams.find(t => t.id === awayTeamId), [teams, awayTeamId])
 
+  // Fetch teams if store is empty (handles direct navigation)
+  useEffect(() => {
+    if (teams.length === 0) fetchTeams()
+  }, [teams.length, fetchTeams])
+
   // Transition to success/empty when teams load
   const viewState = useMemo<ViewState>(() => {
     if (teams.length === 0) return 'loading'
@@ -75,20 +80,27 @@ export default function CompareView() {
   // Only show form if real form data exists
   const homeForm = useMemo(() => {
     if (!homeTeam?.form) return []
+    // Form may be a plain string like "WDLWW" or a JSON array
+    if (typeof homeTeam.form === 'string' && !homeTeam.form.startsWith('[')) {
+      return homeTeam.form.split('').filter(c => c === 'W' || c === 'D' || c === 'L')
+    }
     try {
       const parsed = JSON.parse(homeTeam.form) as string[]
       if (Array.isArray(parsed) && parsed.length > 0) return parsed
       return []
-    } catch (err) { console.warn('[CompareView] Failed to parse homeTeam.form:', err); return [] }
+    } catch { return [] }
   }, [homeTeam])
 
   const awayForm = useMemo(() => {
     if (!awayTeam?.form) return []
+    if (typeof awayTeam.form === 'string' && !awayTeam.form.startsWith('[')) {
+      return awayTeam.form.split('').filter(c => c === 'W' || c === 'D' || c === 'L')
+    }
     try {
       const parsed = JSON.parse(awayTeam.form) as string[]
       if (Array.isArray(parsed) && parsed.length > 0) return parsed
       return []
-    } catch (err) { console.warn('[CompareView] Failed to parse awayTeam.form:', err); return [] }
+    } catch { return [] }
   }, [awayTeam])
 
   // Real player matchups — only when both teams have player data

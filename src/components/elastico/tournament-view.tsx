@@ -62,6 +62,7 @@ export default function TournamentView() {
 
   const fetchStandings = useCallback(async () => {
     setLoading(true)
+    setFetchError(false)
     try {
       const res = await fetch(`/api/live?action=standings&league=${selectedLeague}`)
       const data = await res.json()

@@ -51,7 +51,7 @@ function KpiStrip() {
   const { liveMatches, matches, user } = useElasticoStore()
 
   const liveCount = (liveMatches || []).filter(
-    (m: any) => m.status === 'IN_PROGRESS' || m.status === 'LIVE'
+    (m: any) => m.status === 'live' || m.status === 'halftime'
   ).length
 
   const upcomingCount = matches.filter(
@@ -131,7 +131,7 @@ function LiveTicker() {
 
   const liveGames = useMemo(
     () => (liveMatches || []).filter(
-      (m: any) => m.status === 'IN_PROGRESS' || m.status === 'LIVE'
+      (m: any) => m.status === 'live' || m.status === 'halftime'
     ),
     [liveMatches]
   )
@@ -224,7 +224,7 @@ function FeaturedMatchPanel() {
   const featured = useMemo(() => {
     // Try live ESPN matches first
     const espnLive = (liveMatches || []).find(
-      (m: any) => m.status === 'IN_PROGRESS' || m.status === 'LIVE'
+      (m: any) => m.status === 'live' || m.status === 'halftime'
     )
     if (espnLive) {
       return {
