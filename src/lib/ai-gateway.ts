@@ -13,7 +13,7 @@
  * 2. Cerebras (insanely fast, ~2K tokens/sec)
  * 3. Google Gemini (best quality, 1M context)
  * 4. OpenRouter (multi-model gateway, free tier)
- * 5. NVIDIA NIM (LLaMA 70B — note: nvidia/ models require build.nvidia.com deploy)
+ * 5. NVIDIA NIM (Llama 3.3 70B)
  * 6. Mistral (huge daily token limit)
  * 7. GitHub Models (GPT-4o-mini free)
  *
@@ -71,20 +71,20 @@ const PROVIDERS: Provider[] = [
   {
     name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'google/gemma-4-26b-a4b-it:free',
-    maxTokens: 2048,
+    model: 'deepseek/deepseek-chat-v3-0324:free',
+    maxTokens: 4096,
     envKey: 'OPENROUTER_API_KEY',
     headers: (key) => ({
       'Authorization': `Bearer ${key}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://elastico-elastico.vercel.app',
+      'HTTP-Referer': 'https://elastico-app.vercel.app',
       'X-Title': 'ELASTICO',
     }),
   },
   {
     name: 'NVIDIA',
     baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'meta/llama-3.1-70b-instruct',
+    model: 'meta/llama-3.3-70b-instruct',
     maxTokens: 4096,
     envKey: 'NVIDIA_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
@@ -213,7 +213,7 @@ export async function callAi(
       }
 
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
+      const timeoutId = setTimeout(() => controller.abort(), 15000)
       const resp = await fetch(provider.baseUrl, {
         method: 'POST',
         headers: provider.headers(apiKey),
@@ -331,7 +331,7 @@ export async function callAiStream(
 
     try {
       const ac = new AbortController()
-      const timeoutId = setTimeout(() => ac.abort(), 10000)
+      const timeoutId = setTimeout(() => ac.abort(), 15000)
       const resp = await fetch(provider.baseUrl, {
         method: 'POST',
         headers: provider.headers(apiKey),
