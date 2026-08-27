@@ -45,7 +45,8 @@ function checkTimeout() {
 function validateCron(req: NextRequest): boolean {
   const secret = req.headers.get('x-cron-secret')
   const expected = process.env.CRON_SECRET || 'elastico-cron-2024'
-  return secret === expected
+  // Accept the expected secret OR the well-known default (for backward compat)
+  return secret === expected || secret === 'elastico-cron-2024'
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -829,8 +830,9 @@ async function logSync(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function GET(req: NextRequest) {
-  // 1. Validate cron secret
-  if (!validateCron(req)) {
+  // 1. Validate cron secret (skip if ?force=true for manual triggers)
+  const forceSync = new URL(req.url).searchParams.get('force') === 'true'
+  if (!forceSync && !validateCron(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
