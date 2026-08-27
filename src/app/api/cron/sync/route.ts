@@ -69,9 +69,9 @@ async function syncFixturesFromApiSports(): Promise<{
       await upsertApiSportsFixture(f, result)
     }
 
-    // 2. Today's fixtures from top 5 leagues (5 API calls)
-    const top5 = AS_LEAGUES.slice(0, 5) // PL, LIGA, SA, BL, L1
-    for (const league of top5) {
+    // 2. Today's fixtures from top leagues (all configured leagues)
+    const fixtureLeagues = AS_LEAGUES.slice(0, 8) // PL, LIGA, SA, BL, L1, MLS, UCL, UEL
+    for (const league of fixtureLeagues) {
       checkTimeout()
       try {
         const fixtures = await fetchFixtures(league.id)
@@ -192,9 +192,10 @@ async function syncStandingsFromApiSports(): Promise<{
   updated: number
 }> {
   const result = { created: 0, updated: 0 }
-  // Free plan covers 2022-2024; 2024 = 2024/25 completed season
-  const season = '2024'
-  const topLeagues = AS_LEAGUES.slice(0, 10) // sync top 10 leagues
+  // Use current season: if month >= July, use current year; else previous year
+  const now = new Date()
+  const season = String(now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1)
+  const topLeagues = AS_LEAGUES // sync all configured leagues
 
   for (const league of topLeagues) {
     checkTimeout()
@@ -404,13 +405,15 @@ async function syncTeamsFromApiSports(): Promise<{
   updated: number
 }> {
   const result = { created: 0, updated: 0 }
-  const topLeagues = AS_LEAGUES.slice(0, 5)
+  const now = new Date()
+  const season = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
+  const topLeagues = AS_LEAGUES.slice(0, 8) // PL, LIGA, SA, BL, L1, MLS, UCL, UEL
 
   for (const league of topLeagues) {
     checkTimeout()
     try {
       // Free plan covers 2022-2024
-      const teams = await fetchLeagueTeams(league.id, 2024)
+      const teams = await fetchLeagueTeams(league.id, season)
       for (const t of teams) {
         checkTimeout()
         try {
@@ -465,13 +468,15 @@ async function syncPlayersFromApiSports(): Promise<{
   updated: number
 }> {
   const result = { created: 0, updated: 0 }
+  const now = new Date()
+  const season = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
   const topLeagues = AS_LEAGUES.slice(0, 5)
 
   for (const league of topLeagues) {
     checkTimeout()
     try {
       // Free plan covers 2022-2024
-      const scorers = await fetchTopScorers(league.id, 2024)
+      const scorers = await fetchTopScorers(league.id, season)
       for (const s of scorers) {
         checkTimeout()
         const p = s.player

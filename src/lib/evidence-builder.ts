@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import type { Team, NewsArticle, Prediction, TeamAnalytic } from '@prisma/client'
+import { AS_LEAGUES, fetchStandings as fetchASStandings } from '@/lib/api-sports'
 
 // Match with relations included — used internally for evidence building
 type MatchWithTeams = Awaited<ReturnType<typeof db.match.findFirst>> & {
@@ -225,7 +226,12 @@ async function buildStandingSection(teamName: string): Promise<EvidenceSection> 
   })
 
   if (!standing) {
-    return { label: 'LEAGUE STANDING', truthClass: 'MISSING', content: `No standing entry found for "${teamName}".` }
+    // LIVE FALLBACK: fetch from API-Sports on the fly
+    try {
+      return await fetchLiveStandingsFromApiSports(teamName)
+    } catch (err) {
+      return { label: 'LEAGUE STANDING', truthClass: 'MISSING', content: `No standing entry found for "${teamName}". Live lookup failed: ${err instanceof Error ? err.message : 'unknown'}` }
+    }
   }
 
   return {
@@ -233,6 +239,38 @@ async function buildStandingSection(teamName: string): Promise<EvidenceSection> 
     truthClass: 'REAL',
     content: `${standing.teamName}: Rank ${standing.rank} · ${standing.played}P ${standing.wins}W-${standing.draws}D-${standing.losses}L · ${standing.points}pts · GD ${standing.goalDiff >= 0 ? '+' : ''}${standing.goalDiff} · ${standing.competition}${standing.season ? ` ${standing.season}` : ''}${standing.form ? ` · Form: ${standing.form}` : ''} (source: ${standing.source})`,
   }
+}
+
+// ── Live API Fallback ──────────────────────────────────────────────────────
+// When DB data is MISSING, fetch from API-Sports on the fly.
+// This ensures the AI always has SOME real data even if sync hasn't run.
+
+async function fetchLiveStandingsFromApiSports(teamName: string): Promise<EvidenceSection> {
+  const now = new Date()
+  const season = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
+
+  for (const league of AS_LEAGUES) {
+    try {
+      const standingsGroups = await fetchASStandings(league.id, season)
+      for (const group of standingsGroups) {
+        const match = group.find(
+          e => e.team.name.toLowerCase().includes(teamName.toLowerCase())
+            || teamName.toLowerCase().includes(e.team.name.toLowerCase())
+        )
+        if (match) {
+          const form = match.form || 'N/A'
+          return {
+            label: `LEAGUE STANDING [LIVE]`,
+            truthClass: 'REAL' as const,
+            content: `${match.team.name}: Rank ${match.rank} · ${match.all.played}P ${match.all.win}W-${match.all.draw}D-${match.all.lose}L · ${match.points}pts · GD ${match.goalsDiff >= 0 ? '+' : ''}${match.goalsDiff} · ${league.name} ${season}${form !== 'N/A' ? ` · Form: ${form}` : ''} (source: api-sports live, not cached in DB)`,
+          }
+        }
+      }
+    } catch {
+      continue // try next league
+    }
+  }
+  return { label: 'LEAGUE STANDING', truthClass: 'MISSING' as const, content: `No standing data found for "${teamName}" in any league (checked all ${AS_LEAGUES.length} leagues via live API).` }
 }
 
 // ── Main entry point ───────────────────────────────────────────────────────
@@ -280,13 +318,24 @@ export async function buildEvidence(params: {
     }
   } else {
     // ── No matchId: lightweight heuristic team name extraction ───────────
-    // Plain substring match against known team names. Will miss aliases —
-    // that's an acceptable Stage 1 limitation. Fails toward MISSING.
     const words = params.message.split(/\s+/).filter(w => w.length > 3)
     let matchedTeam: Team | null = null
+    let matchedTeamName = ''
     for (const word of words) {
       matchedTeam = await findTeamByName(word)
-      if (matchedTeam) break
+      if (matchedTeam) { matchedTeamName = word; break }
+    }
+
+    // If no DB match, try extracting multi-word team names
+    // e.g. "Real Madrid" is 4+4 chars, "Barcelona" is 9 chars
+    if (!matchedTeam) {
+      const multiWordPatterns = ['Real Madrid', 'Atletico Madrid', 'Manchester United', 'Manchester City', 'Tottenham Hotspur', 'Nottingham Forest', 'Brighton and Hove Albion', 'West Ham United']
+      for (const pattern of multiWordPatterns) {
+        if (params.message.toLowerCase().includes(pattern.toLowerCase())) {
+          matchedTeam = await findTeamByName(pattern.split(' ').pop() || pattern)
+          if (matchedTeam) { matchedTeamName = pattern; break }
+        }
+      }
     }
 
     if (matchedTeam) {
@@ -295,11 +344,23 @@ export async function buildEvidence(params: {
       sections.push(await buildNewsSection(matchedTeam.name))
       sections.push(await buildStandingSection(matchedTeam.name))
     } else {
-      sections.push({
-        label: 'CONTEXT',
-        truthClass: 'MISSING',
-        content: 'No specific team or match was identified in this message. Answering from general football knowledge only — no live ELASTICO data was retrieved.',
-      })
+      // No DB team found — try live standing lookup for any identifiable team name
+      const fallbackTeamName = words.find(w => w.length > 4) || words[0] || ''
+      const liveStanding = await fetchLiveStandingsFromApiSports(fallbackTeamName)
+      if (liveStanding.truthClass === 'REAL') {
+        sections.push(liveStanding)
+        sections.push({
+          label: 'CONTEXT',
+          truthClass: 'MISSING',
+          content: `Team data for "${fallbackTeamName}" was fetched live from API-Sports. Form, analytics, and news are not cached in DB yet. Run /api/cron/sync to populate full data.`,
+        })
+      } else {
+        sections.push({
+          label: 'CONTEXT',
+          truthClass: 'MISSING',
+          content: 'No specific team or match was identified in this message. Answering from general football knowledge only — no live ELASTICO data was retrieved.',
+        })
+      }
     }
   }
 
