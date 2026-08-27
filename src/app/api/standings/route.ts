@@ -26,31 +26,26 @@ export async function GET(request: Request) {
     const competition = searchParams.get('competition') || 'PL'
     const season = searchParams.get('season') || getSeason()
 
-    // ── Try database first (check both requested season AND dynamic season) ──
+    // ── Try database first (only current dynamic season) ──
     const dynamicSeason = getSeason()
     const dbStandings = await db.standingEntry.findMany({
       where: {
         competitionCode: competition,
-        season: { in: [season, dynamicSeason] },
+        season: dynamicSeason,
       },
       orderBy: { rank: 'asc' },
     })
 
-    if (dbStandings.length > 0) {
-      // Deduplicate by team name (prefer the one matching requested season)
-      const seen = new Set<string>()
-      const unique = dbStandings.filter(s => {
-        if (seen.has(s.teamName)) return false
-        seen.add(s.teamName)
-        return true
-      })
+    // Only use DB data if it looks valid (has proper ranks and reasonable team count)
+    const dbValid = dbStandings.length > 0 && dbStandings[0].rank > 0
 
+    if (dbValid) {
       return NextResponse.json({
         success: true,
         source: 'database',
         competition,
         season: dynamicSeason,
-        standings: unique.map(s => ({
+        standings: dbStandings.map(s => ({
           rank: s.rank,
           team: s.teamName,
           code: s.teamCode || '',

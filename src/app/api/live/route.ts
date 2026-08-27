@@ -42,10 +42,10 @@ export async function GET(request: NextRequest) {
         const liveSeason = String(nowLive.getMonth() >= 6 ? nowLive.getFullYear() : nowLive.getFullYear() - 1)
         // 1. Try DB first — normalize to canonical shape {team, code, logo}
         const dbStandings = await db.standingEntry.findMany({
-          where: { competitionCode: league, season: { in: [liveSeason, String(nowLive.getFullYear())] } },
+          where: { competitionCode: league, season: liveSeason },
           orderBy: { rank: 'asc' },
         })
-        if (dbStandings.length > 0) {
+        if (dbStandings.length > 0 && dbStandings[0].rank > 0) {
           return NextResponse.json({
             success: true, league, source: 'database', count: dbStandings.length,
             data: dbStandings.map(s => ({
