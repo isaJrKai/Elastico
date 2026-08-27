@@ -200,7 +200,10 @@ async function syncStandingsFromApiSports(): Promise<{
   for (const league of topLeagues) {
     checkTimeout()
     try {
-      const standingsGroups = await fetchASStandings(league.id, 2024)
+      const nowS = new Date()
+      const season = String(nowS.getMonth() >= 6 ? nowS.getFullYear() : nowS.getFullYear() - 1)
+      const seasonNum = nowS.getMonth() >= 6 ? nowS.getFullYear() : nowS.getFullYear() - 1
+      const standingsGroups = await fetchASStandings(league.id, seasonNum)
       for (const group of standingsGroups) {
         for (const entry of group) {
           checkTimeout()

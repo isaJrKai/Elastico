@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { fetchStandings as fetchASStandings, AS_LEAGUES } from '@/lib/api-sports'
 import { fetchStandings as fetchFDStandings } from '@/lib/football-data-org'
 import { fetchStandings as fetchESPNStandings } from '@/lib/football-data'
 
 import { rateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
+
+/** Dynamic season: Aug+ = current year, else previous year */
+function getSeason(): string {
+  const now = new Date()
+  return String(now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1)
+}
 
 export async function GET(request: Request) {
   try {
@@ -17,24 +24,33 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const competition = searchParams.get('competition') || 'PL'
-    const season = searchParams.get('season') || String(new Date().getFullYear())
+    const season = searchParams.get('season') || getSeason()
 
-    // ── Try database first ──────────────────────────────────────────────
+    // ── Try database first (check both requested season AND dynamic season) ──
+    const dynamicSeason = getSeason()
     const dbStandings = await db.standingEntry.findMany({
       where: {
         competitionCode: competition,
-        season,
+        season: { in: [season, dynamicSeason] },
       },
       orderBy: { rank: 'asc' },
     })
 
     if (dbStandings.length > 0) {
+      // Deduplicate by team name (prefer the one matching requested season)
+      const seen = new Set<string>()
+      const unique = dbStandings.filter(s => {
+        if (seen.has(s.teamName)) return false
+        seen.add(s.teamName)
+        return true
+      })
+
       return NextResponse.json({
         success: true,
         source: 'database',
         competition,
-        season,
-        standings: dbStandings.map(s => ({
+        season: dynamicSeason,
+        standings: unique.map(s => ({
           rank: s.rank,
           team: s.teamName,
           code: s.teamCode || '',
@@ -52,7 +68,42 @@ export async function GET(request: Request) {
       })
     }
 
-    // ── Fallback 1: football-data.org ───────────────────────────────────
+    // ── Fallback 1: API-Sports (highest quality, free tier) ────────────
+    const leagueConfig = AS_LEAGUES.find(l => l.code === competition)
+    if (leagueConfig) {
+      try {
+        const seasonNum = parseInt(dynamicSeason)
+        const standingsGroups = await fetchASStandings(leagueConfig.id, seasonNum)
+        const allEntries = standingsGroups.flat()
+        if (allEntries.length > 0) {
+          return NextResponse.json({
+            success: true,
+            source: 'api-sports',
+            competition,
+            season: dynamicSeason,
+            standings: allEntries.map(e => ({
+              rank: e.rank,
+              team: e.team.name,
+              code: '',
+              logo: e.team.logo || '',
+              played: e.all.played,
+              wins: e.all.win,
+              draws: e.all.draw,
+              losses: e.all.lose,
+              goalsFor: e.all.goals.for,
+              goalsAgainst: e.all.goals.against,
+              goalDiff: e.goalsDiff,
+              points: e.points,
+              form: e.form || '',
+            })),
+          })
+        }
+      } catch (err) {
+        console.warn('[Standings] API-Sports failed:', err)
+      }
+    }
+
+    // ── Fallback 2: football-data.org ───────────────────────────────────
     if (process.env.FOOTBALL_DATA_API_KEY) {
       try {
         const standings = await fetchFDStandings(competition)
@@ -62,6 +113,7 @@ export async function GET(request: Request) {
             success: true,
             source: 'football-data.org',
             competition,
+            season: dynamicSeason,
             standings: totalTable.map(t => ({
               rank: t.position,
               team: t.team.name,
@@ -84,13 +136,14 @@ export async function GET(request: Request) {
       }
     }
 
-    // ── Fallback 2: ESPN ────────────────────────────────────────────────
+    // ── Fallback 3: ESPN ────────────────────────────────────────────────
     const espnStandings = await fetchESPNStandings(competition)
     if (espnStandings.length > 0) {
       return NextResponse.json({
         success: true,
         source: 'espn',
         competition,
+        season: dynamicSeason,
         standings: espnStandings.map(s => ({
           rank: s.rank,
           team: s.team,
@@ -113,6 +166,7 @@ export async function GET(request: Request) {
       success: true,
       source: 'none',
       competition,
+      season: dynamicSeason,
       standings: [],
     })
   } catch (error) {
