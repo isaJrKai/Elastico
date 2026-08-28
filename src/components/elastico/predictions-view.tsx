@@ -418,6 +418,25 @@ export default function PredictionsView() {
           ))}
         </div>
 
+        {/* Empty State Message */}
+        <Card className="glass-card-premium rounded-xl">
+          <CardContent className="flex flex-col items-center justify-center py-10 text-center gap-3">
+            <div className="size-12 rounded-full bg-muted/40 flex items-center justify-center">
+              <Target className="size-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-medium">No predictions yet — start by predicting an upcoming match</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-border text-xs"
+              onClick={() => useElasticoStore.getState().setView('matches')}
+            >
+              <Zap className="size-3.5" />
+              Browse Matches
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Quick Predict — still visible when empty so user can start */}
         {upcomingMatches.length > 0 && (
           <Card className="glass-card-premium rounded-xl">
@@ -455,12 +474,115 @@ export default function PredictionsView() {
           </Card>
         )}
 
-        <DataState
-          type="empty"
-          message="No predictions yet. Use Quick Predict above or the Prediction Engine to get started."
-          actionLabel="Refresh"
-          actionOnClick={fetchData}
-        />
+        {/* Model Predictions (compute) — works independently of user predictions */}
+        <Card className="glass-card-premium rounded-xl">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Zap className="size-4 text-cyan-400" />
+                Model Predictions
+                <Badge variant="outline" className="text-[9px] border-cyan-500/30 text-cyan-400">Model Ensemble</Badge>
+              </CardTitle>
+              <Button
+                variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground"
+                onClick={fetchComputePredictions}
+                disabled={computeState === 'loading'}
+              >
+                <RefreshCw className={cn('size-3', computeState === 'loading' && 'animate-spin')} />
+                Refresh
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              ELO + Poisson + Dixon-Coles. Data source: ESPN live scores.
+              Stochastic model available in the Prediction Engine view with real odds inputs.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {computeState === 'loading' && (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-5 w-28" />
+                    <Skeleton className="h-5 flex-1" />
+                    <Skeleton className="h-5 w-16" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {computeState === 'error' && (
+              <div className="flex items-start gap-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
+                <div>
+                  <p className="text-xs font-medium text-red-400">Model predictions unavailable</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{computeError}</p>
+                </div>
+              </div>
+            )}
+            {computeState === 'success' && computePredictions.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-6 gap-2">
+                <Target className="size-8 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">No matches available for prediction right now.</p>
+                <p className="text-[11px] text-muted-foreground">Predictions appear when ESPN provides upcoming or live fixtures.</p>
+              </div>
+            )}
+            {computeState === 'success' && computePredictions.length > 0 && (
+              <div className="max-h-[400px] overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/30 hover:bg-transparent">
+                      <TableHead className="text-[10px]">Match</TableHead>
+                      <TableHead className="text-[10px] text-center">Home</TableHead>
+                      <TableHead className="text-[10px] text-center">Draw</TableHead>
+                      <TableHead className="text-[10px] text-center">Away</TableHead>
+                      <TableHead className="text-[10px] text-center hidden sm:table-cell">Score</TableHead>
+                      <TableHead className="text-[10px] text-center hidden md:table-cell">xG</TableHead>
+                      <TableHead className="text-[10px] text-center hidden lg:table-cell">O2.5</TableHead>
+                      <TableHead className="text-[10px] text-center hidden lg:table-cell">BTTS</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {computePredictions.map((p) => (
+                      <TableRow key={p.matchId} className="border-border/10">
+                        <TableCell className="text-xs py-2">
+                          <div className="flex flex-col">
+                            <span className="font-medium truncate max-w-[140px]">{p.homeTeam.name} vs {p.awayTeam.name}</span>
+                            <span className="text-[9px] text-muted-foreground">{p.competition}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs py-2 text-center font-bold text-emerald-400">{p.ensemble.homeWin}%</TableCell>
+                        <TableCell className="text-xs py-2 text-center font-bold text-amber-400">{p.ensemble.draw}%</TableCell>
+                        <TableCell className="text-xs py-2 text-center font-bold text-red-400">{p.ensemble.awayWin}%</TableCell>
+                        <TableCell className="text-xs py-2 text-center tabular-nums hidden sm:table-cell text-muted-foreground">{p.mostLikelyScore}</TableCell>
+                        <TableCell className="text-xs py-2 text-center tabular-nums hidden md:table-cell text-muted-foreground">{p.expectedGoals.total}</TableCell>
+                        <TableCell className="text-xs py-2 text-center tabular-nums hidden lg:table-cell text-muted-foreground">{p.overUnder25}%</TableCell>
+                        <TableCell className="text-xs py-2 text-center tabular-nums hidden lg:table-cell text-muted-foreground">{p.btts}%</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Prediction Accuracy Section — requires predictions to populate */}
+        <Card className="glass-card-premium rounded-xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <TrendingUp className="size-4 text-primary" />
+              Accuracy by Model
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DataState
+              type="empty"
+              message="Prediction accuracy data will appear here once you submit predictions and matches are resolved."
+            />
+            <p className="text-[10px] text-muted-foreground mt-3 text-center">
+              Requires at least one resolved prediction to show accuracy breakdown.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     )
   }

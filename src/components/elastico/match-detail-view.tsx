@@ -317,6 +317,18 @@ export default function MatchDetailView() {
     return null
   }, [sbShots, match, selectedMatchId])
 
+  // ── No match selected ──
+  if (!selectedMatchId) return (
+    <div className="flex flex-col items-center justify-center py-20 animate-fade-in-up">
+      <Trophy className="size-12 text-muted-foreground/30 mb-4" />
+      <h3 className="text-lg font-semibold mb-2">No Match Selected</h3>
+      <p className="text-xs text-muted-foreground max-w-md text-center mb-4">
+        Select a match from the Matches tab or click on a live score to view detailed analytics.
+      </p>
+      <Button variant="outline" size="sm" className="gap-2 border-border" onClick={() => setView('matches')}><ArrowLeft className="size-4" />Browse Matches</Button>
+    </div>
+  )
+
   // ── Loading ──
   if (loading) return (<div className="flex flex-col gap-4 animate-fade-in-up"><Skeleton className="h-44 w-full rounded-xl" /><div className="grid grid-cols-1 lg:grid-cols-2 gap-4"><Skeleton className="h-64 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div></div>)
 

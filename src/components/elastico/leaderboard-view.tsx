@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import {
   Trophy, Target, Crown, Star, Flame, ArrowUp, ArrowDown, Minus,
-  Search, Download, Users, BarChart3,
+  Search, Download, Users, BarChart3, Zap, ArrowRight,
 } from 'lucide-react'
 import { DataState, StatusBadge, SectionHeader, StatBlock } from '@/components/elastico/primitives'
 import { cn } from '@/lib/utils'
@@ -119,6 +119,56 @@ export default function LeaderboardView() {
 
   if (loading) return <div className="space-y-4"><Skeleton className="h-64 w-full rounded-xl" /><Skeleton className="h-96 w-full rounded-xl" /></div>
   if (fetchError) return <DataState type="error" message="Failed to load leaderboard. Check your connection and try again." />
+
+  // ── Empty State ──
+  if (predictors.length === 0) {
+    return (
+      <div className="space-y-6 animate-fade-in-up">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15"><Trophy className="size-5 text-amber-400" /></div>
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground">Top predictors leaderboard</p>
+          </div>
+          <StatusBadge variant="dataclass" value="DERIVED" />
+        </div>
+
+        <Card className="glass-card-premium rounded-xl">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center gap-4">
+            <div className="size-14 rounded-full bg-muted/40 flex items-center justify-center">
+              <Trophy className="size-6 text-muted-foreground/50" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">No predictions have been made yet.</p>
+              <p className="text-xs text-muted-foreground max-w-xs">Be the first to predict matches and climb the leaderboard!</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-border text-xs"
+                onClick={() => useElasticoStore.getState().setView('matches')}
+              >
+                <Zap className="size-3.5" />
+                Browse Matches
+                <ArrowRight className="size-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-border text-xs"
+                onClick={() => useElasticoStore.getState().setView('predictions')}
+              >
+                <Target className="size-3.5" />
+                Go to Predictions
+                <ArrowRight className="size-3" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 animate-fade-in-up">

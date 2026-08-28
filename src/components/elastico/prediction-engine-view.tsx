@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -21,7 +21,8 @@ import {
   Brain, Activity, TrendingUp, TrendingDown, DollarSign, Target, Zap, Settings,
   ArrowUpRight, ArrowDownRight, AlertTriangle, CheckCircle, XCircle, Flame,
   Shield, Gauge, BarChart3, Cpu, Calculator, Radio, Eye, GitBranch,
-  Plus, Trash2, RefreshCw, Play, Save, RotateCcw, Sparkles, AlertOctagon, Minus
+  Plus, Trash2, RefreshCw, Play, Save, RotateCcw, Sparkles, AlertOctagon, Minus,
+  Info, Loader2
 } from 'lucide-react'
 import type { MatchInput, FullMatchAnalysis, EngineConfig, InjuryAdjustment } from '@/lib/prediction-engine'
 import { cn } from '@/lib/utils'
@@ -63,9 +64,43 @@ const DEFAULT_INJURY: InjuryAdjustment = {
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════════
 
+const LEAGUE_OPTIONS = [
+  { value: 'PL', label: 'Premier League' },
+  { value: 'LIGA', label: 'La Liga' },
+  { value: 'SA', label: 'Serie A' },
+  { value: 'BL', label: 'Bundesliga' },
+  { value: 'L1', label: 'Ligue 1' },
+  { value: 'UCL', label: 'Champions League' },
+]
+
 export default function PredictionEngineView() {
   const teams = useElasticoStore(s => s.teams)
+  const fetchTeams = useElasticoStore(s => s.fetchTeams)
   const token = useElasticoStore(s => s.token)
+
+  // Fetch teams on mount if the store is empty
+  const [teamsLoading, setTeamsLoading] = useState(false)
+  useEffect(() => {
+    if (teams.length === 0 && !teamsLoading) {
+      setTeamsLoading(true)
+      fetchTeams().finally(() => setTeamsLoading(false))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // League filter for team selectors
+  const [simLeague, setSimLeague] = useState('')
+  const [sigLeague, setSigLeague] = useState('')
+
+  // Filtered team lists by league
+  const simFilteredTeams = useMemo(() => {
+    if (!simLeague) return teams
+    return teams.filter(t => (t as any).leagueCode === simLeague || (t as any).league === simLeague)
+  }, [teams, simLeague])
+
+  const sigFilteredTeams = useMemo(() => {
+    if (!sigLeague) return teams
+    return teams.filter(t => (t as any).leagueCode === sigLeague || (t as any).league === sigLeague)
+  }, [teams, sigLeague])
 
   // ── Simulation state ──────────────────────────────────────────────────────────
   const [simulating, setSimulating] = useState(false)
@@ -111,6 +146,10 @@ export default function PredictionEngineView() {
   const homeTeam = teams.find(t => t.id === homeTeamId)
   const awayTeam = teams.find(t => t.id === awayTeamId)
 
+  // Default ELO to 1500 when not available
+  const effectiveHomeElo = homeElo || '1500'
+  const effectiveAwayElo = awayElo || '1500'
+
   // ── Run simulation ────────────────────────────────────────────────────────────
   const runSimulation = useCallback(async () => {
     if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
@@ -120,7 +159,7 @@ export default function PredictionEngineView() {
         homeTeam: homeTeam?.name ?? '', awayTeam: awayTeam?.name ?? '',
         homeTeamId, awayTeamId, homeXg: +homeXg, awayXg: +awayXg,
         homeGoalsConceded: +awayXg * 0.9, awayGoalsConceded: +homeXg * 0.9,
-        homeElo: +homeElo, awayElo: +awayElo,
+        homeElo: +effectiveHomeElo || 1500, awayElo: +effectiveAwayElo || 1500,
         bookmakerOdds: { home: +oddsHome, draw: +oddsDraw, away: +oddsAway },
         injuries: injuries.length ? injuries : undefined,
       }
@@ -306,17 +345,36 @@ export default function PredictionEngineView() {
                     <Target className="w-4 h-4 text-emerald-400" /> Match Setup
                   </CardTitle>
                 </CardHeader>
+                <CardDescription className="px-6 -mt-2 pb-1">
+                  <p className="text-[10px] text-zinc-600 leading-relaxed">
+                    <Info className="inline w-3 h-3 mr-1 opacity-60" />
+                    Monte Carlo simulation generates thousands of match outcomes using Poisson-distributed goals,
+                    ELO-based strength, and xG inputs. It estimates win/draw/loss probabilities,
+                    totals markets (O/U 1.5, 2.5, 3.5), BTTS likelihood, and Asian Handicap lines.
+                    When no ELO data exists, a default rating of 1500 is used.
+                  </p>
+                </CardDescription>
                 <CardContent className="space-y-3">
+                  <div>
+                    <Label className="text-xs text-zinc-500 mb-1">League Filter</Label>
+                    <Select value={simLeague} onValueChange={v => { setSimLeague(v); setHomeTeamId(''); setAwayTeamId('') }}>
+                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="All Leagues" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All Leagues</SelectItem>
+                        {LEAGUE_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-zinc-500 mb-1">Home Team</Label>
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(String(t.eloRating)); setHomeXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(String(t.xgPerGame ?? '')) }
                       }}>
-                        <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Home" /></SelectTrigger>
-                        <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
+                        <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
@@ -324,10 +382,10 @@ export default function PredictionEngineView() {
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(String(t.eloRating)); setAwayXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(String(t.xgPerGame ?? '')) }
                       }}>
-                        <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Away" /></SelectTrigger>
-                        <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
+                        <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -400,7 +458,7 @@ export default function PredictionEngineView() {
                       <div className="flex items-center justify-between">
                         <Select value={inj.teamId} onValueChange={v => updateInjury(i, { teamId: v })}>
                           <SelectTrigger className="w-[120px] h-7 text-xs bg-zinc-800/60"><SelectValue placeholder="Team" /></SelectTrigger>
-                          <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id} className="text-xs">{t.code}</SelectItem>)}</SelectContent>
+                          <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id} className="text-xs">{t.code}</SelectItem>)}</SelectContent>
                         </Select>
                         <Button variant="ghost" size="sm" onClick={() => removeInjury(i)} className="h-7 w-7 p-0 text-red-400 hover:text-red-300">
                           <Trash2 className="w-3 h-3" />
@@ -450,7 +508,22 @@ export default function PredictionEngineView() {
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center">
                       <Brain className="w-8 h-8 text-emerald-400/50" />
                     </div>
-                    <p className="text-zinc-600 text-sm">Configure match parameters and run simulation</p>
+                    {teams.length === 0 && !teamsLoading ? (
+                      <>
+                        <p className="text-zinc-600 text-sm">No teams loaded</p>
+                        <p className="text-zinc-700 text-xs max-w-xs">Teams are needed to populate the selectors. Try refreshing the page or check your data source connection.</p>
+                        <Button variant="outline" size="sm" className="mt-2" onClick={() => { setTeamsLoading(true); fetchTeams().finally(() => setTeamsLoading(false)) }}>
+                          <RefreshCw className="w-3 h-3 mr-1" /> Retry Loading Teams
+                        </Button>
+                      </>
+                    ) : teamsLoading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin text-emerald-400 mx-auto" />
+                        <p className="text-zinc-600 text-sm">Loading teams…</p>
+                      </>
+                    ) : (
+                      <p className="text-zinc-600 text-sm">Configure match parameters and run simulation</p>
+                    )}
                   </div>
                 </Card>
               ) : (
@@ -775,19 +848,29 @@ export default function PredictionEngineView() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div>
+                  <Label className="text-xs text-zinc-500 mb-1">League Filter</Label>
+                  <Select value={sigLeague} onValueChange={v => { setSigLeague(v); setSigHomeTeam(''); setSigAwayTeam('') }}>
+                    <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="All Leagues" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Leagues</SelectItem>
+                      {LEAGUE_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs text-zinc-500">Home Team</Label>
                     <Select value={sigHomeTeam} onValueChange={setSigHomeTeam}>
-                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Home" /></SelectTrigger>
-                      <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading…' : 'Home'} /></SelectTrigger>
+                      <SelectContent>{sigFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label className="text-xs text-zinc-500">Away Team</Label>
                     <Select value={sigAwayTeam} onValueChange={setSigAwayTeam}>
-                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="Away" /></SelectTrigger>
-                      <SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading…' : 'Away'} /></SelectTrigger>
+                      <SelectContent>{sigFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>

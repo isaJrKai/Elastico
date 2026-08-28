@@ -53,6 +53,7 @@ import {
   Radar,
 } from 'recharts'
 import { useElasticoStore, type Player } from '@/store/use-elastico-store'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { axisProps, cartesianGridProps, tooltipContentStyle, tooltipLabelStyle, chartColor } from '@/lib/chart-theme'
@@ -82,6 +83,8 @@ export function PlayerView() {
   const teams = useElasticoStore(s => s.teams)
   const token = useElasticoStore(s => s.token)
   const [players, setPlayers] = useState<EnhancedPlayer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [league, setLeague] = useState('PL')
   const [search, setSearch] = useState('')
   const [positionFilter, setPositionFilter] = useState<string>('all')
   const [teamFilter, setTeamFilter] = useState<string>('all')
@@ -91,13 +94,18 @@ export function PlayerView() {
   const [page, setPage] = useState(0)
   const perPage = 12
 
-  // Fetch players — try DB first, fallback to ESPN
+  // Fetch players — always fetch from API with league param, fallback to ESPN
   useEffect(() => {
+    let cancelled = false
     async function fetchPlayers() {
+      setLoading(true)
+      setPlayers([])
+      setTeamFilter('all')
       try {
         const headers: Record<string, string> = {}
         if (token) headers['Authorization'] = `Bearer ${token}`
         const params = new URLSearchParams()
+        params.set('league', league)
         if (sortBy) params.set('sortBy', sortBy)
         if (positionFilter !== 'all') params.set('position', positionFilter)
         if (search) params.set('search', search)
@@ -121,7 +129,7 @@ export function PlayerView() {
 
       // ESPN fallback: fetch teams for selected league, then fetch rosters
       try {
-        const activeLeague = teamFilter !== 'all' ? teamFilter : 'PL'
+        const activeLeague = league
         const teamsRes = await fetch(`/api/live?action=teams&league=${activeLeague}`)
         const teamsData = await teamsRes.json()
         const espnTeams = teamsData.data || teamsData.teams || []
@@ -161,13 +169,16 @@ export function PlayerView() {
           } catch (err) { console.warn('[PlayerView] Failed to fetch roster for team:', err) }
         }))
 
-        if (allPlayers.length > 0) setPlayers(allPlayers)
+        if (allPlayers.length > 0 && !cancelled) setPlayers(allPlayers)
       } catch (err) {
         console.error('[PlayerView] ESPN fallback also failed:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     }
     fetchPlayers()
-  }, [token, sortBy, positionFilter, search, teamFilter])
+    return () => { cancelled = true }
+  }, [token, league, sortBy, positionFilter, search])
 
   // Derived data
   const filteredPlayers = useMemo(() => {
@@ -293,8 +304,21 @@ export function PlayerView() {
         </Button>
       </div>
 
-      {/* Search & Filters */}
+      {/* League Selector */}
       <div className="flex flex-col sm:flex-row gap-3">
+        <Select value={league} onValueChange={(v) => { setLeague(v); setPage(0) }}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue placeholder="Select league" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="PL">Premier League</SelectItem>
+            <SelectItem value="LIGA">La Liga</SelectItem>
+            <SelectItem value="SA">Serie A</SelectItem>
+            <SelectItem value="BL">Bundesliga</SelectItem>
+            <SelectItem value="L1">Ligue 1</SelectItem>
+            <SelectItem value="UCL">Champions League</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
@@ -342,6 +366,27 @@ export function PlayerView() {
         </Select>
       </div>
 
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="size-6 animate-spin text-primary" />
+          <span className="ml-3 text-sm text-muted-foreground">Fetching {league} players…</span>
+        </div>
+      )}
+
+      {!loading && players.length === 0 && (
+        <Card className="glass-card">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Users className="size-12 text-muted-foreground/30 mb-4" />
+            <h3 className="text-sm font-medium mb-1">No players found</h3>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              Select a league above to browse players. Data is fetched from ESPN when the database is empty.
+              Try switching to a different league if the current one returned no results.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && players.length > 0 && (
       <Tabs defaultValue="grid" className="space-y-4">
         <TabsList className="flex flex-wrap gap-1 h-auto bg-card/50 p-1 rounded-lg">
           <TabsTrigger value="grid" className="text-xs">Player Grid</TabsTrigger>
@@ -798,6 +843,7 @@ export function PlayerView() {
           </Card>
         </TabsContent>
       </Tabs>
+      )}
 
       {/* Player Detail Panel (Slide-over) */}
       <AnimatePresence>

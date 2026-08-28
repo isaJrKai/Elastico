@@ -220,9 +220,9 @@ function FeaturedMatchPanel() {
   const { matches, isLoading, errors, fetchMatches, selectMatch, liveMatches } =
     useElasticoStore()
 
-  // Priority: live ESPN match → upcoming DB match → first available
+  // Priority: live ESPN → upcoming DB → ESPN upcoming → ESPN finished → any DB → null
   const featured = useMemo(() => {
-    // Try live ESPN matches first
+    // Priority 1: Live ESPN match
     const espnLive = (liveMatches || []).find(
       (m: any) => m.status === 'live' || m.status === 'halftime'
     )
@@ -241,7 +241,8 @@ function FeaturedMatchPanel() {
         date: espnLive.date,
       }
     }
-    // Try DB upcoming matches
+
+    // Priority 2: Upcoming DB match
     const upcoming = matches.find(
       (m) => !m.isSimulated && (m.status === 'upcoming' || m.status === 'live')
     )
@@ -260,6 +261,62 @@ function FeaturedMatchPanel() {
         date: upcoming.date,
       }
     }
+
+    // Priority 3: Any ESPN match (upcoming / scheduled)
+    const espnUpcoming = (liveMatches || []).find((m: any) => m.status === 'upcoming' || m.status === 'STATUS_SCHEDULED')
+    if (espnUpcoming) {
+      const mappedStatus = espnUpcoming.status === 'STATUS_SCHEDULED' ? 'upcoming' : espnUpcoming.status
+      return {
+        id: espnUpcoming.id,
+        homeTeam: espnUpcoming.homeTeam,
+        awayTeam: espnUpcoming.awayTeam,
+        homeScore: espnUpcoming.homeScore ?? 0,
+        awayScore: espnUpcoming.awayScore ?? 0,
+        homeElo: null as number | null,
+        awayElo: null as number | null,
+        competition: espnUpcoming.competition,
+        status: mappedStatus as 'live' | 'upcoming',
+        source: 'espn',
+        date: espnUpcoming.date,
+      }
+    }
+
+    // Priority 4: Most recent finished ESPN match
+    const espnFinished = (liveMatches || []).find((m: any) => m.status === 'finished' || m.status === 'STATUS_FULL_TIME')
+    if (espnFinished) {
+      return {
+        id: espnFinished.id,
+        homeTeam: espnFinished.homeTeam,
+        awayTeam: espnFinished.awayTeam,
+        homeScore: espnFinished.homeScore ?? 0,
+        awayScore: espnFinished.awayScore ?? 0,
+        homeElo: null as number | null,
+        awayElo: null as number | null,
+        competition: espnFinished.competition,
+        status: 'finished' as const,
+        source: 'espn',
+        date: espnFinished.date,
+      }
+    }
+
+    // Priority 5: Any DB match (including finished)
+    const anyDb = matches.find((m) => !m.isSimulated)
+    if (anyDb) {
+      return {
+        id: anyDb.id,
+        homeTeam: anyDb.homeTeam,
+        awayTeam: anyDb.awayTeam,
+        homeScore: anyDb.homeScore,
+        awayScore: anyDb.awayScore,
+        homeElo: anyDb.homeEloBefore ?? anyDb.homeTeam?.eloRating ?? 1500,
+        awayElo: anyDb.awayEloBefore ?? anyDb.awayTeam?.eloRating ?? 1500,
+        competition: anyDb.competition,
+        status: (anyDb.status === 'live' ? 'live' : anyDb.status === 'finished' ? 'finished' : 'upcoming') as 'live' | 'upcoming' | 'finished',
+        source: 'database',
+        date: anyDb.date,
+      }
+    }
+
     return null
   }, [matches, liveMatches])
 
@@ -326,6 +383,7 @@ function FeaturedMatchPanel() {
   const awayProb = hasElo ? computeEloProb(featured.homeElo!, featured.awayElo!, 'away') : null
 
   const isLive = featured.status === 'live'
+  const isFinished = featured.status === 'finished'
 
   return (
     <div className="rounded-xl border border-border/40 bg-muted/10 overflow-hidden">
@@ -348,6 +406,9 @@ function FeaturedMatchPanel() {
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">Live</span>
           </div>
+        )}
+        {isFinished && (
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">Full Time</span>
         )}
       </div>
 
@@ -375,7 +436,7 @@ function FeaturedMatchPanel() {
 
           {/* Score / Time */}
           <div className="shrink-0 text-center min-w-[80px]">
-            {isLive ? (
+            {isLive || isFinished ? (
               <>
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-3xl font-black tabular-nums text-foreground">
@@ -386,7 +447,9 @@ function FeaturedMatchPanel() {
                     {featured.awayScore}
                   </span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">In Progress</p>
+                <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">
+                  {isLive ? 'In Progress' : 'Full Time'}
+                </p>
               </>
             ) : (
               <>

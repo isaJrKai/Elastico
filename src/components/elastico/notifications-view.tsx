@@ -291,12 +291,20 @@ export default function NotificationsView() {
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted/50">
               <BellOff className="h-7 w-7 text-muted-foreground" />
             </div>
-            <p className="text-lg font-medium text-muted-foreground">No notifications</p>
+            <p className="text-lg font-medium text-muted-foreground">No notifications yet</p>
             <p className="mt-1 max-w-xs text-sm text-muted-foreground/70">
               {activeTab === 'all'
-                ? 'Notifications about goals, cards, predictions, and system updates will appear here.'
+                ? 'Notifications appear when bookmarked matches start, predictions resolve, or system announcements are posted.'
                 : `No ${activeTab} notifications right now.`}
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => useElasticoStore.getState().setView('matches')}
+            >
+              Browse Matches
+            </Button>
           </CardContent>
         ) : (
           <div className="divide-y divide-border/50">
