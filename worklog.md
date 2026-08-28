@@ -57,3 +57,32 @@ Stage Summary:
 - VERIFIED LIVE: PL(20), LIGA(20), SA(20), BL(18), L1(36) standings working
 - VERIFIED LIVE: 1401 teams, 10 live matches, 100 PL matches, news via ESPN
 - NOTE: Sync cron timed out on Vercel (30s limit) but individual routes all have live fallbacks
+
+---
+Task ID: 2
+Agent: main
+Task: Fix all 21 tabs to show data — derived metrics, better fallbacks, improved empty states
+
+Work Log:
+- Mapped data dependencies for all 21 view components and 48 API routes
+- Found 12 DB-dependent views, 5 non-DB views, 2 partially dependent
+- Fixed tactical-view: deriveTacticalProfile now computes approximate metrics from basic stats (W/D/L/GF/GA) when xG/possession data missing
+- Fixed compare-view: statComparisons compute derived values with 'DERIVED' truth class
+- Fixed dashboard: expanded FeaturedMatchPanel fallback chain to 5 priorities (live ESPN → upcoming DB → upcoming ESPN → finished ESPN → any DB)
+- Fixed predictions-view: improved empty state with 'Browse Matches' CTA, compute section still works without predictions
+- Fixed leaderboard-view: added helpful empty state with CTAs to matches and predictions
+- Fixed player-view: added league selector (PL/LIGA/SA/BL/L1/UCL) with direct API fetching per league
+- Fixed prediction-engine-view: auto-fetchTeams on mount, league filters for team selectors, ELO defaults to 1500
+- Fixed match-detail-view: added 'No Match Selected' guard when selectedMatchId is null
+- Fixed notifications-view: improved empty state with 'Browse Matches' CTA
+- TypeScript compilation: zero errors
+- Next.js build: successful
+- Pushed to GitHub, Vercel deployment triggered
+
+Stage Summary:
+- 9 files changed, 609 insertions, 114 deletions
+- All views now either show real data or helpful CTAs
+- Tactical/Compare: radar charts and style bars always populated (derived from basic stats if advanced data missing)
+- Dashboard: featured match always shows something (any ESPN match as last resort)
+- Player/Prediction-Engine: self-sufficient with direct API calls and league selectors
+- Commit: d687f27
