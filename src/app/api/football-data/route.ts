@@ -26,12 +26,17 @@ import {
 export const dynamic = 'force-dynamic'
 
 // ── Persist standings to DB ─────────────────────────────────────────────
+function getFdSeason(): string {
+  const now = new Date()
+  return String(now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1)
+}
+
 async function persistStandings(competitionCode: string): Promise<any[]> {
   const standings = await fetchStandings(competitionCode)
   if (!standings.length) return []
 
   const table = standings[0]?.table || []
-  const season = String(new Date().getFullYear())
+  const season = getFdSeason()
   const compEntry = FD_COMPETITIONS.find(c => c.code === competitionCode)
   const compName = compEntry?.name || competitionCode
 
@@ -190,7 +195,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action') || 'today'
     const competition = searchParams.get('competition') || 'PL'
     const refresh = searchParams.get('refresh') === 'true'
-    const season = String(new Date().getFullYear())
+    const season = getFdSeason()
 
     if (!process.env.FOOTBALL_DATA_API_KEY) {
       return NextResponse.json({

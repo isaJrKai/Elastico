@@ -98,8 +98,8 @@ export async function GET(req: NextRequest) {
         })),
         source: m.source,
         lastSyncedAt: m.lastSyncedAt?.toISOString() || null,
-        createdAt: m.createdAt?.toISOString?.() || '',
-        updatedAt: m.updatedAt?.toISOString?.() || '',
+        createdAt: m.createdAt?.toISOString() || '',
+        updatedAt: m.updatedAt?.toISOString() || '',
       }))
 
       return NextResponse.json({ matches, source: 'database', total: dbMatches.length })

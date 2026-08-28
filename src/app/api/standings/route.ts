@@ -26,12 +26,12 @@ export async function GET(request: Request) {
     const competition = searchParams.get('competition') || 'PL'
     const season = searchParams.get('season') || getSeason()
 
-    // ── Try database first (only current dynamic season) ──
-    const dynamicSeason = getSeason()
+    // ── Try database first (use requested season or dynamic) ──
+    const dbSeason = season
     const dbStandings = await db.standingEntry.findMany({
       where: {
         competitionCode: competition,
-        season: dynamicSeason,
+        season: dbSeason,
       },
       orderBy: { rank: 'asc' },
     })
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
         success: true,
         source: 'database',
         competition,
-        season: dynamicSeason,
+        season: dbSeason,
         standings: dbStandings.map(s => ({
           rank: s.rank,
           team: s.teamName,
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
     const leagueConfig = AS_LEAGUES.find(l => l.code === competition)
     if (leagueConfig) {
       try {
-        const seasonNum = parseInt(dynamicSeason)
+        const seasonNum = parseInt(season)
         const standingsGroups = await fetchASStandings(leagueConfig.id, seasonNum)
         const allEntries = standingsGroups.flat()
         if (allEntries.length > 0) {
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
             success: true,
             source: 'api-sports',
             competition,
-            season: dynamicSeason,
+            season: season,
             standings: allEntries.map(e => ({
               rank: e.rank,
               team: e.team.name,
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
             success: true,
             source: 'football-data.org',
             competition,
-            season: dynamicSeason,
+            season: season,
             standings: totalTable.map(t => ({
               rank: t.position,
               team: t.team.name,
@@ -138,7 +138,7 @@ export async function GET(request: Request) {
         success: true,
         source: 'espn',
         competition,
-        season: dynamicSeason,
+        season: season,
         standings: espnStandings.map(s => ({
           rank: s.rank,
           team: s.team,
@@ -161,7 +161,7 @@ export async function GET(request: Request) {
       success: true,
       source: 'none',
       competition,
-      season: dynamicSeason,
+      season: season,
       standings: [],
     })
   } catch (error) {

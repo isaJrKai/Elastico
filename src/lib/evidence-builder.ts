@@ -332,7 +332,7 @@ async function buildOddsSection(homeTeamName: string, awayTeamName: string): Pro
 
   // LIVE FALLBACK: try API-Sports odds for current fixtures
   try {
-    for (const league of AS_LEAGUES.slice(0, 5)) {
+    for (const league of AS_LEAGUES.slice(0, 6)) {
       const oddsList = await fetchLeagueOdds(league.id, getSeason())
       for (const o of oddsList) {
         // Find a match involving both teams
@@ -466,7 +466,7 @@ async function buildH2HSection(homeTeamName: string, awayTeamName: string): Prom
   let homeId: number | null = null
   let awayId: number | null = null
 
-  for (const league of AS_LEAGUES.slice(0, 5)) {
+  for (const league of AS_LEAGUES.slice(0, 6)) {
     try {
       const season = getSeason()
       const groups = await fetchASStandings(league.id, season)

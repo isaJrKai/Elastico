@@ -275,7 +275,14 @@ async function syncStandingsFromApiSports(): Promise<{
 // ═════════════════════════════════════════════════════════════════════════
 
 const UNDERSTAT_LEAGUES = ['PL', 'LIGA', 'SA', 'BL', 'L1'] as const
-const UNDERSTAT_SEASON = '2024' // Understat uses calendar year for 24/25 season
+// Understat uses calendar year for the season (e.g. 2024 = 24/25, 2025 = 25/26)
+function getUnderstatSeason(): string {
+  const now = new Date()
+  // If we're in Jan-Jun 2025, season is still 2024 (24/25)
+  // If we're in Jul-Dec 2025, season is 2025 (25/26)
+  return String(now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1)
+}
+const UNDERSTAT_SEASON = getUnderstatSeason()
 
 async function syncUnderstatAnalytics(): Promise<{
   resolved: number
@@ -474,7 +481,7 @@ async function syncPlayersFromApiSports(): Promise<{
   const result = { created: 0, updated: 0 }
   const now = new Date()
   const season = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
-  const topLeagues = AS_LEAGUES.slice(0, 5)
+  const topLeagues = AS_LEAGUES.slice(0, 6)
 
   for (const league of topLeagues) {
     checkTimeout()
@@ -715,9 +722,10 @@ async function syncFixturesFromESPN(): Promise<{
 async function syncStandingsFromESPN(): Promise<{
   created: number
 }> {
-  const topLeagues = ['PL', 'LIGA', 'SA', 'BL', 'L1']
+  const topLeagues = ['PL', 'LIGA', 'SA', 'BL', 'L1', 'UCL']
   let totalCreated = 0
-  const season = String(new Date().getFullYear())
+  const now = new Date()
+  const season = String(now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1)
 
   const results = await Promise.allSettled(
     topLeagues.map(async (code) => {

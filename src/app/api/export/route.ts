@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
+import { fetchAllLiveScores } from '@/lib/football-data'
+import { fetchStandings as fetchFDStandings } from '@/lib/football-data-org'
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,15 +19,65 @@ export async function POST(req: NextRequest) {
 
     switch (exportType) {
       case 'matches': {
-        // Match data now comes from ESPN — return empty export with a note
-        data = []
-        filename = `elastico-matches-empty-${Date.now()}`
+        // Fetch from DB first, fall back to ESPN
+        const dbMatches = await db.match.findMany({
+          include: { homeTeam: true, awayTeam: true },
+          take: 500,
+          orderBy: { date: 'desc' },
+        })
+        if (dbMatches.length > 0) {
+          data = dbMatches.map((m) => ({
+            date: m.date?.toISOString().split('T')[0] || '',
+            home_team: m.homeTeam?.name || '',
+            away_team: m.awayTeam?.name || '',
+            home_score: m.homeScore,
+            away_score: m.awayScore,
+            status: m.status,
+            competition: m.competition,
+            source: m.source,
+          }))
+        } else {
+          // Fallback: fetch from ESPN
+          try {
+            const espnMatches = await fetchAllLiveScores()
+            data = espnMatches.map((m: any) => ({
+              date: m.date || '',
+              home_team: m.homeTeam?.name || '',
+              away_team: m.awayTeam?.name || '',
+              home_score: m.homeScore ?? 0,
+              away_score: m.awayScore ?? 0,
+              status: m.status || '',
+              competition: m.competition || '',
+              source: 'espn',
+            }))
+          } catch {
+            data = []
+          }
+        }
+        filename = `elastico-matches-${Date.now()}`
         break
       }
       case 'players': {
-        // Player data now comes from ESPN — return empty export with a note
-        data = []
-        filename = `elastico-players-empty-${Date.now()}`
+        const dbPlayers = await db.player.findMany({
+          include: { team: true },
+          take: 500,
+          orderBy: { goals: 'desc' },
+        })
+        if (dbPlayers.length > 0) {
+          data = dbPlayers.map((p) => ({
+            name: p.name,
+            position: p.position,
+            age: p.age,
+            nationality: p.nationality,
+            goals: p.goals,
+            assists: p.assists,
+            appearances: p.appearances,
+            rating: p.rating,
+            team: p.team?.name || '',
+            source: p.source,
+          }))
+        }
+        filename = `elastico-players-${Date.now()}`
         break
       }
       case 'predictions': {
@@ -48,9 +100,25 @@ export async function POST(req: NextRequest) {
         break
       }
       case 'teams': {
-        // Team data now comes from ESPN — return empty export with a note
-        data = []
-        filename = `elastico-teams-empty-${Date.now()}`
+        const dbTeams = await db.team.findMany({
+          take: 500,
+          orderBy: { name: 'asc' },
+        })
+        if (dbTeams.length > 0) {
+          data = dbTeams.map((t) => ({
+            name: t.name,
+            code: t.code,
+            league: t.league || '',
+            elo_rating: t.eloRating,
+            wins: t.wins,
+            draws: t.draws,
+            losses: t.losses,
+            goals_for: t.goalsFor,
+            goals_against: t.goalsAgainst,
+            source: t.source,
+          }))
+        }
+        filename = `elastico-teams-${Date.now()}`
         break
       }
       default:
@@ -60,8 +128,7 @@ export async function POST(req: NextRequest) {
     if (exportFormat === 'csv') {
       if (data.length === 0) {
         return NextResponse.json({
-          error: 'No data to export. Match, player, and team data now come from ESPN and are not stored locally.',
-          suggestion: 'Use predictions export for your prediction history.',
+          error: `No ${exportType} data available to export. Try syncing data first.`,
         }, { status: 404 })
       }
       const headers = Object.keys(data[0] as Record<string, unknown>)
@@ -70,7 +137,11 @@ export async function POST(req: NextRequest) {
         ...data.map((row) =>
           headers.map((h) => {
             const val = String((row as Record<string, unknown>)[h] ?? '')
-            return val.includes(',') ? `"${val}"` : val
+            // Proper CSV escaping: wrap in quotes if contains comma, quote, or newline
+            if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+              return `"${val.replace(/"/g, '""')}"`
+            }
+            return val
           }).join(','),
         ),
       ]
