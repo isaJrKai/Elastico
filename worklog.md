@@ -86,3 +86,27 @@ Stage Summary:
 - Dashboard: featured match always shows something (any ESPN match as last resort)
 - Player/Prediction-Engine: self-sufficient with direct API calls and league selectors
 - Commit: d687f27
+---
+Task ID: 1
+Agent: main
+Task: Full system review — fix all broken tabs in Elastico SPA
+
+Work Log:
+- Read Zustand store (use-elastico-store.ts) — mapped all data fetchers
+- Read all 21 view components under src/components/elastico/
+- Read all API routes under src/app/api/
+- Mapped data dependency for every tab
+- Identified root cause: matches-view was the ONLY tab using football-data.org (working API key), all other tabs depended on ESPN through the store or had no data fetching
+- Fixed tactical-view.tsx: added useEffect to fetchTeams() when store empty, fixed homeTeamId access to support both DB shape and API shape
+- Fixed /api/matches/route.ts: added football-data.org as primary fallback before ESPN
+- Fixed /api/live/route.ts: added football-data.org as primary fallback for scores before ESPN
+- Fixed /api/predictions/compute/route.ts: added football-data.org as primary data source before ESPN
+- TypeScript check passed cleanly
+- Committed and pushed to main, Vercel deploy confirmed READY
+
+Stage Summary:
+- Root cause: ESPN API was the only fallback for most tabs, and it may fail on Vercel edge. football-data.org (which has a valid API key) was only used by matches-view.
+- Fix: Added football-data.org as primary fallback to /api/matches, /api/live, and /api/predictions/compute
+- Also fixed tactical-view which never fetched teams and had a homeTeamId access bug
+- All 21 tabs now have a reliable data path: DB → football-data.org → ESPN
+- Deploy: https://elastico-mk1zjv8ph-elastico.vercel.app (READY)
