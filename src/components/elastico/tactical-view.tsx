@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { TYPE } from '@/lib/design-system'
@@ -205,12 +205,17 @@ function FormationPitch({
 // ── Main View ───────────────────────────────────────────────────────────
 
 export function TacticalView() {
-  const { teams, matches, selectedMatchId } = useElasticoStore()
+  const { teams, matches, selectedMatchId, fetchTeams } = useElasticoStore()
 
   const [homeTeamId, setHomeTeamId] = useState<string>('')
   const [awayTeamId, setAwayTeamId] = useState<string>('')
   const [homeFormation, setHomeFormation] = useState('4-3-3')
   const [awayFormation, setAwayFormation] = useState('4-3-3')
+
+  // Fetch teams if store is empty (supports live API fallbacks)
+  useEffect(() => {
+    if (teams.length === 0) fetchTeams()
+  }, [teams.length, fetchTeams])
 
   // Resolve teams
   const homeTeam = useMemo(() => teams.find((t) => t.id === homeTeamId), [teams, homeTeamId])
@@ -225,8 +230,9 @@ export function TacticalView() {
         (match) => match.id === selectedMatchId || match.id === rawId || match.externalId === rawId,
       )
       if (m) {
-        setHomeTeamId(m.homeTeamId)
-        setAwayTeamId(m.awayTeamId)
+        // Support both DB shape (homeTeamId) and API shape (homeTeam.id)
+        setHomeTeamId(m.homeTeamId || m.homeTeam?.id || '')
+        setAwayTeamId(m.awayTeamId || m.awayTeam?.id || '')
       }
     }
   }, [selectedMatchId, matches])

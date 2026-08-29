@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { fetchAllLiveScores, mapStatus } from '@/lib/football-data'
+import {
+  fetchTodaysMatches, normalizeFDMatch,
+} from '@/lib/football-data-org'
 
 import { rateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
@@ -41,20 +44,19 @@ export async function GET(req: NextRequest) {
         events: { orderBy: { minute: 'asc' } },
       },
       orderBy: [
-        { status: 'asc' }, // live/halftime first (alphabetical: 'h' > 'f' > 'u')
+        { status: 'asc' },
         { date: 'asc' },
       ],
       take: limit,
     })
 
     if (dbMatches.length > 0) {
-      // Sort: live first, then upcoming by date, then finished by date desc
       const statusOrder: Record<string, number> = { live: 0, halftime: 1, upcoming: 2, finished: 3, postponed: 4 }
       const sorted = [...dbMatches].sort((a, b) => {
         const sa = statusOrder[a.status] ?? 5
         const sb = statusOrder[b.status] ?? 5
         if (sa !== sb) return sa - sb
-        if (sa <= 1) return 0 // keep original order for live
+        if (sa <= 1) return 0
         if (sa === 2) return (a.date?.getTime() || 0) - (b.date?.getTime() || 0)
         return (b.date?.getTime() || 0) - (a.date?.getTime() || 0)
       })
@@ -87,13 +89,8 @@ export async function GET(req: NextRequest) {
         venue: m.venue,
         minute: m.minute,
         events: m.events.map(e => ({
-          id: e.id,
-          minute: e.minute,
-          type: e.type,
-          detail: e.detail,
-          team: e.team,
-          playerName: e.playerName,
-          playerPhoto: e.playerPhoto,
+          id: e.id, minute: e.minute, type: e.type, detail: e.detail,
+          team: e.team, playerName: e.playerName, playerPhoto: e.playerPhoto,
           assistName: e.assistName,
         })),
         source: m.source,
@@ -105,7 +102,42 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ matches, source: 'database', total: dbMatches.length })
     }
 
-    // ── Fallback: ESPN direct fetch ───────────────────────────────────────
+    // ── Fallback 1: football-data.org (most reliable — has API key) ───────
+    if (process.env.FOOTBALL_DATA_API_KEY) {
+      try {
+        console.log('[Matches] DB empty, trying football-data.org')
+        const fdMatches = await fetchTodaysMatches()
+        if (fdMatches.length > 0) {
+          const statusMap: Record<string, string> = {
+            'SCHEDULED': 'upcoming', 'TIMED': 'upcoming', 'IN_PLAY': 'live',
+            'PAUSED': 'halftime', 'FINISHED': 'finished', 'POSTPONED': 'postponed',
+            'CANCELLED': 'postponed', 'SUSPENDED': 'postponed',
+          }
+          let filtered = fdMatches.map(normalizeFDMatch).map((m: any) => ({
+            ...m,
+            status: statusMap[m.status] || m.status,
+          }))
+          if (status) filtered = filtered.filter((m: any) => m.status === status)
+          if (search) {
+            const q = search.toLowerCase()
+            filtered = filtered.filter((m: any) =>
+              m.homeTeam.name.toLowerCase().includes(q) ||
+              m.awayTeam.name.toLowerCase().includes(q) ||
+              m.competition.toLowerCase().includes(q)
+            )
+          }
+          filtered = filtered.slice(0, Math.min(limit, 200))
+          if (filtered.length > 0) {
+            console.log(`[Matches] football-data.org returned ${filtered.length} matches`)
+            return NextResponse.json({ matches: filtered, source: 'football-data.org', total: filtered.length })
+          }
+        }
+      } catch (err) {
+        console.warn('[Matches] football-data.org fallback failed:', err)
+      }
+    }
+
+    // ── Fallback 2: ESPN direct fetch ─────────────────────────────────────
     console.log('[Matches] DB empty, falling back to ESPN')
     const espnMatches = await fetchAllLiveScores()
 

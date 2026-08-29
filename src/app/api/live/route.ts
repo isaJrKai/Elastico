@@ -7,7 +7,7 @@ import {
   fetchTeams, fetchTeamRoster,
   mapStatus, ESPN_LEAGUES,
 } from '@/lib/football-data'
-import { fetchStandings as fetchFDStandings } from '@/lib/football-data-org'
+import { fetchStandings as fetchFDStandings, fetchTodaysMatches, normalizeFDMatch } from '@/lib/football-data-org'
 
 import { rateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
@@ -235,7 +235,40 @@ export async function GET(request: NextRequest) {
           })
         }
 
-        // ── Fallback: ESPN ────────────────────────────────────────────
+        // ── Fallback 1: football-data.org (most reliable) ───────────────
+        if (process.env.FOOTBALL_DATA_API_KEY) {
+          try {
+            console.log('[Live] DB empty, trying football-data.org')
+            const fdMatches = await fetchTodaysMatches()
+            if (fdMatches.length > 0) {
+              const statusMap: Record<string, string> = {
+                'SCHEDULED': 'upcoming', 'TIMED': 'upcoming', 'IN_PLAY': 'live',
+                'PAUSED': 'halftime', 'FINISHED': 'finished', 'POSTPONED': 'postponed',
+              }
+              let fdFiltered = fdMatches.map(normalizeFDMatch).map((m: any) => ({
+                ...m,
+                status: statusMap[m.status] || m.status,
+              }))
+              if (status) fdFiltered = fdFiltered.filter((m: any) => m.status === status)
+              return NextResponse.json({
+                success: true, source: 'football-data.org', count: fdFiltered.length,
+                leagues: ESPN_LEAGUES.map(l => ({ code: l.code, name: l.name, espnId: l.espnId })),
+                matches: fdFiltered.map((m: any) => ({
+                  id: m.id, competition: m.competition, competitionCode: m.competitionCode,
+                  homeTeam: { id: m.homeTeam.id, name: m.homeTeam.name, abbreviation: m.homeTeam.abbreviation || m.homeTeam.code, logo: m.homeTeam.logo, color: m.homeTeam.color || '#fff' },
+                  awayTeam: { id: m.awayTeam.id, name: m.awayTeam.name, abbreviation: m.awayTeam.abbreviation || m.awayTeam.code, logo: m.awayTeam.logo, color: m.awayTeam.color || '#fff' },
+                  homeScore: m.homeScore ?? m.score?.fullTime?.home ?? 0,
+                  awayScore: m.awayScore ?? m.score?.fullTime?.away ?? 0,
+                  status: m.status, date: m.date || m.utcDate, venue: m.venue || '',
+                })),
+              })
+            }
+          } catch (err) {
+            console.warn('[Live] football-data.org fallback failed:', err)
+          }
+        }
+
+        // ── Fallback 2: ESPN ────────────────────────────────────────────
         console.log('[Live] DB empty, falling back to ESPN')
         let matches
         if (date) {

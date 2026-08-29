@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { fetchAllLiveScores, mapStatus, type ESPNMatch } from '@/lib/football-data'
+import { fetchTodaysMatches, normalizeFDMatch } from '@/lib/football-data-org'
 import { calculateElo, poissonProbabilities, dixonColes, type EloResult } from '@/lib/predictions'
 
 /** GET /api/predictions/compute — compute predictions from ESPN match data (auth required)
@@ -25,13 +26,56 @@ export async function GET(request: NextRequest) {
     // SECURITY: Require authentication to prevent CPU abuse
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth
-    const matches = await fetchAllLiveScores()
+
+    // Fetch matches: try football-data.org first (more reliable), then ESPN
+    let matches: any[] = []
+    let matchSource = 'espn'
+
+    if (process.env.FOOTBALL_DATA_API_KEY) {
+      try {
+        const fdMatches = await fetchTodaysMatches()
+        if (fdMatches.length > 0) {
+          matches = fdMatches.map(normalizeFDMatch)
+          matchSource = 'football-data.org'
+        }
+      } catch (err) {
+        console.warn('[PREDICT] football-data.org failed, trying ESPN:', err)
+      }
+    }
+
+    if (matches.length === 0) {
+      matches = await fetchAllLiveScores()
+      matchSource = 'espn'
+    }
+
+    // Normalize to common shape
+    const normalized = matches.map((m: any) => ({
+      id: m.id,
+      competition: m.competition,
+      homeTeam: {
+        id: m.homeTeam?.id || '',
+        name: m.homeTeam?.name || 'Home',
+        abbreviation: m.homeTeam?.abbreviation || m.homeTeam?.code || '',
+      },
+      awayTeam: {
+        id: m.awayTeam?.id || '',
+        name: m.awayTeam?.name || 'Away',
+        abbreviation: m.awayTeam?.abbreviation || m.awayTeam?.code || '',
+      },
+      homeScore: m.homeScore ?? 0,
+      awayScore: m.awayScore ?? 0,
+      status: m.status,
+      date: m.date || m.utcDate || '',
+      venue: m.venue || '',
+      minute: m.minute,
+    }))
 
     // Take upcoming and recent matches, compute predictions
-    const predictions = matches.slice(0, 20).map((m: ESPNMatch) => {
-      // Use ELO ratings from ESPN team data (approximate from abbreviation)
-      const homeElo = 1500 + (m.homeTeam.abbreviation ? hashToElo(m.homeTeam.abbreviation) : 0)
-      const awayElo = 1500 + (m.awayTeam.abbreviation ? hashToElo(m.awayTeam.abbreviation) : 0)
+    const predictions = normalized.slice(0, 20).map((m: any) => {
+      const homeAbbr = m.homeTeam.abbreviation
+      const awayAbbr = m.awayTeam.abbreviation
+      const homeElo = 1500 + (homeAbbr ? hashToElo(homeAbbr) : 0)
+      const awayElo = 1500 + (awayAbbr ? hashToElo(awayAbbr) : 0)
 
       // 1. ELO Model
       const elo: EloResult = calculateElo(homeElo, awayElo, 20, 0)
@@ -69,7 +113,7 @@ export async function GET(request: NextRequest) {
         awayTeam: m.awayTeam,
         homeScore: m.homeScore,
         awayScore: m.awayScore,
-        status: mapStatus(m.status),
+        status: m.status,
         date: m.date,
         venue: m.venue,
         minute: m.minute,
@@ -88,7 +132,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, count: predictions.length, predictions })
+    return NextResponse.json({ success: true, count: predictions.length, source: matchSource, predictions })
   } catch (error) {
     console.error('[PREDICT] Error:', error)
     return NextResponse.json(
