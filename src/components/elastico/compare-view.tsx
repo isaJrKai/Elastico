@@ -36,6 +36,7 @@ type ViewState = 'loading' | 'empty' | 'error' | 'success'
 export default function CompareView() {
   const teams = useElasticoStore(s => s.teams)
   const fetchTeams = useElasticoStore(s => s.fetchTeams)
+  const [loading, setLoading] = useState(true)
   const [homeTeamId, setHomeTeamId] = useState<string>('')
   const [awayTeamId, setAwayTeamId] = useState<string>('')
 
@@ -44,15 +45,20 @@ export default function CompareView() {
 
   // Fetch teams if store is empty (handles direct navigation)
   useEffect(() => {
-    if (teams.length === 0) fetchTeams()
+    if (teams.length === 0) {
+      fetchTeams().finally(() => setLoading(false))
+    } else {
+      setLoading(false)
+    }
   }, [teams.length, fetchTeams])
 
   // Transition to success/empty when teams load
   const viewState = useMemo<ViewState>(() => {
-    if (teams.length === 0) return 'loading'
+    if (teams.length === 0 && loading) return 'loading'
+    if (teams.length === 0 && !loading) return 'empty'
     if (!homeTeam || !awayTeam) return 'empty'
     return 'success'
-  }, [teams, homeTeamId, awayTeamId, homeTeam, awayTeam])
+  }, [teams, loading, homeTeamId, awayTeamId, homeTeam, awayTeam])
 
   // Stat comparisons — real data preferred, derived from basic stats when missing
   const statComparisons = useMemo(() => {
@@ -150,7 +156,7 @@ export default function CompareView() {
         <Card className="glass-card-premium card-hover-lift rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Loading team data...</p>
+            <p className="text-sm text-muted-foreground">Loading teams...</p>
           </CardContent>
         </Card>
       </motion.div>
@@ -204,12 +210,25 @@ export default function CompareView() {
           </div>
         </div>
 
-        <Card className="glass-card-premium card-hover-lift rounded-xl">
-          <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-            <Inbox className="size-12 opacity-30" />
-            <p className="text-sm">Select two teams above to start comparing</p>
-          </CardContent>
-        </Card>
+        {teams.length === 0 ? (
+          <Card className="glass-card-premium card-hover-lift rounded-xl">
+            <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+              <Inbox className="size-12 opacity-30" />
+              <p className="text-sm font-medium">No teams available</p>
+              <p className="text-xs text-muted-foreground/70">Add teams in the Squad Builder to compare them here.</p>
+              <Button variant="outline" size="sm" className="mt-2 border-border text-xs" onClick={() => { fetchTeams(); toast.info('Retrying team data load...') }}>
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="glass-card-premium card-hover-lift rounded-xl">
+            <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+              <Inbox className="size-12 opacity-30" />
+              <p className="text-sm">Select two teams above to start comparing</p>
+            </CardContent>
+          </Card>
+        )}
       </motion.div>
     )
   }

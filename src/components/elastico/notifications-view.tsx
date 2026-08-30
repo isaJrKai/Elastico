@@ -294,8 +294,16 @@ export default function NotificationsView() {
             <p className="text-lg font-medium text-muted-foreground">No notifications yet</p>
             <p className="mt-1 max-w-xs text-sm text-muted-foreground/70">
               {activeTab === 'all'
-                ? 'Notifications appear when bookmarked matches start, predictions resolve, or system announcements are posted.'
-                : `No ${activeTab} notifications right now.`}
+                ? 'Notifications will appear here when bookmarked matches kick off, your predictions are graded, or there are system announcements.'
+                : activeTab === 'unread'
+                  ? 'You\'ve read everything — no unread notifications at the moment.'
+                  : activeTab === 'goals'
+                    ? 'Goal alerts will show up here for matches you\'ve bookmarked. Try bookmarking an upcoming match!'
+                    : activeTab === 'cards'
+                      ? 'Card alerts will appear here for bookmarked matches with yellow or red cards.'
+                      : activeTab === 'predictions'
+                        ? 'You\'ll be notified here when your predictions are resolved after a match ends.'
+                        : 'No system notifications at the moment. Check back later for updates.'}
             </p>
             <Button
               variant="outline"

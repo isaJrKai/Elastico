@@ -211,10 +211,14 @@ export function TacticalView() {
   const [awayTeamId, setAwayTeamId] = useState<string>('')
   const [homeFormation, setHomeFormation] = useState('4-3-3')
   const [awayFormation, setAwayFormation] = useState('4-3-3')
+  const [loading, setLoading] = useState(teams.length === 0)
 
   // Fetch teams if store is empty (supports live API fallbacks)
   useEffect(() => {
-    if (teams.length === 0) fetchTeams()
+    if (teams.length === 0) {
+      setLoading(true)
+      fetchTeams().finally(() => setLoading(false))
+    }
   }, [teams.length, fetchTeams])
 
   // Resolve teams
@@ -351,10 +355,13 @@ export function TacticalView() {
     return (
       <div className="flex flex-col gap-4 p-4 lg:p-6 max-w-7xl mx-auto w-full">
         <DataState
-          type="empty"
-          message="No teams loaded. Fetch teams from the database to analyze tactics."
-          actionLabel="Fetch Teams"
-          actionOnClick={() => useElasticoStore.getState().fetchTeams()}
+          type={loading ? 'loading' : 'empty'}
+          message={loading ? 'Loading team data...' : 'No teams found. Try refreshing or check your connection.'}
+          actionLabel={!loading ? 'Retry' : undefined}
+          actionOnClick={!loading ? () => {
+            setLoading(true)
+            useElasticoStore.getState().fetchTeams().finally(() => setLoading(false))
+          } : undefined}
         />
       </div>
     )

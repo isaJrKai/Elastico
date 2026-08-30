@@ -139,10 +139,19 @@ export default function LeaderboardView() {
               <Trophy className="size-6 text-muted-foreground/50" />
             </div>
             <div className="space-y-1.5">
-              <p className="text-sm font-medium">No predictions have been made yet.</p>
-              <p className="text-xs text-muted-foreground max-w-xs">Be the first to predict matches and climb the leaderboard!</p>
+              <p className="text-sm font-medium">The leaderboard is waiting for its first entry</p>
+              <p className="text-xs text-muted-foreground max-w-xs">Make your first match prediction to appear on the leaderboard and start climbing the ranks!</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                size="sm"
+                className="gap-1.5 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={() => useElasticoStore.getState().setView('predictions')}
+              >
+                <Target className="size-3.5" />
+                Make a Prediction
+                <ArrowRight className="size-3" />
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -151,16 +160,6 @@ export default function LeaderboardView() {
               >
                 <Zap className="size-3.5" />
                 Browse Matches
-                <ArrowRight className="size-3" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-border text-xs"
-                onClick={() => useElasticoStore.getState().setView('predictions')}
-              >
-                <Target className="size-3.5" />
-                Go to Predictions
                 <ArrowRight className="size-3" />
               </Button>
             </div>

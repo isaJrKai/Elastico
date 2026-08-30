@@ -26,7 +26,6 @@ import {
   ChevronDown,
   Cpu,
   Wifi,
-  AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -432,13 +431,13 @@ export default function ChatView() {
                 className={cn(
                   'gap-1.5 px-2 py-0 text-[10px] font-medium',
                   isMockMode
-                    ? 'border-amber-500/30 bg-amber-500/5 text-amber-400'
+                    ? 'border-border bg-secondary text-muted-foreground'
                     : 'border-primary/30 bg-primary/5 text-primary',
                 )}
               >
                 <Cpu className="size-3" />
                 {isMockMode
-                  ? 'Template Mode (no AI provider)'
+                  ? 'Local Template Mode'
                   : providerName
                     ? providerName
                     : 'ELASTICO AI'}
@@ -446,7 +445,7 @@ export default function ChatView() {
             </div>
             <p className="text-xs text-muted-foreground">
               {isMockMode
-                ? 'Template-based responses — not from a language model'
+                ? 'AI responses are generated locally using template models'
                 : 'Football intelligence analyst'}
             </p>
           </div>
@@ -513,13 +512,13 @@ export default function ChatView() {
 
       {/* ── Mock-fallback Banner ──────────────────────────────────────────── */}
       {isMockMode && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" />
+        <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
           <div>
-            <p className="text-xs font-medium text-amber-400">AI provider not configured</p>
+            <p className="text-xs font-medium text-foreground">Using local template responses</p>
             <p className="text-[11px] leading-relaxed text-muted-foreground mt-0.5">
-              Responses are template-based, not from a language model. Configure an AI provider
-              in <span className="font-medium text-foreground">Settings → AI & NVIDIA Integration</span> for real analysis.
+              AI responses are generated locally using template models. Connect an AI provider in
+              <span className="font-medium text-foreground"> Settings → AI & NVIDIA Integration</span> for enhanced analysis.
             </p>
           </div>
         </div>

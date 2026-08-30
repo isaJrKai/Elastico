@@ -13,13 +13,13 @@
 
 'use client'
 
-import { useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Radio, Newspaper, RefreshCw, AlertCircle, Zap, ChevronRight,
-  Trophy, Brain, BarChart3, Clock, ArrowRight, Eye,
+  Trophy, Brain, BarChart3, Clock, ArrowRight, Eye, Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TeamCrest } from '@/components/elastico/primitives'
@@ -665,16 +665,159 @@ function QuickActions() {
   )
 }
 
+// ─── Upcoming Fixtures (football-data.org fallback) ─────────────────────────
+
+function UpcomingFixtures({ matches }: { matches: any[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const visible = expanded ? matches : matches.slice(0, 6)
+
+  if (matches.length === 0) return null
+
+  return (
+    <div className="rounded-xl border border-border/40 bg-muted/10 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-2.5 border-b border-border/30">
+        <div className="flex items-center gap-2">
+          <Calendar className="size-3 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground font-medium">Upcoming Fixtures</span>
+          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/50 border border-border/30 rounded px-1 py-px">
+            football-data.org
+          </span>
+        </div>
+        <span className="text-[10px] font-semibold text-muted-foreground/60">
+          {matches.length} match{matches.length !== 1 ? 'es' : ''}
+        </span>
+      </div>
+      <div className="divide-y divide-border/25 max-h-96 overflow-y-auto custom-scrollbar">
+        {visible.map((m: any, idx: number) => {
+          const home = m.homeTeam?.shortName || m.homeTeam?.name || 'Home'
+          const away = m.awayTeam?.shortName || m.awayTeam?.name || 'Away'
+          const competition = m.competition?.name || m.competition || 'Premier League'
+          const dateStr = m.utcDate || m.date
+          const matchDate = dateStr
+            ? new Date(dateStr).toLocaleDateString(undefined, {
+                weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+              })
+            : 'TBD'
+          const homeCrest = m.homeTeam?.crest || m.homeTeam?.logo
+          const awayCrest = m.awayTeam?.crest || m.awayTeam?.logo
+
+          return (
+            <div
+              key={m.id || idx}
+              className="flex items-center gap-3 px-5 py-2.5 hover:bg-accent/30 transition-colors"
+            >
+              {homeCrest ? (
+                <img
+                  src={homeCrest}
+                  alt={home}
+                  className="size-5 shrink-0 object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              ) : (
+                <div className="size-5 shrink-0 rounded-full bg-muted/40" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[13px] font-semibold truncate">{home}</span>
+                  <span className="text-[11px] text-muted-foreground/40 shrink-0">vs</span>
+                  <span className="text-[13px] font-semibold truncate">{away}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] text-muted-foreground/60">{matchDate}</span>
+                  <span className="text-[9px] text-muted-foreground/40 border border-border/20 rounded px-1 py-px">
+                    {competition}
+                  </span>
+                </div>
+              </div>
+              {awayCrest ? (
+                <img
+                  src={awayCrest}
+                  alt={away}
+                  className="size-5 shrink-0 object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              ) : (
+                <div className="size-5 shrink-0 rounded-full bg-muted/40" />
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {matches.length > 6 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground border-t border-border/30 hover:bg-accent/30 transition-colors flex items-center justify-center gap-1"
+        >
+          {expanded ? 'Show less' : `Show all ${matches.length}`}
+          <ChevronRight className={cn('size-3 transition-transform', expanded && 'rotate-90')} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 
 export default function DashboardView() {
-  const { fetchLiveScores, fetchNews, fetchMatches } = useElasticoStore()
+  const { fetchLiveScores, fetchNews, fetchMatches, matches, liveMatches } = useElasticoStore()
+  const [fdMatches, setFdMatches] = useState<any[]>([])
+  const [fdLoading, setFdLoading] = useState(false)
+
+  // Compute featured (same logic as FeaturedMatchPanel) to know when to show fallback
+  const featured = useMemo(() => {
+    const espnLive = (liveMatches || []).find(
+      (m: any) => m.status === 'live' || m.status === 'halftime'
+    )
+    if (espnLive) return espnLive
+    const upcoming = matches.find(
+      (m) => !m.isSimulated && (m.status === 'upcoming' || m.status === 'live')
+    )
+    if (upcoming) return upcoming
+    const espnUpcoming = (liveMatches || []).find((m: any) => m.status === 'upcoming' || m.status === 'STATUS_SCHEDULED')
+    if (espnUpcoming) return espnUpcoming
+    const espnFinished = (liveMatches || []).find((m: any) => m.status === 'finished' || m.status === 'STATUS_FULL_TIME')
+    if (espnFinished) return espnFinished
+    const anyDb = matches.find((m) => !m.isSimulated)
+    if (anyDb) return anyDb
+    return null
+  }, [matches, liveMatches])
 
   useEffect(() => {
     fetchLiveScores()
     fetchNews()
     fetchMatches()
   }, [fetchLiveScores, fetchNews, fetchMatches])
+
+  // Fetch upcoming fixtures: try football-data.org first, fallback to /api/live (ESPN)
+  useEffect(() => {
+    let cancelled = false
+    setFdLoading(true)
+    const loadFixtures = async () => {
+      try {
+        // 1. football-data.org (requires API key)
+        const r1 = await fetch('/api/football-data?action=matches&status=SCHEDULED&competition=PL')
+        if (r1.ok) {
+          const d1 = await r1.json()
+          const items = d1.data || d1.matches || []
+          if (items.length > 0 && !cancelled) { setFdMatches(items); setFdLoading(false); return }
+        }
+      } catch { /* continue to fallback */ }
+      try {
+        // 2. ESPN via /api/live (no API key needed)
+        const r2 = await fetch('/api/live')
+        if (r2.ok) {
+          const d2 = await r2.json()
+          const items = (d2.matches || []).filter(
+            (m: any) => m.status === 'upcoming' || m.status === 'STATUS_SCHEDULED'
+          )
+          if (items.length > 0 && !cancelled) { setFdMatches(items); setFdLoading(false); return }
+        }
+      } catch { /* ignore */ }
+      if (!cancelled) setFdMatches([])
+    }
+    loadFixtures().finally(() => { if (!cancelled) setFdLoading(false) })
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <section className="flex flex-col gap-4 animate-fade-in-up" aria-label="Dashboard">
@@ -687,8 +830,24 @@ export default function DashboardView() {
       {/* Main content — 2:1 asymmetric split */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-0">
         {/* Primary: Featured match (3/5 = 60%) */}
-        <div className="lg:col-span-3 min-w-0">
+        <div className="lg:col-span-3 min-w-0 flex flex-col gap-4">
           <FeaturedMatchPanel />
+          {featured === null && fdLoading && (
+            <div className="rounded-xl border border-border/40 bg-muted/10 p-6">
+              <div className="space-y-2.5">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="size-5 rounded-full" />
+                    <Skeleton className="h-3.5 w-48" />
+                    <Skeleton className="h-3 w-20 ml-auto" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {featured === null && !fdLoading && fdMatches.length > 0 && (
+            <UpcomingFixtures matches={fdMatches} />
+          )}
         </div>
 
         {/* Secondary: News + actions (2/5 = 40%) */}
