@@ -207,7 +207,7 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="relative size-8 rounded-full p-0 hover:ring-2 hover:ring-primary/30 transition-all"
+                className="relative size-8 rounded-full p-0 hover:ring-2 hover:ring-primary/30 transition-colors"
                 aria-label="User menu"
               >
                 <Avatar className={HEADER.avatar}>

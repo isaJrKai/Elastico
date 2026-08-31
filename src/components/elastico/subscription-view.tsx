@@ -30,27 +30,27 @@ interface PlanFeature { name: string; free: boolean | string; pro: boolean | str
 interface PricingPlan {
   id: string; name: string; monthlyPrice: number; yearlyPrice: number
   description: string; icon: React.ElementType; features: string[]
-  cta: string; borderClass: string; highlightClass: string; badge?: string
+  cta: string; borderClass: string
 }
 
 const PLANS: PricingPlan[] = [
   {
     id: 'free', name: 'Free', monthlyPrice: 0, yearlyPrice: 0,
-    description: 'Get started with essential football analytics', icon: Star,
+    description: 'Live scores, standings, and basic predictions', icon: Star,
     features: ['Base ELO ratings & team rankings', '1 simulation per day', 'Limited AI chat (5 messages/day)', 'Basic match predictions', 'Community leaderboard'],
-    cta: 'Current Plan', borderClass: 'border-border/50', highlightClass: '',
+    cta: 'Current Plan', borderClass: 'border-border/50',
   },
   {
     id: 'pro', name: 'Pro', monthlyPrice: 4.99, yearlyPrice: 3.99,
-    description: 'Unlock advanced models and deeper insights', icon: Zap,
+    description: 'Stochastic models, PDF export, unlimited chat', icon: Zap,
     features: ['Unlimited simulations', 'Advanced stochastic models', 'Priority AI chat access', 'PDF report export', 'Advanced ELO metrics', 'Match probability deep-dives'],
-    cta: 'Subscribe', borderClass: 'border-emerald-500/50', highlightClass: 'ring-2 ring-emerald-500/20', badge: 'Most Popular',
+    cta: 'Subscribe', borderClass: 'border-emerald-500/40',
   },
   {
     id: 'elite', name: 'Elite', monthlyPrice: 8.99, yearlyPrice: 7.19,
-    description: 'The ultimate toolkit for serious analysts', icon: Crown,
+    description: 'Monte Carlo sims, API access, full bandwidth', icon: Crown,
     features: ['Everything in Pro', 'Monte Carlo simulations', 'Wilson confidence intervals', 'Live temporal simulations', 'Custom ELO calibrations', 'Full AI bandwidth', 'Tactical analysis engine', 'API access & webhooks'],
-    cta: 'Subscribe', borderClass: 'border-yellow-500/50', highlightClass: 'ring-2 ring-yellow-500/20', badge: 'Best Value',
+    cta: 'Subscribe', borderClass: 'border-border/50',
   },
 ]
 
@@ -143,13 +143,7 @@ export default function SubscriptionView() {
           const displayPrice = billingCycle === 'annual' ? plan.yearlyPrice : plan.monthlyPrice
 
           return (
-            <Card key={plan.id} className={cn('glass-card-premium card-hover-lift relative flex flex-col overflow-hidden rounded-xl', plan.borderClass, isCurrent && 'scale-[1.02]')}>
-              {plan.badge && (
-                <div className="absolute -right-8 top-6 rotate-45">
-                  <div className={cn('px-10 py-1 text-xs font-bold uppercase tracking-wider', plan.id === 'elite' ? 'bg-yellow-500/90 text-yellow-950' : 'bg-emerald-500/90 text-emerald-950')}>{plan.badge}</div>
-                </div>
-              )}
-
+            <Card key={plan.id} className={cn('glass-card-premium relative flex flex-col overflow-hidden', plan.borderClass)}>
               <CardHeader className="pb-4 pt-6">
                 <div className="flex items-center gap-3">
                   <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', plan.id === 'elite' ? 'bg-yellow-500/15 text-yellow-400' : plan.id === 'pro' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted/50 text-muted-foreground')}>

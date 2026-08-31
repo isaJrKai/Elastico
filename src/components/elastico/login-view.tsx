@@ -112,11 +112,9 @@ export default function LoginView() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8">
-      {/* Subtle background gradients */}
+      {/* Background texture — subtle warm gradient, no orbs */}
       <div className="pointer-events-none absolute inset-0 z-0">
-        <div className="absolute left-1/4 top-1/4 size-[500px] rounded-full bg-primary/[0.08] blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 size-[400px] rounded-full bg-[#3B82F6]/[0.06] blur-[100px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[600px] rounded-full bg-[#8B5CF6]/[0.04] blur-[150px]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-emerald-950/20" />
       </div>
 
       <div className="relative z-10 flex w-full max-w-md flex-col items-center gap-5">
@@ -147,17 +145,17 @@ export default function LoginView() {
             ELASTICO
           </h1>
           <p className={cn('text-[13px] font-medium tracking-wide text-muted-foreground transition-all duration-700 delay-300', logoAnim ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
-            AI-Powered Football Analytics
+            Football Analytics
           </p>
         </div>
 
         {/* Auth Card */}
-        <Card className="relative z-[1] w-full overflow-hidden rounded-xl border-border bg-card shadow-2xl">
+        <Card className="relative z-[1] w-full overflow-hidden rounded-lg border-border bg-card">
           <Tabs defaultValue="login" className="w-full">
             <CardHeader className="pb-0">
               <TabsList className="mx-auto grid w-full grid-cols-2 bg-secondary/50 p-1 rounded-lg">
-                <TabsTrigger value="login" className="text-[13px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary text-muted-foreground transition-all rounded-md">Sign In</TabsTrigger>
-                <TabsTrigger value="register" className="text-[13px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary text-muted-foreground transition-all rounded-md">Create Account</TabsTrigger>
+                <TabsTrigger value="login" className="text-[13px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary text-muted-foreground transition-colors rounded-md">Sign In</TabsTrigger>
+                <TabsTrigger value="register" className="text-[13px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary text-muted-foreground transition-colors rounded-md">Create Account</TabsTrigger>
               </TabsList>
             </CardHeader>
 
@@ -189,7 +187,7 @@ export default function LoginView() {
                     <Label htmlFor="remember" className="text-xs text-muted-foreground cursor-pointer">Remember me</Label>
                   </div>
 
-                  <Button type="submit" disabled={loginLoading || !loginEmail || !loginPassword} className="h-10 w-full bg-primary text-sm font-semibold text-primary-foreground rounded-lg shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-primary/30 active:scale-[0.98] disabled:opacity-50">
+                  <Button type="submit" disabled={loginLoading || !loginEmail || !loginPassword} className="h-10 w-full bg-primary text-sm font-semibold text-primary-foreground rounded-lg transition-colors hover:bg-primary/90 disabled:opacity-50">
                     {loginLoading ? <><Loader2 className="size-4 animate-spin" />Signing in...</> : <>Sign in<ChevronRight className="size-4" /></>}
                   </Button>
                 </form>
@@ -212,7 +210,7 @@ export default function LoginView() {
                   <div className="flex items-center gap-2 text-xs text-muted-foreground"><div className="h-px flex-1 bg-secondary" /><span>Click to Enter Instantly</span><div className="h-px flex-1 bg-secondary" /></div>
                   <div className="grid grid-cols-4 gap-2">
                     {DEMO_ACCOUNTS.map(account => (
-                      <button key={account.label} type="button" onClick={() => fillDemo(account)} disabled={loginLoading} className={cn('flex flex-col items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2 py-3 text-xs transition-all active:scale-95 hover:bg-secondary/80 hover:border-primary/50', account.hoverColor)}>
+                      <button key={account.label} type="button" onClick={() => fillDemo(account)} disabled={loginLoading} className={cn('flex flex-col items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2 py-3 text-xs transition-colors active:scale-95 hover:bg-secondary/80 hover:border-primary/50', account.hoverColor)}>
                         <span className={account.color}>{account.icon}</span>
                         <span className="text-muted-foreground font-medium">{account.label}</span>
                         <Badge variant="outline" className="text-[8px] h-3 px-1 border-border text-muted-foreground">{account.plan}</Badge>
@@ -247,7 +245,7 @@ export default function LoginView() {
                       <button type="button" onClick={() => setShowRegConfirm(!showRegConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-secondary-foreground" tabIndex={-1}>{showRegConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
                     </div>
                   </div>
-                  <Button type="submit" disabled={regLoading || !regName || !regEmail || !regPassword || !regConfirmPassword} className="h-10 w-full bg-primary text-sm font-semibold text-primary-foreground rounded-lg shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 hover:shadow-primary/30 active:scale-[0.98] disabled:opacity-50">
+                  <Button type="submit" disabled={regLoading || !regName || !regEmail || !regPassword || !regConfirmPassword} className="h-10 w-full bg-primary text-sm font-semibold text-primary-foreground rounded-lg transition-colors hover:bg-primary/90 disabled:opacity-50">
                     {regLoading ? <><Loader2 className="size-4 animate-spin" />Creating account...</> : <>Create account<ChevronRight className="size-4" /></>}
                   </Button>
                 </form>
@@ -257,7 +255,7 @@ export default function LoginView() {
         </Card>
 
         <div className="text-center space-y-1">
-          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} ELASTICO · Premium Football Intelligence</p>
+          <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} ELASTICO</p>
           <p className="text-[10px] text-muted-foreground/60">
             <span className="text-muted-foreground">Terms of Service</span>
             {' · '}

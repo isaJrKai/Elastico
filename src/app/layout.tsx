@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "ELASTICO — AI-Powered Football Analytics Platform",
-  description: "ELASTICO — Professional football analytics platform with ELO predictions, AI chat, live match tracking, and 100+ analytical tools. World Cup 2026 companion.",
+  title: "ELASTICO — Football Analytics",
+  description: "Match predictions, live scores, standings, and tactical analysis across Europe's top leagues. Built on ELO ratings, Poisson models, and real-time data from ESPN and football-data.org.",
   keywords: ["ELASTICO", "football analytics", "AI predictions", "World Cup 2026", "ELO ratings", "soccer"],
   authors: [{ name: "ELASTICO Team" }],
   manifest: "/manifest.webmanifest",
@@ -55,8 +56,8 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
-        style={{ fontFamily: 'var(--font-geist-sans), system-ui, sans-serif' }}
+        className={`${dmSans.variable} ${jetbrainsMono.variable} antialiased bg-background text-foreground`}
+        style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif' }}
       >
         <ThemeProvider
           attribute="class"
