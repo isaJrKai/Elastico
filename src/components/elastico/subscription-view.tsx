@@ -188,7 +188,7 @@ export default function SubscriptionView() {
         <div className="flex items-center gap-2"><Users className="size-4 text-primary" /><SectionHeader label="What Users Say" /></div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {TESTIMONIALS.map((t, i) => (
-            <Card key={i} className="rounded-lg border border-border bg-card rounded-xl">
+            <Card key={i} className="rounded-lg border border-border bg-card">
               <CardContent className="p-5 space-y-3">
                 <div className="flex gap-0.5">{Array.from({ length: 5 }).map((_, j) => <Star key={j} className={cn('size-3.5', j < t.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')} />)}</div>
                 <p className="text-sm text-muted-foreground leading-relaxed">"{t.quote}"</p>

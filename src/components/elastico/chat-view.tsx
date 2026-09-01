@@ -406,7 +406,7 @@ export default function ChatView() {
           </div>
           <p className="text-xs text-muted-foreground">Loading AI assistant...</p>
         </div>
-        <Card className="rounded-lg border border-border bg-card rounded-xl flex flex-1 overflow-hidden">
+        <Card className="rounded-lg border border-border bg-card flex flex-1 overflow-hidden">
           <CardContent className="flex flex-1 items-center justify-center">
             <Loader2 className="size-6 animate-spin text-primary" />
           </CardContent>

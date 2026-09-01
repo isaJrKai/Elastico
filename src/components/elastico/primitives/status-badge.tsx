@@ -57,7 +57,7 @@ export function StatusBadge({ variant, value, label, minute, className }: Status
       >
         {isLive && cfg?.pulse && (
           <span className="relative flex size-1.5">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+            <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" />
             <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
           </span>
         )}

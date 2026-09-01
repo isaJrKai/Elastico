@@ -18,7 +18,7 @@ import { useElasticoStore } from '@/store/use-elastico-store'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Radio, Newspaper, RefreshCw, AlertCircle, Zap, ChevronRight,
+  Radio, Newspaper, RefreshCw, AlertCircle, ChevronRight,
   Trophy, Brain, BarChart3, Clock, ArrowRight, Eye, Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -84,7 +84,7 @@ function KpiStrip() {
       label: 'BEST STREAK',
       value: streak > 0 ? streak : '—',
       intent: streak >= 3 ? 'success' as const : 'default' as const,
-      icon: <Zap className="size-3.5" />,
+      icon: <Brain className="size-3.5" />,
     },
   ]
 
@@ -141,7 +141,7 @@ function LiveTicker() {
       <div className="flex items-center gap-3 border-y border-border/40 bg-muted/10 px-4 py-2">
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="relative flex size-1.5">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-muted-foreground/40" />
+            <span className="absolute inline-flex size-full rounded-full bg-muted-foreground opacity-50 animate-pulse" />
             <span className="relative inline-flex size-1.5 rounded-full bg-muted-foreground" />
           </span>
           <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Live</span>
@@ -167,7 +167,7 @@ function LiveTicker() {
     <div className="flex items-center gap-3 border-y border-border/40 bg-muted/10 px-4 py-2 overflow-x-auto">
       <div className="flex items-center gap-1.5 shrink-0">
         <span className="relative flex size-1.5">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+          <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" />
           <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
         </span>
         <span className="text-[10px] font-semibold uppercase tracking-widest text-red-400">
@@ -323,7 +323,7 @@ function FeaturedMatchPanel() {
   // Loading
   if (isLoading && matches.length === 0) {
     return (
-      <div className="rounded-xl border border-border/40 bg-muted/10 p-6 animate-pulse">
+      <div className="rounded-lg border border-border bg-card p-6 animate-pulse">
         <div className="flex items-center justify-between gap-6">
           <div className="flex-1 flex items-center gap-4">
             <Skeleton className="size-14 rounded-full" />
@@ -345,7 +345,7 @@ function FeaturedMatchPanel() {
   // Error
   if (errors.fetchMatches) {
     return (
-      <div className="rounded-xl border border-border/40 bg-muted/10 p-8 flex flex-col items-center gap-3 text-center">
+      <div className="rounded-lg border border-border bg-card p-8 flex flex-col items-center gap-3 text-center">
         <AlertCircle className="size-8 text-destructive" />
         <p className="text-sm text-muted-foreground">Failed to load match data.</p>
         <Button variant="outline" size="sm" onClick={fetchMatches} className="gap-1.5">
@@ -358,7 +358,7 @@ function FeaturedMatchPanel() {
   // No matches
   if (!featured) {
     return (
-      <div className="rounded-xl border border-border/40 bg-muted/10 p-8 flex flex-col items-center gap-3 text-center">
+      <div className="rounded-lg border border-border bg-card p-8 flex flex-col items-center gap-3 text-center">
         <Eye className="size-10 text-muted-foreground/30" />
         <div>
           <p className="text-sm font-medium text-muted-foreground">No matches available right now</p>
@@ -386,7 +386,7 @@ function FeaturedMatchPanel() {
   const isFinished = featured.status === 'finished'
 
   return (
-    <div className="rounded-xl border border-border/40 bg-muted/10 overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       {/* Competition bar */}
       <div className="flex items-center justify-between px-5 py-2.5 border-b border-border/30">
         <div className="flex items-center gap-2">
@@ -401,7 +401,7 @@ function FeaturedMatchPanel() {
         {isLive && (
           <div className="flex items-center gap-1.5">
             <span className="relative flex size-1.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" />
               <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
             </span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">Live</span>
@@ -674,7 +674,7 @@ function UpcomingFixtures({ matches }: { matches: any[] }) {
   if (matches.length === 0) return null
 
   return (
-    <div className="rounded-xl border border-border/40 bg-muted/10 overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       <div className="flex items-center justify-between px-5 py-2.5 border-b border-border/30">
         <div className="flex items-center gap-2">
           <Calendar className="size-3 text-muted-foreground" />
@@ -820,20 +820,18 @@ export default function DashboardView() {
   }, [])
 
   return (
-    <section className="flex flex-col gap-4" aria-label="Dashboard">
-      {/* Orientation: KPI strip */}
-      <KpiStrip />
-
+    <section className="flex flex-col gap-6" aria-label="Dashboard">
       {/* Live ticker — full width, only when live matches exist */}
       <LiveTicker />
 
-      {/* Main content — 2:1 asymmetric split */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-0">
-        {/* Primary: Featured match (3/5 = 60%) */}
-        <div className="lg:col-min-w-0 flex flex-col gap-4">
-          <FeaturedMatchPanel />
+      {/* Featured match — full width, the single focus */}
+      <FeaturedMatchPanel />
+
+      {/* Two-column: upcoming fixtures + news */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-4">
           {featured === null && fdLoading && (
-            <div className="rounded-xl border border-border/40 bg-muted/10 p-6">
+            <div className="rounded-lg border border-border bg-card p-6">
               <div className="space-y-2.5">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3">
@@ -850,12 +848,8 @@ export default function DashboardView() {
           )}
         </div>
 
-        {/* Secondary: News + actions (2/5 = 40%) */}
-        <div className="lg:col-min-w-0 flex flex-col gap-4">
-          <div className="rounded-xl border border-border/40 bg-muted/10 p-4 flex-1">
-            <NewsRail />
-          </div>
-          <QuickActions />
+        <div className="rounded-lg border border-border bg-card p-4">
+          <NewsRail />
         </div>
       </div>
     </section>

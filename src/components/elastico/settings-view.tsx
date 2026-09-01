@@ -607,7 +607,7 @@ export default function SettingsView() {
           <p className="text-xs text-muted-foreground">Manage your account and preferences</p>
         </div>
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="rounded-lg border border-border bg-card rounded-xl border-border">
+          <Card key={i} className="rounded-lg border border-border bg-card border-border">
             <CardContent className="p-6 space-y-3">
               <div className="h-4 w-32 rounded bg-muted/50 animate-pulse" />
               <div className="h-3 w-full rounded bg-muted/30 animate-pulse" />
@@ -629,7 +629,7 @@ export default function SettingsView() {
           </div>
           <p className="text-xs text-muted-foreground">Manage your account and preferences</p>
         </div>
-        <Card className="rounded-lg border border-border bg-card rounded-xl border-border">
+        <Card className="rounded-lg border border-border bg-card border-border">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
             <AlertCircle className="size-12 text-red-400" />
             <p className="text-sm text-muted-foreground">Failed to load settings</p>

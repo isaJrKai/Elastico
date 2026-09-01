@@ -267,9 +267,9 @@ export default function NewsView() {
       <div className="flex-1 overflow-y-auto">
         {/* LOADING STATE */}
         {viewState === 'loading' && newsItems.length === 0 && (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="rounded-lg border border-border bg-card rounded-xl border-border overflow-hidden">
+          <div className="flex flex-col gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="rounded-lg border border-border bg-card overflow-hidden">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Skeleton className="h-5 w-16 rounded-full" />
@@ -322,8 +322,8 @@ export default function NewsView() {
         {/* SUCCESS STATE */}
         {(viewState === 'success' || newsItems.length > 0) && (
           <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {newsItems.map((item) => {
+            <div className="flex flex-col gap-4">
+              {newsItems.map((item, idx) => {
                 const sentiment = sentimentConfig[item.sentiment || 'neutral']
                 const SentimentIcon = sentiment.icon
 
@@ -332,7 +332,7 @@ export default function NewsView() {
                     key={item.id}
                     onClick={() => setSelectedNews(item)}
                     className={cn(
-                      'rounded-lg border border-border bg-card rounded-xl cursor-pointer overflow-hidden transition-colors duration-200',
+                      'rounded-lg border border-border bg-card cursor-pointer overflow-hidden transition-colors duration-200',
                       item.isBreaking && 'border-red-500/50 border-2',
                     )}
                   >
@@ -352,7 +352,7 @@ export default function NewsView() {
                         {item.isBreaking && (
                           <Badge className="h-5 gap-1 rounded-md bg-red-500/20 px-2 text-[10px] font-bold text-red-400 border border-red-500/30">
                             <span className="relative flex size-1.5">
-                              <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+                              <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" />
                               <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
                             </span>
                             BREAKING

@@ -384,7 +384,7 @@ export default function MatchDetailView() {
         {/* ═══════════════════════════════════════════════════════════════════
             MATCH HEADER
             ═══════════════════════════════════════════════════════════════════ */}
-        <Card className="rounded-lg border border-border bg-card rounded-xl overflow-hidden">
+        <Card className="rounded-lg border border-border bg-card overflow-hidden">
           <CardContent className="p-6">
             {/* Competition + Status */}
             <div className="flex items-center justify-between mb-6">
@@ -394,7 +394,7 @@ export default function MatchDetailView() {
                 {match.group && <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">Group {match.group}</Badge>}
               </div>
               <Badge variant="outline" className={cn('text-xs font-bold', statusConfig?.cls)}>
-                {statusConfig?.pulse && <span className="relative flex size-1.5 mr-1.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex size-1.5 rounded-full bg-red-500" /></span>}
+                {statusConfig?.pulse && <span className="relative flex size-1.5 mr-1.5"><span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" /><span className="relative inline-flex size-1.5 rounded-full bg-red-500" /></span>}
                 {statusConfig?.label}
               </Badge>
             </div>
@@ -524,7 +524,7 @@ export default function MatchDetailView() {
 
           {/* TIMELINE TAB */}
           <TabsContent value="timeline" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
+            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Activity className="size-4 text-primary" />Match Events</h3>
               {sortedEvents.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No events recorded</p>
@@ -550,7 +550,7 @@ export default function MatchDetailView() {
 
           {/* STATISTICS TAB */}
           <TabsContent value="statistics" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5 space-y-4">
+            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5 space-y-4">
               <h3 className="text-sm font-bold flex items-center gap-2"><Target className="size-4 text-primary" />Match Statistics</h3>
               {stats.map((s) => <StatBarRow key={s.label} label={s.label} homeValue={s.h} awayValue={s.a} suffix={s.suffix} decimals={s.decimals ?? 0} />)}
             </CardContent></Card>
@@ -558,7 +558,7 @@ export default function MatchDetailView() {
 
           {/* xG TIMELINE TAB */}
           <TabsContent value="xg" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
+            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Flame className="size-4 text-cyan-400" />Cumulative xG Timeline</h3>
               {xgTimeline.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
@@ -577,7 +577,7 @@ export default function MatchDetailView() {
 
           {/* SHOT MAP TAB */}
           <TabsContent value="shotmap" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
+            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Swords className="size-4 text-amber-400" />Shot Map {sbSource && <span className="text-[10px] font-normal text-muted-foreground">({sbSource})</span>}{sbLoading && <Loader2 className="size-3 animate-spin text-muted-foreground" />}</h3>
               {shotMapData === null ? (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -620,7 +620,7 @@ export default function MatchDetailView() {
 
           {/* xT (EXPECTED THREAT) TAB */}
           <TabsContent value="xt" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
+            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-1 flex items-center gap-2"><Flame className="size-4 text-orange-400" />Expected Threat (xT) Leaderboard</h3>
               <p className="text-[10px] text-muted-foreground mb-4">Measures how much each pass increased the probability of scoring. Powered by a 12x8 pitch grid trained on thousands of matches.</p>
               {xtLoading ? (
@@ -663,7 +663,7 @@ export default function MatchDetailView() {
           {/* VOTES TAB */}
           <TabsContent value="votes" className="mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
+              <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
                 <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Users className="size-4 text-primary" />Community Vote Distribution</h3>
                 {totalVotes > 0 ? (
                   <>
@@ -683,7 +683,7 @@ export default function MatchDetailView() {
                 ) : <p className="text-sm text-muted-foreground text-center py-8">No votes yet</p>}
               </CardContent></Card>
 
-              <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
+              <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
                 <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><MessageSquare className="size-4 text-cyan-400" />Prediction Summary</h3>
                 {(match.predictions || []).length > 0 ? (
                   <div className="space-y-2 max-h-64 overflow-y-auto">
