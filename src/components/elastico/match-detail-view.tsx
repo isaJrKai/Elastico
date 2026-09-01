@@ -76,8 +76,8 @@ function StatBarRow({ label, homeValue, awayValue, homeColor, awayColor, suffix 
         <span className={cn('font-semibold tabular-nums', (100 - hp) > hp ? 'text-foreground' : 'text-muted-foreground')}>{fmt(awayValue)}{suffix}</span>
       </div>
       <div className="flex h-2 gap-0.5 rounded-full overflow-hidden bg-muted">
-        <div className="h-full rounded-full transition-colors duration-700 ease-out" style={{ width: `${hp}%`, backgroundColor: homeColor || chartColor(0) }} />
-        <div className="h-full rounded-full transition-colors duration-700 ease-out ml-auto" style={{ width: `${100 - hp}%`, backgroundColor: awayColor || chartColor(1) }} />
+        <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${hp}%`, backgroundColor: homeColor || chartColor(0) }} />
+        <div className="h-full rounded-full transition-all duration-700 ease-out ml-auto" style={{ width: `${100 - hp}%`, backgroundColor: awayColor || chartColor(1) }} />
       </div>
     </div>
   )
@@ -384,7 +384,7 @@ export default function MatchDetailView() {
         {/* ═══════════════════════════════════════════════════════════════════
             MATCH HEADER
             ═══════════════════════════════════════════════════════════════════ */}
-        <Card className="rounded-lg border border-border bg-card overflow-hidden">
+        <Card className="rounded-lg border border-border bg-card rounded-xl overflow-hidden">
           <CardContent className="p-6">
             {/* Competition + Status */}
             <div className="flex items-center justify-between mb-6">
@@ -394,7 +394,7 @@ export default function MatchDetailView() {
                 {match.group && <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">Group {match.group}</Badge>}
               </div>
               <Badge variant="outline" className={cn('text-xs font-bold', statusConfig?.cls)}>
-                {statusConfig?.pulse && <span className="relative flex size-1.5 mr-1.5"><span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" /><span className="relative inline-flex size-1.5 rounded-full bg-red-500" /></span>}
+                {statusConfig?.pulse && <span className="relative flex size-1.5 mr-1.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex size-1.5 rounded-full bg-red-500" /></span>}
                 {statusConfig?.label}
               </Badge>
             </div>
@@ -468,7 +468,7 @@ export default function MatchDetailView() {
             <div className="mt-5 max-w-md mx-auto space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] w-10 text-right text-emerald-400 font-medium">Home</span>
-                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-colors duration-1000" style={{ width: `${homeWinProb}%` }} /></div>
+                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-1000" style={{ width: `${homeWinProb}%` }} /></div>
                 <div className="flex items-center gap-1">
                   <span className="text-[11px] font-bold tabular-nums">{homeWinProb}%</span>
                   <StatusBadge variant="dataclass" value="DERIVED" />
@@ -476,7 +476,7 @@ export default function MatchDetailView() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] w-10 text-right text-amber-400 font-medium">Draw</span>
-                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-colors duration-1000" style={{ width: `${drawProb}%` }} /></div>
+                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-1000" style={{ width: `${drawProb}%` }} /></div>
                 <div className="flex items-center gap-1">
                   <span className="text-[11px] font-bold tabular-nums">{drawProb}%</span>
                   <StatusBadge variant="dataclass" value="DERIVED" />
@@ -484,7 +484,7 @@ export default function MatchDetailView() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] w-10 text-right text-red-400 font-medium">Away</span>
-                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-red-600 to-red-400 transition-colors duration-1000" style={{ width: `${awayWinProb}%` }} /></div>
+                <div className="flex-1 h-3 rounded-full bg-muted/50 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-red-600 to-red-400 transition-all duration-1000" style={{ width: `${awayWinProb}%` }} /></div>
                 <div className="flex items-center gap-1">
                   <span className="text-[11px] font-bold tabular-nums">{awayWinProb}%</span>
                   <StatusBadge variant="dataclass" value="DERIVED" />
@@ -518,20 +518,20 @@ export default function MatchDetailView() {
               { value: 'xt', label: 'xT Threat' },
               { value: 'votes', label: 'Votes' },
             ].map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="flex-shrink-0 min-w-[90px] h-8 text-xs font-semibold rounded-md transition-colors data-[state=active]:bg-primary/15 data-[state=active]:text-primary">{t.label}</TabsTrigger>
+              <TabsTrigger key={t.value} value={t.value} className="flex-shrink-0 min-w-[90px] h-8 text-xs font-semibold rounded-md transition-all data-[state=active]:bg-primary/15 data-[state=active]:text-primary">{t.label}</TabsTrigger>
             ))}
           </TabsList>
 
           {/* TIMELINE TAB */}
           <TabsContent value="timeline" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
+            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Activity className="size-4 text-primary" />Match Events</h3>
               {sortedEvents.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No events recorded</p>
               ) : (
                 <div className="relative ml-4 border-l-2 border-border/30 space-y-4">
                   {sortedEvents.map((ev, i) => (
-                    <div key={ev.id || i} className="relative pl-6 -left" style={{ animationDelay: `${i * 50}ms` }}>
+                    <div key={ev.id || i} className="relative pl-6 animate-slide-in-left" style={{ animationDelay: `${i * 50}ms` }}>
                       <div className="absolute -left-[9px] top-0.5 size-4 rounded-full bg-background border-2 border-border flex items-center justify-center text-[10px]">{getEventIcon(ev.type)}</div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold tabular-nums text-primary">{ev.minute}&apos;</span>
@@ -550,7 +550,7 @@ export default function MatchDetailView() {
 
           {/* STATISTICS TAB */}
           <TabsContent value="statistics" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5 space-y-4">
+            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5 space-y-4">
               <h3 className="text-sm font-bold flex items-center gap-2"><Target className="size-4 text-primary" />Match Statistics</h3>
               {stats.map((s) => <StatBarRow key={s.label} label={s.label} homeValue={s.h} awayValue={s.a} suffix={s.suffix} decimals={s.decimals ?? 0} />)}
             </CardContent></Card>
@@ -558,7 +558,7 @@ export default function MatchDetailView() {
 
           {/* xG TIMELINE TAB */}
           <TabsContent value="xg" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
+            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Flame className="size-4 text-cyan-400" />Cumulative xG Timeline</h3>
               {xgTimeline.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
@@ -577,7 +577,7 @@ export default function MatchDetailView() {
 
           {/* SHOT MAP TAB */}
           <TabsContent value="shotmap" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
+            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Swords className="size-4 text-amber-400" />Shot Map {sbSource && <span className="text-[10px] font-normal text-muted-foreground">({sbSource})</span>}{sbLoading && <Loader2 className="size-3 animate-spin text-muted-foreground" />}</h3>
               {shotMapData === null ? (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -586,7 +586,7 @@ export default function MatchDetailView() {
                 </div>
               ) : (
               <>
-              <div className="rounded-xl p-4 relative bg-secondary" style={{ aspectRatio: '3/2' }}>
+              <div className="pitch-bg rounded-xl p-4 relative" style={{ aspectRatio: '3/2' }}>
                 {/* Pitch markings */}
                 <div className="absolute inset-0 border-2 border-emerald-500/20 rounded-xl" />
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[40%] h-[15%] border-b-2 border-x-2 border-emerald-500/20 rounded-b-lg" />
@@ -620,7 +620,7 @@ export default function MatchDetailView() {
 
           {/* xT (EXPECTED THREAT) TAB */}
           <TabsContent value="xt" className="mt-4">
-            <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
+            <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
               <h3 className="text-sm font-bold mb-1 flex items-center gap-2"><Flame className="size-4 text-orange-400" />Expected Threat (xT) Leaderboard</h3>
               <p className="text-[10px] text-muted-foreground mb-4">Measures how much each pass increased the probability of scoring. Powered by a 12x8 pitch grid trained on thousands of matches.</p>
               {xtLoading ? (
@@ -663,7 +663,7 @@ export default function MatchDetailView() {
           {/* VOTES TAB */}
           <TabsContent value="votes" className="mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
+              <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
                 <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><Users className="size-4 text-primary" />Community Vote Distribution</h3>
                 {totalVotes > 0 ? (
                   <>
@@ -683,7 +683,7 @@ export default function MatchDetailView() {
                 ) : <p className="text-sm text-muted-foreground text-center py-8">No votes yet</p>}
               </CardContent></Card>
 
-              <Card className="rounded-lg border border-border bg-card"><CardContent className="p-5">
+              <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-5">
                 <h3 className="text-sm font-bold mb-4 flex items-center gap-2"><MessageSquare className="size-4 text-cyan-400" />Prediction Summary</h3>
                 {(match.predictions || []).length > 0 ? (
                   <div className="space-y-2 max-h-64 overflow-y-auto">

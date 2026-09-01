@@ -135,61 +135,54 @@ export default function TournamentView() {
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="flex items-center gap-6 text-sm flex-wrap">
-        <div>
-          <span className="text-muted-foreground">Teams </span>
-          <span className="font-bold tabular-nums">{totalTeams}</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Goals </span>
-          <span className="font-bold tabular-nums">{totalGoals}</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Avg/Match </span>
-          <span className="font-bold tabular-nums">{avgGoals}</span>
-        </div>
-        {topTeam && (
-          <div>
-            <span className="text-muted-foreground">Leader </span>
-            <span className="font-bold">{topTeam.team?.split(' ').slice(-1)[0]}</span>
-          </div>
-        )}
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { icon: Star, label: 'Teams', value: totalTeams, color: 'text-primary' },
+          { icon: TrendingUp, label: 'Total Goals', value: totalGoals, color: 'text-emerald-400' },
+          { icon: Zap, label: 'Avg Goals/Match', value: avgGoals, color: 'text-cyan-400' },
+          { icon: Trophy, label: 'Leader', value: topTeam?.team?.split(' ').slice(-1)[0] || '—', color: 'text-amber-400' },
+        ].map(s => (
+          <Card key={s.label} className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="flex items-center gap-3 p-4">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50"><s.icon className={cn('size-4', s.color)} /></div>
+            <div><p className="text-lg font-bold leading-tight truncate">{s.value}</p><div className="flex items-center gap-1"><p className="text-[10px] text-muted-foreground">{s.label}</p><StatusBadge variant="dataclass" value="REAL" /></div></div>
+          </CardContent></Card>
+        ))}
       </div>
 
       {/* Highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {topTeam && (
-          <div className="rounded-lg border border-border bg-card p-4 text-center">
-            <p className="text-[10px] text-muted-foreground mb-2">League Leader</p>
+          <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-1 mb-2"><p className="text-[10px] text-muted-foreground">League Leader</p><StatusBadge variant="dataclass" value="REAL" /></div>
             <TeamCrest code={topTeam.code} espnLogo={topTeam.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{topTeam.team}</p>
-            <p className="text-xl font-black text-primary mt-1">{topTeam.points} pts</p>
+            <p className="text-2xl font-black text-primary mt-1">{topTeam.points} pts</p>
             <p className="text-[10px] text-muted-foreground">{topTeam.played} played</p>
-          </div>
+          </CardContent></Card>
         )}
         {topScorer && (
-          <div className="rounded-lg border border-border bg-card p-4 text-center">
-            <p className="text-[10px] text-muted-foreground mb-2">Most Goals</p>
+          <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-1 mb-2"><p className="text-[10px] text-muted-foreground">Most Goals Scored</p><StatusBadge variant="dataclass" value="REAL" /></div>
             <TeamCrest code={topScorer.code} espnLogo={topScorer.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{topScorer.team}</p>
-            <p className="text-xl font-black text-emerald-400 mt-1">{topScorer.goalsFor} GF</p>
+            <p className="text-2xl font-black text-emerald-400 mt-1">{topScorer.goalsFor} GF</p>
             <p className="text-[10px] text-muted-foreground">{topScorer.played} played</p>
-          </div>
+          </CardContent></Card>
         )}
         {bestDefense && (
-          <div className="rounded-lg border border-border bg-card p-4 text-center">
-            <p className="text-[10px] text-muted-foreground mb-2">Best Defense</p>
+          <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-1 mb-2"><p className="text-[10px] text-muted-foreground">Best Defense</p><StatusBadge variant="dataclass" value="REAL" /></div>
             <TeamCrest code={bestDefense.code} espnLogo={bestDefense.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{bestDefense.team}</p>
-            <p className="text-xl font-black text-cyan-400 mt-1">{bestDefense.goalsAgainst} GA</p>
+            <p className="text-2xl font-black text-cyan-400 mt-1">{bestDefense.goalsAgainst} GA</p>
             <p className="text-[10px] text-muted-foreground">{bestDefense.played} played</p>
-          </div>
+          </CardContent></Card>
         )}
       </div>
 
       {/* Standings Table */}
-      <Card className="rounded-lg border border-border bg-card">
+      <Card className="rounded-lg border border-border bg-card rounded-xl">
         <CardHeader className="pb-2 px-4 pt-4">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
             <Trophy className="size-4 text-primary" />

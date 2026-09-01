@@ -406,7 +406,7 @@ export default function ChatView() {
           </div>
           <p className="text-xs text-muted-foreground">Loading AI assistant...</p>
         </div>
-        <Card className="rounded-lg border border-border bg-card flex flex-1 overflow-hidden">
+        <Card className="rounded-lg border border-border bg-card rounded-xl flex flex-1 overflow-hidden">
           <CardContent className="flex flex-1 items-center justify-center">
             <Loader2 className="size-6 animate-spin text-primary" />
           </CardContent>
@@ -554,7 +554,7 @@ export default function ChatView() {
                   <button
                     key={prompt}
                     onClick={() => handleSuggestionClick(prompt)}
-                    className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
+                    className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2.5 text-left text-xs text-muted-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
                   >
                     <MessageSquare className="size-3.5 shrink-0 text-primary/60" />
                     <span className="truncate">{prompt}</span>
@@ -570,7 +570,7 @@ export default function ChatView() {
               <div
                 key={msg.id}
                 className={cn(
-                  'flex gap-3',
+                  'flex  gap-3',
                   msg.role === 'user' ? 'flex-row-reverse' : 'flex-row',
                 )}
               >

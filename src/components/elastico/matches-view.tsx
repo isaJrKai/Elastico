@@ -126,7 +126,7 @@ function MatchCard({ match, onClick }: { match: FDMatch; onClick?: () => void })
   return (
     <Card
       className={cn(
-        'rounded-lg border border-border bg-card transition-colors duration-200 group cursor-pointer',
+        'rounded-lg border border-border bg-card  rounded-xl transition-all duration-200  group cursor-pointer',
         isLive && 'border-red-500/20 hover:border-red-500/40',
         !isLive && 'hover:border-primary/30',
       )}
@@ -440,7 +440,7 @@ export default function MatchesView() {
   const renderContent = () => {
     if (viewState === 'loading') {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <MatchCardSkeleton key={i} />
           ))}
@@ -480,9 +480,12 @@ export default function MatchesView() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {sortedMatches.map((match) => (
-            <div key={match.id}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedMatches.map((match, idx) => (
+            <div
+              key={match.id}
+              style={{ animationDelay: `${Math.min(idx * 50, 300)}ms` }}
+            >
               <MatchCard
                 match={match}
                 onClick={() => handleMatchClick(match.id)}
@@ -499,7 +502,7 @@ export default function MatchesView() {
   return (
     <div className="flex flex-col gap-4">
       {/* Filter Bar */}
-      <div className="rounded-lg border border-border bg-card p-4">
+      <div className="rounded-lg border border-border bg-card rounded-xl p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Competition Selector */}
           <Select
@@ -567,11 +570,11 @@ export default function MatchesView() {
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="flex-1 h-8 text-xs font-semibold rounded-md transition-colors gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                className="flex-1 h-8 text-xs font-semibold rounded-md transition-all gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-sm"
               >
                 {tab.value === 'live' && liveCount > 0 && (
                   <span className="relative flex size-1.5">
-                    <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" />
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
                   </span>
                 )}

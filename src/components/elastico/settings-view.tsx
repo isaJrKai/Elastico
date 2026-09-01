@@ -304,14 +304,15 @@ function BandwidthSection() {
   const { isOffline, isRegistered, isStandalone, clearCache } = usePWA()
 
   useEffect(() => {
-    // Poll bandwidth tracker
+    // Poll bandwidth tracker every 2 seconds
     const load = async () => {
       try {
-        // Bandwidth tracker module not available
-      } catch { /* ignore */ }
+        const mod = await import('@/lib/compressed-data-stream')
+        setBandwidth(mod.BandwidthTracker.summary())
+      } catch (err) { console.warn('[SettingsView] BandwidthTracker import failed:', err) }
     }
     load()
-    const interval = setInterval(load, 5000)
+    const interval = setInterval(load, 2000)
     return () => clearInterval(interval)
   }, [])
 
@@ -607,7 +608,7 @@ export default function SettingsView() {
           <p className="text-xs text-muted-foreground">Manage your account and preferences</p>
         </div>
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="rounded-lg border border-border bg-card border-border">
+          <Card key={i} className="rounded-lg border border-border bg-card rounded-xl border-border">
             <CardContent className="p-6 space-y-3">
               <div className="h-4 w-32 rounded bg-muted/50 animate-pulse" />
               <div className="h-3 w-full rounded bg-muted/30 animate-pulse" />
@@ -629,7 +630,7 @@ export default function SettingsView() {
           </div>
           <p className="text-xs text-muted-foreground">Manage your account and preferences</p>
         </div>
-        <Card className="rounded-lg border border-border bg-card border-border">
+        <Card className="rounded-lg border border-border bg-card rounded-xl border-border">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
             <AlertCircle className="size-12 text-red-400" />
             <p className="text-sm text-muted-foreground">Failed to load settings</p>
@@ -791,7 +792,7 @@ export default function SettingsView() {
               <button
                 onClick={() => setTheme('dark')}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
                   theme === 'dark'
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
@@ -803,7 +804,7 @@ export default function SettingsView() {
               <button
                 onClick={() => setTheme('light')}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
                   theme === 'light'
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
@@ -1235,7 +1236,7 @@ export default function SettingsView() {
                       key={team.id}
                       onClick={() => toggleFavoriteTeam(team.id)}
                       className={cn(
-                        'flex items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors',
+                        'flex items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs transition-all',
                         isFav
                           ? 'bg-primary/10 text-primary border border-primary/30'
                           : 'text-muted-foreground hover:bg-secondary/80 hover:text-foreground border border-transparent',

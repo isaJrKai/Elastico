@@ -771,7 +771,7 @@ export function PlayerView() {
         {/* Player Similarity Finder */}
         <TabsContent value="similar">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="rounded-lg border border-border bg-card">
+            <Card className="rounded-lg border border-border bg-card lg:col-span-1">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Select Player</CardTitle>
               </CardHeader>
@@ -791,7 +791,7 @@ export function PlayerView() {
                 ))}
               </CardContent>
             </Card>
-            <Card className="rounded-lg border border-border bg-card">
+            <Card className="rounded-lg border border-border bg-card lg:col-span-2">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Similar Players</CardTitle>
               </CardHeader>

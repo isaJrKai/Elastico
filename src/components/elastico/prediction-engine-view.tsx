@@ -320,16 +320,16 @@ export default function PredictionEngineView() {
 
       <Tabs defaultValue="simulator" className="w-full">
         <TabsList className="rounded-lg border border-border bg-card border-0 bg-transparent p-1 gap-1 overflow-x-auto flex-nowrap">
-          <TabsTrigger value="simulator" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-colors">
+          <TabsTrigger value="simulator" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Cpu className="w-4 h-4 mr-2" />Stochastic Simulator
           </TabsTrigger>
-          <TabsTrigger value="kelly" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-colors">
+          <TabsTrigger value="kelly" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Calculator className="w-4 h-4 mr-2" />Kelly Bankroll
           </TabsTrigger>
-          <TabsTrigger value="signals" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-colors">
+          <TabsTrigger value="signals" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Radio className="w-4 h-4 mr-2" />Market Signals
           </TabsTrigger>
-          <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-colors">
+          <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Settings className="w-4 h-4 mr-2" />Engine Config
           </TabsTrigger>
         </TabsList>
@@ -495,13 +495,13 @@ export default function PredictionEngineView() {
                 </CardContent>
               </Card>
 
-              <Button onClick={runSimulation} disabled={simulating} className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm tracking-wide rounded-xl transition-colors">
+              <Button onClick={runSimulation} disabled={simulating} className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm tracking-wide rounded-xl transition-all">
                 {simulating ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Running {simRuns} simulations...</> : <><Play className="w-4 h-4 mr-2" /> RUN SIMULATION</>}
               </Button>
             </motion.div>
 
             {/* Results Panel */}
-            <motion.div layout className="lg:col-space-y-4">
+            <motion.div layout className="lg:col-span-2 space-y-4">
               {!analysis ? (
                 <Card className="rounded-lg border border-border bg-card border-zinc-800/50 h-full min-h-[500px] flex items-center justify-center">
                   <div className="text-center space-y-3">
@@ -783,7 +783,7 @@ export default function PredictionEngineView() {
             </div>
 
             {/* Kelly results table */}
-            <div className="lg:col-">
+            <div className="lg:col-span-2">
               <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
@@ -893,7 +893,7 @@ export default function PredictionEngineView() {
               </CardContent>
             </Card>
 
-            <div className="lg:col-space-y-4">
+            <div className="lg:col-span-2 space-y-4">
               {!signalResult ? (
                 <Card className="rounded-lg border border-border bg-card border-zinc-800/50 h-full min-h-[400px] flex items-center justify-center">
                   <div className="text-center space-y-3">

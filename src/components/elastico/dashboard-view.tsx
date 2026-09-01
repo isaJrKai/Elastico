@@ -1,13 +1,12 @@
 /*
- * ELASTICO Dashboard — Command Center
+ * ELASTICO Dashboard
  *
  * Answers: "What matters right now?"
  *
- * Composition: KPI strip → Live ticker → 2:1 asymmetric main area
- *   Left (primary):  Featured match with ELO probability bars
- *   Right (secondary): News rail + quick actions
+ * Layout: Status bar → Live ticker → Asymmetric main
+ *   Left:  Featured match (primary surface)
+ *   Right: News list + navigation links (secondary)
  *
- * Design reference: ChatGPT-generated ELASTICO mockups (dark analytical aesthetic)
  * All data is real. No fabricated metrics.
  */
 
@@ -18,8 +17,8 @@ import { useElasticoStore } from '@/store/use-elastico-store'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Radio, Newspaper, RefreshCw, AlertCircle, ChevronRight,
-  Trophy, Brain, BarChart3, Clock, ArrowRight, Eye, Calendar,
+  RefreshCw, AlertCircle, ChevronRight,
+  Trophy, Brain, BarChart3, ArrowRight, Eye, List,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TeamCrest } from '@/components/elastico/primitives'
@@ -45,9 +44,9 @@ function computeEloProb(homeElo: number, awayElo: number, outcome: string): numb
   return Math.round(100 - expectedHome * 100 - (1 - expectedHome) * 100 * 0.75)
 }
 
-// ─── KPI Strip ────────────────────────────────────────────────────────────────
+// ─── Status Bar ────────────────────────────────────────────────────────────────
 
-function KpiStrip() {
+function StatusBar() {
   const { liveMatches, matches, user } = useElasticoStore()
 
   const liveCount = (liveMatches || []).filter(
@@ -61,64 +60,41 @@ function KpiStrip() {
   const accuracy = user?.predictionAccuracy ?? null
   const streak = user?.predictionStreak ?? 0
 
-  const kpis = [
-    {
-      label: 'LIVE NOW',
-      value: liveCount,
-      intent: liveCount > 0 ? 'danger' as const : 'default' as const,
-      icon: <Radio className="size-3.5" />,
-    },
-    {
-      label: 'UPCOMING',
-      value: upcomingCount,
-      intent: 'info' as const,
-      icon: <Clock className="size-3.5" />,
-    },
-    {
-      label: 'ACCURACY',
-      value: accuracy !== null ? `${accuracy}%` : '—',
-      intent: accuracy !== null && accuracy >= 55 ? 'success' as const : 'default' as const,
-      icon: <BarChart3 className="size-3.5" />,
-    },
-    {
-      label: 'BEST STREAK',
-      value: streak > 0 ? streak : '—',
-      intent: streak >= 3 ? 'success' as const : 'default' as const,
-      icon: <Brain className="size-3.5" />,
-    },
-  ]
-
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {kpis.map((kpi) => (
-        <div
-          key={kpi.label}
-          className="relative rounded-xl border border-border/40 bg-muted/20 px-4 py-3"
-        >
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span className={cn(
-            'text-muted-foreground',
-            kpi.intent === 'danger' && 'text-red-400',
-            kpi.intent === 'success' && 'text-emerald-400',
-            kpi.intent === 'info' && 'text-blue-400',
-          )}>
-            {kpi.icon}
-          </span>
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            {kpi.label}
-          </span>
-        </div>
+    <div className="flex items-center gap-5 text-xs px-1 py-1">
+      <span className={cn(
+        'font-semibold tabular-nums',
+        liveCount > 0 ? 'text-red-400' : 'text-muted-foreground'
+      )}>
+        {liveCount} live
+      </span>
+      <span className="text-muted-foreground/30">|</span>
+      <span className="text-muted-foreground tabular-nums">{upcomingCount} upcoming</span>
+      {accuracy !== null && (
+        <>
+          <span className="text-muted-foreground/30 hidden sm:inline">|</span>
           <span className={cn(
-            'text-2xl font-black tabular-nums leading-none',
-            kpi.intent === 'danger' && 'text-red-400',
-            kpi.intent === 'success' && 'text-emerald-400',
-            kpi.intent === 'info' && 'text-blue-400',
-            !['danger', 'success', 'info'].includes(kpi.intent) && 'text-foreground',
+            'tabular-nums hidden sm:inline',
+            accuracy >= 55 ? 'text-emerald-400' : 'text-muted-foreground'
           )}>
-            {kpi.value}
+            {accuracy}% accuracy
           </span>
-        </div>
-      ))}
+        </>
+      )}
+      {streak > 0 && (
+        <>
+          <span className="text-muted-foreground/30 hidden sm:inline">|</span>
+          <span className="tabular-nums text-muted-foreground hidden sm:inline">{streak} streak</span>
+        </>
+      )}
+      <div className="flex-1" />
+      <button
+        onClick={() => useElasticoStore.getState().fetchLiveScores()}
+        className="text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="Refresh"
+      >
+        <RefreshCw className="size-3" />
+      </button>
     </div>
   )
 }
@@ -141,7 +117,7 @@ function LiveTicker() {
       <div className="flex items-center gap-3 border-y border-border/40 bg-muted/10 px-4 py-2">
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="relative flex size-1.5">
-            <span className="absolute inline-flex size-full rounded-full bg-muted-foreground opacity-50 animate-pulse" />
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-muted-foreground/40" />
             <span className="relative inline-flex size-1.5 rounded-full bg-muted-foreground" />
           </span>
           <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Live</span>
@@ -167,7 +143,7 @@ function LiveTicker() {
     <div className="flex items-center gap-3 border-y border-border/40 bg-muted/10 px-4 py-2 overflow-x-auto">
       <div className="flex items-center gap-1.5 shrink-0">
         <span className="relative flex size-1.5">
-          <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" />
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
           <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
         </span>
         <span className="text-[10px] font-semibold uppercase tracking-widest text-red-400">
@@ -323,19 +299,19 @@ function FeaturedMatchPanel() {
   // Loading
   if (isLoading && matches.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-6 animate-pulse">
+      <div className="rounded-lg border border-border bg-card p-6">
         <div className="flex items-center justify-between gap-6">
           <div className="flex-1 flex items-center gap-4">
-            <Skeleton className="size-14 rounded-full" />
-            <div className="space-y-2"><Skeleton className="h-5 w-32" /><Skeleton className="h-3 w-16" /></div>
+            <Skeleton className="size-12 rounded-full" />
+            <div className="space-y-2"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-16" /></div>
           </div>
           <div className="text-center"><Skeleton className="h-10 w-24 mx-auto" /><Skeleton className="h-3 w-16 mt-2" /></div>
           <div className="flex-1 flex items-center gap-4 justify-end">
-            <div className="space-y-2 text-right"><Skeleton className="h-5 w-32" /><Skeleton className="h-3 w-16" /></div>
-            <Skeleton className="size-14 rounded-full" />
+            <div className="space-y-2 text-right"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-16" /></div>
+            <Skeleton className="size-12 rounded-full" />
           </div>
         </div>
-        <div className="mt-6 space-y-2">
+        <div className="mt-5 space-y-2">
           <Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-3/4" />
         </div>
       </div>
@@ -346,7 +322,7 @@ function FeaturedMatchPanel() {
   if (errors.fetchMatches) {
     return (
       <div className="rounded-lg border border-border bg-card p-8 flex flex-col items-center gap-3 text-center">
-        <AlertCircle className="size-8 text-destructive" />
+        <AlertCircle className="size-7 text-destructive" />
         <p className="text-sm text-muted-foreground">Failed to load match data.</p>
         <Button variant="outline" size="sm" onClick={fetchMatches} className="gap-1.5">
           <RefreshCw className="size-3" /> Retry
@@ -359,10 +335,10 @@ function FeaturedMatchPanel() {
   if (!featured) {
     return (
       <div className="rounded-lg border border-border bg-card p-8 flex flex-col items-center gap-3 text-center">
-        <Eye className="size-10 text-muted-foreground/30" />
+        <Eye className="size-8 text-muted-foreground/30" />
         <div>
           <p className="text-sm font-medium text-muted-foreground">No matches available right now</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Try a different time or browse all competitions</p>
+          <p className="text-xs text-muted-foreground/50 mt-1">Try a different time or browse all competitions</p>
         </div>
         <Button
           variant="outline"
@@ -387,33 +363,33 @@ function FeaturedMatchPanel() {
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
-      {/* Competition bar */}
-      <div className="flex items-center justify-between px-5 py-2.5 border-b border-border/30">
-        <div className="flex items-center gap-2">
+      {/* Match identity — team names, crests, score */}
+      <div className="px-5 pt-5 pb-4">
+        {/* Competition + status inline above teams */}
+        <div className="flex items-center gap-2 mb-4">
           <Trophy className="size-3 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground font-medium">{featured.competition || 'Unknown Competition'}</span>
+          <span className="text-[11px] text-muted-foreground">{featured.competition || 'Unknown Competition'}</span>
           {featured.source && (
-            <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/50 border border-border/30 rounded px-1 py-px">
+            <span className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-wider">
               {featured.source}
             </span>
           )}
+          <div className="flex-1" />
+          {isLive && (
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">Live</span>
+            </div>
+          )}
+          {isFinished && (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">FT</span>
+          )}
         </div>
-        {isLive && (
-          <div className="flex items-center gap-1.5">
-            <span className="relative flex size-1.5">
-              <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-red-500" />
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-red-400">Live</span>
-          </div>
-        )}
-        {isFinished && (
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">Full Time</span>
-        )}
-      </div>
 
-      {/* Match identity — team names, crests, score */}
-      <div className="px-6 pt-6 pb-4">
+        {/* Teams + score */}
         <div className="flex items-center justify-between gap-4">
           {/* Home team */}
           <div className="flex-1 flex items-center gap-3 min-w-0">
@@ -488,18 +464,18 @@ function FeaturedMatchPanel() {
 
       {/* Probability bars — only shown when real ELO data exists */}
       {hasElo ? (
-      <div className="px-6 pb-4">
+      <div className="px-5 pb-4">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Match Probability</span>
-          <span className="text-[9px] text-muted-foreground/40 font-mono">(ELO-derived)</span>
+          <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Probability</span>
+          <span className="text-[9px] text-muted-foreground/40 font-mono">ELO</span>
         </div>
         <div className="space-y-1.5">
           {/* Home win bar */}
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0">Home</span>
-            <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
+            <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
               <div
-                className="h-full rounded-full transition-colors duration-700"
+                className="h-full rounded-full transition-[width] duration-700"
                 style={{ width: `${homeProb}%`, backgroundColor: chartColor(0) }}
               />
             </div>
@@ -510,9 +486,9 @@ function FeaturedMatchPanel() {
           {/* Draw bar */}
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0">Draw</span>
-            <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
+            <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
               <div
-                className="h-full rounded-full transition-colors duration-700"
+                className="h-full rounded-full transition-[width] duration-700"
                 style={{ width: `${drawProb}%`, backgroundColor: chartColor(2) }}
               />
             </div>
@@ -523,9 +499,9 @@ function FeaturedMatchPanel() {
           {/* Away win bar */}
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0">Away</span>
-            <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
+            <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
               <div
-                className="h-full rounded-full transition-colors duration-700"
+                className="h-full rounded-full transition-[width] duration-700"
                 style={{ width: `${awayProb}%`, backgroundColor: chartColor(4) }}
               />
             </div>
@@ -536,15 +512,15 @@ function FeaturedMatchPanel() {
         </div>
       </div>
       ) : (
-      <div className="px-6 pb-4">
-        <p className="text-[11px] text-muted-foreground/60 text-center py-3">ELO ratings unavailable for this match — probability bars require database-backed ELO data.</p>
+      <div className="px-5 pb-4">
+        <p className="text-[11px] text-muted-foreground/50 text-center py-3">ELO ratings unavailable for this match source.</p>
       </div>
       )}
 
       {/* Action bar */}
-      <div className="px-6 pb-5">
+      <div className="px-5 pb-4">
         <Button
-          className="w-full h-9 gap-2 text-sm font-semibold"
+          className="w-full h-8 gap-2 text-sm font-medium"
           onClick={() => selectMatch(featured.source === 'espn' ? `espn:${featured.id}` : featured.id)}
         >
           <Eye className="size-3.5" />
@@ -640,25 +616,26 @@ function NewsRail() {
 
 // ─── Quick Actions ─────────────────────────────────────────────────────────────
 
-function QuickActions() {
+function QuickLinks() {
   const setView = useElasticoStore((s) => s.setView)
 
-  const actions = [
-    { label: 'All Matches', icon: <Trophy className="size-3.5" />, view: 'matches' as const },
-    { label: 'Predictions', icon: <BarChart3 className="size-3.5" />, view: 'predictions' as const },
-    { label: 'AI Analyst', icon: <Brain className="size-3.5" />, view: 'ai-chat' as const },
+  const links = [
+    { label: 'All Matches', icon: <Trophy className="size-3" />, view: 'matches' as const },
+    { label: 'Predictions', icon: <BarChart3 className="size-3" />, view: 'predictions' as const },
+    { label: 'AI Analyst', icon: <Brain className="size-3" />, view: 'ai-chat' as const },
+    { label: 'Standings', icon: <List className="size-3" />, view: 'leaderboard' as const },
   ]
 
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {actions.map((a) => (
+    <div className="flex flex-col gap-1">
+      {links.map((l) => (
         <button
-          key={a.view}
-          onClick={() => setView(a.view)}
-          className="flex flex-col items-center gap-1.5 rounded-xl border border-border/30 bg-muted/10 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-accent/40 hover:border-border/60 transition-colors"
+          key={l.view}
+          onClick={() => setView(l.view)}
+          className="flex items-center gap-2 px-1 py-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-accent/40 text-left"
         >
-          {a.icon}
-          <span className="text-[10px] font-medium">{a.label}</span>
+          {l.icon}
+          {l.label}
         </button>
       ))}
     </div>
@@ -669,29 +646,22 @@ function QuickActions() {
 
 function UpcomingFixtures({ matches }: { matches: any[] }) {
   const [expanded, setExpanded] = useState(false)
-  const visible = expanded ? matches : matches.slice(0, 6)
+  const visible = expanded ? matches : matches.slice(0, 5)
 
   if (matches.length === 0) return null
 
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-2.5 border-b border-border/30">
-        <div className="flex items-center gap-2">
-          <Calendar className="size-3 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground font-medium">Upcoming Fixtures</span>
-          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/50 border border-border/30 rounded px-1 py-px">
-            football-data.org
-          </span>
-        </div>
-        <span className="text-[10px] font-semibold text-muted-foreground/60">
-          {matches.length} match{matches.length !== 1 ? 'es' : ''}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border/50">
+        <span className="text-[11px] font-medium text-muted-foreground">Upcoming Fixtures</span>
+        <span className="text-[11px] tabular-nums text-muted-foreground/60">
+          {matches.length}
         </span>
       </div>
-      <div className="divide-y divide-border/25 max-h-96 overflow-y-auto custom-scrollbar">
+      <div className="divide-y divide-border/30">
         {visible.map((m: any, idx: number) => {
           const home = m.homeTeam?.shortName || m.homeTeam?.name || 'Home'
           const away = m.awayTeam?.shortName || m.awayTeam?.name || 'Away'
-          const competition = m.competition?.name || m.competition || 'Premier League'
           const dateStr = m.utcDate || m.date
           const matchDate = dateStr
             ? new Date(dateStr).toLocaleDateString(undefined, {
@@ -704,49 +674,36 @@ function UpcomingFixtures({ matches }: { matches: any[] }) {
           return (
             <div
               key={m.id || idx}
-              className="flex items-center gap-3 px-5 py-2.5 hover:bg-accent/30 transition-colors"
+              className="flex items-center gap-3 px-4 py-2 hover:bg-accent/30 transition-colors"
             >
               {homeCrest ? (
                 <img
                   src={homeCrest}
                   alt={home}
-                  className="size-5 shrink-0 object-contain"
+                  className="size-4 shrink-0 object-contain"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                 />
-              ) : (
-                <div className="size-5 shrink-0 rounded-full bg-muted/40" />
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[13px] font-semibold truncate">{home}</span>
-                  <span className="text-[11px] text-muted-foreground/40 shrink-0">vs</span>
-                  <span className="text-[13px] font-semibold truncate">{away}</span>
-                </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] text-muted-foreground/60">{matchDate}</span>
-                  <span className="text-[9px] text-muted-foreground/40 border border-border/20 rounded px-1 py-px">
-                    {competition}
-                  </span>
-                </div>
-              </div>
+              ) : null}
+              <span className="text-[13px] font-medium truncate flex-1">{home}</span>
+              <span className="text-[11px] text-muted-foreground/40 shrink-0">vs</span>
+              <span className="text-[13px] font-medium truncate flex-1 text-right">{away}</span>
               {awayCrest ? (
                 <img
                   src={awayCrest}
                   alt={away}
-                  className="size-5 shrink-0 object-contain"
+                  className="size-4 shrink-0 object-contain"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                 />
-              ) : (
-                <div className="size-5 shrink-0 rounded-full bg-muted/40" />
-              )}
+              ) : null}
+              <span className="text-[10px] text-muted-foreground/50 tabular-nums shrink-0 ml-2">{matchDate}</span>
             </div>
           )
         })}
       </div>
-      {matches.length > 6 && (
+      {matches.length > 5 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="w-full px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground border-t border-border/30 hover:bg-accent/30 transition-colors flex items-center justify-center gap-1"
+          className="w-full px-4 py-2 text-[11px] text-muted-foreground hover:text-foreground border-t border-border/30 hover:bg-accent/30 transition-colors flex items-center justify-center gap-1"
         >
           {expanded ? 'Show less' : `Show all ${matches.length}`}
           <ChevronRight className={cn('size-3 transition-transform', expanded && 'rotate-90')} />
@@ -820,22 +777,24 @@ export default function DashboardView() {
   }, [])
 
   return (
-    <section className="flex flex-col gap-6" aria-label="Dashboard">
+    <section className="flex flex-col gap-4" aria-label="Dashboard">
+      {/* Status bar — inline metrics, no card wrappers */}
+      <StatusBar />
+
       {/* Live ticker — full width, only when live matches exist */}
       <LiveTicker />
 
-      {/* Featured match — full width, the single focus */}
-      <FeaturedMatchPanel />
-
-      {/* Two-column: upcoming fixtures + news */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="flex flex-col gap-4">
+      {/* Main content — fixed-width right rail */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 min-h-0">
+        {/* Primary: Featured match + fallback fixtures */}
+        <div className="min-w-0 flex flex-col gap-4">
+          <FeaturedMatchPanel />
           {featured === null && fdLoading && (
             <div className="rounded-lg border border-border bg-card p-6">
               <div className="space-y-2.5">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <Skeleton className="size-5 rounded-full" />
+                    <Skeleton className="size-4 rounded-full" />
                     <Skeleton className="h-3.5 w-48" />
                     <Skeleton className="h-3 w-20 ml-auto" />
                   </div>
@@ -848,8 +807,10 @@ export default function DashboardView() {
           )}
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-4">
+        {/* Secondary: News list + navigation links */}
+        <div className="min-w-0 flex flex-col gap-5">
           <NewsRail />
+          <QuickLinks />
         </div>
       </div>
     </section>

@@ -69,7 +69,7 @@ function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix 
     orange: 'bg-orange-500/10 text-orange-400',
   }
   return (
-    <Card className="rounded-lg border border-border bg-card rounded-lg border border-border bg-card">
+    <Card className="rounded-lg border border-border bg-card rounded-lg border border-border bg-card-hover">
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1 min-w-0">
@@ -100,7 +100,7 @@ function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix 
 
 function SectionCard({ title, icon: Icon, children, className = '' }: { title: string; icon: React.ElementType; children: React.ReactNode; className?: string }) {
   return (
-    <Card className={`rounded-lg border border-border bg-card ${className}`}>
+    <Card className={`rounded-lg border border-border bg-card  ${className}`}>
       <CardHeader className="pb-3 pt-4 px-4">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Icon className="h-4 w-4 text-emerald-400" />

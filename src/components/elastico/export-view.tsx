@@ -233,7 +233,7 @@ export function ExportView() {
             {REPORT_TEMPLATES.map((template) => (
               <div
                 key={template.id}
-                className="rounded-lg border border-border bg-card p-6 rounded-xl border border-border/30 cursor-pointer group transition-colors duration-200 hover:-translate-y-1"
+                className="rounded-lg border border-border bg-card p-6 rounded-xl border border-border/30 cursor-pointer group transition-all duration-200 hover:-translate-y-1"
                 onClick={() => handleReportTemplate(template)}
               >
                 {(() => { const Icon = ICON_MAP[template.icon] || FileText; return <Icon className="size-8 text-primary/60 mb-3" /> })()}
@@ -421,7 +421,7 @@ export function ExportView() {
                 ].map(chart => (
                   <div
                     key={chart.name}
-                    className="rounded-lg border border-border bg-card p-4 rounded-lg border border-border/30 cursor-pointer transition-colors duration-200 hover:-translate-y-1"
+                    className="rounded-lg border border-border bg-card p-4 rounded-lg border border-border/30 cursor-pointer transition-all duration-200 hover:-translate-y-1"
                     onClick={() => toast.info(`Navigate to ${chart.name} view, then use Ctrl+P to save as PDF`)}
                   >
                     <BarChartIcon className="size-5 text-primary mb-2" />

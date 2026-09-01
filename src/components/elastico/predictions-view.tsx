@@ -404,7 +404,7 @@ export default function PredictionsView() {
             { icon: Flame, label: 'Current Streak', value: streak, color: 'text-orange-400' },
             { icon: Crown, label: 'Best Streak', value: bestStreak, color: 'text-amber-400' },
           ].map(s => (
-            <Card key={s.label} className="rounded-lg border border-border bg-card">
+            <Card key={s.label} className="rounded-lg border border-border bg-card rounded-xl">
               <CardContent className="flex items-center gap-3 p-4">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50">
                   <s.icon className={cn('size-4', s.color)} />
@@ -419,7 +419,7 @@ export default function PredictionsView() {
         </div>
 
         {/* Empty State Message */}
-        <Card className="rounded-lg border border-border bg-card">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-10 text-center gap-3">
             <div className="size-12 rounded-full bg-muted/40 flex items-center justify-center">
               <Target className="size-5 text-muted-foreground" />
@@ -439,7 +439,7 @@ export default function PredictionsView() {
 
         {/* Quick Predict — still visible when empty so user can start */}
         {upcomingMatches.length > 0 && (
-          <Card className="rounded-lg border border-border bg-card">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Send className="size-4 text-primary" />
@@ -475,7 +475,7 @@ export default function PredictionsView() {
         )}
 
         {/* Model Predictions (compute) — works independently of user predictions */}
-        <Card className="rounded-lg border border-border bg-card">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -566,7 +566,7 @@ export default function PredictionsView() {
         </Card>
 
         {/* Prediction Accuracy Section — requires predictions to populate */}
-        <Card className="rounded-lg border border-border bg-card">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <TrendingUp className="size-4 text-primary" />
@@ -611,29 +611,34 @@ export default function PredictionsView() {
         </Button>
       </div>
 
-      {/* ── ACCURACY STATS ── */}
-      <div className="flex items-center gap-6 text-sm">
-        <div>
-          <span className="text-muted-foreground">Accuracy </span>
-          <span className="font-bold tabular-nums">{accuracy}%</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Predictions </span>
-          <span className="font-bold tabular-nums">{totalPredictions}</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Streak </span>
-          <span className="font-bold tabular-nums">{streak}</span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Best </span>
-          <span className="font-bold tabular-nums">{bestStreak}</span>
-        </div>
+      {/* ── ACCURACY STATS CARDS ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { icon: Target, label: 'Accuracy', value: `${accuracy}%`, color: 'text-primary', dataClass: 'DERIVED' },
+          { icon: Zap, label: 'Total Predictions', value: totalPredictions, color: 'text-cyan-400', dataClass: 'REAL' },
+          { icon: Flame, label: 'Current Streak', value: streak, color: 'text-orange-400', dataClass: 'DERIVED' },
+          { icon: Crown, label: 'Best Streak', value: bestStreak, color: 'text-amber-400', dataClass: 'DERIVED' },
+        ].map(s => (
+          <Card key={s.label} className="rounded-lg border border-border bg-card rounded-xl">
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50">
+                <s.icon className={cn('size-4', s.color)} />
+              </div>
+              <div>
+                <p className="text-2xl font-black tabular-nums leading-none">{s.value}</p>
+                <p className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] text-muted-foreground">{s.label}</span>
+                  <StatusBadge variant="dataclass" value={s.dataClass} />
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* ── LEADERBOARD POSITION ── */}
       {leaderboardPos > 0 && (
-        <Card className="rounded-lg border border-border bg-card border-amber-500/20">
+        <Card className="rounded-lg border border-border bg-card rounded-xl border-amber-500/20">
           <CardContent className="flex items-center gap-4 p-4">
             <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15">
               <Trophy className="size-5 text-amber-400" />
@@ -653,7 +658,7 @@ export default function PredictionsView() {
 
       {/* ── QUICK PREDICT PANEL ── */}
       {upcomingMatches.length > 0 && (
-        <Card className="rounded-lg border border-border bg-card">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Send className="size-4 text-primary" />
@@ -690,7 +695,7 @@ export default function PredictionsView() {
       )}
 
       {/* ── MODEL PREDICTIONS (from /api/predictions/compute) ── */}
-      <Card className="rounded-lg border border-border bg-card">
+      <Card className="rounded-lg border border-border bg-card rounded-xl">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -782,9 +787,9 @@ export default function PredictionsView() {
 
       {/* ── MAIN GRID ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="space-y-5">
+        <div className="lg:col-span-2 space-y-5">
           {/* PREDICTION HISTORY TABLE */}
-          <Card className="rounded-lg border border-border bg-card">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -913,7 +918,7 @@ export default function PredictionsView() {
 
           {/* PENDING PREDICTIONS */}
           {pendingPredictions.length > 0 && (
-            <Card className="rounded-lg border border-border bg-card">
+            <Card className="rounded-lg border border-border bg-card rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <AlertCircle className="size-4 text-amber-400" />
@@ -954,7 +959,7 @@ export default function PredictionsView() {
         <div className="space-y-5">
           {/* ACCURACY BY MODEL CHART — real computation from DB */}
           {accuracyByModel.length > 0 ? (
-            <Card className="rounded-lg border border-border bg-card">
+            <Card className="rounded-lg border border-border bg-card rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <TrendingUp className="size-4 text-primary" />
@@ -984,7 +989,7 @@ export default function PredictionsView() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="rounded-lg border border-border bg-card">
+            <Card className="rounded-lg border border-border bg-card rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <TrendingUp className="size-4 text-primary" />
@@ -1001,7 +1006,7 @@ export default function PredictionsView() {
           )}
 
           {/* PREDICTION BREAKDOWN — honest summary */}
-          <Card className="rounded-lg border border-border bg-card">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Target className="size-4 text-primary" />

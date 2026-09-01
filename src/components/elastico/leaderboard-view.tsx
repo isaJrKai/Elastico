@@ -133,7 +133,7 @@ export default function LeaderboardView() {
           <StatusBadge variant="dataclass" value="DERIVED" />
         </div>
 
-        <Card className="rounded-lg border border-border bg-card">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center gap-4">
             <div className="size-14 rounded-full bg-muted/40 flex items-center justify-center">
               <Trophy className="size-6 text-muted-foreground/50" />
@@ -183,7 +183,7 @@ export default function LeaderboardView() {
 
       {/* Your Position Card */}
       {userEntry && (
-        <Card className="rounded-lg border border-border bg-card border-primary/20">
+        <Card className="rounded-lg border border-border bg-card rounded-xl border-primary/20 ring-glow-emerald">
           <CardContent className="flex items-center gap-4 p-4">
             <div className="flex size-12 items-center justify-center rounded-xl bg-primary/15"><Trophy className="size-5 text-primary" /></div>
             <div>
@@ -216,7 +216,7 @@ export default function LeaderboardView() {
             </div>
             <div className="flex gap-1 bg-muted/30 p-1 rounded-lg">
               {([['all', 'All Time'], ['month', 'This Month'], ['week', 'This Week']] as const).map(([val, label]) => (
-                <button key={val} disabled={timePeriod !== val} onClick={() => setTimePeriod(val as TimePeriod)} title={timePeriod === val ? undefined : 'Coming soon'} className={cn('px-3 py-1.5 rounded-md text-xs font-medium transition-colors', timePeriod === val ? 'bg-primary/15 text-primary' : 'text-muted-foreground opacity-50 cursor-not-allowed')}>{label}</button>
+                <button key={val} disabled={timePeriod !== val} onClick={() => setTimePeriod(val as TimePeriod)} title={timePeriod === val ? undefined : 'Coming soon'} className={cn('px-3 py-1.5 rounded-md text-xs font-medium transition-all', timePeriod === val ? 'bg-primary/15 text-primary' : 'text-muted-foreground opacity-50 cursor-not-allowed')}>{label}</button>
               ))}
             </div>
           </div>
@@ -227,7 +227,7 @@ export default function LeaderboardView() {
               {[top3[1], top3[0], top3[2]].map((entry, i) => {
                 const order = i === 0 ? 2 : i === 1 ? 1 : 3
                 return (
-                  <Card key={entry.id} className={cn('rounded-lg border border-border bg-card text-center', order === 1 && 'border-amber-500/30 ', order === 1 ? 'order-2 sm:order-none' : '')}>
+                  <Card key={entry.id} className={cn('rounded-lg border border-border bg-card rounded-xl text-center', order === 1 && 'border-amber-500/30 ring-glow-emerald', order === 1 ? 'order-2 sm:order-none' : '')}>
                     <CardContent className="p-4 pt-6">
                       <div className={cn('flex justify-center mb-2', order === 1 ? '-mt-6' : '')}>
                         <div className={cn('flex size-14 items-center justify-center rounded-full border-2', order === 1 ? 'border-amber-400 bg-amber-500/15' : order === 2 ? 'border-gray-400 bg-gray-500/10' : 'border-amber-700 bg-amber-800/10')}>
@@ -247,7 +247,7 @@ export default function LeaderboardView() {
           )}
 
           {/* Full Table */}
-          <Card className="rounded-lg border border-border bg-card overflow-hidden">
+          <Card className="rounded-lg border border-border bg-card rounded-xl overflow-hidden">
             <CardContent className="p-0">
               <div className="max-h-96 overflow-y-auto">
                 <table className="w-full">
@@ -318,7 +318,7 @@ export default function LeaderboardView() {
         {/* ANALYTICS TAB */}
         <TabsContent value="analytics" className="mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="rounded-lg border border-border bg-card">
+            <Card className="rounded-lg border border-border bg-card rounded-xl">
               <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2"><Target className="size-4 text-primary" />Accuracy Distribution</CardTitle></CardHeader>
               <CardContent>
                 {accuracyDistribution.length > 0 ? (
@@ -337,7 +337,7 @@ export default function LeaderboardView() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-lg border border-border bg-card">
+            <Card className="rounded-lg border border-border bg-card rounded-xl">
               <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2"><Star className="size-4 text-amber-400" />Platform Stats<StatusBadge variant="dataclass" value="DERIVED" /></CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {[

@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 
-const ibmPlexSans = IBM_Plex_Sans({
-  variable: "--font-ibm-plex-sans",
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const ibmPlexMono = IBM_Plex_Mono({
-  variable: "--font-ibm-plex-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -30,7 +29,7 @@ export const metadata: Metadata = {
     icon: [
       { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
-      { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2322C55E'/><text x='50' y='72' font-size='65' font-weight='bold' text-anchor='middle' fill='white'>E</text></svg>", sizes: "any" },
+      { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2310B981'/><text x='50' y='72' font-size='65' font-weight='bold' text-anchor='middle' fill='white'>E</text></svg>", sizes: "any" },
     ],
     apple: [
       { url: "/icons/icon-152x152.png", sizes: "152x152" },
@@ -38,8 +37,8 @@ export const metadata: Metadata = {
   },
   other: {
     "mobile-web-app-capable": "yes",
-    "theme-color": "#22C55E",
-    "msapplication-TileColor": "#0C0C0E",
+    "theme-color": "#10B981",
+    "msapplication-TileColor": "#0B0E14",
   },
 };
 
@@ -57,8 +56,8 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
       </head>
       <body
-        className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} antialiased bg-background text-foreground`}
-        style={{ fontFamily: 'var(--font-ibm-plex-sans), system-ui, sans-serif' }}
+        className={`${dmSans.variable} ${jetbrainsMono.variable} antialiased bg-background text-foreground`}
+        style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif' }}
       >
         <ThemeProvider
           attribute="class"

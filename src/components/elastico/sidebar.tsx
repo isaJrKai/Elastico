@@ -149,7 +149,7 @@ function SectionLabel({ children, collapsed }: { children: string; collapsed: bo
   if (collapsed) return null
   return (
     <div className="px-3 pt-5 pb-1.5">
-      <span className="text-[11px] font-medium tracking-wide uppercase text-muted-foreground/60">
+      <span className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/50">
         {children}
       </span>
     </div>
@@ -236,7 +236,7 @@ export function Sidebar() {
             {item.badge === 'live' && liveCount > 0 && (
               <span className="ml-auto flex items-center gap-1.5">
                 <span className="relative flex size-2">
-                  <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-75 animate-pulse" />
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
                   <span className="relative inline-flex size-2 rounded-full bg-red-500" />
                 </span>
                 <Badge variant="secondary" className="h-4.5 min-w-5 rounded-full px-1.5 text-[10px] font-bold bg-red-500/15 text-red-400 border-red-500/30">
@@ -288,7 +288,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 flex h-screen flex-col border-r border-border transition-[width] duration-200 var(--ease-out)',
+          'fixed top-0 left-0 z-50 flex h-screen flex-col border-r border-border transition-all duration-300 ease-in-out',
           'bg-sidebar',
           'md:relative md:z-0',
           // Mobile: slide in/out
@@ -329,7 +329,7 @@ export function Sidebar() {
           {NAV_GROUPS.map(renderGroup)}
 
           {/* System separator */}
-          <div className="mx-3 my-2 h-px bg-border" />
+          <div className="mx-3 my-2 h-px bg-white/[0.06]" />
           <SectionLabel collapsed={collapsed}>System</SectionLabel>
           <ul className="flex flex-col gap-0.5 px-2" role="list">
             {SYSTEM_ITEMS.map(renderNavItem)}

@@ -115,7 +115,7 @@ function CircGauge({ value, max = 100, size = 120, label, strokeColor }: {
           stroke={color} strokeWidth={8} strokeLinecap="round"
           strokeDasharray={circ} strokeDashoffset={offset}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          className="transition-colors duration-1000 ease-out"
+          className="transition-all duration-1000 ease-out"
         />
         <text x={size / 2} y={size / 2 - 4} textAnchor="middle" className="fill-foreground text-2xl font-bold" dominantBaseline="middle">
           {Math.round(value)}
@@ -388,7 +388,7 @@ function DataFoundationPanel() {
             <p className="text-xs text-muted-foreground mt-1">Overall completion (weighted)</p>
           </CardContent>
         </Card>
-        <Card className="sm:col-">
+        <Card className="sm:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Active Blockers</CardTitle>
           </CardHeader>
@@ -1191,7 +1191,7 @@ function AdminSystemMonitor() {
                 </Card>
 
                 {/* Run Integrity Check Button */}
-                <Card className="rounded-lg border border-border bg-card sm:col-">
+                <Card className="rounded-lg border border-border bg-card sm:col-span-2">
                   <CardContent className="py-4 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">Run Full Integrity Check</p>
@@ -1342,7 +1342,7 @@ function AdminSystemMonitor() {
                       <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Latest Forecast Result</p>
                       <div className="flex items-center gap-4">
                         <div>
-                          <p className="text-2xl font-bold">{forecastResult.projection.toFixed(3)}</p>
+                          <p className="text-2xl font-bold gradient-text">{forecastResult.projection.toFixed(3)}</p>
                           <p className="text-xs text-muted-foreground">Projected Goals</p>
                         </div>
                         <div className="h-10 w-px bg-border" />
