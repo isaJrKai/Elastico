@@ -115,7 +115,7 @@ function CircGauge({ value, max = 100, size = 120, label, strokeColor }: {
           stroke={color} strokeWidth={8} strokeLinecap="round"
           strokeDasharray={circ} strokeDashoffset={offset}
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          className="transition-all duration-1000 ease-out"
+          className="transition-colors duration-1000 ease-out"
         />
         <text x={size / 2} y={size / 2 - 4} textAnchor="middle" className="fill-foreground text-2xl font-bold" dominantBaseline="middle">
           {Math.round(value)}
@@ -231,7 +231,7 @@ function NonAdminSystemMonitor() {
   }, [])
 
   return (
-    <div className="animate-fade-in-up space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -262,7 +262,7 @@ function NonAdminSystemMonitor() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 + i * 0.05 }}
           >
-            <Card className="glass-card-premium">
+            <Card className="rounded-lg border border-border bg-card">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">{svc.label}</CardTitle>
@@ -288,7 +288,7 @@ function NonAdminSystemMonitor() {
 
       {/* Data Sources Info */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <Card className="glass-card-premium border-primary/20">
+        <Card className="rounded-lg border border-border bg-card border-primary/20">
           <CardContent className="py-5">
             <div className="flex items-start gap-3">
               <Info className="size-4 text-primary shrink-0 mt-0.5" />
@@ -306,7 +306,7 @@ function NonAdminSystemMonitor() {
 
       {/* Admin Access Required Notice */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-        <Card className="glass-card-premium border-yellow-500/20">
+        <Card className="rounded-lg border border-border bg-card border-yellow-500/20">
           <CardContent className="py-5">
             <div className="flex items-start gap-4">
               <div className="flex size-10 items-center justify-center rounded-lg bg-yellow-500/10 border border-yellow-500/20 shrink-0">
@@ -388,7 +388,7 @@ function DataFoundationPanel() {
             <p className="text-xs text-muted-foreground mt-1">Overall completion (weighted)</p>
           </CardContent>
         </Card>
-        <Card className="sm:col-span-2">
+        <Card className="sm:col-">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Active Blockers</CardTitle>
           </CardHeader>
@@ -730,7 +730,7 @@ function AdminSystemMonitor() {
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (
-    <div className="animate-fade-in-up space-y-6">
+    <div className="space-y-6">
       {/* ── Admin Access Banner ─────────────────────────────────────────── */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
@@ -781,7 +781,7 @@ function AdminSystemMonitor() {
             <motion.div
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
             >
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Scraper Fidelity</CardTitle>
@@ -817,7 +817,7 @@ function AdminSystemMonitor() {
             <motion.div
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
             >
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Data Drift Monitor</CardTitle>
@@ -853,7 +853,7 @@ function AdminSystemMonitor() {
             <motion.div
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
             >
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Market Convergence</CardTitle>
@@ -900,7 +900,7 @@ function AdminSystemMonitor() {
 
           {/* Audit Results Log */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card className="glass-card-premium">
+            <Card className="rounded-lg border border-border bg-card">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium">Audit Results Log</CardTitle>
@@ -946,7 +946,7 @@ function AdminSystemMonitor() {
           {/* Status + Last Healing */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">System Status</CardTitle>
@@ -981,7 +981,7 @@ function AdminSystemMonitor() {
 
             {/* Last Healing Event */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Last Healing Event</CardTitle>
@@ -1023,7 +1023,7 @@ function AdminSystemMonitor() {
 
           {/* Healing Event Log */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <Card className="glass-card-premium">
+            <Card className="rounded-lg border border-border bg-card">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">Healing Event Log</CardTitle>
               </CardHeader>
@@ -1062,7 +1062,7 @@ function AdminSystemMonitor() {
 
           {/* Code Sandbox */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card className="glass-card-premium">
+            <Card className="rounded-lg border border-border bg-card">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium">Code Sandbox Test Panel</CardTitle>
@@ -1116,7 +1116,7 @@ function AdminSystemMonitor() {
           {/* Score + Actions */}
           <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4">
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.05 }}>
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardContent className="flex flex-col items-center py-6 px-8">
                   {integrityScore != null ? (
                     <CircGauge
@@ -1142,7 +1142,7 @@ function AdminSystemMonitor() {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Auto-Destruct Toggle */}
-                <Card className="glass-card-premium">
+                <Card className="rounded-lg border border-border bg-card">
                   <CardContent className="py-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -1164,7 +1164,7 @@ function AdminSystemMonitor() {
                 </Card>
 
                 {/* Alert Channels */}
-                <Card className="glass-card-premium">
+                <Card className="rounded-lg border border-border bg-card">
                   <CardContent className="py-4 space-y-3">
                     <span className="text-sm font-medium">Alert Channels</span>
                     <div className="space-y-2">
@@ -1191,7 +1191,7 @@ function AdminSystemMonitor() {
                 </Card>
 
                 {/* Run Integrity Check Button */}
-                <Card className="glass-card-premium sm:col-span-2">
+                <Card className="rounded-lg border border-border bg-card sm:col-">
                   <CardContent className="py-4 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">Run Full Integrity Check</p>
@@ -1213,7 +1213,7 @@ function AdminSystemMonitor() {
 
           {/* File Integrity Grid */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <Card className="glass-card-premium">
+            <Card className="rounded-lg border border-border bg-card">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium">File Integrity Grid</CardTitle>
@@ -1260,7 +1260,7 @@ function AdminSystemMonitor() {
 
           {/* Security Event Log */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card className="glass-card-premium">
+            <Card className="rounded-lg border border-border bg-card">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">Security Event Log</CardTitle>
               </CardHeader>
@@ -1312,7 +1312,7 @@ function AdminSystemMonitor() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Model Status */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Model Status</CardTitle>
@@ -1342,7 +1342,7 @@ function AdminSystemMonitor() {
                       <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Latest Forecast Result</p>
                       <div className="flex items-center gap-4">
                         <div>
-                          <p className="text-2xl font-bold gradient-text">{forecastResult.projection.toFixed(3)}</p>
+                          <p className="text-2xl font-bold">{forecastResult.projection.toFixed(3)}</p>
                           <p className="text-xs text-muted-foreground">Projected Goals</p>
                         </div>
                         <div className="h-10 w-px bg-border" />
@@ -1359,7 +1359,7 @@ function AdminSystemMonitor() {
 
             {/* Conditioning Test Panel */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Conditioning Test Panel</CardTitle>
@@ -1411,7 +1411,7 @@ function AdminSystemMonitor() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Forecast History */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium">Forecast History</CardTitle>
                 </CardHeader>
@@ -1442,7 +1442,7 @@ function AdminSystemMonitor() {
 
             {/* xReg Conditioning Visualization */}
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <Card className="glass-card-premium">
+              <Card className="rounded-lg border border-border bg-card">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium">xReg Conditioning — Indicator Trend</CardTitle>
                 </CardHeader>

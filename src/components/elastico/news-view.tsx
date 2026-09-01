@@ -231,7 +231,7 @@ export default function NewsView() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search news..."
-            className="h-10 pl-10 glass-card border-border bg-secondary/30 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-primary/30"
+            className="h-10 pl-10 rounded-lg border border-border bg-card border-border bg-secondary/30 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-primary/30"
           />
         </div>
         <Button
@@ -252,7 +252,7 @@ export default function NewsView() {
             key={cat.value}
             onClick={() => handleCategoryClick(cat.value)}
             className={cn(
-              'rounded-full px-3.5 py-1.5 text-xs font-medium transition-all',
+              'rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors',
               activeCategory === cat.value
                 ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
                 : 'border border-border bg-secondary/50 text-muted-foreground hover:border-primary/30 hover:text-foreground',
@@ -269,7 +269,7 @@ export default function NewsView() {
         {viewState === 'loading' && newsItems.length === 0 && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="glass-card-premium card-hover-lift rounded-xl border-border overflow-hidden">
+              <Card key={i} className="rounded-lg border border-border bg-card rounded-xl border-border overflow-hidden">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Skeleton className="h-5 w-16 rounded-full" />
@@ -332,7 +332,7 @@ export default function NewsView() {
                     key={item.id}
                     onClick={() => setSelectedNews(item)}
                     className={cn(
-                      'glass-card-premium card-hover-lift rounded-xl cursor-pointer overflow-hidden transition-all duration-200',
+                      'rounded-lg border border-border bg-card rounded-xl cursor-pointer overflow-hidden transition-colors duration-200',
                       item.isBreaking && 'border-red-500/50 border-2',
                     )}
                   >
@@ -412,7 +412,7 @@ export default function NewsView() {
                   variant="outline"
                   onClick={handleLoadMore}
                   disabled={isAppending}
-                  className="glass-card border-border text-sm text-muted-foreground hover:text-foreground"
+                  className="rounded-lg border border-border bg-card border-border text-sm text-muted-foreground hover:text-foreground"
                 >
                   {isAppending ? (
                     <span className="flex items-center gap-2">
@@ -437,7 +437,7 @@ export default function NewsView() {
         open={!!selectedNews}
         onOpenChange={(open) => !open && setSelectedNews(null)}
       >
-        <DialogContent className="glass-card max-h-[85vh] overflow-y-auto border-border sm:max-w-2xl">
+        <DialogContent className="rounded-lg border border-border bg-card max-h-[85vh] overflow-y-auto border-border sm:max-w-2xl">
           {selectedNews && (
             <>
               <DialogHeader>

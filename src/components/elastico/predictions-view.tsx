@@ -338,7 +338,7 @@ export default function PredictionsView() {
 
   if (viewState === 'loading') {
     return (
-      <div className="space-y-5 animate-fade-in-up">
+      <div className="space-y-5">
         <div className="flex items-center gap-3">
           <Skeleton className="size-10 rounded-xl" />
           <div className="flex-1 space-y-2">
@@ -361,7 +361,7 @@ export default function PredictionsView() {
 
   if (viewState === 'error') {
     return (
-      <div className="space-y-5 animate-fade-in-up">
+      <div className="space-y-5">
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15">
             <Target className="size-5 text-primary" />
@@ -384,7 +384,7 @@ export default function PredictionsView() {
 
   if (viewState === 'empty') {
     return (
-      <div className="space-y-5 animate-fade-in-up">
+      <div className="space-y-5">
         {/* Header */}
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15">
@@ -404,7 +404,7 @@ export default function PredictionsView() {
             { icon: Flame, label: 'Current Streak', value: streak, color: 'text-orange-400' },
             { icon: Crown, label: 'Best Streak', value: bestStreak, color: 'text-amber-400' },
           ].map(s => (
-            <Card key={s.label} className="glass-card-premium card-hover-lift rounded-xl">
+            <Card key={s.label} className="rounded-lg border border-border bg-card rounded-xl">
               <CardContent className="flex items-center gap-3 p-4">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50">
                   <s.icon className={cn('size-4', s.color)} />
@@ -419,7 +419,7 @@ export default function PredictionsView() {
         </div>
 
         {/* Empty State Message */}
-        <Card className="glass-card-premium rounded-xl">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-10 text-center gap-3">
             <div className="size-12 rounded-full bg-muted/40 flex items-center justify-center">
               <Target className="size-5 text-muted-foreground" />
@@ -439,7 +439,7 @@ export default function PredictionsView() {
 
         {/* Quick Predict — still visible when empty so user can start */}
         {upcomingMatches.length > 0 && (
-          <Card className="glass-card-premium rounded-xl">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Send className="size-4 text-primary" />
@@ -475,7 +475,7 @@ export default function PredictionsView() {
         )}
 
         {/* Model Predictions (compute) — works independently of user predictions */}
-        <Card className="glass-card-premium rounded-xl">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -566,7 +566,7 @@ export default function PredictionsView() {
         </Card>
 
         {/* Prediction Accuracy Section — requires predictions to populate */}
-        <Card className="glass-card-premium rounded-xl">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <TrendingUp className="size-4 text-primary" />
@@ -590,7 +590,7 @@ export default function PredictionsView() {
   // ── Render: SUCCESS ─────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5 animate-fade-in-up">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15">
@@ -619,7 +619,7 @@ export default function PredictionsView() {
           { icon: Flame, label: 'Current Streak', value: streak, color: 'text-orange-400', dataClass: 'DERIVED' },
           { icon: Crown, label: 'Best Streak', value: bestStreak, color: 'text-amber-400', dataClass: 'DERIVED' },
         ].map(s => (
-          <Card key={s.label} className="glass-card-premium card-hover-lift rounded-xl">
+          <Card key={s.label} className="rounded-lg border border-border bg-card rounded-xl">
             <CardContent className="flex items-center gap-3 p-4">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50">
                 <s.icon className={cn('size-4', s.color)} />
@@ -638,7 +638,7 @@ export default function PredictionsView() {
 
       {/* ── LEADERBOARD POSITION ── */}
       {leaderboardPos > 0 && (
-        <Card className="glass-card-premium rounded-xl border-amber-500/20">
+        <Card className="rounded-lg border border-border bg-card rounded-xl border-amber-500/20">
           <CardContent className="flex items-center gap-4 p-4">
             <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/15">
               <Trophy className="size-5 text-amber-400" />
@@ -658,7 +658,7 @@ export default function PredictionsView() {
 
       {/* ── QUICK PREDICT PANEL ── */}
       {upcomingMatches.length > 0 && (
-        <Card className="glass-card-premium rounded-xl">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Send className="size-4 text-primary" />
@@ -695,7 +695,7 @@ export default function PredictionsView() {
       )}
 
       {/* ── MODEL PREDICTIONS (from /api/predictions/compute) ── */}
-      <Card className="glass-card-premium rounded-xl">
+      <Card className="rounded-lg border border-border bg-card rounded-xl">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -787,9 +787,9 @@ export default function PredictionsView() {
 
       {/* ── MAIN GRID ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-space-y-5">
           {/* PREDICTION HISTORY TABLE */}
-          <Card className="glass-card-premium rounded-xl">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -804,7 +804,7 @@ export default function PredictionsView() {
                     <SelectTrigger className="h-7 w-[120px] text-[10px] bg-muted/50 border-border">
                       <SelectValue placeholder="Model" />
                     </SelectTrigger>
-                    <SelectContent className="glass-card border-border">
+                    <SelectContent className="rounded-lg border border-border bg-card border-border">
                       <SelectItem value="all">All Models</SelectItem>
                       {/* Show 'user' first, then any models found in data */}
                       {usedModels.includes('user') && <SelectItem value="user">User</SelectItem>}
@@ -817,7 +817,7 @@ export default function PredictionsView() {
                     <SelectTrigger className="h-7 w-[100px] text-[10px] bg-muted/50 border-border">
                       <SelectValue placeholder="Result" />
                     </SelectTrigger>
-                    <SelectContent className="glass-card border-border">
+                    <SelectContent className="rounded-lg border border-border bg-card border-border">
                       <SelectItem value="all">All</SelectItem>
                       <SelectItem value="correct">Correct</SelectItem>
                       <SelectItem value="incorrect">Incorrect</SelectItem>
@@ -828,7 +828,7 @@ export default function PredictionsView() {
                     <SelectTrigger className="h-7 w-[100px] text-[10px] bg-muted/50 border-border">
                       <SelectValue placeholder="Sort" />
                     </SelectTrigger>
-                    <SelectContent className="glass-card border-border">
+                    <SelectContent className="rounded-lg border border-border bg-card border-border">
                       <SelectItem value="date">Newest</SelectItem>
                       <SelectItem value="confidence">Confidence</SelectItem>
                       <SelectItem value="model">Model</SelectItem>
@@ -918,7 +918,7 @@ export default function PredictionsView() {
 
           {/* PENDING PREDICTIONS */}
           {pendingPredictions.length > 0 && (
-            <Card className="glass-card-premium rounded-xl">
+            <Card className="rounded-lg border border-border bg-card rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <AlertCircle className="size-4 text-amber-400" />
@@ -959,7 +959,7 @@ export default function PredictionsView() {
         <div className="space-y-5">
           {/* ACCURACY BY MODEL CHART — real computation from DB */}
           {accuracyByModel.length > 0 ? (
-            <Card className="glass-card-premium rounded-xl">
+            <Card className="rounded-lg border border-border bg-card rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <TrendingUp className="size-4 text-primary" />
@@ -989,7 +989,7 @@ export default function PredictionsView() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="glass-card-premium rounded-xl">
+            <Card className="rounded-lg border border-border bg-card rounded-xl">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <TrendingUp className="size-4 text-primary" />
@@ -1006,7 +1006,7 @@ export default function PredictionsView() {
           )}
 
           {/* PREDICTION BREAKDOWN — honest summary */}
-          <Card className="glass-card-premium rounded-xl">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Target className="size-4 text-primary" />

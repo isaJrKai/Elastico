@@ -89,7 +89,7 @@ function formatMatchTime(dateStr: string): string {
 
 function MatchCardSkeleton() {
   return (
-    <Card className="glass-card animate-fade-in-up">
+    <Card className="rounded-lg border border-border bg-card">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <Skeleton className="h-5 w-14 rounded-md" />
@@ -126,7 +126,7 @@ function MatchCard({ match, onClick }: { match: FDMatch; onClick?: () => void })
   return (
     <Card
       className={cn(
-        'glass-card-premium card-hover-lift rounded-xl transition-all duration-200 animate-fade-in-up group cursor-pointer',
+        'rounded-lg border border-border bg-card rounded-xl transition-colors duration-200 group cursor-pointer',
         isLive && 'border-red-500/20 hover:border-red-500/40',
         !isLive && 'hover:border-primary/30',
       )}
@@ -500,9 +500,9 @@ export default function MatchesView() {
   // ── Main Render ────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in-up">
+    <div className="flex flex-col gap-4">
       {/* Filter Bar */}
-      <div className="glass-card rounded-xl p-4">
+      <div className="rounded-lg border border-border bg-card rounded-xl p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Competition Selector */}
           <Select
@@ -513,7 +513,7 @@ export default function MatchesView() {
               <Trophy className="size-3.5 mr-1.5 text-muted-foreground" />
               <SelectValue placeholder="Competition" />
             </SelectTrigger>
-            <SelectContent className="glass-card border-border max-h-[280px]">
+            <SelectContent className="rounded-lg border border-border bg-card border-border max-h-[280px]">
               {FD_COMPETITIONS.map((c) => (
                 <SelectItem key={c.code} value={c.code}>
                   {c.name}
@@ -558,7 +558,7 @@ export default function MatchesView() {
         onValueChange={(v) => setActiveTab(v as MatchTab)}
         className="w-full"
       >
-        <TabsList className="glass-card w-full h-10 bg-muted/30 p-1 rounded-lg">
+        <TabsList className="rounded-lg border border-border bg-card w-full h-10 bg-muted/30 p-1 rounded-lg">
           {STATUS_TABS.map((tab) => {
             const count =
               tab.value === 'live'
@@ -570,7 +570,7 @@ export default function MatchesView() {
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="flex-1 h-8 text-xs font-semibold rounded-md transition-all gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-sm"
+                className="flex-1 h-8 text-xs font-semibold rounded-md transition-colors gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-sm"
               >
                 {tab.value === 'live' && liveCount > 0 && (
                   <span className="relative flex size-1.5">

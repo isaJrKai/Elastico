@@ -117,7 +117,7 @@ export default function TournamentView() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
@@ -125,7 +125,7 @@ export default function TournamentView() {
             <SelectTrigger className="h-9 w-[180px] bg-muted/50 border-border text-sm">
               <Trophy className="size-3.5 mr-1.5 text-muted-foreground" /><SelectValue placeholder="League" />
             </SelectTrigger>
-            <SelectContent className="glass-card border-border max-h-[280px]">
+            <SelectContent className="rounded-lg border border-border bg-card border-border max-h-[280px]">
               {LEAGUES.map((l) => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -143,7 +143,7 @@ export default function TournamentView() {
           { icon: Zap, label: 'Avg Goals/Match', value: avgGoals, color: 'text-cyan-400' },
           { icon: Trophy, label: 'Leader', value: topTeam?.team?.split(' ').slice(-1)[0] || '—', color: 'text-amber-400' },
         ].map(s => (
-          <Card key={s.label} className="glass-card-premium card-hover-lift rounded-xl"><CardContent className="flex items-center gap-3 p-4">
+          <Card key={s.label} className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="flex items-center gap-3 p-4">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/50"><s.icon className={cn('size-4', s.color)} /></div>
             <div><p className="text-lg font-bold leading-tight truncate">{s.value}</p><div className="flex items-center gap-1"><p className="text-[10px] text-muted-foreground">{s.label}</p><StatusBadge variant="dataclass" value="REAL" /></div></div>
           </CardContent></Card>
@@ -153,7 +153,7 @@ export default function TournamentView() {
       {/* Highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {topTeam && (
-          <Card className="glass-card-premium rounded-xl"><CardContent className="p-4 text-center">
+          <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-1 mb-2"><p className="text-[10px] text-muted-foreground">League Leader</p><StatusBadge variant="dataclass" value="REAL" /></div>
             <TeamCrest code={topTeam.code} espnLogo={topTeam.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{topTeam.team}</p>
@@ -162,7 +162,7 @@ export default function TournamentView() {
           </CardContent></Card>
         )}
         {topScorer && (
-          <Card className="glass-card-premium rounded-xl"><CardContent className="p-4 text-center">
+          <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-1 mb-2"><p className="text-[10px] text-muted-foreground">Most Goals Scored</p><StatusBadge variant="dataclass" value="REAL" /></div>
             <TeamCrest code={topScorer.code} espnLogo={topScorer.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{topScorer.team}</p>
@@ -171,7 +171,7 @@ export default function TournamentView() {
           </CardContent></Card>
         )}
         {bestDefense && (
-          <Card className="glass-card-premium rounded-xl"><CardContent className="p-4 text-center">
+          <Card className="rounded-lg border border-border bg-card rounded-xl"><CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-1 mb-2"><p className="text-[10px] text-muted-foreground">Best Defense</p><StatusBadge variant="dataclass" value="REAL" /></div>
             <TeamCrest code={bestDefense.code} espnLogo={bestDefense.logo} size="xl" className="mx-auto mb-2" />
             <p className="text-sm font-bold">{bestDefense.team}</p>
@@ -182,7 +182,7 @@ export default function TournamentView() {
       </div>
 
       {/* Standings Table */}
-      <Card className="glass-card-premium rounded-xl">
+      <Card className="rounded-lg border border-border bg-card rounded-xl">
         <CardHeader className="pb-2 px-4 pt-4">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
             <Trophy className="size-4 text-primary" />

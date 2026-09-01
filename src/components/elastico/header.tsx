@@ -102,7 +102,7 @@ export function Header() {
 
   return (
     <header className={cn(
-      'sticky top-0 z-30 flex items-center gap-3 px-4 border-b border-border bg-background/80 backdrop-blur-xl md:px-6',
+      'sticky top-0 z-30 flex items-center gap-3 px-4 border-b border-border bg-background/90 backdrop-blur-md md:px-6',
       HEADER.height,
     )}>
       {/* Mobile hamburger */}
@@ -131,7 +131,7 @@ export function Header() {
         {liveCount > 0 && (
           <div className="flex items-center gap-2 rounded-full bg-red-500/10 border border-red-500/20 px-3 py-1">
             <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+              <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-60 animate-pulse" />
               <span className="relative inline-flex size-2 rounded-full bg-red-500" />
             </span>
             <span className="text-[11px] font-bold text-red-400 tracking-wide">{liveCount} LIVE</span>
@@ -179,7 +179,7 @@ export function Header() {
             <Bell className={HEADER.bellSize} />
             {unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 flex size-4.5">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-50" />
+                <span className="absolute inline-flex size-full rounded-full bg-primary opacity-50 animate-pulse" />
                 <span className="relative inline-flex size-[18px] items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
                   {unreadCount > 99 ? '99' : unreadCount}
                 </span>

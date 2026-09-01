@@ -233,7 +233,7 @@ export function ExportView() {
             {REPORT_TEMPLATES.map((template) => (
               <div
                 key={template.id}
-                className="glass-card p-6 rounded-xl border border-border/30 cursor-pointer group transition-all duration-200 hover:-translate-y-1"
+                className="rounded-lg border border-border bg-card p-6 rounded-xl border border-border/30 cursor-pointer group transition-colors duration-200 hover:-translate-y-1"
                 onClick={() => handleReportTemplate(template)}
               >
                 {(() => { const Icon = ICON_MAP[template.icon] || FileText; return <Icon className="size-8 text-primary/60 mb-3" /> })()}
@@ -252,7 +252,7 @@ export function ExportView() {
 
         {/* Custom Report Builder */}
         <TabsContent value="custom">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <FileSpreadsheet className="size-4 text-primary" /> Custom Export Builder
@@ -310,7 +310,7 @@ export function ExportView() {
 
         {/* Scheduled Reports */}
         <TabsContent value="scheduled">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Clock className="size-4 text-primary" /> Scheduled Reports
@@ -352,7 +352,7 @@ export function ExportView() {
 
         {/* Export History */}
         <TabsContent value="history">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <History className="size-4 text-primary" /> Export History
@@ -400,7 +400,7 @@ export function ExportView() {
 
         {/* Chart Export */}
         <TabsContent value="charts">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <FileDown className="size-4 text-primary" /> Data Visualization Export
@@ -421,7 +421,7 @@ export function ExportView() {
                 ].map(chart => (
                   <div
                     key={chart.name}
-                    className="glass-card p-4 rounded-lg border border-border/30 cursor-pointer transition-all duration-200 hover:-translate-y-1"
+                    className="rounded-lg border border-border bg-card p-4 rounded-lg border border-border/30 cursor-pointer transition-colors duration-200 hover:-translate-y-1"
                     onClick={() => toast.info(`Navigate to ${chart.name} view, then use Ctrl+P to save as PDF`)}
                   >
                     <BarChartIcon className="size-5 text-primary mb-2" />
@@ -439,7 +439,7 @@ export function ExportView() {
 
         {/* API Access */}
         <TabsContent value="api">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Code2 className="size-4 text-primary" /> API Documentation
@@ -450,7 +450,7 @@ export function ExportView() {
             </CardHeader>
             <CardContent>
               {/* Auth info */}
-              <div className="glass-card p-3 rounded-lg border border-border/30 mb-4">
+              <div className="rounded-lg border border-border bg-card p-3 rounded-lg border border-border/30 mb-4">
                 <div className="text-xs font-medium mb-1">Authentication</div>
                 <code className="text-[11px] text-primary bg-primary/5 px-2 py-1 rounded block overflow-x-auto">
                   Authorization: Bearer {'{'}token{'}'}
@@ -483,7 +483,7 @@ export function ExportView() {
 
         {/* Bulk Export */}
         <TabsContent value="bulk">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Database className="size-4 text-primary" /> Bulk Data Export
@@ -521,7 +521,7 @@ export function ExportView() {
 
         {/* Share Reports */}
         <TabsContent value="share">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Share2 className="size-4 text-primary" /> Share Reports

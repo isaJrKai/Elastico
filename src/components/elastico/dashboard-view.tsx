@@ -499,7 +499,7 @@ function FeaturedMatchPanel() {
             <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0">Home</span>
             <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-700"
+                className="h-full rounded-full transition-colors duration-700"
                 style={{ width: `${homeProb}%`, backgroundColor: chartColor(0) }}
               />
             </div>
@@ -512,7 +512,7 @@ function FeaturedMatchPanel() {
             <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0">Draw</span>
             <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-700"
+                className="h-full rounded-full transition-colors duration-700"
                 style={{ width: `${drawProb}%`, backgroundColor: chartColor(2) }}
               />
             </div>
@@ -525,7 +525,7 @@ function FeaturedMatchPanel() {
             <span className="text-[10px] text-muted-foreground w-10 text-right shrink-0">Away</span>
             <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-700"
+                className="h-full rounded-full transition-colors duration-700"
                 style={{ width: `${awayProb}%`, backgroundColor: chartColor(4) }}
               />
             </div>
@@ -655,7 +655,7 @@ function QuickActions() {
         <button
           key={a.view}
           onClick={() => setView(a.view)}
-          className="flex flex-col items-center gap-1.5 rounded-xl border border-border/30 bg-muted/10 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-accent/40 hover:border-border/60 transition-all"
+          className="flex flex-col items-center gap-1.5 rounded-xl border border-border/30 bg-muted/10 px-2 py-3 text-muted-foreground hover:text-foreground hover:bg-accent/40 hover:border-border/60 transition-colors"
         >
           {a.icon}
           <span className="text-[10px] font-medium">{a.label}</span>
@@ -820,7 +820,7 @@ export default function DashboardView() {
   }, [])
 
   return (
-    <section className="flex flex-col gap-4 animate-fade-in-up" aria-label="Dashboard">
+    <section className="flex flex-col gap-4" aria-label="Dashboard">
       {/* Orientation: KPI strip */}
       <KpiStrip />
 
@@ -830,7 +830,7 @@ export default function DashboardView() {
       {/* Main content — 2:1 asymmetric split */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-0">
         {/* Primary: Featured match (3/5 = 60%) */}
-        <div className="lg:col-span-3 min-w-0 flex flex-col gap-4">
+        <div className="lg:col-min-w-0 flex flex-col gap-4">
           <FeaturedMatchPanel />
           {featured === null && fdLoading && (
             <div className="rounded-xl border border-border/40 bg-muted/10 p-6">
@@ -851,7 +851,7 @@ export default function DashboardView() {
         </div>
 
         {/* Secondary: News + actions (2/5 = 40%) */}
-        <div className="lg:col-span-2 min-w-0 flex flex-col gap-4">
+        <div className="lg:col-min-w-0 flex flex-col gap-4">
           <div className="rounded-xl border border-border/40 bg-muted/10 p-4 flex-1">
             <NewsRail />
           </div>

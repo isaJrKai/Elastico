@@ -69,7 +69,7 @@ function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix 
     orange: 'bg-orange-500/10 text-orange-400',
   }
   return (
-    <Card className="glass-card glass-card-hover animate-fade-in-up">
+    <Card className="rounded-lg border border-border bg-card rounded-lg border border-border bg-card">
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1 min-w-0">
@@ -100,7 +100,7 @@ function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix 
 
 function SectionCard({ title, icon: Icon, children, className = '' }: { title: string; icon: React.ElementType; children: React.ReactNode; className?: string }) {
   return (
-    <Card className={`glass-card animate-fade-in-up ${className}`}>
+    <Card className={`rounded-lg border border-border bg-card ${className}`}>
       <CardHeader className="pb-3 pt-4 px-4">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Icon className="h-4 w-4 text-emerald-400" />
@@ -115,7 +115,7 @@ function SectionCard({ title, icon: Icon, children, className = '' }: { title: s
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number; color?: string }>; label?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="glass-card p-2 rounded-lg text-xs border border-border" style={tooltipContentStyle}>
+    <div className="rounded-lg border border-border bg-card p-2 rounded-lg text-xs border border-border" style={tooltipContentStyle}>
       <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((p, i: number) => (
         <p key={i} className="flex items-center gap-1.5">
@@ -696,7 +696,7 @@ export default function AdminView() {
         <TabsContent value="users" className="space-y-6 mt-6">
           {/* User Segmentation (Feature 11) */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30" onClick={() => { setUserPlanFilter('all'); setUserRoleFilter('all'); setUserStatusFilter('active') }}>
+            <Card className="rounded-lg border border-border bg-card cursor-pointer hover:border-emerald-500/30" onClick={() => { setUserPlanFilter('all'); setUserRoleFilter('all'); setUserStatusFilter('active') }}>
               <CardContent className="p-3 text-center">
                 <Zap className="h-4 w-4 text-amber-400 mx-auto mb-1" />
                 <div className="flex items-center justify-center gap-1.5">
@@ -706,7 +706,7 @@ export default function AdminView() {
                 <p className="text-xs text-muted-foreground">Power Users</p>
               </CardContent>
             </Card>
-            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+            <Card className="rounded-lg border border-border bg-card cursor-pointer hover:border-emerald-500/30">
               <CardContent className="p-3 text-center">
                 <UserX className="h-4 w-4 text-red-400 mx-auto mb-1" />
                 <div className="flex items-center justify-center gap-1.5">
@@ -716,7 +716,7 @@ export default function AdminView() {
                 <p className="text-xs text-muted-foreground">Dormant (7d+)</p>
               </CardContent>
             </Card>
-            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+            <Card className="rounded-lg border border-border bg-card cursor-pointer hover:border-emerald-500/30">
               <CardContent className="p-3 text-center">
                 <UserPlus className="h-4 w-4 text-emerald-400 mx-auto mb-1" />
                 <div className="flex items-center justify-center gap-1.5">
@@ -726,7 +726,7 @@ export default function AdminView() {
                 <p className="text-xs text-muted-foreground">New Signups (7d)</p>
               </CardContent>
             </Card>
-            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+            <Card className="rounded-lg border border-border bg-card cursor-pointer hover:border-emerald-500/30">
               <CardContent className="p-3 text-center">
                 <Target className="h-4 w-4 text-cyan-400 mx-auto mb-1" />
                 <div className="flex items-center justify-center gap-1.5">
@@ -736,7 +736,7 @@ export default function AdminView() {
                 <p className="text-xs text-muted-foreground">High Accuracy</p>
               </CardContent>
             </Card>
-            <Card className="glass-card animate-fade-in-up cursor-pointer hover:border-emerald-500/30">
+            <Card className="rounded-lg border border-border bg-card cursor-pointer hover:border-emerald-500/30">
               <CardContent className="p-3 text-center">
                 <Crown className="h-4 w-4 text-amber-400 mx-auto mb-1" />
                 <div className="flex items-center justify-center gap-1.5">
@@ -793,7 +793,7 @@ export default function AdminView() {
                         Bulk ({selectedUsers.size})
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="glass-card">
+                    <DialogContent className="rounded-lg border border-border bg-card">
                       <DialogHeader>
                         <DialogTitle>Bulk Action</DialogTitle>
                         <DialogDescription>Apply action to {selectedUsers.size} selected users</DialogDescription>
@@ -824,7 +824,7 @@ export default function AdminView() {
                       <UserPlus className="h-3.5 w-3.5" /> Invite User
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="glass-card">
+                  <DialogContent className="rounded-lg border border-border bg-card">
                     <DialogHeader>
                       <DialogTitle>Invite User</DialogTitle>
                       <DialogDescription>Send an invitation to a new user</DialogDescription>
@@ -974,7 +974,7 @@ export default function AdminView() {
 
           {/* Feature 8: User Detail Modal */}
           <Dialog open={!!selectedUser} onOpenChange={(open) => { if (!open) setSelectedUser(null) }}>
-            <DialogContent className="glass-card max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogContent className="rounded-lg border border-border bg-card max-w-lg max-h-[80vh] overflow-y-auto">
               {selectedUser && (
                 <>
                   <DialogHeader>
@@ -1108,7 +1108,7 @@ export default function AdminView() {
                         <Plus className="h-3.5 w-3.5" /> New
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="glass-card">
+                    <DialogContent className="rounded-lg border border-border bg-card">
                       <DialogHeader>
                         <DialogTitle>{editingAnnouncement ? 'Edit' : 'Create'} Announcement</DialogTitle>
                         <DialogDescription>Announcements are shown to targeted user roles</DialogDescription>
@@ -1200,7 +1200,7 @@ export default function AdminView() {
                         <Plus className="h-3.5 w-3.5" /> New Article
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="glass-card">
+                    <DialogContent className="rounded-lg border border-border bg-card">
                       <DialogHeader>
                         <DialogTitle>{editingNews ? 'Edit' : 'Create'} News Article</DialogTitle>
                       </DialogHeader>

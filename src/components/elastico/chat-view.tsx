@@ -406,7 +406,7 @@ export default function ChatView() {
           </div>
           <p className="text-xs text-muted-foreground">Loading AI assistant...</p>
         </div>
-        <Card className="glass-card-premium card-hover-lift rounded-xl flex flex-1 overflow-hidden">
+        <Card className="rounded-lg border border-border bg-card rounded-xl flex flex-1 overflow-hidden">
           <CardContent className="flex flex-1 items-center justify-center">
             <Loader2 className="size-6 animate-spin text-primary" />
           </CardContent>
@@ -454,7 +454,7 @@ export default function ChatView() {
         <div className="flex flex-wrap items-center gap-2">
           {/* Model Selector — no "Local" option */}
           <Select value={selectedModel} onValueChange={(v) => setSelectedModel(v as ModelKey)}>
-            <SelectTrigger className="h-9 w-full sm:w-[210px] text-xs glass-card border-border">
+            <SelectTrigger className="h-9 w-full sm:w-[210px] text-xs rounded-lg border border-border bg-card border-border">
               <div className="flex items-center gap-1.5 truncate">
                 <Wifi className="size-3 shrink-0 text-primary" />
                 <SelectValue placeholder="Select AI model" />
@@ -525,7 +525,7 @@ export default function ChatView() {
       )}
 
       {/* ── Chat Messages Area ──────────────────────────────────────────────── */}
-      <Card className="glass-card flex flex-1 overflow-hidden border-border">
+      <Card className="rounded-lg border border-border bg-card flex flex-1 overflow-hidden border-border">
         <div
           ref={scrollRef}
           className="flex-1 overflow-y-auto p-4 space-y-4"
@@ -554,7 +554,7 @@ export default function ChatView() {
                   <button
                     key={prompt}
                     onClick={() => handleSuggestionClick(prompt)}
-                    className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2.5 text-left text-xs text-muted-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
+                    className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
                   >
                     <MessageSquare className="size-3.5 shrink-0 text-primary/60" />
                     <span className="truncate">{prompt}</span>
@@ -570,7 +570,7 @@ export default function ChatView() {
               <div
                 key={msg.id}
                 className={cn(
-                  'flex animate-fade-in-up gap-3',
+                  'flex gap-3',
                   msg.role === 'user' ? 'flex-row-reverse' : 'flex-row',
                 )}
               >
@@ -629,7 +629,7 @@ export default function ChatView() {
       </Card>
 
       {/* ── Message Input ───────────────────────────────────────────────────── */}
-      <Card className="glass-card border-border">
+      <Card className="rounded-lg border border-border bg-card border-border">
         <CardContent className="p-3">
           {chatMessages.length === 0 && (
             <div className="mb-2 flex flex-wrap gap-1.5">

@@ -115,7 +115,7 @@ export default function SubscriptionView() {
   }
 
   return (
-    <div className="space-y-10 animate-fade-in-up">
+    <div className="space-y-10">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <p className="text-sm text-muted-foreground">Choose the plan that matches your analysis depth. Upgrade anytime.</p>
@@ -143,7 +143,7 @@ export default function SubscriptionView() {
           const displayPrice = billingCycle === 'annual' ? plan.yearlyPrice : plan.monthlyPrice
 
           return (
-            <Card key={plan.id} className={cn('glass-card-premium relative flex flex-col overflow-hidden', plan.borderClass)}>
+            <Card key={plan.id} className={cn('rounded-lg border border-border bg-card relative flex flex-col overflow-hidden', plan.borderClass)}>
               <CardHeader className="pb-4 pt-6">
                 <div className="flex items-center gap-3">
                   <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', plan.id === 'elite' ? 'bg-yellow-500/15 text-yellow-400' : plan.id === 'pro' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted/50 text-muted-foreground')}>
@@ -188,7 +188,7 @@ export default function SubscriptionView() {
         <div className="flex items-center gap-2"><Users className="size-4 text-primary" /><SectionHeader label="What Users Say" /></div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {TESTIMONIALS.map((t, i) => (
-            <Card key={i} className="glass-card-premium rounded-xl">
+            <Card key={i} className="rounded-lg border border-border bg-card rounded-xl">
               <CardContent className="p-5 space-y-3">
                 <div className="flex gap-0.5">{Array.from({ length: 5 }).map((_, j) => <Star key={j} className={cn('size-3.5', j < t.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30')} />)}</div>
                 <p className="text-sm text-muted-foreground leading-relaxed">"{t.quote}"</p>
@@ -207,7 +207,7 @@ export default function SubscriptionView() {
       {/* Feature Comparison Table */}
       <div className="space-y-4">
         <div className="flex items-center gap-2"><BarChart3 className="size-4 text-emerald-400" /><SectionHeader label="Feature Comparison" /></div>
-        <Card className="glass-card-premium overflow-hidden rounded-xl">
+        <Card className="rounded-lg border border-border bg-card overflow-hidden rounded-xl">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader><TableRow className="border-border/50 hover:bg-transparent">
@@ -232,7 +232,7 @@ export default function SubscriptionView() {
       {/* FAQ */}
       <div className="space-y-4">
         <div className="flex items-center gap-2"><MessageSquare className="size-4 text-emerald-400" /><SectionHeader label="Frequently Asked Questions" /></div>
-        <Card className="glass-card-premium overflow-hidden rounded-xl">
+        <Card className="rounded-lg border border-border bg-card overflow-hidden rounded-xl">
           <CardContent className="p-0">
             <Accordion type="single" collapsible className="w-full">
               {FAQ_ITEMS.map((item, i) => (

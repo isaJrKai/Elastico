@@ -635,7 +635,7 @@ export function TacticalView() {
           <TabsContent value="style">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
               {/* Style comparison bar chart */}
-              <Card className="border-border/60 lg:col-span-2">
+              <Card className="border-border/60 lg:col-">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-4">
                     <SectionHeader label="Playing Style Metrics" />

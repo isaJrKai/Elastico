@@ -374,7 +374,7 @@ export function PlayerView() {
       )}
 
       {!loading && players.length === 0 && (
-        <Card className="glass-card">
+        <Card className="rounded-lg border border-border bg-card">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Users className="size-12 text-muted-foreground/30 mb-4" />
             <h3 className="text-sm font-medium mb-1">No players found</h3>
@@ -414,7 +414,7 @@ export function PlayerView() {
                 className="cursor-pointer"
                 onClick={() => setSelectedPlayer(player)}
               >
-                <Card className="glass-card h-full overflow-hidden">
+                <Card className="rounded-lg border border-border bg-card h-full overflow-hidden">
                   <div className="h-2" style={{ backgroundColor: player.teamColor || '#00e676' }} />
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
@@ -476,7 +476,7 @@ export function PlayerView() {
 
         {/* Top Scorers Leaderboard */}
         <TabsContent value="leaderboard">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Star className="size-4 text-yellow-400" /> Top Scorers Leaderboard
@@ -526,7 +526,7 @@ export function PlayerView() {
 
         {/* Player Radar Chart */}
         <TabsContent value="radar">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Award className="size-4 text-primary" /> Player Radar Charts
@@ -534,7 +534,7 @@ export function PlayerView() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {topScorers.slice(0, 6).map((player) => (                  <Card key={player.id} className="glass-card border-border/30">
+                {topScorers.slice(0, 6).map((player) => (                  <Card key={player.id} className="rounded-lg border border-border bg-card border-border/30">
                     <CardContent className="p-3">
                       <h4 className="text-sm font-semibold text-center mb-1">{player.name}</h4>
                       <p className="text-[10px] text-center text-muted-foreground mb-2">{player.position} · {player.teamName}</p>
@@ -552,7 +552,7 @@ export function PlayerView() {
         {/* Player Comparison */}
         <TabsContent value="compare">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="glass-card">
+            <Card className="rounded-lg border border-border bg-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Select Player 1</CardTitle>
               </CardHeader>
@@ -572,7 +572,7 @@ export function PlayerView() {
                 ))}
               </CardContent>
             </Card>
-            <Card className="glass-card">
+            <Card className="rounded-lg border border-border bg-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Select Player 2</CardTitle>
               </CardHeader>
@@ -594,7 +594,7 @@ export function PlayerView() {
             </Card>
           </div>
           {selectedPlayer && comparePlayer && (
-            <Card className="glass-card mt-4">
+            <Card className="rounded-lg border border-border bg-card mt-4">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-center">
                   {selectedPlayer.name} vs {comparePlayer.name}
@@ -609,7 +609,7 @@ export function PlayerView() {
 
         {/* Market Value Tracker */}
         <TabsContent value="value">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <TrendingUp className="size-4 text-primary" /> Market Value Tracker (€M)
@@ -640,7 +640,7 @@ export function PlayerView() {
               const totalGoals = group.reduce((s, p) => s + p.goals, 0)
               const totalAssists = group.reduce((s, p) => s + p.assists, 0)
               return (
-                <Card key={pos} className="glass-card">
+                <Card key={pos} className="rounded-lg border border-border bg-card">
                   <CardHeader className="pb-2">
                     <Badge variant="outline" className={cn('w-fit', getPositionColor(pos))}>{pos}</Badge>
                     <span className="text-xs text-muted-foreground">{group.length} players</span>
@@ -673,7 +673,7 @@ export function PlayerView() {
 
         {/* Age Distribution */}
         <TabsContent value="age">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Age Distribution</CardTitle>
             </CardHeader>
@@ -695,7 +695,7 @@ export function PlayerView() {
 
         {/* Nationality Mix */}
         <TabsContent value="nationality">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Nationality Distribution</CardTitle>
             </CardHeader>
@@ -720,7 +720,7 @@ export function PlayerView() {
 
         {/* Card Accumulation */}
         <TabsContent value="cards">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Card Accumulation</CardTitle>
             </CardHeader>
@@ -753,7 +753,7 @@ export function PlayerView() {
 
         {/* Substitution Frequency */}
         <TabsContent value="subs">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Substitution Frequency</CardTitle>
             </CardHeader>
@@ -771,7 +771,7 @@ export function PlayerView() {
         {/* Player Similarity Finder */}
         <TabsContent value="similar">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="glass-card lg:col-span-1">
+            <Card className="rounded-lg border border-border bg-card lg:col-span-1">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Select Player</CardTitle>
               </CardHeader>
@@ -791,7 +791,7 @@ export function PlayerView() {
                 ))}
               </CardContent>
             </Card>
-            <Card className="glass-card lg:col-span-2">
+            <Card className="rounded-lg border border-border bg-card lg:col-">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium">Similar Players</CardTitle>
               </CardHeader>
@@ -827,7 +827,7 @@ export function PlayerView() {
 
         {/* Player Form Chart */}
         <TabsContent value="form">
-          <Card className="glass-card">
+          <Card className="rounded-lg border border-border bg-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <TrendingUp className="size-4 text-primary" /> Player Form (Recent Matches)
@@ -885,7 +885,7 @@ export function PlayerView() {
                   { label: 'Minutes', value: selectedPlayer.minutesPlayed || '-', color: 'text-foreground' },
                   { label: 'Market Value', value: selectedPlayer.marketValue ? `€${selectedPlayer.marketValue}M` : '-', color: 'text-primary' },
                 ].map(item => (
-                  <Card key={item.label} className="glass-card">
+                  <Card key={item.label} className="rounded-lg border border-border bg-card">
                     <CardContent className="p-3 text-center">
                       <div className="text-[10px] text-muted-foreground">{item.label}</div>
                       <div className={cn('text-xl font-bold', item.color)}>{item.value}</div>

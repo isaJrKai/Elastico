@@ -153,7 +153,7 @@ export default function CompareView() {
         <div>
           <p className="text-muted-foreground text-sm">Compare two teams across all metrics</p>
         </div>
-        <Card className="glass-card-premium card-hover-lift rounded-xl">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Loading teams...</p>
@@ -180,7 +180,7 @@ export default function CompareView() {
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Home Team</label>
             <Select value={homeTeamId} onValueChange={setHomeTeamId}>
-              <SelectTrigger className="glass-card-premium rounded-xl">
+              <SelectTrigger className="rounded-lg border border-border bg-card rounded-xl">
                 <SelectValue placeholder="Select team..." />
               </SelectTrigger>
               <SelectContent>
@@ -198,7 +198,7 @@ export default function CompareView() {
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Away Team</label>
             <Select value={awayTeamId} onValueChange={setAwayTeamId}>
-              <SelectTrigger className="glass-card-premium rounded-xl">
+              <SelectTrigger className="rounded-lg border border-border bg-card rounded-xl">
                 <SelectValue placeholder="Select team..." />
               </SelectTrigger>
               <SelectContent>
@@ -211,7 +211,7 @@ export default function CompareView() {
         </div>
 
         {teams.length === 0 ? (
-          <Card className="glass-card-premium card-hover-lift rounded-xl">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
               <Inbox className="size-12 opacity-30" />
               <p className="text-sm font-medium">No teams available</p>
@@ -222,7 +222,7 @@ export default function CompareView() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="glass-card-premium card-hover-lift rounded-xl">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
               <Inbox className="size-12 opacity-30" />
               <p className="text-sm">Select two teams above to start comparing</p>
@@ -244,7 +244,7 @@ export default function CompareView() {
         <div>
           <p className="text-muted-foreground text-sm">Compare two teams across all metrics</p>
         </div>
-        <Card className="glass-card-premium card-hover-lift rounded-xl">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
             <AlertCircle className="size-12 text-red-400" />
             <p className="text-sm text-muted-foreground">Failed to load team data</p>
@@ -277,7 +277,7 @@ export default function CompareView() {
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Home Team</label>
           <Select value={homeTeamId} onValueChange={setHomeTeamId}>
-            <SelectTrigger className="glass-card-premium rounded-xl">
+            <SelectTrigger className="rounded-lg border border-border bg-card rounded-xl">
               <SelectValue placeholder="Select team..." />
             </SelectTrigger>
             <SelectContent>
@@ -295,7 +295,7 @@ export default function CompareView() {
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Away Team</label>
           <Select value={awayTeamId} onValueChange={setAwayTeamId}>
-            <SelectTrigger className="glass-card-premium rounded-xl">
+            <SelectTrigger className="rounded-lg border border-border bg-card rounded-xl">
               <SelectValue placeholder="Select team..." />
             </SelectTrigger>
             <SelectContent>
@@ -331,7 +331,7 @@ export default function CompareView() {
       <div className="space-y-4">
         {/* Form Comparison — only if real form data exists */}
         {homeForm.length > 0 || awayForm.length > 0 ? (
-          <Card className="glass-card-premium card-hover-lift rounded-xl">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 Recent Form
@@ -362,7 +362,7 @@ export default function CompareView() {
         ) : null}
 
         {/* Stat Comparison Bars */}
-        <Card className="glass-card-premium card-hover-lift rounded-xl">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <BarChart3 className="size-4 text-primary" /> Stat Comparison
@@ -412,8 +412,8 @@ export default function CompareView() {
                     </span>
                     <div className="flex-1">
                       <div className="flex h-2.5 rounded-full overflow-hidden bg-muted/50">
-                        <div className={cn('rounded-l-full transition-all duration-500', homeWins ? 'bg-primary' : 'bg-primary/40')} style={{ width: `${homePct}%` }} />
-                        <div className={cn('rounded-r-full transition-all duration-500', !homeWins ? 'bg-orange-500' : 'bg-orange-500/40')} style={{ width: `${100 - homePct}%` }} />
+                        <div className={cn('rounded-l-full transition-colors duration-500', homeWins ? 'bg-primary' : 'bg-primary/40')} style={{ width: `${homePct}%` }} />
+                        <div className={cn('rounded-r-full transition-colors duration-500', !homeWins ? 'bg-orange-500' : 'bg-orange-500/40')} style={{ width: `${100 - homePct}%` }} />
                       </div>
                     </div>
                     <span className={cn('text-xs font-medium w-16 shrink-0', !homeWins ? 'text-orange-400' : 'text-muted-foreground')}>
@@ -434,7 +434,7 @@ export default function CompareView() {
         </Card>
 
         {/* Head-to-Head — honest UNAVAILABLE state */}
-        <Card className="glass-card-premium card-hover-lift rounded-xl">
+        <Card className="rounded-lg border border-border bg-card rounded-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Trophy className="size-4 text-primary" /> Head-to-Head Record
@@ -461,7 +461,7 @@ export default function CompareView() {
 
         {/* Player Matchups — only with real player data from DB */}
         {playerMatchups ? (
-          <Card className="glass-card-premium card-hover-lift rounded-xl">
+          <Card className="rounded-lg border border-border bg-card rounded-xl">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Key Player Matchups</CardTitle>
             </CardHeader>

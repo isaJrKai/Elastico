@@ -218,7 +218,7 @@ export default function NotificationsView() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="glass-card flex flex-wrap gap-1 rounded-xl p-1.5">
+      <div className="rounded-lg border border-border bg-card flex flex-wrap gap-1 rounded-xl p-1.5">
         {FILTER_TABS.map((tab) => {
           const count =
             tab.id === 'all'
@@ -231,7 +231,7 @@ export default function NotificationsView() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+              className={`relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
                   : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
@@ -254,7 +254,7 @@ export default function NotificationsView() {
       </div>
 
       {/* Notification List */}
-      <Card className="glass-card overflow-hidden rounded-xl">
+      <Card className="rounded-lg border border-border bg-card overflow-hidden rounded-xl">
         {isLoading ? (
           <CardContent className="space-y-1 p-4">
             {Array.from({ length: 5 }).map((_, i) => (

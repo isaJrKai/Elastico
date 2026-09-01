@@ -307,7 +307,7 @@ export default function PredictionEngineView() {
   // RENDER
   // ══════════════════════════════════════════════════════════════════════════════
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
@@ -319,17 +319,17 @@ export default function PredictionEngineView() {
       </div>
 
       <Tabs defaultValue="simulator" className="w-full">
-        <TabsList className="glass-card border-0 bg-transparent p-1 gap-1 overflow-x-auto flex-nowrap">
-          <TabsTrigger value="simulator" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+        <TabsList className="rounded-lg border border-border bg-card border-0 bg-transparent p-1 gap-1 overflow-x-auto flex-nowrap">
+          <TabsTrigger value="simulator" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-colors">
             <Cpu className="w-4 h-4 mr-2" />Stochastic Simulator
           </TabsTrigger>
-          <TabsTrigger value="kelly" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="kelly" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-colors">
             <Calculator className="w-4 h-4 mr-2" />Kelly Bankroll
           </TabsTrigger>
-          <TabsTrigger value="signals" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="signals" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-colors">
             <Radio className="w-4 h-4 mr-2" />Market Signals
           </TabsTrigger>
-          <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-colors">
             <Settings className="w-4 h-4 mr-2" />Engine Config
           </TabsTrigger>
         </TabsList>
@@ -339,7 +339,7 @@ export default function PredictionEngineView() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Input Panel */}
             <motion.div layout className="lg:col-span-1 space-y-4">
-              <Card className="glass-card border-zinc-800/50">
+              <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
                     <Target className="w-4 h-4 text-emerald-400" /> Match Setup
@@ -440,7 +440,7 @@ export default function PredictionEngineView() {
               </Card>
 
               {/* Injury Overlay */}
-              <Card className="glass-card border-zinc-800/50">
+              <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
@@ -495,15 +495,15 @@ export default function PredictionEngineView() {
                 </CardContent>
               </Card>
 
-              <Button onClick={runSimulation} disabled={simulating} className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm tracking-wide rounded-xl transition-all">
+              <Button onClick={runSimulation} disabled={simulating} className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm tracking-wide rounded-xl transition-colors">
                 {simulating ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Running {simRuns} simulations...</> : <><Play className="w-4 h-4 mr-2" /> RUN SIMULATION</>}
               </Button>
             </motion.div>
 
             {/* Results Panel */}
-            <motion.div layout className="lg:col-span-2 space-y-4">
+            <motion.div layout className="lg:col-space-y-4">
               {!analysis ? (
-                <Card className="glass-card border-zinc-800/50 h-full min-h-[500px] flex items-center justify-center">
+                <Card className="rounded-lg border border-border bg-card border-zinc-800/50 h-full min-h-[500px] flex items-center justify-center">
                   <div className="text-center space-y-3">
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center">
                       <Brain className="w-8 h-8 text-emerald-400/50" />
@@ -543,7 +543,7 @@ export default function PredictionEngineView() {
 
                   {/* Probabilities + Totals row */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card className="glass-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
                           <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> Match Probabilities
@@ -562,7 +562,7 @@ export default function PredictionEngineView() {
                         </ResponsiveContainer>
                       </CardContent>
                     </Card>
-                    <Card className="glass-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
                           <GitBranch className="w-3.5 h-3.5 text-emerald-400" /> Totals Market
@@ -591,7 +591,7 @@ export default function PredictionEngineView() {
 
                   {/* Scorelines + xG + BTTS */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="glass-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-medium text-zinc-400">Top 5 Scorelines</CardTitle>
                       </CardHeader>
@@ -612,7 +612,7 @@ export default function PredictionEngineView() {
                         </Table>
                       </CardContent>
                     </Card>
-                    <Card className="glass-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
                         <div className="flex items-center gap-2">
                           <CardTitle className="text-xs font-medium text-zinc-400">Expected Goals</CardTitle>
@@ -633,7 +633,7 @@ export default function PredictionEngineView() {
                         </Badge>
                       </CardContent>
                     </Card>
-                    <Card className="glass-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
                         <div className="flex items-center gap-2">
                           <CardTitle className="text-xs font-medium text-zinc-400">BTTS & Volatility</CardTitle>
@@ -665,7 +665,7 @@ export default function PredictionEngineView() {
                   </div>
 
                   {/* Asian Handicap */}
-                  <Card className="glass-card border-zinc-800/50">
+                  <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
                         <Gauge className="w-3.5 h-3.5 text-emerald-400" /> Asian Handicap Probabilities
@@ -701,7 +701,7 @@ export default function PredictionEngineView() {
         <TabsContent value="kelly" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="space-y-4">
-              <Card className="glass-card border-zinc-800/50">
+              <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-emerald-400" /> Bankroll Setup
@@ -722,7 +722,7 @@ export default function PredictionEngineView() {
               {/* Portfolio summary */}
               {kellyResult && (
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                  <Card className="glass-card border-zinc-800/50">
+                  <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                     <CardHeader className="pb-2">
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-xs font-medium text-zinc-400">Portfolio Summary</CardTitle>
@@ -754,7 +754,7 @@ export default function PredictionEngineView() {
 
                   {/* Pie chart */}
                   {kellyPie.length > 0 && (
-                    <Card className="glass-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-medium text-zinc-400">Bankroll Allocation</CardTitle>
                       </CardHeader>
@@ -783,8 +783,8 @@ export default function PredictionEngineView() {
             </div>
 
             {/* Kelly results table */}
-            <div className="lg:col-span-2">
-              <Card className="glass-card border-zinc-800/50">
+            <div className="lg:col-">
+              <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
@@ -841,7 +841,7 @@ export default function PredictionEngineView() {
         {/* ═════════════════════ TAB 3: MARKET SIGNALS ═════════════════════ */}
         <TabsContent value="signals" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="glass-card border-zinc-800/50">
+            <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
                   <Radio className="w-4 h-4 text-emerald-400" /> Signal Input
@@ -893,9 +893,9 @@ export default function PredictionEngineView() {
               </CardContent>
             </Card>
 
-            <div className="lg:col-span-2 space-y-4">
+            <div className="lg:col-space-y-4">
               {!signalResult ? (
-                <Card className="glass-card border-zinc-800/50 h-full min-h-[400px] flex items-center justify-center">
+                <Card className="rounded-lg border border-border bg-card border-zinc-800/50 h-full min-h-[400px] flex items-center justify-center">
                   <div className="text-center space-y-3">
                     <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center">
                       <Radio className="w-8 h-8 text-emerald-400/50" />
@@ -906,7 +906,7 @@ export default function PredictionEngineView() {
               ) : (
                 <>
                   {/* Line Velocity */}
-                  <Card className="glass-card border-zinc-800/50">
+                  <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
                         <Activity className="w-3.5 h-3.5 text-emerald-400" /> Line Velocity
@@ -937,7 +937,7 @@ export default function PredictionEngineView() {
 
                   {/* Alerts + Confidence */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card className="glass-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-medium text-zinc-400">Detection Alerts</CardTitle>
                       </CardHeader>
@@ -975,7 +975,7 @@ export default function PredictionEngineView() {
                         </div>
                       </CardContent>
                     </Card>
-                    <Card className="glass-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-medium text-zinc-400">Signal Confidence</CardTitle>
                       </CardHeader>
@@ -1002,7 +1002,7 @@ export default function PredictionEngineView() {
         {/* ═════════════════════ TAB 4: ENGINE CONFIG ═════════════════════ */}
         <TabsContent value="config" className="space-y-6 mt-6">
           <div className="max-w-2xl mx-auto space-y-6">
-            <Card className="glass-card border-zinc-800/50">
+            <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
               <CardHeader>
                 <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
                   <Settings className="w-4 h-4 text-emerald-400" /> Engine Configuration

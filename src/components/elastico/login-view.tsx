@@ -123,7 +123,7 @@ export default function LoginView() {
           <div className="w-full space-y-2">
             {visible.map(a => (
               <div key={a.id} className={cn(
-                'relative flex items-start gap-3 rounded-lg border p-3 pr-9 text-sm backdrop-blur-sm animate-slide-in-left',
+                'relative flex items-start gap-3 rounded-lg border p-3 pr-9 text-sm backdrop-blur-sm -left',
                 a.isBreaking ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-primary/20 bg-primary/5 text-primary/90',
               )}>
                 <Megaphone className="mt-0.5 size-4 shrink-0" />
@@ -136,15 +136,15 @@ export default function LoginView() {
 
         {/* Logo */}
         <div className="flex flex-col items-center gap-2 text-center">
-          <div className={cn('relative mb-1 transition-all duration-700', logoAnim ? 'scale-100 opacity-100' : 'scale-50 opacity-0')}>
+          <div className={cn('relative mb-1 transition-colors duration-700', logoAnim ? 'scale-100 opacity-100' : 'scale-50 opacity-0')}>
             <div className="flex size-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
               <Zap className="size-7 text-primary" />
             </div>
           </div>
-          <h1 className={cn('text-4xl font-extrabold tracking-tighter sm:text-5xl text-foreground transition-all duration-700 delay-200', logoAnim ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
+          <h1 className={cn('text-4xl font-extrabold tracking-tighter sm:text-5xl text-foreground transition-colors duration-700 delay-200', logoAnim ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
             ELASTICO
           </h1>
-          <p className={cn('text-[13px] font-medium tracking-wide text-muted-foreground transition-all duration-700 delay-300', logoAnim ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
+          <p className={cn('text-[13px] font-medium tracking-wide text-muted-foreground transition-colors duration-700 delay-300', logoAnim ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0')}>
             Football Analytics
           </p>
         </div>
