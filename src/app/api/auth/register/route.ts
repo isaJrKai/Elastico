@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { hashPassword, generateToken, hashSessionToken, toPublicUser } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { z } from 'zod'
-import { validateEmail, validatePassword, sanitizeInput } from '@/lib/security'
+import { validatePassword, sanitizeInput } from '@/lib/security'
 
 const RegisterBodySchema = z.object({
   email: z.string().trim().email().max(254),
