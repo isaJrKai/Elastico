@@ -286,6 +286,14 @@ export default function PredictionsView() {
       return
     }
 
+    const scoreOutcome = homeGoals > awayGoals ? 'home' : homeGoals < awayGoals ? 'away' : 'draw'
+    if (choice !== scoreOutcome) {
+      toast.error('Score and outcome do not match', {
+        description: 'Choose the outcome that matches the score you entered.',
+      })
+      return
+    }
+
     const storeMatch = matchMap[matchId]
     setSubmittingMatchId(matchId)
     try {
