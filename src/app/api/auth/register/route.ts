@@ -7,7 +7,7 @@ import { validatePassword, sanitizeInput } from '@/lib/security'
 
 const RegisterBodySchema = z.object({
   email: z.string().trim().email().max(254),
-  password: z.string().min(1).max(128),
+  password: z.string().min(12).max(128),
   name: z.string().trim().max(100).optional(),
 })
 
@@ -35,6 +35,9 @@ export async function POST(req: NextRequest) {
     }
 
     let { email, password, name } = parsed.data
+    if (Buffer.byteLength(password, 'utf8') > 72) {
+      return NextResponse.json({ error: 'Password must be at most 72 UTF-8 bytes' }, { status: 400 })
+    }
 
     // Sanitize inputs
     if (name) name = sanitizeInput(String(name))
