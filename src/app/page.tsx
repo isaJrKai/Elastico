@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useCallback, lazy, Suspense } from 'react'
+import { useEffect, useCallback, lazy, Suspense, useState } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import { Toaster } from '@/components/ui/sonner'
 import { Sidebar } from '@/components/elastico/sidebar'
@@ -64,28 +64,46 @@ export default function Home() {
   const fetchNotifications = useElasticoStore(s => s.fetchNotifications)
   const fetchLiveScores = useElasticoStore(s => s.fetchLiveScores)
 
-  // Restore session on mount
+  const [checkingSession, setCheckingSession] = useState(true)
+  const [authUnavailable, setAuthUnavailable] = useState(false)
+
+  // Restore session exclusively from the HttpOnly cookie; never trust browser-stored user data.
   useEffect(() => {
-    const token = localStorage.getItem('elastico_token')
-    const userStr = localStorage.getItem('elastico_user')
-    if (token && userStr) {
+    let cancelled = false
+    const restoreSession = async () => {
       try {
-        JSON.parse(userStr)
-        fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => { if (r.ok) return r.json(); throw new Error('Invalid token') })
-          .then(data => {
-            const store = useElasticoStore.getState()
-            store.setUser(data.user || data, token)
-          })
-          .catch(() => {
-            localStorage.removeItem('elastico_token')
-            localStorage.removeItem('elastico_user')
-          })
+        const response = await fetch('/api/auth/me', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        })
+        if (response.status === 401) {
+          if (!cancelled) {
+            useElasticoStore.getState().setUser(null, null)
+            useElasticoStore.getState().setView('login')
+          }
+          return
+        }
+        if (!response.ok) throw new Error('Authentication service unavailable')
+        const data = await response.json()
+        if (!cancelled) {
+          localStorage.removeItem('elastico_token')
+          localStorage.removeItem('elastico_user')
+          useElasticoStore.getState().setUser(data.user || data, null)
+          useElasticoStore.getState().setView('dashboard')
+        }
       } catch {
-        localStorage.removeItem('elastico_token')
-        localStorage.removeItem('elastico_user')
+        if (!cancelled) {
+          localStorage.removeItem('elastico_token')
+          localStorage.removeItem('elastico_user')
+          useElasticoStore.getState().setUser(null, null)
+          setAuthUnavailable(true)
+        }
+      } finally {
+        if (!cancelled) setCheckingSession(false)
       }
     }
+    void restoreSession()
+    return () => { cancelled = true }
   }, [])
 
   // Trigger initial data sync (populates DB from ESPN/API-Sports)
@@ -146,6 +164,20 @@ export default function Home() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
+
+  if (checkingSession) {
+    return <div className="min-h-screen bg-background flex items-center justify-center p-4"><ViewSkeleton /></div>
+  }
+
+  if (authUnavailable) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 p-4 text-center">
+        <p className="text-sm text-muted-foreground">Elastico could not verify your session. Your account has not been signed in.</p>
+        <button className="rounded-md border border-border px-4 py-2 text-sm" onClick={() => window.location.reload()}>Retry</button>
+        <Toaster />
+      </div>
+    )
+  }
 
   // Not authenticated — show login
   if (!isAuthenticated) {
