@@ -216,6 +216,7 @@ export function TacticalView() {
   // Fetch teams if store is empty (supports live API fallbacks)
   useEffect(() => {
     if (teams.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading when the store is cleared after initial render
       setLoading(true)
       fetchTeams().finally(() => setLoading(false))
     }

@@ -224,10 +224,13 @@ function NonAdminSystemMonitor() {
   }
 
   useEffect(() => {
-    runHealthChecks()
+    const initialCheck = setTimeout(() => { void runHealthChecks() }, 0)
     // Re-check every 60 seconds
     const interval = setInterval(runHealthChecks, 60_000)
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(initialCheck)
+      clearInterval(interval)
+    }
   }, [])
 
   return (
