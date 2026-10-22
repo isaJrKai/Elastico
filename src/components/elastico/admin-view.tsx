@@ -299,7 +299,6 @@ export default function AdminView() {
       if (res.ok) {
         const data = await res.json()
         toast.success(data.message || `Action "${action}" completed`)
-        if (action === 'maintenance') fetchAdminData()
       } else {
         toast.error('Action failed')
       }
@@ -663,9 +662,6 @@ export default function AdminView() {
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('broadcast')}>
                   <Megaphone className="h-3.5 w-3.5" /> Send Broadcast
-                </Button>
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('maintenance')}>
-                  <ToggleLeft className="h-3.5 w-3.5" /> Maintenance
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('sync')}>
                   <Upload className="h-3.5 w-3.5" /> Sync Data
@@ -1440,7 +1436,6 @@ export default function AdminView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[
                 { key: 'registration_open', label: 'Registration Open', type: 'boolean', default: 'true' },
-                { key: 'maintenance_mode', label: 'Maintenance Mode', type: 'boolean', default: 'false' },
                 { key: 'max_predictions_free', label: 'Max Predictions (Free)', type: 'number', default: '5' },
                 { key: 'ai_chat_enabled', label: 'AI Chat Enabled', type: 'boolean', default: 'true' },
                 { key: 'default_user_plan', label: 'Default User Plan', type: 'string', default: 'free' },
