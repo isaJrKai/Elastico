@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'node:crypto'
 import { db } from '@/lib/db'
 import {
   ESPN_LEAGUES,
@@ -47,8 +48,8 @@ function validateCron(req: NextRequest): boolean {
   const supplied = req.headers.get('x-cron-secret')
 
   // A missing secret must disable the endpoint; never accept a public fallback.
-  if (!expected || expected.length < 32 || !supplied) return false
-  return supplied === expected
+  if (!expected || expected.length < 32 || !supplied || supplied.length !== expected.length) return false
+  return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
