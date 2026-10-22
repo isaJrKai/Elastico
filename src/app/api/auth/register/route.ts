@@ -64,45 +64,53 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await hashPassword(password)
 
-    const user = await db.user.create({
-      data: {
-        email: email.toLowerCase(),
-        passwordHash,
-        name: name || null,
-        displayName: sanitizeInput(name || email.split('@')[0]),
-      },
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || undefined
+    const { user, token } = await db.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email: email.toLowerCase(),
+          passwordHash,
+          name: name || null,
+          displayName: sanitizeInput(name || email.split('@')[0]),
+        },
+      })
+
+      const createdToken = generateToken({
+        userId: createdUser.id,
+        email: createdUser.email,
+        role: createdUser.role,
+        plan: createdUser.plan,
+      })
+
+      await tx.session.create({
+        data: {
+          userId: createdUser.id,
+          token: hashSessionToken(createdToken),
+          ipAddress: clientIp,
+          userAgent: req.headers.get('user-agent') || undefined,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      })
+      return { user: createdUser, token: createdToken }
     })
 
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      plan: user.plan,
-    })
-
-    await db.session.create({
-      data: {
-        userId: user.id,
-        token: hashSessionToken(token),
-        ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0] || undefined,
-        userAgent: req.headers.get('user-agent') || undefined,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    })
-
-    // Log activity
-    await db.activity.create({
-      data: {
-        userId: user.id,
-        type: 'login',
-        metadata: JSON.stringify({ method: 'register' }),
-        ipAddress: req.headers.get('x-forwarded-for') || undefined,
-      },
-    })
+    // Activity logs are best-effort and must not make a committed registration appear to fail.
+    try {
+      await db.activity.create({
+        data: {
+          userId: user.id,
+          type: 'login',
+          metadata: JSON.stringify({ method: 'register' }),
+          ipAddress: clientIp,
+        },
+      })
+    } catch {
+      console.error('[Auth] Registration activity log write failed')
+    }
 
     return NextResponse.json(
       { user: toPublicUser(user), token },
-      { status: 201 }
+      { status: 201, headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     )
   } catch (error) {
     console.error('Register error:', error)
