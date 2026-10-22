@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { fetchFootballNews, normalizeNDArticle } from '@/lib/newsdata'
 
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 /**
  * GET /api/news
  *
@@ -146,8 +147,9 @@ async function fetchESPNNewsDirect(leagueCode: string): Promise<any[]> {
 export async function GET(req: NextRequest) {
   try {
     // Rate limiting
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = rateLimit(`news:${ip}`, 15, 60000)
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
+    const rl = rateLimit(`news:${auth.user.id}`, 15, 60000)
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }
@@ -160,6 +162,7 @@ export async function GET(req: NextRequest) {
     const topic = searchParams.get('topic') || undefined
     const league = searchParams.get('league') || undefined
     const refresh = searchParams.get('refresh') === 'true'
+    if (refresh && auth.user.role !== 'admin') return NextResponse.json({ error: 'Admin access required to refresh provider data' }, { status: 403 })
 
     // ── Build category filter for PostgreSQL ─────────────────────────────
     const categoryFilter = category ? buildCategoryFilter(category) : null
