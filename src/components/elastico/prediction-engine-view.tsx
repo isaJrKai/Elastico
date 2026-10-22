@@ -127,12 +127,12 @@ export default function PredictionEngineView() {
   const [kellyResult, setKellyResult] = useState<FullMatchAnalysis['portfolioAllocation'] | null>(null)
 
   // ── Market signals state ──────────────────────────────────────────────────────
-  const [sigOpenHome, setSigOpenHome] = useState('2.10')
-  const [sigOpenDraw, setSigOpenDraw] = useState('3.40')
-  const [sigOpenAway, setSigOpenAway] = useState('3.60')
-  const [sigCurHome, setSigCurHome] = useState('1.95')
-  const [sigCurDraw, setSigCurDraw] = useState('3.50')
-  const [sigCurAway, setSigCurAway] = useState('4.00')
+  const [sigOpenHome, setSigOpenHome] = useState('')
+  const [sigOpenDraw, setSigOpenDraw] = useState('')
+  const [sigOpenAway, setSigOpenAway] = useState('')
+  const [sigCurHome, setSigCurHome] = useState('')
+  const [sigCurDraw, setSigCurDraw] = useState('')
+  const [sigCurAway, setSigCurAway] = useState('')
   const [sigHomeTeam, setSigHomeTeam] = useState('')
   const [sigAwayTeam, setSigAwayTeam] = useState('')
   const [sigLoading, setSigLoading] = useState(false)
@@ -201,6 +201,10 @@ export default function PredictionEngineView() {
   // ── Run Kelly ─────────────────────────────────────────────────────────────────
   const runKelly = useCallback(async () => {
     if (!analysis) { toast.error('Run a simulation first'); return }
+    if (kellyBankroll.trim() === '' || !Number.isFinite(Number(kellyBankroll)) || Number(kellyBankroll) <= 0) {
+      toast.error('Enter a valid bankroll before calculating Kelly allocation')
+      return
+    }
     setKellyLoading(true)
     try {
       // Map portfolio outcomes to the format calculatePortfolioAllocation expects
@@ -231,6 +235,11 @@ export default function PredictionEngineView() {
   // ── Run market signals ────────────────────────────────────────────────────────
   const runSignals = useCallback(async () => {
     if (!sigHomeTeam || !sigAwayTeam) { toast.error('Select both teams'); return }
+    const oddsInputs = [sigOpenHome, sigOpenDraw, sigOpenAway, sigCurHome, sigCurDraw, sigCurAway]
+    if (oddsInputs.some(raw => raw.trim() === '' || !Number.isFinite(Number(raw)) || Number(raw) <= 1 || Number(raw) > 1000)) {
+      toast.error('Enter valid opening and current decimal odds above 1.0 for all outcomes')
+      return
+    }
     setSigLoading(true)
     try {
       const res = await fetch('/api/prediction-engine/market-signals', {
@@ -366,9 +375,8 @@ export default function PredictionEngineView() {
                   <p className="text-[10px] text-zinc-600 leading-relaxed">
                     <Info className="inline w-3 h-3 mr-1 opacity-60" />
                     Monte Carlo simulation generates thousands of match outcomes using Poisson-distributed goals,
-                    ELO-based strength, and xG inputs. It estimates win/draw/loss probabilities,
-                    totals markets (O/U 1.5, 2.5, 3.5), BTTS likelihood, and Asian Handicap lines.
-                    When no ELO data exists, a default rating of 1500 is used.
+                    ELO-based strength, xG, goals-conceded rates, and verified bookmaker odds. Missing
+                    values must be entered explicitly; the tool does not invent default team ratings or odds.
                   </p>
                 </CardDescription>
                 <CardContent className="space-y-3">
@@ -1045,10 +1053,10 @@ export default function PredictionEngineView() {
                   </div>
                   <Slider
                     value={[config.simulationRuns]}
-                    min={10000} max={500000} step={10000}
+                    min={10000} max={150000} step={10000}
                     onValueChange={([v]) => setConfig(p => ({ ...p, simulationRuns: v }))}
                   />
-                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>500K</span></div>
+                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>150K</span></div>
                 </div>
 
                 <Separator className="bg-zinc-800/50" />
