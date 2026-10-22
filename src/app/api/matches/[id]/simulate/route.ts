@@ -159,10 +159,11 @@ export async function POST(
 
     // Simulation output is illustrative only. Never settle predictions or update
     // user accuracy/streaks from stochastic simulated scores.
-    result.simulationOnly = true
-    result.disclaimer = 'Illustrative stochastic simulation based on heuristic ratings; not an actual result or validated forecast.'
-
-    return NextResponse.json(result)
+    return NextResponse.json({
+      ...result,
+      simulationOnly: true,
+      disclaimer: 'Illustrative stochastic simulation based on heuristic ratings; not an actual result or validated forecast.',
+    })
   } catch (error) {
     console.error('Simulation error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
