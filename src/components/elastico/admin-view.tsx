@@ -588,8 +588,8 @@ export default function AdminView() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatCard title="Total Users" value={stats?.totalUsers ?? '—'} icon={Users} color="emerald" dataClass="REAL" />
             <StatCard title="Active Today" value={stats?.activeToday ?? '—'} icon={Activity} color="blue" dataClass="REAL" />
-            <StatCard title="MRR Revenue" value={stats?.revenueEstimate != null ? `$${stats.revenueEstimate.toFixed(0)}` : '—'} icon={DollarSign} color="gold" dataClass="DERIVED" />
-            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate ?? 0) * 2).toFixed(1) : '—'}`} icon={Target} color="emerald" dataClass="DERIVED" />
+            <StatCard title="Paid MRR" value={stats?.revenueEstimate != null ? `${stats.revenueEstimate.toFixed(0)}` : '—'} icon={DollarSign} color="gold" dataClass="MISSING" />
+            <StatCard title="Prediction Accuracy" value="—" icon={Target} color="emerald" dataClass="MISSING" />
             <StatCard title="AI Queries" value={stats?.totalApiCalls24h ?? '—'} icon={Brain} color="purple" dataClass="REAL" />
             <StatCard title="Uptime" value={stats?.uptime ?? '—'} icon={Server} color="emerald" dataClass="REAL" />
           </div>
