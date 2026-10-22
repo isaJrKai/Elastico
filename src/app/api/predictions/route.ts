@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 import { authenticateRequest } from '@/lib/auth'
 import { z } from 'zod'
 
@@ -83,42 +84,56 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check free plan limit
-    if (user.plan === 'free') {
-      const usedCount = await db.prediction.count({ where: { userId: user.id } })
-      if (usedCount >= 3) {
-        return NextResponse.json({ error: 'Free plan limited to 3 predictions. Upgrade to Pro for unlimited.' }, { status: 403 })
-      }
-    }
+    const result = await db.$transaction(async (tx) => {
+      const existingPrediction = await tx.prediction.findUnique({
+        where: { userId_matchId: { userId: user.id, matchId } },
+        select: { id: true },
+      })
 
-    // Upsert prediction (uses denormalized fields)
-    const prediction = await db.prediction.upsert({
-      where: { userId_matchId: { userId: user.id, matchId } },
-      update: {
-        predictedHomeGoals,
-        predictedAwayGoals,
-        predictedOutcome,
-        confidence,
-        model: 'user',
-        homeTeam: homeTeam || undefined,
-        awayTeam: awayTeam || undefined,
-        competition: competition || undefined,
-        matchDate: matchDate || undefined,
-      },
-      create: {
-        userId: user.id,
-        matchId,
-        predictedHomeGoals,
-        predictedAwayGoals,
-        predictedOutcome,
-        confidence,
-        model: 'user',
-        homeTeam: homeTeam || undefined,
-        awayTeam: awayTeam || undefined,
-        competition: competition || undefined,
-        matchDate: matchDate || undefined,
-      },
-    })
+      // Check quota only for a new prediction; edits to an existing prediction do not consume a slot.
+      if (user.plan === 'free' && !existingPrediction) {
+        const usedCount = await tx.prediction.count({ where: { userId: user.id } })
+        if (usedCount >= 3) return { blocked: true as const }
+      }
+
+      const prediction = await tx.prediction.upsert({
+        where: { userId_matchId: { userId: user.id, matchId } },
+        update: {
+          predictedHomeGoals,
+          predictedAwayGoals,
+          predictedOutcome,
+          confidence,
+          model: 'user',
+          homeTeam: homeTeam || undefined,
+          awayTeam: awayTeam || undefined,
+          competition: competition || undefined,
+          matchDate: matchDate || undefined,
+        },
+        create: {
+          userId: user.id,
+          matchId,
+          predictedHomeGoals,
+          predictedAwayGoals,
+          predictedOutcome,
+          confidence,
+          model: 'user',
+          homeTeam: homeTeam || undefined,
+          awayTeam: awayTeam || undefined,
+          competition: competition || undefined,
+          matchDate: matchDate || undefined,
+        },
+      })
+
+      return { blocked: false as const, prediction, isUpdate: Boolean(existingPrediction) }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+
+    if (result.blocked) {
+      return NextResponse.json(
+        { error: 'Free plan limited to 3 predictions. Upgrade to Pro for unlimited.' },
+        { status: 403 },
+      )
+    }
+    const prediction = result.prediction
 
     // Log activity
     await db.activity.create({
@@ -129,8 +144,11 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ prediction }, { status: 201 })
+    return NextResponse.json({ prediction }, { status: result.isUpdate ? 200 : 201 })
   } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2034') {
+      return NextResponse.json({ error: 'Concurrent prediction update; retry the request' }, { status: 409 })
+    }
     console.error('Prediction error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
