@@ -95,43 +95,49 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Successful login
+    // Create/update the account state and session atomically.
     const token = generateToken({
       userId: user.id,
       email: user.email,
       role: user.role,
       plan: user.plan,
     })
-
-    await db.session.create({
-      data: {
-        userId: user.id,
-        token: hashSessionToken(token),
-        ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0] || undefined,
-        userAgent: req.headers.get('user-agent') || undefined,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || undefined
+    const updatedUser = await db.$transaction(async (tx) => {
+      const currentUser = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          lastLoginAt: new Date(),
+          loginCount: { increment: 1 },
+          failedLogins: 0,
+          lockedUntil: null,
+        },
+      })
+      await tx.session.create({
+        data: {
+          userId: user.id,
+          token: hashSessionToken(token),
+          ipAddress: clientIp,
+          userAgent: req.headers.get('user-agent') || undefined,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      })
+      return currentUser
     })
 
-    await db.user.update({
-      where: { id: user.id },
-      data: {
-        lastLoginAt: new Date(),
-        loginCount: { increment: 1 },
-        failedLogins: 0,
-        lockedUntil: null,
-      },
-    })
-
-    // Log activity
-    await db.activity.create({
-      data: {
-        userId: user.id,
-        type: 'login',
-        metadata: JSON.stringify({ method: 'email', ip: req.headers.get('x-forwarded-for') }),
-        ipAddress: req.headers.get('x-forwarded-for') || undefined,
-      },
-    })
+    // Activity logging must not turn a successful login into a false failure.
+    try {
+      await db.activity.create({
+        data: {
+          userId: user.id,
+          type: 'login',
+          metadata: JSON.stringify({ method: 'password' }),
+          ipAddress: clientIp,
+        },
+      })
+    } catch {
+      console.error('[Auth] Login activity log write failed')
+    }
 
     return NextResponse.json({
       user: toPublicUser(user),
