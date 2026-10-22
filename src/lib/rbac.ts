@@ -1,6 +1,7 @@
 // ELASTICO — Role-Based Access Control utilities
 import { NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
+import { hashSessionToken } from '@/lib/auth'
 
 function assertJwtSecret(): string {
   const secret = process.env.JWT_SECRET
@@ -26,9 +27,10 @@ export async function requireAdmin(request: Request): Promise<{ authorized: true
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
 
+  const token = authHeader.slice(7)
   let decoded: { userId: string; email: string; role: string; plan: string }
   try {
-    decoded = jwt.verify(authHeader.slice(7), assertJwtSecret(), {
+    decoded = jwt.verify(token, assertJwtSecret(), {
       algorithms: ['HS256'],
     }) as { userId: string; email: string; role: string; plan: string }
     if (!decoded || typeof decoded.userId !== 'string' || !decoded.userId) {
@@ -40,6 +42,10 @@ export async function requireAdmin(request: Request): Promise<{ authorized: true
 
   try {
     const { db } = await import('@/lib/db')
+    const session = await db.session.findUnique({ where: { token: hashSessionToken(token) } })
+    if (!session || session.expiresAt <= new Date() || session.userId !== decoded.userId) {
+      return NextResponse.json({ error: 'Session expired or revoked' }, { status: 401 })
+    }
     const user = await db.user.findUnique({ where: { id: decoded.userId } })
     if (!user || !user.isActive || user.isBanned) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
