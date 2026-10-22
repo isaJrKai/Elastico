@@ -54,6 +54,12 @@ export async function PATCH(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid settings payload' }, { status: 400 })
     }
+    if (parsed.data.settings.some((item) => item.key === 'maintenance_mode')) {
+      return NextResponse.json(
+        { error: 'Maintenance mode is unavailable until request-layer enforcement is implemented' },
+        { status: 501 },
+      )
+    }
 
     const results = await db.$transaction(async (tx) => {
       const saved = []
