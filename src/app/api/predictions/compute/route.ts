@@ -62,8 +62,8 @@ export async function GET(request: NextRequest) {
         name: m.awayTeam?.name || 'Away',
         abbreviation: m.awayTeam?.abbreviation || m.awayTeam?.code || '',
       },
-      homeScore: m.homeScore ?? 0,
-      awayScore: m.awayScore ?? 0,
+      homeScore: m.homeScore ?? null,
+      awayScore: m.awayScore ?? null,
       status: m.status,
       date: m.date || m.utcDate || '',
       venue: m.venue || '',
@@ -71,11 +71,15 @@ export async function GET(request: NextRequest) {
     }))
 
     // Take upcoming and recent matches, compute predictions
-    const predictions = normalized.slice(0, 20).map((m: any) => {
+    const rawPredictions = normalized.slice(0, 20).map((m: any) => {
       const homeAbbr = m.homeTeam.abbreviation
       const awayAbbr = m.awayTeam.abbreviation
-      const homeElo = 1500 + (homeAbbr ? hashToElo(homeAbbr) : 0)
-      const awayElo = 1500 + (awayAbbr ? hashToElo(awayAbbr) : 0)
+      const homeOffset = TEAM_ELO_MAP[homeAbbr]
+      const awayOffset = TEAM_ELO_MAP[awayAbbr]
+      // Never synthesize team strength from a name hash. Unknown teams have no forecast.
+      if (homeOffset === undefined || awayOffset === undefined) return null
+      const homeElo = 1500 + homeOffset
+      const awayElo = 1500 + awayOffset
 
       // 1. ELO Model
       const elo: EloResult = calculateElo(homeElo, awayElo, 20, 0)
@@ -117,6 +121,11 @@ export async function GET(request: NextRequest) {
         date: m.date,
         venue: m.venue,
         minute: m.minute,
+        // These are experimental outputs from a manually curated prior map, not a calibrated model.
+        forecastQuality: 'UNVALIDATED_HEURISTIC',
+        ratingSource: 'manual-prior-map',
+        calibrated: false,
+        disclaimer: 'Experimental probabilities from manually curated team priors; not validated against out-of-sample results.',
         // Predictions
         ensemble,
         elo: { home: Math.round(elo.homeProb * 1000) / 10, draw: Math.round(elo.drawProb * 1000) / 10, away: Math.round(elo.awayProb * 1000) / 10, expHome: elo.expectedHomeGoals.toFixed(2), expAway: elo.expectedAwayGoals.toFixed(2) },
@@ -132,7 +141,16 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, count: predictions.length, source: matchSource, predictions })
+    const predictions = rawPredictions.filter((prediction): prediction is NonNullable<typeof prediction> => prediction !== null)
+    return NextResponse.json({
+      success: true,
+      count: predictions.length,
+      source: matchSource,
+      forecastQuality: 'UNVALIDATED_HEURISTIC',
+      calibrated: false,
+      disclaimer: 'Experimental probabilities from manually curated team priors; not validated against out-of-sample results. Matches without a mapped prior are omitted.',
+      predictions,
+    })
   } catch (error) {
     console.error('[PREDICT] Error:', error)
     return NextResponse.json(
@@ -165,15 +183,5 @@ const TEAM_ELO_MAP: Record<string, number> = {
   'ANG': 200, 'AUX': 210, 'LEH': 190, 'BRE_L1': 220, 'MHS': 200,
 }
 
-function hashToElo(abbr: string): number {
-  if (TEAM_ELO_MAP[abbr]) return TEAM_ELO_MAP[abbr]
-  // Deterministic fallback from abbreviation
-  let hash = 0
-  for (let i = 0; i < abbr.length; i++) {
-    hash = ((hash << 5) - hash) + abbr.charCodeAt(i)
-    hash |= 0
-  }
-  return 150 + (Math.abs(hash) % 300) // Range: 150-450 offset from 1500
-}
 
 export const dynamic = 'force-dynamic'
