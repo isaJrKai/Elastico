@@ -74,8 +74,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'clearEvents') {
-      // Match events no longer exist — data comes from ESPN
-      return NextResponse.json({ success: true, message: 'Match events are now handled by ESPN live data. No local events to clear.' })
+      return NextResponse.json(
+        { success: false, status: 'unavailable', message: 'No local event-clearing operation is implemented.' },
+        { status: 501 },
+      )
     }
 
     if (action === 'maintenance') {
@@ -121,12 +123,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'sync') {
-      // Teams, players, matches data now comes from ESPN — no local sync needed
-      return NextResponse.json({
-        success: true,
-        message: 'Data sync completed',
-        synced: { teams: 0, players: 0, matches: 0 },
-      })
+      return NextResponse.json(
+        { success: false, status: 'unavailable', message: 'Use the authenticated scheduled sync pipeline; this admin action is not implemented.' },
+        { status: 501 },
+      )
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
