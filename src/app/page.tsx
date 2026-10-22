@@ -106,13 +106,7 @@ export default function Home() {
     return () => { cancelled = true }
   }, [])
 
-  // Trigger initial data sync (populates DB from ESPN/API-Sports)
-  // Note: sync endpoint requires authentication in production
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetch('/api/sync', { method: 'POST' }).catch(() => {})
-    }
-  }, [isAuthenticated])
+  // Data ingestion runs through the configured scheduler; user page loads never trigger provider syncs.
 
   // Fetch ESPN live scores immediately (no auth needed)
   useEffect(() => {
