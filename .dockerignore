@@ -1,0 +1,23 @@
+# Keep the production build context limited to the application.
+node_modules
+.next
+.git
+.vercel
+coverage
+test-results
+playwright-report
+*.log
+.env
+.env.*
+!.env.example
+
+# Repository research artifacts and archived code are not runtime inputs.
+elastico-work
+elastico-source
+skills
+upload
+download
+agent-ctx
+tool-results
+scripts
+examples
