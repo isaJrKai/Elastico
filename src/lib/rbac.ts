@@ -1,7 +1,7 @@
 // ELASTICO — Role-Based Access Control utilities
 import { NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
-import { hashSessionToken } from '@/lib/auth'
+import { getRequestToken, hashSessionToken, hasValidCookieRequestOrigin } from '@/lib/auth'
 
 function assertJwtSecret(): string {
   const secret = process.env.JWT_SECRET
@@ -22,12 +22,15 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 }
 
 export async function requireAdmin(request: Request): Promise<{ authorized: true; userId: string } | NextResponse> {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
+  const tokenInfo = getRequestToken(request)
+  if (!tokenInfo) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
   }
+  if (tokenInfo.source === 'cookie' && !hasValidCookieRequestOrigin(request)) {
+    return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 })
+  }
 
-  const token = authHeader.slice(7)
+  const token = tokenInfo.token
   let decoded: { userId: string; email: string; role: string; plan: string }
   try {
     decoded = jwt.verify(token, assertJwtSecret(), {
