@@ -289,6 +289,15 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
 
   logout: () => {
     if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('elastico_token')
+      if (token) {
+        void fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {
+          // Local logout must still complete if the server is unavailable.
+        })
+      }
       localStorage.removeItem('elastico_token')
       localStorage.removeItem('elastico_user')
     }
