@@ -71,6 +71,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
+    // A stored 2FA flag must never be ignored. Until a real challenge/verification
+    // flow is implemented, fail closed rather than silently bypassing 2FA.
+    if (user.twoFactorEnabled) {
+      return NextResponse.json(
+        { error: 'Two-factor verification is not available for this account; sign-in has been blocked for safety.' },
+        { status: 503, headers: { 'Cache-Control': 'no-store' } },
+      )
+    }
+
     // Successful login
     const token = generateToken({
       userId: user.id,
