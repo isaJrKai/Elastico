@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 import {
   calculateCRI,
   calculateSCS,
@@ -49,23 +50,24 @@ const FORMULA_CATALOG = [
   { action: 'fcd', tier: 2, name: 'Fixture Congestion Decay', description: 'Non-linear fatigue from condensed schedule. Exponential decay, position-weighted.' },
   { action: 'reintegration', tier: 2, name: 'Reintegration Readiness', description: 'Injury return readiness using training load x match minutes x opponent intensity.' },
   { action: 'mai', tier: 2, name: 'Motivation Index', description: 'Schedule-adjusted motivation gap. Quantifies dead rubber vs must-win asymmetry.' },
-  { action: 'dse', tier: 3, name: 'Defensive Shape Entropy', description: 'Formation breakdown detection. High entropy -> 340% increased goal probability within 8 seconds.' },
-  { action: 'sbdi', tier: 3, name: 'Second-Ball Dominance', description: 'Second ball win rate. SBDI > 0.61 correlates with 71% win probability.' },
-  { action: 'press-lag', tier: 3, name: 'Press Trigger Lag', description: 'Press execution delay measurement. Optimal <1.2s, exploitable >2.1s.' },
+  { action: 'dse', tier: 3, name: 'Defensive Shape Entropy', description: 'Experimental formation-entropy indicator; any predictive effect requires tracking data and out-of-sample validation.' },
+  { action: 'sbdi', tier: 3, name: 'Second-Ball Dominance', description: 'Second-ball dominance indicator; no validated win-probability calibration is currently established.' },
+  { action: 'press-lag', tier: 3, name: 'Press Trigger Lag', description: 'Press execution delay indicator; thresholds require source-backed validation.' },
   { action: 'soa', tier: 3, name: 'Spatial Overload Asymmetry', description: 'Gap between intended tactical overloads and actual player positioning.' },
   { action: 'line-alpha', tier: 4, name: 'Line Movement Alpha', description: 'Sharp money detection via causality decomposition of line movements.' },
-  { action: 'rbei', tier: 4, name: 'Recency Bias Exploitation', description: 'Market overreaction detection. RBEI > 1.8 = fade signal.' },
-  { action: 'ctc', tier: 4, name: 'Coaching Tenure Curve', description: 'New manager effect lifecycle. Peak 6-18mo, cliff 30-36mo unless roster turnover > 40%.' },
-  { action: 'narrative', tier: 4, name: 'Narrative Momentum', description: 'Media-to-performance feedback loop. Self-fulfilling prophecy coefficient: 0.023.' },
-  { action: 'capz', tier: 5, name: 'Crowd Acoustic Pressure', description: 'Stadium-specific acoustic impact on player decisions. >112dB for >4s -> 34% error increase.' },
-  { action: 'tad', tier: 5, name: 'Tactical Plagiarism Detection', description: 'How fast a team copies opponent tactics. Elite threshold: <2.1 games.' },
-  { action: 'sub-decay', tier: 5, name: 'Substitution Impact Decay', description: 'Warm-up (tau=8min) + counter-adjustment (tau=11min) curve. Net peak at ~19 min.' },
-  { action: 'ipr', tier: 5, name: 'Psychological Residue', description: 'Inter-game hangover model. Dramatic win = -4.2%, narrow loss = +3.1% next game.' },
+  { action: 'rbei', tier: 4, name: 'Recency Bias Exploitation', description: 'Experimental market overreaction indicator; no validated action threshold is established.' },
+  { action: 'ctc', tier: 4, name: 'Coaching Tenure Curve', description: 'Hypothesis-driven coaching-tenure indicator; effects and thresholds are not validated.' },
+  { action: 'narrative', tier: 4, name: 'Narrative Momentum', description: 'Experimental media-to-performance indicator; no calibrated coefficient is established.' },
+  { action: 'capz', tier: 5, name: 'Crowd Acoustic Pressure', description: 'Experimental acoustic-pressure indicator; causal effects require validated sensor data and controlled analysis.' },
+  { action: 'tad', tier: 5, name: 'Tactical Plagiarism Detection', description: 'Experimental tactical similarity indicator; no validated threshold is established.' },
+  { action: 'sub-decay', tier: 5, name: 'Substitution Impact Decay', description: 'Experimental substitution-impact curve; time constants require empirical calibration.' },
+  { action: 'ipr', tier: 5, name: 'Psychological Residue', description: 'Experimental psychological-residue indicator; effect sizes are not validated.' },
 ]
 
 export async function GET(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
-  const { allowed } = rateLimit(`advanced-analytics-get:${ip}`, 15, 60_000)
+  const auth = await authenticateRequest(request)
+  if (auth instanceof Response) return auth
+  const { allowed } = rateLimit(`advanced-analytics-get:${auth.user.id}`, 15, 60_000)
   if (!allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
@@ -90,7 +92,7 @@ export async function GET(request: NextRequest) {
   try {
     // ─── CATALOG ─────────────────────────────────────────────────────────
     if (action === 'list') {
-      return NextResponse.json({ formulas: FORMULA_CATALOG, total: FORMULA_CATALOG.length })
+      return NextResponse.json({ formulas: FORMULA_CATALOG, total: FORMULA_CATALOG.length, evidenceStatus: 'UNVALIDATED', warning: 'Experimental indicators; not calibrated predictive claims.' })
     }
 
     // ─── TIER 1: PSYCHOLOGICAL ───────────────────────────────────────────
@@ -410,8 +412,9 @@ export async function GET(request: NextRequest) {
 // POST for complex payloads (full analysis with all 20 params)
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
-    const { allowed } = rateLimit(`advanced-analytics:${ip}`, 5, 60_000)
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
+    const { allowed } = rateLimit(`advanced-analytics:${auth.user.id}`, 5, 60_000)
     if (!allowed) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
