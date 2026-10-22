@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { comparePassword, generateToken, toPublicUser } from '@/lib/auth'
+import { comparePassword, generateToken, hashSessionToken, toPublicUser } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
@@ -77,6 +77,16 @@ export async function POST(req: NextRequest) {
       email: user.email,
       role: user.role,
       plan: user.plan,
+    })
+
+    await db.session.create({
+      data: {
+        userId: user.id,
+        token: hashSessionToken(token),
+        ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0] || undefined,
+        userAgent: req.headers.get('user-agent') || undefined,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
     })
 
     await db.user.update({
