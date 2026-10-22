@@ -59,9 +59,7 @@ export default function LoginView() {
       const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginEmail, password: loginPassword }) })
       const data = await res.json()
       if (!res.ok) { setLoginError(data.error || data.message || 'Login failed.'); return }
-      if (data.token) localStorage.setItem('elastico_token', data.token)
-      if (data.user) localStorage.setItem('elastico_user', JSON.stringify(data.user))
-      setUser(data.user, data.token); setView('dashboard')
+      setUser(data.user, null); setView('dashboard')
     } catch { setLoginError('Network error.') } finally { setLoginLoading(false) }
   }
 
