@@ -63,7 +63,6 @@ export async function GET(request: Request) {
       envVar: k.name,
       label: k.label,
       configured: status.configured,
-      prefix: status.prefix,
     }
   })
 
@@ -73,7 +72,6 @@ export async function GET(request: Request) {
       envVar: k.name,
       label: k.label,
       configured: status.configured,
-      prefix: status.prefix,
     }
   })
 
