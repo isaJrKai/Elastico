@@ -43,6 +43,9 @@ The repository had multiple release-blocking security and data-integrity defects
 | D-05 | Achievement reads generated a fresh timestamp for every unlocked achievement despite no timestamp being stored. | Current branch no longer invents unlock timestamps. |
 | D-06 | Prediction submissions accepted client-selected outcomes and model labels without checking score consistency. | Current branch validates payloads, enforces score/outcome consistency, labels client submissions as user predictions, and checks free-plan quota in a serializable transaction. Runtime/DB testing remains open. |
 | D-07 | Some advanced analytics, simulation, and derived metrics need view-by-view verification that labels match the actual computation and source quality. | Open: complete product-truth audit across every screen and API. |
+| D-08 | The forecast endpoint generated pseudo-ELO values from team-name hashes for unknown teams and used a manually curated team-prior map without calibration evidence. | Hash-based fallback removed; unknown teams are omitted. Outputs and UI now disclose that the remaining prior-map probabilities are experimental and uncalibrated. Replacing priors with a sourced ratings pipeline and backtesting remains a release blocker. |
+| D-09 | The prediction-engine simulator silently supplied default ELO, odds, goals-conceded, and bankroll values. | UI defaults removed; manual values are required and bounded at the API. ELO/odds provenance and model calibration still require validation. |
+| D-10 | Advanced-analytics descriptions made unsupported quantitative claims, and its compute endpoint was unauthenticated. | Unsupported empirical claims replaced with experimental/unvalidated language; endpoint now requires authentication and rate-limits by user.
 
 ## Build, deployment, and operations
 
@@ -52,7 +55,8 @@ The repository had multiple release-blocking security and data-integrity defects
 | O-02 | Docker/Caddy used incompatible listener/upstream settings. | Compose now routes Caddy to the app service and requires a domain for HTTPS; not yet deployed. |
 | O-03 | Compose configured SQLite while the Prisma schema is PostgreSQL-only. | Compose now provisions PostgreSQL. |
 | O-04 | Production migration history/baseline is missing or not evident. | Open release blocker: create and validate a migration strategy against both fresh and existing databases. Do not use `prisma db push` as the production release process. |
-| O-05 | No trustworthy automated verification gate was evident at audit start. | Initial GitHub Actions workflow, typecheck/lint/test scripts, and auth-focused tests added. Workflow results are not yet confirmed. |
+| O-05 | No trustworthy automated verification gate was evident at audit start. | Initial GitHub Actions workflow, typecheck/lint/test scripts, and auth-focused tests added. **First CI run failed before tests at `npm ci` because the lockfile is out of sync.** |
+| O-08 | The checked-in `package-lock.json` is inconsistent with `package.json`; clean install fails. CI also warned that `kysely@0.29.5` requires Node 22 while the workflow originally used Node 20. | Workflow and Docker base image moved to Node 22. Lockfile still needs regeneration and review; no tests/build have run yet. |
 | O-06 | Archived code and research artifacts enlarged and confused the Docker build context. | `.dockerignore` added; full repository hygiene and history review remain open. |
 | O-07 | Production startup, health checks, backup/restore, observability, and rollback have not been proven end to end. | Open. |
 
@@ -66,7 +70,7 @@ The repository had multiple release-blocking security and data-integrity defects
 
 ## Release gates still required
 
-- [ ] CI green: install, Prisma generation, TypeScript, lint, tests, production build.
+- [ ] Regenerate and review `package-lock.json`; verify `npm ci` succeeds cleanly.\n- [ ] CI green: install, dependency audit, Prisma generation, TypeScript, lint, tests, production build.
 - [ ] Database migration baseline and rollback strategy validated.
 - [ ] Security tests for auth, admin, session expiry/revocation, malformed inputs, rate limits, and environment endpoints.
 - [ ] Full route-by-route authorization and input-validation review.
