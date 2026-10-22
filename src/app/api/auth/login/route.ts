@@ -2,9 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { comparePassword, generateToken, hashSessionToken, toPublicUser } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
+import { z } from 'zod'
+
+const LoginBodySchema = z.object({
+  email: z.string().trim().email().max(254),
+  password: z.string().min(1).max(128),
+})
 
 export async function POST(req: NextRequest) {
   try {
+    const contentLength = Number(req.headers.get('content-length') || 0)
+    if (Number.isFinite(contentLength) && contentLength > 16_384) {
+      return NextResponse.json({ error: 'Request body too large' }, { status: 413 })
+    }
+
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    const parsed = LoginBodySchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'A valid email and password are required' }, { status: 400 })
+    }
     // Rate limit by IP
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
     const { allowed, retryAfterMs } = rateLimit(`login:${ip}`, 10, 60_000)
@@ -15,13 +36,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = await req.json()
-    const { email, password } = body
-
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
-    }
-
+    const { email, password } = parsed.data
     const user = await db.user.findUnique({ where: { email: email.toLowerCase() } })
 
     if (!user) {
