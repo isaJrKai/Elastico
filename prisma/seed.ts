@@ -24,31 +24,6 @@ async function main() {
   })
   console.log('  System settings created')
 
-  // Demo accounts contain public, predictable credentials. Never create them in production.
-  const allowDemoUsers = process.env.NODE_ENV !== 'production' && process.env.SEED_DEMO_USERS === 'true'
-  if (allowDemoUsers) {
-    // Demo users
-    const users = [
-      { email: 'admin@elastico.ai', password: 'Admin123!', name: 'ELASTICO Admin', displayName: 'Admin', role: 'admin' as const, plan: 'elite' as const },
-      { email: 'pro@elastico.ai', password: 'Pro12345!', name: 'Pro Demo', displayName: 'Pro User', role: 'user' as const, plan: 'pro' as const },
-      { email: 'demo@elastico.ai', password: 'Demo1234!', name: 'Free User', displayName: 'Demo', role: 'user' as const, plan: 'free' as const },
-    ]
-  
-    for (const u of users) {
-      const hash = await bcrypt.hash(u.password, 10)
-      await db.user.upsert({
-        where: { email: u.email },
-        update: { name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
-        create: { email: u.email, passwordHash: hash, name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
-      })
-      console.log(`  User: ${u.email} (${u.plan})`)
-    }
-  
-  
-  } else {
-    console.log('  Demo users skipped (enable SEED_DEMO_USERS=true in non-production only)')
-  }
-
   console.log('\nSeed complete!')
 }
 
