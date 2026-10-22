@@ -81,13 +81,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'maintenance') {
-      // Set maintenance mode
-      await db.systemSetting.upsert({
-        where: { key: 'maintenance_mode' },
-        update: { value: 'true' },
-        create: { key: 'maintenance_mode', value: 'true', type: 'boolean' },
-      })
-      return NextResponse.json({ success: true, message: 'Maintenance mode enabled' })
+      return NextResponse.json(
+        { success: false, status: 'unavailable', message: 'Maintenance mode is not enforced by the request layer yet.' },
+        { status: 501 },
+      )
     }
 
     if (action === 'broadcast') {
