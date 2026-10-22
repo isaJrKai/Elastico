@@ -86,57 +86,42 @@ export async function authenticateRequest(req: Request): Promise<
     })
   }
 
-  const token = authHeader.slice(7)
+  let payload: { userId: string; email: string; role: string; plan: string }
   try {
-    const payload = verifyToken(token)
-
-    // Try DB first, fall back to token payload if DB unavailable
-    if (isDbAvailable()) {
-      try {
-        const { db } = await import('@/lib/db')
-        const user = await db.user.findUnique({ where: { id: payload.userId } })
-        if (!user || !(user as any).isActive) {
-          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        }
-        // Strip sensitive fields and cast to AuthUser
-        const { passwordHash, twoFactorSecret, sessionId, ...safeUser } = user as any
-        return { user: safeUser as AuthUser, req }
-      } catch (dbErr) {
-        console.warn('[Auth] DB lookup failed, falling back to token payload:', dbErr)
-      }
-    }
-
-    // Fallback: use token payload as user object (works without DB)
-    const role = payload.role
-    const fallbackUser: AuthUser = {
-      id: payload.userId,
-      email: payload.email,
-      role,
-      plan: payload.plan,
-      name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)} User`,
-      displayName: `${role.charAt(0).toUpperCase() + role.slice(1)} User`,
-      avatarUrl: null,
-      predictionAccuracy: 0,
-      predictionStreak: 0,
-      bestStreak: 0,
-      totalPredictions: 0,
-      correctPredictions: 0,
-      achievements: '{}',
-      favoriteTeams: '[]',
-      twoFactorEnabled: false,
-      lastLoginAt: new Date().toISOString(),
-      loginCount: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isActive: true,
-    }
-    return { user: fallbackUser, req }
+    payload = verifyToken(authHeader.slice(7))
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid token' }), {
       status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Protected requests must always validate the current account against the database.
+  // Never turn a database outage into an authenticated demo user.
+  if (!isDbAvailable()) {
+    return new Response(JSON.stringify({ error: 'Authentication service temporarily unavailable' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  try {
+    const { db } = await import('@/lib/db')
+    const user = await db.user.findUnique({ where: { id: payload.userId } })
+
+    if (!user || !user.isActive || user.isBanned) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const { passwordHash, twoFactorSecret, sessionId, ...safeUser } = user as any
+    return { user: safeUser as AuthUser, req }
+  } catch (dbErr) {
+    console.error('[Auth] Database verification failed; protected request denied.')
+    return new Response(JSON.stringify({ error: 'Authentication service temporarily unavailable' }), {
+      status: 503,
       headers: { 'Content-Type': 'application/json' },
     })
   }
