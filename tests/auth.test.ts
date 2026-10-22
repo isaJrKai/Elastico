@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { hashSessionToken, toPublicUser } from '../src/lib/auth'
 import { POST as demoLogin } from '../src/app/api/auth/demo/route'
+import { validatePassword } from '../src/lib/security'
 
 test('public user serializer never exposes credentials or internal account state', () => {
   const result = toPublicUser({
@@ -39,4 +40,10 @@ test('demo authentication endpoint is disabled', async () => {
   const response = await demoLogin()
   assert.equal(response.status, 404)
   assert.equal(response.headers.get('cache-control'), 'no-store')
+})
+
+test('new passwords require 12 characters and mixed character classes', () => {
+  assert.equal(validatePassword('Abc123!xy').isStrong, false)
+  assert.equal(validatePassword('Abcdef123!xy').isStrong, true)
+  assert.equal(validatePassword('abcdefghijkl').isStrong, false)
 })
