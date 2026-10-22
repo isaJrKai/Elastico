@@ -49,7 +49,7 @@ function validateCron(req: NextRequest): boolean {
 
   // A missing secret must disable the endpoint; never accept a public fallback.
   if (!expected || expected.length < 32 || !supplied || supplied.length !== expected.length) return false
-  return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected)
+  return timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
