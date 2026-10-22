@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { comparePassword, generateToken, hashSessionToken, toPublicUser } from '@/lib/auth'
+import { comparePassword, generateToken, hashSessionToken, hasValidCookieRequestOrigin, toPublicUser } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { z } from 'zod'
 
@@ -11,6 +11,10 @@ const LoginBodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const origin = req.headers.get('origin')
+    if (origin && !hasValidCookieRequestOrigin(req)) {
+      return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 })
+    }
     const contentLength = Number(req.headers.get('content-length') || 0)
     if (Number.isFinite(contentLength) && contentLength > 16_384) {
       return NextResponse.json({ error: 'Request body too large' }, { status: 413 })
@@ -139,10 +143,18 @@ export async function POST(req: NextRequest) {
       console.error('[Auth] Login activity log write failed')
     }
 
-    return NextResponse.json({
-      user: toPublicUser(user),
-      token,
+    const response = NextResponse.json(
+      { user: toPublicUser(updatedUser) },
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } },
+    )
+    response.cookies.set('elastico_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
     })
+    return response
   } catch (error) {
     console.error('Login error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
