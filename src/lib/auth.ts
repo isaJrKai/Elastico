@@ -93,6 +93,45 @@ export function hashSessionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
+export function getRequestToken(req: Request): { token: string; source: 'bearer' | 'cookie' } | null {
+  const authorization = req.headers.get('authorization')
+  if (authorization?.startsWith('Bearer ')) {
+    const bearer = authorization.slice(7).trim()
+    if (bearer && bearer !== 'null' && bearer !== 'undefined') {
+      return { token: bearer, source: 'bearer' }
+    }
+  }
+
+  const cookieHeader = req.headers.get('cookie') || ''
+  const match = cookieHeader.match(/(?:^|;\s*)elastico_session=([^;]+)/)
+  if (!match?.[1]) return null
+  try {
+    const token = decodeURIComponent(match[1])
+    return token ? { token, source: 'cookie' } : null
+  } catch {
+    return null
+  }
+}
+
+export function hasValidCookieRequestOrigin(req: Request): boolean {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method.toUpperCase())) return true
+  const origin = req.headers.get('origin')
+  if (!origin) return false
+
+  try {
+    const forwardedHost = req.headers.get('x-forwarded-host')
+    const host = forwardedHost || req.headers.get('host')
+    const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim()
+    const fallbackOrigin = new URL(req.url).origin
+    const expectedOrigin = host
+      ? new URL(`${forwardedProto || new URL(fallbackOrigin).protocol.slice(0, -1)}://${host}`).origin
+      : fallbackOrigin
+    return new URL(origin).origin === expectedOrigin
+  } catch {
+    return false
+  }
+}
+
 export function verifyToken(token: string): { userId: string; email: string; role: string; plan: string } {
   return jwt.verify(token, assertJwtSecret(), { algorithms: ['HS256'] }) as { userId: string; email: string; role: string; plan: string }
 }
@@ -108,16 +147,21 @@ export async function authenticateRequest(req: Request): Promise<
   | { user: AuthUser; req: Request }
   | Response
 > {
-  const authHeader = req.headers.get('authorization')
-
-  if (!authHeader?.startsWith('Bearer ')) {
+  const tokenInfo = getRequestToken(req)
+  if (!tokenInfo) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
     })
   }
+  if (tokenInfo.source === 'cookie' && !hasValidCookieRequestOrigin(req)) {
+    return new Response(JSON.stringify({ error: 'Invalid request origin' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
-  const token = authHeader.slice(7)
+  const token = tokenInfo.token
   let payload: { userId: string; email: string; role: string; plan: string }
   try {
     payload = verifyToken(token)
