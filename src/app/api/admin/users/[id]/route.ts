@@ -119,12 +119,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'Cannot deactivate an admin user' }, { status: 400 })
     }
 
-    await db.user.update({
-      where: { id },
-      data: { isActive: false },
+    await db.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: { isActive: false },
+      })
+      await tx.session.deleteMany({ where: { userId: id } })
     })
 
-    return NextResponse.json({ success: true, message: 'User deactivated' })
+    return NextResponse.json({ success: true, message: 'User deactivated and sessions revoked' })
   } catch (error) {
     console.error('Admin delete user error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
