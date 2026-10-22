@@ -316,7 +316,7 @@ export default function AdminView() {
     const csvCell = (value: unknown) => {
       let text = String(value ?? '')
       // Prevent spreadsheet formula injection from user-controlled profile fields.
-      if (/^[\\t\\r\\n ]*[=+\\-@]/.test(text)) text = `'${text}`
+      if (/^[\t\r\n ]*[=+\-@]/.test(text)) text = `'${text}`
       return `"${text.replace(/"/g, '""')}"`
     }
     const rows = [
