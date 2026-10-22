@@ -1,8 +1,3 @@
-{
-	# Caddy obtains and renews HTTPS certificates for APP_DOMAIN.
-	auto_https on
-}
-
 {$APP_DOMAIN} {
 	encode gzip zstd {
 		minimum_length 256
