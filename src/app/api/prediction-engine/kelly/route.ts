@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     }
 
     // Single bet Kelly calculation
-    const { modelProbability, bookmakerOdds, bankroll, fractionalKelly } = body
+    const { modelProbability, bookmakerOdds, fractionalKelly } = body
     if (modelProbability === undefined || !bookmakerOdds) {
       return NextResponse.json({ error: 'modelProbability and bookmakerOdds are required' }, { status: 400 })
     }
