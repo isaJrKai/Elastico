@@ -60,42 +60,36 @@ export function validatePassword(password: string): PasswordStrength {
     return { score: 0, label: 'Empty', isStrong: false, feedback: ['Password is required'] }
   }
 
-  if (password.length < 6) {
-    feedback.push('At least 6 characters')
-  } else {
-    score++
-  }
+  const hasLowercase = /[a-z]/.test(password)
+  const hasUppercase = /[A-Z]/.test(password)
+  const hasNumber = /[0-9]/.test(password)
+  const hasSpecial = /[^A-Za-z0-9]/.test(password)
 
-  if (password.length >= 10) score++
+  if (password.length < 12) feedback.push('At least 12 characters')
+  else score++
 
-  if (/[A-Z]/.test(password)) {
-    score++
-  } else {
-    feedback.push('Add uppercase letters')
-  }
+  if (password.length >= 16) score++
 
-  if (/[0-9]/.test(password)) {
-    score++
-  } else {
-    feedback.push('Add numbers')
-  }
+  if (hasLowercase) score++
+  else feedback.push('Add lowercase letters')
 
-  if (/[^A-Za-z0-9]/.test(password)) {
-    score++
-  } else {
-    feedback.push('Add special characters')
-  }
+  if (hasUppercase) score++
+  else feedback.push('Add uppercase letters')
 
-  if (password.length >= 12 && /[A-Z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)) {
-    score = 4
-  }
+  if (hasNumber) score++
+  else feedback.push('Add numbers')
 
+  if (hasSpecial) score++
+  else feedback.push('Add special characters')
+
+  const normalizedScore = Math.min(score, 4)
   const labels = ['Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong']
+  const isStrong = password.length >= 12 && hasLowercase && hasUppercase && hasNumber && hasSpecial
 
   return {
-    score: Math.min(score, 4),
-    label: labels[Math.min(score, 4)],
-    isStrong: score >= 3,
+    score: normalizedScore,
+    label: labels[normalizedScore],
+    isStrong,
     feedback,
   }
 }
