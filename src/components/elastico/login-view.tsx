@@ -69,7 +69,7 @@ export default function LoginView() {
     e.preventDefault(); setRegError('')
     if (!regName.trim()) { setRegError('Name is required.'); return }
     if (regPassword !== regConfirmPassword) { setRegError('Passwords do not match.'); return }
-    if (regPassword.length < 6) { setRegError('Password must be at least 6 characters.'); return }
+    if (regPassword.length < 12) { setRegError('Password must be at least 12 characters.'); return }
     setRegLoading(true)
     try {
       const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: regName, email: regEmail, password: regPassword }) })
@@ -184,7 +184,7 @@ export default function LoginView() {
                   <div className="space-y-2">
                     <Label htmlFor="reg-password" className="text-xs font-medium text-muted-foreground"><Lock className="mr-1.5 inline size-3" />Password</Label>
                     <div className="relative">
-                      <Input id="reg-password" type={showRegPassword ? 'text' : 'password'} placeholder="Min. 6 characters" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} required autoComplete="new-password" className={cn(inputCls, 'pr-10')} />
+                      <Input id="reg-password" type={showRegPassword ? 'text' : 'password'} placeholder="Min. 12 characters" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} required autoComplete="new-password" className={cn(inputCls, 'pr-10')} />
                       <button type="button" onClick={() => setShowRegPassword(!showRegPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-secondary-foreground" tabIndex={-1}>{showRegPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
                     </div>
                   </div>
