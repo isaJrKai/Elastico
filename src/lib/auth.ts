@@ -3,9 +3,6 @@ import jwt from 'jsonwebtoken'
 import { createHash, randomUUID } from 'node:crypto'
 
 const JWT_SECRET = process.env.JWT_SECRET
-const JWT_MIN_LENGTH = 32
-const isProduction = process.env.NODE_ENV === 'production'
-
 function assertJwtSecret(): string {
   if (!JWT_SECRET || JWT_SECRET.length < 32) {
     throw new Error(
@@ -160,7 +157,7 @@ export async function authenticateRequest(req: Request): Promise<
     }
 
     return { user: toPublicUser(user), req }
-  } catch (dbErr) {
+  } catch {
     console.error('[Auth] Database verification failed; protected request denied.')
     return new Response(JSON.stringify({ error: 'Authentication service temporarily unavailable' }), {
       status: 503,
