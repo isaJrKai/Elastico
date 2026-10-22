@@ -82,7 +82,7 @@ export function validatePassword(password: string): PasswordStrength {
   if (hasSpecial) score++
   else feedback.push('Add special characters')
 
-  const normalizedScore = Math.min(score, 4)
+  const normalizedScore = password.length < 12 ? Math.min(score, 2) : Math.min(score, 4)
   const labels = ['Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong']
   const isStrong = password.length >= 12 && hasLowercase && hasUppercase && hasNumber && hasSpecial
 
