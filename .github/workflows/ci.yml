@@ -1,0 +1,34 @@
+name: Production readiness
+
+on:
+  push:
+    branches: [main, 'production-readiness/**']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: '1'
+      JWT_SECRET: 'ci-jwt-0123456789abcdef0123456789abcdef'
+      CRON_SECRET: 'ci-cron-0123456789abcdef0123456789abcdef'
+      DATABASE_URL: 'postgresql://elastico:ci-password@localhost:5432/elastico?schema=public'
+      DIRECT_URL: 'postgresql://elastico:ci-password@localhost:5432/elastico?schema=public'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
