@@ -10,12 +10,13 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset",
+    "db:reset": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing destructive reset in production.' >&2; exit 1; fi && prisma migrate reset",
     "db:seed": "npx tsx prisma/seed.ts",
-    "setup": "prisma generate && prisma db push && npx tsx prisma/seed.ts",
     "vercel-build": "prisma generate && next build",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "setup:dev": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing db push in production; use reviewed migrations.' >&2; exit 1; fi && prisma generate && prisma db push && npx tsx prisma/seed.ts",
+    "db:migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
