@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { comparePassword, generateToken } from '@/lib/auth'
+import { comparePassword, generateToken, toPublicUser } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
@@ -99,10 +99,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    const { passwordHash: _, ...userWithoutPassword } = user
-
     return NextResponse.json({
-      user: userWithoutPassword,
+      user: toPublicUser(user),
       token,
     })
   } catch (error) {
