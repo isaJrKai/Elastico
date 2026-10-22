@@ -2,18 +2,39 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { hashPassword, generateToken, hashSessionToken, toPublicUser } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
+import { z } from 'zod'
 import { validateEmail, validatePassword, sanitizeInput } from '@/lib/security'
+
+const RegisterBodySchema = z.object({
+  email: z.string().trim().email().max(254),
+  password: z.string().min(1).max(128),
+  name: z.string().trim().max(100).optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
+    const contentLength = Number(req.headers.get('content-length') || 0)
+    if (Number.isFinite(contentLength) && contentLength > 16_384) {
+      return NextResponse.json({ error: 'Request body too large' }, { status: 413 })
+    }
+
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    const parsed = RegisterBodySchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'A valid email and password are required' }, { status: 400 })
+    }
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
     const { allowed } = rateLimit(`register:${ip}`, 5, 60_000)
     if (!allowed) {
       return NextResponse.json({ error: 'Too many registration attempts. Try again later.' }, { status: 429 })
     }
 
-    const body = await req.json()
-    let { email, password, name } = body
+    let { email, password, name } = parsed.data
 
     // Sanitize inputs
     if (name) name = sanitizeInput(String(name))
@@ -21,12 +42,6 @@ export async function POST(req: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
-    }
-
-    // Validate email format
-    const emailCheck = validateEmail(email)
-    if (!emailCheck.valid) {
-      return NextResponse.json({ error: emailCheck.error }, { status: 400 })
     }
 
     // Validate password strength
