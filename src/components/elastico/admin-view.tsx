@@ -295,7 +295,13 @@ export default function AdminView() {
         body.title = 'ELASTICO Update'
         body.type = 'info'
       }
-      const res = await fetch('/api/admin', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) })
+      const endpoint = action === 'sync' ? '/api/sync' : '/api/admin'
+      const requestOptions: RequestInit = {
+        method: 'POST',
+        headers: authHeaders(),
+        ...(action === 'sync' ? {} : { body: JSON.stringify(body) }),
+      }
+      const res = await fetch(endpoint, requestOptions)
       if (res.ok) {
         const data = await res.json()
         toast.success(data.message || `Action "${action}" completed`)
@@ -307,20 +313,27 @@ export default function AdminView() {
   }
 
   const handleExportCSV = () => {
-    const csv = [
-      'Email,Name,Plan,Role,Active,Predictions,Accuracy,Last Login',
-      ...users.map((u: any) =>
-        `${u.email},${u.name || ''},${u.plan},${u.role},${u.isActive},${u.totalPredictions},${u.predictionAccuracy}%,${u.lastLoginAt || 'Never'}`
-      ),
-    ].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const csvCell = (value: unknown) => {
+      let text = String(value ?? '')
+      // Prevent spreadsheet formula injection from user-controlled profile fields.
+      if (/^[\\t\\r\\n ]*[=+\\-@]/.test(text)) text = `'${text}`
+      return `"${text.replace(/"/g, '""')}"`
+    }
+    const rows = [
+      ['Email', 'Name', 'Plan', 'Role', 'Active', 'Predictions', 'Accuracy', 'Last Login'],
+      ...users.map((u: any) => [
+        u.email, u.name, u.plan, u.role, u.isActive,
+        u.totalPredictions, `${u.predictionAccuracy}%`, u.lastLoginAt || 'Never',
+      ]),
+    ]
+    const csv = '\\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\\r\\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'elastico_users_export.csv'
     a.click()
     URL.revokeObjectURL(url)
-    toast.success('CSV exported')
   }
 
   const handleCreateAnnouncement = async () => {
@@ -657,9 +670,6 @@ export default function AdminView() {
             {/* Feature 5: Quick Actions Panel */}
             <SectionCard title="Quick Actions" icon={Zap}>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Cache cleared'); handleQuickAction('clearCache') }}>
-                  <RefreshCw className={`h-3.5 w-3.5 ${actionLoading === 'clearCache' ? 'animate-spin' : ''}`} /> Clear Cache
-                </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('broadcast')}>
                   <Megaphone className="h-3.5 w-3.5" /> Send Broadcast
                 </Button>
