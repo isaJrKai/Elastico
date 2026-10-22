@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 import { z } from 'zod'
+import type { SystemSetting } from '@prisma/client'
 
 const AdminSettingsPatchSchema = z.object({
   settings: z.array(z.object({
@@ -62,7 +63,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const results = await db.$transaction(async (tx) => {
-      const saved = []
+      const saved: SystemSetting[] = []
       for (const item of parsed.data.settings) {
         const serializedValue = item.type === 'json' || (item.value !== null && typeof item.value === 'object')
           ? JSON.stringify(item.value)

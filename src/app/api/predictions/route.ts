@@ -84,9 +84,52 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const matchIdCandidates = [...new Set([
+      matchId,
+      matchId.includes(':') ? matchId.slice(matchId.indexOf(':') + 1) : matchId,
+    ])]
+    const storedMatch = await db.match.findFirst({
+      where: {
+        OR: [
+          { id: { in: matchIdCandidates } },
+          { externalId: { in: matchIdCandidates } },
+          { sourceId: { in: matchIdCandidates } },
+        ],
+      },
+      include: {
+        homeTeam: { select: { name: true } },
+        awayTeam: { select: { name: true } },
+      },
+    })
+    if (!storedMatch) {
+      return NextResponse.json({ error: 'Match is not in the verified database; prediction was not saved' }, { status: 404 })
+    }
+    const kickoff = storedMatch.date
+    const normalizedStatus = storedMatch.status.toLowerCase().replace(/[\\s-]+/g, '_')
+    const closedStatuses = new Set([
+      'finished', 'ft', 'complete', 'completed', 'final', 'ended',
+      'live', 'in_play', 'in_progress', 'halftime', 'ht', '1h', '2h',
+      'postponed', 'cancelled', 'canceled', 'abandoned', 'suspended',
+    ])
+    if (!kickoff || kickoff <= new Date() || closedStatuses.has(normalizedStatus)) {
+      return NextResponse.json({ error: 'Predictions are only accepted for verified future fixtures' }, { status: 400 })
+    }
+    const canonicalMatchId = storedMatch.id
+    const canonicalHomeTeam = storedMatch.homeTeam.name
+    const canonicalAwayTeam = storedMatch.awayTeam.name
+    const canonicalCompetition = storedMatch.competition
+
+    const candidatePredictionIds = [...new Set([
+      canonicalMatchId,
+      matchId,
+      storedMatch.externalId,
+      storedMatch.sourceId,
+      ...matchIdCandidates,
+    ].filter((value): value is string => typeof value === 'string' && value.length > 0))]
+
     const result = await db.$transaction(async (tx) => {
-      const existingPrediction = await tx.prediction.findUnique({
-        where: { userId_matchId: { userId: user.id, matchId } },
+      const existingPrediction = await tx.prediction.findFirst({
+        where: { userId: user.id, matchId: { in: candidatePredictionIds } },
         select: { id: true },
       })
 
@@ -96,33 +139,22 @@ export async function POST(req: NextRequest) {
         if (usedCount >= 3) return { blocked: true as const }
       }
 
-      const prediction = await tx.prediction.upsert({
-        where: { userId_matchId: { userId: user.id, matchId } },
-        update: {
-          predictedHomeGoals,
-          predictedAwayGoals,
-          predictedOutcome,
-          confidence,
-          model: 'user',
-          homeTeam: homeTeam || undefined,
-          awayTeam: awayTeam || undefined,
-          competition: competition || undefined,
-          matchDate: matchDate || undefined,
-        },
-        create: {
-          userId: user.id,
-          matchId,
-          predictedHomeGoals,
-          predictedAwayGoals,
-          predictedOutcome,
-          confidence,
-          model: 'user',
-          homeTeam: homeTeam || undefined,
-          awayTeam: awayTeam || undefined,
-          competition: competition || undefined,
-          matchDate: matchDate || undefined,
-        },
-      })
+      const predictionData = {
+        matchId: canonicalMatchId,
+        predictedHomeGoals,
+        predictedAwayGoals,
+        predictedOutcome,
+        confidence,
+        model: 'user',
+        homeTeam: canonicalHomeTeam,
+        awayTeam: canonicalAwayTeam,
+        competition: canonicalCompetition,
+        matchDate: kickoff,
+      }
+
+      const prediction = existingPrediction
+        ? await tx.prediction.update({ where: { id: existingPrediction.id }, data: predictionData })
+        : await tx.prediction.create({ data: { userId: user.id, ...predictionData } })
 
       return { blocked: false as const, prediction, isUpdate: Boolean(existingPrediction) }
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
@@ -135,16 +167,27 @@ export async function POST(req: NextRequest) {
     }
     const prediction = result.prediction
 
-    // Log activity
-    await db.activity.create({
-      data: {
-        userId: user.id,
-        type: 'prediction',
-        metadata: JSON.stringify({ matchId, predictedOutcome, confidence, homeTeam, awayTeam, competition }),
-      },
-    })
+    // Activity logs are best-effort; a logging outage must not report a saved prediction as failed.
+    try {
+      await db.activity.create({
+        data: {
+          userId: user.id,
+          type: 'prediction',
+          metadata: JSON.stringify({
+            matchId: canonicalMatchId,
+            predictedOutcome,
+            confidence,
+            homeTeam: canonicalHomeTeam,
+            awayTeam: canonicalAwayTeam,
+            competition: canonicalCompetition,
+          }),
+        },
+      })
+    } catch {
+      console.error('[Predictions] Activity log write failed')
+    }
 
-    return NextResponse.json({ prediction }, { status: result.isUpdate ? 200 : 201 })
+    return NextResponse.json({ prediction }, { status: result.isUpdate ? 200 : 201, headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2034') {
       return NextResponse.json({ error: 'Concurrent prediction update; retry the request' }, { status: 409 })

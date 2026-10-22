@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
         eliteCount,
         totalMatches,
         totalPredictions,
-        revenueEstimate: Math.round(revenueEstimate * 100) / 100,
+        revenueEstimate: revenueEstimate === null ? null : Math.round(revenueEstimate * 100) / 100,
         errorRate,
         totalApiCalls24h,
       },

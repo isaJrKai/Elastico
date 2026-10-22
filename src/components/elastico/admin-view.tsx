@@ -57,7 +57,7 @@ function authHeaders() {
 // ── Sub-Components ───────────────────────────────────────────────────────────
 
 function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix = '', dataClass }: {
-  title: string; value: string | number; icon: React.ElementType; change?: number; color?: string; suffix?: string; dataClass?: 'REAL' | 'DERIVED' | 'DEMO' | 'SIMULATION' | 'BUG' | 'MIXED'
+  title: string; value: string | number; icon: React.ElementType; change?: number; color?: string; suffix?: string; dataClass?: 'REAL' | 'DERIVED' | 'DEMO' | 'SIMULATION' | 'BUG' | 'MIXED' | 'MISSING'
 }) {
   const isPositive = change !== undefined && change >= 0
   const colorMap: Record<string, string> = {
