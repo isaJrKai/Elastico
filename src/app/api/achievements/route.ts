@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
     const achievements = ALL_ACHIEVEMENTS.map((a) => ({
       ...a,
       unlocked: userAchievements.includes(a.id),
-      unlockedAt: userAchievements.includes(a.id) ? new Date().toISOString() : null,
+      // Unlock timestamps are not stored yet; never fabricate a timestamp on read.
+      unlockedAt: null,
     }))
 
     // Calculate XP
