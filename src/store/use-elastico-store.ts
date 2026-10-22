@@ -280,24 +280,28 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
 
   // ── Actions — Auth ────────────────────────────────────────────────────────
 
-  setUser: (user, token) =>
+  setUser: (user, _legacyToken) => {
+    if (typeof window !== 'undefined') {
+      // Session credentials live only in the HttpOnly cookie, never in browser storage.
+      localStorage.removeItem('elastico_token')
+      localStorage.removeItem('elastico_user')
+    }
     set({
       user,
-      token,
-      isAuthenticated: user !== null && token !== null,
-    }),
+      token: null,
+      isAuthenticated: user !== null,
+    })
+  },
 
   logout: () => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('elastico_token')
-      if (token) {
-        void fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(() => {
-          // Local logout must still complete if the server is unavailable.
-        })
-      }
+      void fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(() => {
+        // Local logout must still complete if the server is unavailable.
+      })
       localStorage.removeItem('elastico_token')
       localStorage.removeItem('elastico_user')
     }
