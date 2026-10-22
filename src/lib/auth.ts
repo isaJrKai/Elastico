@@ -50,6 +50,31 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
   )
 }
 
+export function toPublicUser(user: any): AuthUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name ?? null,
+    displayName: user.displayName ?? null,
+    avatarUrl: user.avatarUrl ?? null,
+    role: user.role,
+    plan: user.plan,
+    predictionAccuracy: user.predictionAccuracy ?? null,
+    predictionStreak: user.predictionStreak ?? null,
+    bestStreak: user.bestStreak ?? null,
+    totalPredictions: user.totalPredictions ?? null,
+    correctPredictions: user.correctPredictions ?? null,
+    achievements: user.achievements ?? '[]',
+    favoriteTeams: user.favoriteTeams ?? '[]',
+    twoFactorEnabled: Boolean(user.twoFactorEnabled),
+    lastLoginAt: user.lastLoginAt ? new Date(user.lastLoginAt).toISOString() : null,
+    loginCount: user.loginCount ?? null,
+    createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : null,
+    updatedAt: user.updatedAt ? new Date(user.updatedAt).toISOString() : null,
+    isActive: Boolean(user.isActive),
+  }
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10)
 }
@@ -116,8 +141,7 @@ export async function authenticateRequest(req: Request): Promise<
       })
     }
 
-    const { passwordHash, twoFactorSecret, sessionId, ...safeUser } = user as any
-    return { user: safeUser as AuthUser, req }
+    return { user: toPublicUser(user), req }
   } catch (dbErr) {
     console.error('[Auth] Database verification failed; protected request denied.')
     return new Response(JSON.stringify({ error: 'Authentication service temporarily unavailable' }), {
