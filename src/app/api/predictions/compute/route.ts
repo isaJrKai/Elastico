@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const predictions = rawPredictions.filter((prediction): prediction is NonNullable<typeof prediction> => prediction !== null)
+    const predictions = rawPredictions.filter((prediction) => prediction !== null)
     return NextResponse.json({
       success: true,
       count: predictions.length,
