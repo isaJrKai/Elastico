@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client'
 import { hash } from 'bcryptjs'
 
-const DATABASE_URL = 'postgresql://neondb_owner:npg_8zPlbIK5NwaR@ep-late-sunset-axydccn7-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require'
-
+const DATABASE_URL = process.env.DATABASE_URL
+if (!DATABASE_URL) throw new Error('Set DATABASE_URL in the environment before running this script')
 const prisma = new PrismaClient({
   datasources: {
     db: { url: DATABASE_URL },
