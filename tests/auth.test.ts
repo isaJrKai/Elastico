@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { hashSessionToken, toPublicUser } from '../src/lib/auth'
+import { POST as demoLogin } from '../src/app/api/auth/demo/route'
 
 test('public user serializer never exposes credentials or internal account state', () => {
   const result = toPublicUser({
@@ -32,4 +33,10 @@ test('session token storage uses a deterministic SHA-256 digest, not the bearer 
   assert.equal(digest.length, 64)
   assert.notEqual(digest, token)
   assert.notEqual(digest, hashSessionToken(token + '-different'))
+})
+
+test('demo authentication endpoint is disabled', async () => {
+  const response = await demoLogin()
+  assert.equal(response.status, 404)
+  assert.equal(response.headers.get('cache-control'), 'no-store')
 })
