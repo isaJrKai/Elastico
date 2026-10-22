@@ -474,13 +474,30 @@ export async function POST(
     if (auth instanceof Response) return auth
 
     const { user } = auth
+    const voteLimit = rateLimit(`match-vote:${user.id}`, 20, 60_000)
+    if (!voteLimit.allowed) {
+      return NextResponse.json({ error: 'Too many votes; try again later' }, { status: 429 })
+    }
+
+    const contentLength = Number(req.headers.get('content-length') || 0)
+    if (Number.isFinite(contentLength) && contentLength > 4_096) {
+      return NextResponse.json({ error: 'Request body too large' }, { status: 413 })
+    }
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    const choice = body && typeof body === 'object' && 'choice' in body
+      ? (body as { choice?: unknown }).choice
+      : undefined
+
     const { id } = await params
     // Strip source prefixes for DB lookups
     const prefixMatch = id.match(/^(fd|espn|api-sports):(.+)/)
     const rawId = prefixMatch ? prefixMatch[2] : id
-    const { choice } = await req.json()
-
-    if (!choice || !['home', 'draw', 'away'].includes(choice)) {
+    if (typeof choice !== 'string' || !['home', 'draw', 'away'].includes(choice)) {
       return NextResponse.json({ error: 'Choice must be home, draw, or away' }, { status: 400 })
     }
 
@@ -507,17 +524,25 @@ export async function POST(
       } catch {}
     }
 
+    if (homeTeamName === 'Home' || awayTeamName === 'Away') {
+      return NextResponse.json({ error: 'Match not found; vote was not recorded' }, { status: 404 })
+    }
+
     const vote = await db.vote.upsert({
       where: { userId_matchId: { userId: user.id, matchId: id } },
       update: { choice },
       create: { userId: user.id, matchId: id, choice, homeTeam: homeTeamName, awayTeam: awayTeamName },
     })
 
-    await db.activity.create({
-      data: { userId: user.id, type: 'vote', metadata: JSON.stringify({ matchId: id, choice }) },
-    })
+    try {
+      await db.activity.create({
+        data: { userId: user.id, type: 'vote', metadata: JSON.stringify({ matchId: id, choice }) },
+      })
+    } catch {
+      console.error('[Match vote] Activity log write failed')
+    }
 
-    return NextResponse.json({ vote })
+    return NextResponse.json({ vote }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('Vote error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
