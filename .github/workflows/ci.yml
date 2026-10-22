@@ -9,17 +9,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: test
+  NEXT_TELEMETRY_DISABLED: '1'
+  JWT_SECRET: 'ci-jwt-0123456789abcdef0123456789abcdef'
+  CRON_SECRET: 'ci-cron-0123456789abcdef0123456789abcdef'
+  DATABASE_URL: 'postgresql://elastico:ci-password@localhost:5432/elastico?schema=public'
+  DIRECT_URL: 'postgresql://elastico:ci-password@localhost:5432/elastico?schema=public'
+
 jobs:
-  verify:
+  lockfile-check:
+    name: Verify committed lockfile
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      NODE_ENV: test
-      NEXT_TELEMETRY_DISABLED: '1'
-      JWT_SECRET: 'ci-jwt-0123456789abcdef0123456789abcdef'
-      CRON_SECRET: 'ci-cron-0123456789abcdef0123456789abcdef'
-      DATABASE_URL: 'postgresql://elastico:ci-password@localhost:5432/elastico?schema=public'
-      DIRECT_URL: 'postgresql://elastico:ci-password@localhost:5432/elastico?schema=public'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,9 +32,35 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --legacy-peer-deps
+
+  dependency-audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --legacy-peer-deps
       - run: npm audit --audit-level=high
+
+  verify:
+    name: Typecheck, tests, build, and Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Temporary diagnostic install lets the other checks run while lockfile-check
+      # independently fails until the committed package-lock.json is regenerated.
+      - run: npm install --legacy-peer-deps
       - run: npx prisma generate
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: docker build -t elastico:ci .
