@@ -599,6 +599,9 @@ export default function PredictionsView() {
 
   return (
     <div className="space-y-5">
+      <div role="status" className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">
+        Experimental model notice: current probabilities use manually curated team priors and are not calibrated against out-of-sample results. Matches without a mapped prior are omitted. Do not treat these values as validated forecasts.
+      </div>
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-xl bg-primary/15">
