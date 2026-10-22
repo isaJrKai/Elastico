@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { createHash, randomUUID } from 'node:crypto'
 
 const JWT_SECRET = process.env.JWT_SECRET
 const JWT_MIN_LENGTH = 32
@@ -84,7 +85,15 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export function generateToken(payload: { userId: string; email: string; role: string; plan: string }): string {
-  return jwt.sign(payload, assertJwtSecret(), { expiresIn: '7d', algorithm: 'HS256' })
+  return jwt.sign(payload, assertJwtSecret(), {
+    expiresIn: '7d',
+    algorithm: 'HS256',
+    jwtid: randomUUID(),
+  })
+}
+
+export function hashSessionToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
 }
 
 export function verifyToken(token: string): { userId: string; email: string; role: string; plan: string } {
@@ -111,9 +120,10 @@ export async function authenticateRequest(req: Request): Promise<
     })
   }
 
+  const token = authHeader.slice(7)
   let payload: { userId: string; email: string; role: string; plan: string }
   try {
-    payload = verifyToken(authHeader.slice(7))
+    payload = verifyToken(token)
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid token' }), {
       status: 401,
@@ -132,6 +142,14 @@ export async function authenticateRequest(req: Request): Promise<
 
   try {
     const { db } = await import('@/lib/db')
+    const session = await db.session.findUnique({ where: { token: hashSessionToken(token) } })
+    if (!session || session.expiresAt <= new Date() || session.userId !== payload.userId) {
+      return new Response(JSON.stringify({ error: 'Session expired or revoked' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
     const user = await db.user.findUnique({ where: { id: payload.userId } })
 
     if (!user || !user.isActive || user.isBanned) {
