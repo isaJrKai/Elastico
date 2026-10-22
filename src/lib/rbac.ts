@@ -21,24 +21,36 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
 }
 
 export async function requireAdmin(request: Request): Promise<{ authorized: true; userId: string } | NextResponse> {
+  const authHeader = request.headers.get('authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
+  let decoded: { userId: string; email: string; role: string; plan: string }
   try {
-    const secret = assertJwtSecret()
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    decoded = jwt.verify(authHeader.slice(7), assertJwtSecret(), {
+      algorithms: ['HS256'],
+    }) as { userId: string; email: string; role: string; plan: string }
+    if (!decoded || typeof decoded.userId !== 'string' || !decoded.userId) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
     }
-    const token = authHeader.slice(7)
-    const decoded = jwt.verify(token, secret) as { userId: string; email: string; role: string; plan: string }
-    if (decoded.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
+  } catch {
+    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+  }
+
+  try {
     const { db } = await import('@/lib/db')
     const user = await db.user.findUnique({ where: { id: decoded.userId } })
     if (!user || !user.isActive || user.isBanned) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
-    return { authorized: true, userId: decoded.userId }
+    // Authorization follows the current database role, never a stale JWT claim.
+    if (user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+    return { authorized: true, userId: user.id }
   } catch {
-    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
+    console.error('[RBAC] Database verification failed; admin request denied.')
+    return NextResponse.json({ error: 'Authorization service temporarily unavailable' }, { status: 503 })
   }
 }
