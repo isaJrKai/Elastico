@@ -340,7 +340,7 @@ export default function PredictionEngineView() {
           <Brain className="w-6 h-6 text-emerald-400" />
         </div>
         <div>
-<p className="text-sm text-zinc-500">Stochastic simulation • Kelly criterion • Market signals</p>
+<p className="text-sm text-zinc-500">Scenario simulation • Kelly criterion • Heuristic market signals</p>
         </div>
       </div>
 
@@ -374,9 +374,7 @@ export default function PredictionEngineView() {
                 <CardDescription className="px-6 -mt-2 pb-1">
                   <p className="text-[10px] text-zinc-600 leading-relaxed">
                     <Info className="inline w-3 h-3 mr-1 opacity-60" />
-                    Monte Carlo simulation generates thousands of match outcomes using Poisson-distributed goals,
-                    ELO-based strength, xG, goals-conceded rates, and verified bookmaker odds. Missing
-                    values must be entered explicitly; the tool does not invent default team ratings or odds.
+                    Monte Carlo simulation generates scenarios from explicitly supplied xG, goals-conceded rates, ELO ratings, and bookmaker odds. Missing values must be entered explicitly. Outputs are illustrative model scenarios, not calibrated forecasts or betting guarantees.
                   </p>
                 </CardDescription>
                 <CardContent className="space-y-3">
@@ -1012,7 +1010,7 @@ export default function PredictionEngineView() {
                     </Card>
                     <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Signal Confidence</CardTitle>
+                        <CardTitle className="text-xs font-medium text-zinc-400">Heuristic Signal Score</CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[160px] space-y-3">
                         <p className="text-4xl font-bold text-white">{(signalResult.confidence * 100).toFixed(0)}%</p>
@@ -1024,6 +1022,7 @@ export default function PredictionEngineView() {
                             className={cn('h-full rounded-full', signalResult.confidence > 0.7 ? 'bg-emerald-500' : signalResult.confidence > 0.4 ? 'bg-amber-500' : 'bg-red-500')}
                           />
                         </div>
+                        <p className="text-xs text-zinc-500">Heuristic score from user-entered odds; not a calibrated probability.</p>
                         <p className="text-xs text-zinc-500">{signalResult.homeTeam} vs {signalResult.awayTeam}</p>
                       </CardContent>
                     </Card>
