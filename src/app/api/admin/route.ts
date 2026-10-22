@@ -26,22 +26,21 @@ export async function GET(req: NextRequest) {
       proCount,
       eliteCount,
       totalPredictions,
+      totalMatches,
     ] = await Promise.all([
       db.user.count(),
       db.user.count({ where: { lastLoginAt: { gte: today } } }),
       db.user.count({ where: { plan: 'pro', isActive: true } }),
       db.user.count({ where: { plan: 'elite', isActive: true } }),
       db.prediction.count(),
+      db.match.count(),
     ])
 
-    // Data for matches now comes from ESPN — return 0
-    // Data for API logs now comes from serverless provider logs — return 0
-    const totalMatches = 0
-    const errorRate = 0
-    const totalApiCalls24h = 0
-
-    // Revenue estimate: pro=$9.99/mo, elite=$24.99/mo
-    const revenueEstimate = proCount * 9.99 + eliteCount * 24.99
+    // These operational and billing metrics are not currently instrumented.
+    // Do not turn missing data into zero or estimate revenue from plan labels.
+    const errorRate: number | null = null
+    const totalApiCalls24h: number | null = null
+    const revenueEstimate: number | null = null
 
     return NextResponse.json({
       dashboard: {
