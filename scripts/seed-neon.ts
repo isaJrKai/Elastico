@@ -1,4 +1,7 @@
 import { PrismaClient } from '@prisma/client'
+import { loadEnvConfig } from '@next/env'
+
+loadEnvConfig(process.cwd())
 
 if (!process.env.DATABASE_URL) {
   throw new Error('Set DATABASE_URL in the environment before running this script')
