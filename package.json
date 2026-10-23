@@ -7,16 +7,16 @@
     "build": "prisma generate && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production node .next/standalone/server.js",
     "lint": "eslint src prisma",
-    "db:push": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing db push in production; use reviewed migrations.' >&2; exit 1; fi && prisma db push",
+    "db:push": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing db push in production; use reviewed migrations.' >&2; exit 1; fi && node scripts/guard-db-target.mjs local && prisma db push",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:reset": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing destructive reset in production.' >&2; exit 1; fi && prisma migrate reset",
-    "db:seed": "npx tsx prisma/seed.ts",
+    "db:migrate": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing migrate dev in production; use reviewed migrations.' >&2; exit 1; fi && node scripts/guard-db-target.mjs local && prisma migrate dev",
+    "db:reset": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing destructive reset in production.' >&2; exit 1; fi && node scripts/guard-db-target.mjs local && prisma migrate reset",
+    "db:seed": "prisma db seed",
     "vercel-build": "prisma generate && next build",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "setup:dev": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing db push in production; use reviewed migrations.' >&2; exit 1; fi && prisma generate && prisma db push && npx tsx prisma/seed.ts",
-    "db:migrate:deploy": "prisma migrate deploy"
+    "setup:dev": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing db push in production; use reviewed migrations.' >&2; exit 1; fi && node scripts/guard-db-target.mjs local && prisma generate && prisma db push && prisma db seed",
+    "db:migrate:deploy": "node scripts/guard-db-target.mjs deploy && prisma migrate deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -102,5 +102,8 @@
     "tsx": "^4.22.4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
