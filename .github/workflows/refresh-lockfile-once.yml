@@ -1,0 +1,40 @@
+name: One-time lockfile refresh
+
+on:
+  push:
+    branches: [production-readiness/hardening]
+    paths:
+      - "package.json"
+      - ".github/workflows/refresh-lockfile-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: production-readiness/hardening
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regenerate lockfile from package.json
+        run: npm install --package-lock-only --legacy-peer-deps --no-audit
+      - name: Apply non-breaking advisory fixes
+        run: npm audit fix --package-lock-only --legacy-peer-deps || echo "Some advisories may remain; the normal audit gate will report them."
+      - name: Commit lockfile and remove this temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/refresh-lockfile-once.yml
+          if git diff --quiet -- package-lock.json; then
+            git commit -m "chore: remove temporary lockfile refresh helper"
+          else
+            git add package-lock.json
+            git commit -m "chore: refresh lockfile after dependency classification"
+          fi
+          git push origin HEAD:production-readiness/hardening
