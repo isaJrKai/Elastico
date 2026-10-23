@@ -21,3 +21,18 @@ export function resolveDemoAccount(email: unknown, requestedPlan: unknown) {
 export function isReservedDemoEmail(email: unknown): boolean {
   return typeof email === 'string' && email.trim().toLowerCase() in DEMO_ACCOUNTS
 }
+
+export function isEligibleExistingDemoUser(user: {
+  provider?: string | null
+  role?: string | null
+  isActive?: boolean
+  isBanned?: boolean
+} | null | undefined): boolean {
+  return Boolean(
+    user &&
+    user.provider === 'demo' &&
+    user.role === 'user' &&
+    user.isActive === true &&
+    user.isBanned === false
+  )
+}
