@@ -2,7 +2,7 @@
 
 **Status:** In progress — do not deploy or merge as production-ready yet.  
 **Working branch:** `production-readiness/hardening`  
-**Review method:** Static source/configuration inspection plus targeted remediation. A full build, automated suite, penetration test, and live deployment verification have not yet been completed.
+**Review method:** Static source/configuration inspection plus CI-driven remediation. On commit `052be9a86e4d057989aaa76b776836caec77d388`, clean install, typecheck, lint, tests, Next.js production build, Docker image build, fresh PostgreSQL 17 migration check, and production-only dependency audit passed. The full toolchain audit remains red for 8 high findings. No penetration test or live deployment verification has been performed.
 
 ## Executive summary
 
@@ -14,7 +14,7 @@ The repository had multiple release-blocking security and data-integrity defects
 |---|---|---|---|
 | C-01 | A live-looking PostgreSQL connection string with credentials was hardcoded in multiple tracked root scripts and an audit artifact. | `scripts/cycle45-*.js`, `scripts/cycle46-*.js`, `scripts/fix-dupes.ts`, `scripts/seed-neon.ts`, `download/phase6_product_truth_audit.md` | Credential literals removed from these current-branch files. **Provider-side rotation and Git-history cleanup remain mandatory.** |
 | C-02 | Unauthenticated demo authentication allowed a caller to request an administrator role and could create an administrator account. | `src/app/api/auth/demo/route.ts` | Endpoint now returns 404; demo-login controls removed from the login UI. |
-| C-03 | Cron sync accepted a hardcoded fallback secret. | `src/app/api/cron/sync/route.ts` | Fallback removed; missing/short secret fails closed. |
+| C-03 | Cron sync accepted a hardcoded fallback secret and `?force=true` bypassed authorization. | `src/app/api/cron/sync/route.ts`, `src/lib/cron-auth.ts` | Fallback and query bypass removed. Vercel Bearer and internal secret headers are validated; route-level regression test added. |
 | C-04 | Authenticated requests could fall back to JWT claims when the database lookup failed. | `src/lib/auth.ts` | Fail-open fallback removed; protected requests fail closed. |
 | C-05 | A stochastic match simulation could mark real user predictions correct/incorrect and update streaks/accuracy using simulated scores. | `src/app/api/matches/[id]/simulate/route.ts` | Simulation no longer settles predictions; response is explicitly labelled illustrative. |
 
@@ -28,9 +28,9 @@ The repository had multiple release-blocking security and data-integrity defects
 | S-04 | Tokens had no persistent session record or server-side revocation path. | Hashed token sessions added at login/register and a logout endpoint added. Requires runtime verification. |
 | S-05 | Environment diagnostics were public and exposed secret prefixes and lengths. | Admin authorization added; secret prefixes removed. |
 | S-06 | A stored 2FA flag was not enforced at login and no complete verification flow exists. | Login now fails closed when 2FA is enabled. **Actual enrolment/challenge/recovery flow remains unimplemented.** |
-| S-07 | Browser bearer tokens are stored in `localStorage`, increasing impact if an XSS path is found. | Open: migrate to secure HttpOnly cookies with CSRF/origin protections and audit rendering paths. |
+| S-07 | Browser bearer tokens were stored in `localStorage`, increasing impact if an XSS path is found. | UI now uses HttpOnly session cookies with origin checks and server-side session revocation; no localStorage token write remains in the login flow. Browser/XSS verification is still required. |
 | S-08 | Rate limiting is an in-memory `Map`, not shared across instances or restarts. Client IP extraction depends on trusted proxy behavior. | Open: use a shared production limiter and document trusted proxy configuration. |
-| S-09 | Authentication/session lifecycle needs broader tests, including account disable, role downgrade, logout, expiry, and DB outage. | Basic tests and CI gates added; not yet run successfully. |
+| S-09 | Authentication/session lifecycle needs broader tests, including account disable, role downgrade, logout, expiry, and DB outage. | Auth, cron, and database-target regression tests pass in CI; broader lifecycle/DB-outage coverage remains open. |
 
 ## Data integrity and product truth
 
@@ -51,12 +51,12 @@ The repository had multiple release-blocking security and data-integrity defects
 
 | ID | Finding | Current branch status |
 |---|---|---|
-| O-01 | Docker expected standalone output without enabling it in Next configuration. | `output: 'standalone'` enabled and build script runs `prisma generate`; not yet built in CI. |
+| O-01 | Docker expected standalone output without enabling it in Next configuration. | `output: 'standalone'` enabled; Next.js production build and Docker image build passed in CI. Runtime container smoke test remains open. |
 | O-02 | Docker/Caddy used incompatible listener/upstream settings. | Compose now routes Caddy to the app service and requires a domain for HTTPS; not yet deployed. |
 | O-03 | Compose configured SQLite while the Prisma schema is PostgreSQL-only. | Compose now provisions PostgreSQL. |
-| O-04 | Production migration history/baseline is missing or not evident. | Open release blocker: create and validate a migration strategy against both fresh and existing databases. Do not use `prisma db push` as the production release process. |
-| O-05 | No trustworthy automated verification gate was evident at audit start. | Initial GitHub Actions workflow, typecheck/lint/test scripts, and auth-focused tests added. **First CI run failed before tests at `npm ci` because the lockfile is out of sync.** |
-| O-08 | The checked-in `package-lock.json` is inconsistent with `package.json`; clean install fails. CI also warned that `kysely@0.29.5` requires Node 22 while the workflow originally used Node 20. | Workflow and Docker base image moved to Node 22. Lockfile still needs regeneration and review; no tests/build have run yet. |
+| O-04 | Production migration history/baseline was missing. | Initial migration generated from the checked-in schema and applied successfully to a disposable PostgreSQL 17 database in CI. Existing-database schema comparison, baseline, backup/restore, and rollback rehearsal remain release blockers. Do not use `prisma db push` as the production release process. |
+| O-05 | No trustworthy automated verification gate was evident at audit start. | GitHub Actions now checks clean installs, production/full dependency audits, typecheck, lint, tests, production build, Docker image build, and a fresh-database migration. All except the full toolchain dependency audit passed on the latest completed run. |
+| O-08 | The checked-in `package-lock.json` was inconsistent with `package.json`; clean install failed. CI also warned that `kysely@0.29.5` requires Node 22 while the workflow originally used Node 20. | Resolved on the hardening branch: lockfile regenerated, Node 22 used, and clean `npm ci --legacy-peer-deps` passes. |
 | O-06 | Archived code and research artifacts enlarged and confused the Docker build context. | `.dockerignore` added; full repository hygiene and history review remain open. |
 | O-07 | Production startup, health checks, backup/restore, observability, and rollback have not been proven end to end. | Open. |
 
@@ -70,47 +70,25 @@ The repository had multiple release-blocking security and data-integrity defects
 
 ## Release gates still required
 
-- [ ] Regenerate and review `package-lock.json`; verify `npm ci` succeeds cleanly.\n- [ ] CI green: install, dependency audit, Prisma generation, TypeScript, lint, tests, production build.
-- [ ] Database migration baseline and rollback strategy validated.
-- [ ] Security tests for auth, admin, session expiry/revocation, malformed inputs, rate limits, and environment endpoints.
-- [ ] Full route-by-route authorization and input-validation review.
-- [ ] Full data-source/provenance review for fixtures, scores, odds, standings, xG, predictions, and achievements.
-- [ ] UI/UX pass for loading, empty, error, stale, unavailable, and success states.
-- [ ] Docker Compose smoke test against a clean PostgreSQL database and real domain/TLS.
-- [ ] Backup/restore and rollback rehearsed.
-- [ ] Provider credential rotation and history cleanup complete.
+- [x] Regenerate and review `package-lock.json`; verify clean `npm ci --legacy-peer-deps`.
+- [x] Add an initial Prisma migration and verify it applies to a disposable PostgreSQL 17 database.
+- [x] Add fail-closed cron authentication and explicit database mutation guards.
+- [ ] Resolve or explicitly risk-accept the 8 high findings in the full development-toolchain audit; production-only dependency audit currently passes.
+- [ ] Rotate the exposed Neon credential and complete a deliberate repository-history cleanup.
+- [ ] Compare the existing database schema to `prisma/schema.prisma`, take/verify a backup, and baseline the initial migration without applying its SQL.
+- [ ] Complete security tests for account disable, role downgrade, logout, expiry, DB outage, rate limits, and all protected routes.
+- [ ] Complete route-by-route authorization/input validation and the full data-source/provenance review.
+- [ ] Complete UI/UX verification for loading, empty, error, stale, unavailable, and success states.
+- [ ] Run the Docker container against a clean database and verify health/authenticated journeys; test the real deployment and TLS.
+- [ ] Rehearse off-site backup/restore and rollback.
+- [ ] Perform live production verification only after the preceding gates are closed.
 
 **No production deployment has been performed.**
 
-## Follow-up verification — 2026-10-23
+## Latest verification — 2026-10-23
 
-- A one-time lockfile refresh on the hardening branch regenerated `package-lock.json` from the current `package.json` and applied compatible, non-major advisory fixes. The refresh job completed successfully; its full dependency audit summary still reported **8 high-severity findings**, so dependency remediation remains open.
-- The prior CI attempt passed typecheck, lint, and the existing test suite. Its clean-install gate was checking the pre-refresh lockfile; the refreshed lockfile still needs a fresh `npm ci` result on the new branch head.
-- Docker image creation previously failed while compiling the native `canvas` dependency because the Alpine build stage lacked Python/build and graphics development packages. The Docker build stage now installs those build prerequisites; the new image build must still pass before this can be considered fixed.
-- No production deployment or production database operation was performed. Do not merge this draft or label the app production-ready until exact-head CI passes and the remaining audit findings are triaged.
-
-## Follow-up verification — 2026-10-23, second pass
-
-- The committed npm lockfile has now been regenerated after the dependency-manifest cleanup. The first fresh run after regeneration passed `npm ci --legacy-peer-deps`; a new exact-head run is required after the latest dependency-classification commit.
-- The full dependency audit still reports 8 high findings across two root advisories:
-  - `braces` GHSA-vfj7-8cjw-p6xm, reached through Next ESLint tooling. Upstream currently has no patched release; do not force-downgrade Next to clear the report.
-  - `deepmerge-ts` GHSA-ggr8-5vv4-36mx, reached through the Prisma CLI. Its patched version is 8.0.0, while npm's suggested fix upgrades Prisma to 7.10.1 (a major-version migration). The Prisma CLI has been moved to `devDependencies`; `@prisma/client` remains a runtime dependency. The new CI workflow separately gates the production dependency graph and retains the full toolchain audit as a visible check.
-- The refreshed lint toolchain surfaced 18 `react-hooks/set-state-in-effect` findings in existing UI effects. The rule is currently warnings—not disabled—because it flags both synchronous derived-state patterns and legitimate asynchronous data-fetch/subscription handlers. These warnings remain visible and need a targeted UI refactor before claiming a clean lint baseline.
-- The Docker build stage now installs native prerequisites for the build-time `canvas` package. Compose now forwards the configured sports/news data-provider keys and uses the same `GITHUB_TOKEN` name as the AI gateway.
-- These changes are on the draft hardening branch only. Production secrets have not been rotated, no production database was accessed, and no deployment occurred.
-
-## Follow-up verification — 2026-10-23, third pass
-
-- **Cron authorization:** removed the public `?force=true` bypass. All scheduled-sync requests now require a valid secret; both Vercel's `Authorization: Bearer …` header and the internal `x-cron-secret` header are supported. Focused header-validation tests were added.
-- **Database mutation safety:** local-only `db:push`, `migrate dev`, and `db:reset` commands now require a local database host. Remote deployment migrations require explicit opt-in, and production mutations require a second explicit flag. Seed scripts now refuse remote/production writes without their own opt-ins; the Prisma CLI seed runner is configured to load environment files through Prisma.
-- **Latest completed validation before the database-target guard tests:** clean `npm ci`, typecheck, lint, tests, Next.js build, and Docker image build all passed on the preceding hardening-branch head. The production-only dependency audit passed. The full toolchain audit remains red for 8 high findings in development tooling; do not force a major Prisma downgrade/upgrade or pretend the audit is clean.
-- The database-target guard and its regression tests are now committed, so a fresh exact-head run is still required.
-- **Still release-blocking:** rotate the exposed Neon credential and review/purge repository history; create and test an initial Prisma migration plus a safe baseline plan for any existing database; decide how to handle the upstream-blocked development-toolchain advisories; perform deployment/health and authenticated browser verification only after those gates are closed.
-- No production database was accessed or changed, and no deployment was performed.
-
-## Follow-up verification — 2026-10-23, fourth pass
-
-- On the preceding hardening-branch head, CI passed clean lockfile installation, typecheck, lint, tests, Next.js production build, Docker image build, and the production-only dependency audit. The full dependency audit remains the sole failed gate on that head because the two upstream/toolchain advisories documented above remain unresolved.
-- The database-target guard now loads local `.env` configuration before checking the host, so standard local setup commands do not fail merely because the database URL is stored in `.env`. A regression test covers this behavior.
-- A route-level regression test now verifies that `/api/cron/sync?force=true` still returns 401 without a valid secret.
-- A fresh exact-head CI run is required for these final tests and environment-loading changes. The branch remains a draft; no merge, production database access, secret rotation, or deployment has occurred.
+- Exact-head CI run: [39910779981](https://github.com/isaJrKai/Elastico/actions/runs/39910779981).
+- Passed: clean lockfile install; production-only dependency audit; typecheck; lint; tests (including cron force-bypass and database-target guard regression tests); Next.js production build; Docker image build; fresh PostgreSQL 17 migration apply/status check.
+- Failed: full dependency audit, with 8 high findings across two toolchain advisories: `braces` through Next ESLint tooling (no upstream patch reported) and `deepmerge-ts` through the Prisma CLI (the suggested Prisma fix is a major-version migration). Do not force a downgrade or upgrade without a separate tested migration.
+- The initial migration has only been tested against a disposable database. Existing production schema baseline remains unverified.
+- The draft hardening branch has not been merged or deployed. No production database was accessed or modified.
