@@ -5,7 +5,6 @@ const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:3000'
 async function expectStatus(path, expectedStatus) {
   const response = await fetch(new URL(path, base), {
     headers: { accept: 'text/html,application/json' },
-    redirect: 'manual',
   })
   assert.equal(
     response.status,
