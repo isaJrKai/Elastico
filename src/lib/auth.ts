@@ -50,6 +50,20 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
   )
 }
 
+/** Remove authentication secrets and internal lockout state before returning a user to a client. */
+export function toSafeUser(user: object): Record<string, unknown> {
+  const {
+    passwordHash,
+    twoFactorSecret,
+    sessionId,
+    failedLogins,
+    lockedUntil,
+    providerId,
+    ...safeUser
+  } = user as Record<string, unknown>
+  return safeUser
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10)
 }
@@ -95,21 +109,34 @@ export async function authenticateRequest(req: Request): Promise<
       try {
         const { db } = await import('@/lib/db')
         const user = await db.user.findUnique({ where: { id: payload.userId } })
-        if (!user || !(user as any).isActive) {
+        if (!user || !(user as any).isActive || (user as any).isBanned) {
           return new Response(JSON.stringify({ error: 'Unauthorized' }), {
             status: 401,
             headers: { 'Content-Type': 'application/json' },
           })
         }
-        // Strip sensitive fields and cast to AuthUser
-        const { passwordHash, twoFactorSecret, sessionId, ...safeUser } = user as any
-        return { user: safeUser as AuthUser, req }
+        // Authorization uses the current database record, not stale token role/plan claims.
+        return { user: toSafeUser(user) as AuthUser, req }
       } catch (dbErr) {
-        console.warn('[Auth] DB lookup failed, falling back to token payload:', dbErr)
+        console.error('[Auth] Database lookup failed; refusing authentication in production.')
+        if (isProduction) {
+          return new Response(JSON.stringify({ error: 'Authentication service unavailable' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        console.warn('[Auth] Falling back to token payload only in non-production:', dbErr)
       }
     }
 
-    // Fallback: use token payload as user object (works without DB)
+    if (isProduction) {
+      return new Response(JSON.stringify({ error: 'Authentication service unavailable' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Non-production fallback only: never trust token-only identities in production.
     const role = payload.role
     const fallbackUser: AuthUser = {
       id: payload.userId,
