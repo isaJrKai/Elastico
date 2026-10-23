@@ -37,6 +37,14 @@ describe('database mutation target guard', () => {
     assert.match(result.stderr, /local-only database command/)
   })
 
+  it('allows a production-mode migration against the local test database', () => {
+    const result = runGuard('deploy', {
+      DATABASE_URL: 'postgresql://test:test@localhost:5432/elastico',
+      NODE_ENV: 'production',
+    })
+    assert.equal(result.status, 0, result.stderr)
+  })
+
   it('requires explicit opt-in for remote deployment migrations', () => {
     const result = runGuard('deploy', {
       DATABASE_URL: 'postgresql://test:test@db.example.invalid/elastico',
