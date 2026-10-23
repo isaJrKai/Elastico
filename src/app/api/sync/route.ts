@@ -32,8 +32,14 @@ export async function POST(request: NextRequest) {
     const cronModule = await import('@/app/api/cron/sync/route')
     const cronGet = cronModule.GET
 
-    // Build a fake NextRequest with the cron secret header
-    const cronSecret = process.env.CRON_SECRET || 'elastico-cron-2024'
+    // Never fall back to a public/default cron secret.
+    const cronSecret = process.env.CRON_SECRET
+    if (!cronSecret || cronSecret.length < 32) {
+      return NextResponse.json(
+        { error: 'Cron sync is not configured: CRON_SECRET must be at least 32 characters.' },
+        { status: 503 }
+      )
+    }
     const req = new NextRequest('http://internal/api/sync', {
       headers: { 'x-cron-secret': cronSecret },
     })
