@@ -50,7 +50,7 @@ jobs:
         run: npm run build
       - name: Start production server
         run: |
-          (npm run start > /tmp/elastico-server.log 2>&1 & echo $! > /tmp/elastico-server.pid)
+          (NODE_ENV=production node .next/standalone/server.js > /tmp/elastico-server.log 2>&1 & echo $! > /tmp/elastico-server.pid)
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:3000/ -o /dev/null; then
               echo "Production server is serving the home page"
