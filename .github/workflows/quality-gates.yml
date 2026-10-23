@@ -48,3 +48,23 @@ jobs:
         run: npx tsc --noEmit
       - name: Production build
         run: npm run build
+      - name: Start production server
+        run: |
+          (npm run start > /tmp/elastico-server.log 2>&1 & echo $! > /tmp/elastico-server.pid)
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/ -o /dev/null; then
+              echo "Production server is serving the home page"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/elastico-server.log
+          exit 1
+      - name: Production smoke tests
+        run: node scripts/smoke-test.mjs
+      - name: Stop production server
+        if: always()
+        run: |
+          if [ -f /tmp/elastico-server.pid ]; then
+            kill "$(cat /tmp/elastico-server.pid)" || true
+          fi
