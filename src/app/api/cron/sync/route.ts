@@ -43,10 +43,13 @@ function checkTimeout() {
 // ── Cron Secret Validation ──────────────────────────────────────────────────
 
 function validateCron(req: NextRequest): boolean {
-  const secret = req.headers.get('x-cron-secret')
-  const expected = process.env.CRON_SECRET || 'elastico-cron-2024'
-  // Accept the expected secret OR the well-known default (for backward compat)
-  return secret === expected || secret === 'elastico-cron-2024'
+  const supplied = req.headers.get('x-cron-secret')
+  const expected = process.env.CRON_SECRET
+
+  // Fail closed: never accept a public/default secret. Operators must configure
+  // a high-entropy CRON_SECRET (at least 32 characters) in the deployment.
+  if (!expected || expected.length < 32 || !supplied) return false
+  return supplied === expected
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
