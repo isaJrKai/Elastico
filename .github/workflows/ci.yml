@@ -33,8 +33,20 @@ jobs:
           cache: npm
       - run: npm ci --legacy-peer-deps
 
+  production-dependency-audit:
+    name: Production dependency audit (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --legacy-peer-deps
+      - run: npm audit --omit=dev --audit-level=high
+
   dependency-audit:
-    name: Dependency vulnerability audit
+    name: Full dependency vulnerability audit (includes build tooling)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
