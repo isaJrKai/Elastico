@@ -81,3 +81,10 @@ The repository had multiple release-blocking security and data-integrity defects
 - [ ] Provider credential rotation and history cleanup complete.
 
 **No production deployment has been performed.**
+
+## Follow-up verification — 2026-10-23
+
+- A one-time lockfile refresh on the hardening branch regenerated `package-lock.json` from the current `package.json` and applied compatible, non-major advisory fixes. The refresh job completed successfully; its full dependency audit summary still reported **8 high-severity findings**, so dependency remediation remains open.
+- The prior CI attempt passed typecheck, lint, and the existing test suite. Its clean-install gate was checking the pre-refresh lockfile; the refreshed lockfile still needs a fresh `npm ci` result on the new branch head.
+- Docker image creation previously failed while compiling the native `canvas` dependency because the Alpine build stage lacked Python/build and graphics development packages. The Docker build stage now installs those build prerequisites; the new image build must still pass before this can be considered fixed.
+- No production deployment or production database operation was performed. Do not merge this draft or label the app production-ready until exact-head CI passes and the remaining audit findings are triaged.
