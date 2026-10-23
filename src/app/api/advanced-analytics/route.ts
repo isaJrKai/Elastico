@@ -41,6 +41,25 @@ import {
  * COMPOSITE: full, list
  */
 
+/**
+ * The advanced formulas are exploratory heuristics, not validated football
+ * forecasts. Keep their existing fields while attaching explicit provenance.
+ */
+function withExperimentalMetadata(result: unknown, action: unknown) {
+  const payload = result && typeof result === 'object' && !Array.isArray(result)
+    ? result as Record<string, unknown>
+    : { value: result }
+
+  return {
+    ...payload,
+    formulaAction: typeof action === 'string' ? action : 'unknown',
+    modelStatus: 'experimental-unvalidated',
+    validatedAgainstHistoricalResults: false,
+    inputsMayIncludeRouteDefaults: true,
+    warning: 'Exploratory formula output only. GET parameters may default to illustrative values; outputs are not empirically validated match predictions.',
+  }
+}
+
 const FORMULA_CATALOG = [
   { action: 'cri', tier: 1, name: 'Coach Risk Index', description: 'Prospect Theory applied to coaching decisions. Loss-averse value function x probability weighting x time pressure.' },
   { action: 'scs', tier: 1, name: 'Social Contagion Score', description: 'Emotional momentum propagation across a team. How fast does celebration/despair spread and affect performance?' },
@@ -54,7 +73,7 @@ const FORMULA_CATALOG = [
   { action: 'sbdi', tier: 3, name: 'Second-Ball Dominance', description: 'Second-ball dominance indicator; no validated win-probability calibration is currently established.' },
   { action: 'press-lag', tier: 3, name: 'Press Trigger Lag', description: 'Press execution delay indicator; thresholds require source-backed validation.' },
   { action: 'soa', tier: 3, name: 'Spatial Overload Asymmetry', description: 'Gap between intended tactical overloads and actual player positioning.' },
-  { action: 'line-alpha', tier: 4, name: 'Line Movement Alpha', description: 'Sharp money detection via causality decomposition of line movements.' },
+  { action: 'line-alpha', tier: 4, name: 'Line Movement Alpha', description: 'Experimental line-movement indicator from supplied odds history; it cannot identify bettor intent or establish causation.' },
   { action: 'rbei', tier: 4, name: 'Recency Bias Exploitation', description: 'Experimental market overreaction indicator; no validated action threshold is established.' },
   { action: 'ctc', tier: 4, name: 'Coaching Tenure Curve', description: 'Hypothesis-driven coaching-tenure indicator; effects and thresholds are not validated.' },
   { action: 'narrative', tier: 4, name: 'Narrative Momentum', description: 'Experimental media-to-performance indicator; no calibrated coefficient is established.' },
@@ -92,7 +111,7 @@ export async function GET(request: NextRequest) {
   try {
     // ─── CATALOG ─────────────────────────────────────────────────────────
     if (action === 'list') {
-      return NextResponse.json({ formulas: FORMULA_CATALOG, total: FORMULA_CATALOG.length, evidenceStatus: 'UNVALIDATED', warning: 'Experimental indicators; not calibrated predictive claims.' })
+      return NextResponse.json({ formulas: FORMULA_CATALOG, total: FORMULA_CATALOG.length, evidenceStatus: 'UNVALIDATED', modelStatus: 'experimental-unvalidated', validatedAgainstHistoricalResults: false, warning: 'Experimental indicators; not calibrated predictive claims.' })
     }
 
     // ─── TIER 1: PSYCHOLOGICAL ───────────────────────────────────────────
@@ -104,7 +123,7 @@ export async function GET(request: NextRequest) {
         outcomeMagnitude: parseFloat(searchParams.get('outcome') ?? '0.5'),
         minutesRemaining: parseInt(searchParams.get('minutes') ?? '45'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'scs') {
@@ -127,7 +146,7 @@ export async function GET(request: NextRequest) {
         teammates,
         currentMinute: parseInt(searchParams.get('currentMinute') ?? '35'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'iti') {
@@ -137,7 +156,7 @@ export async function GET(request: NextRequest) {
         resilienceBaseline: parseFloat(searchParams.get('resilience') ?? '0.5'),
         daysSinceCriticism: parseInt(searchParams.get('days') ?? '2'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'referee-drift') {
@@ -148,7 +167,7 @@ export async function GET(request: NextRequest) {
         crowdNoise: parseFloat(searchParams.get('crowd') ?? '0.7'),
         homeBiasBaseline: parseFloat(searchParams.get('homeBias') ?? '0.15'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── TIER 2: TEMPORAL ───────────────────────────────────────────────
@@ -161,14 +180,14 @@ export async function GET(request: NextRequest) {
         daysSinceArrival: parseInt(searchParams.get('daysArrival') ?? '2'),
         positionGroup: (searchParams.get('position') ?? 'striker') as 'striker' | 'midfielder' | 'defender' | 'goalkeeper',
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'fcd') {
       const rawMatchDays = searchParams.get('matchDays')
       const matchDays: number[] = rawMatchDays ? JSON.parse(rawMatchDays) : [0, 3, 6]
       const result = calculateFCD({ matchDays })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'reintegration') {
@@ -178,7 +197,7 @@ export async function GET(request: NextRequest) {
         highIntensityRuns: parseFloat(searchParams.get('hir') ?? '5'),
         opponentDefensiveIntensity: parseFloat(searchParams.get('oppIntensity') ?? '0.6'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'mai') {
@@ -189,7 +208,7 @@ export async function GET(request: NextRequest) {
         teamAForm: parseFloat(searchParams.get('teamAForm') ?? '1.8'),
         teamBForm: parseFloat(searchParams.get('teamBForm') ?? '1.2'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── TIER 3: TACTICAL ───────────────────────────────────────────────
@@ -211,7 +230,7 @@ export async function GET(request: NextRequest) {
             { playerId: 'st', currentX: 0.85, currentY: 0.5, assignedZone: [0.75, 1.0, 0.35, 0.65] as [number, number, number, number] },
           ]
       const result = calculateDSE({ players, teamName: searchParams.get('teamName') ?? 'Team' })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'sbdi') {
@@ -220,7 +239,7 @@ export async function GET(request: NextRequest) {
         secondBallsWon: parseInt(searchParams.get('won') ?? '28'),
         territorialWeight: parseFloat(searchParams.get('territorial') ?? '0.7'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'press-lag') {
@@ -235,7 +254,7 @@ export async function GET(request: NextRequest) {
             { triggerType: 'back_pass_to_keeper', lagSeconds: 0.9, oppositionTransitionSpeed: 0.65 },
           ]
       const result = calculatePressLag({ pressEvents: events })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'soa') {
@@ -253,7 +272,7 @@ export async function GET(request: NextRequest) {
             { zoneId: 'midfield', intendedDensity: 3, actualDensity: 2.5 },
           ]
       const result = calculateSOA({ zones })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── TIER 4: MARKET ─────────────────────────────────────────────────
@@ -266,7 +285,7 @@ export async function GET(request: NextRequest) {
         weatherAdjustment: parseFloat(searchParams.get('weather') ?? '0.1'),
         direction: (parseInt(searchParams.get('direction') ?? '1')) as 1 | -1,
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'rbei') {
@@ -278,7 +297,7 @@ export async function GET(request: NextRequest) {
         performanceStdDev: parseFloat(searchParams.get('sigma') ?? '0.12'),
         recentResults,
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'ctc') {
@@ -290,7 +309,7 @@ export async function GET(request: NextRequest) {
           ? parseFloat(searchParams.get('nmEffect')!)
           : undefined,
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'narrative') {
@@ -308,7 +327,7 @@ export async function GET(request: NextRequest) {
         mediaMentions: mentions,
         currentForm: parseFloat(searchParams.get('form') ?? '2.0'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── TIER 5: THE ABYSS ──────────────────────────────────────────────
@@ -324,7 +343,7 @@ export async function GET(request: NextRequest) {
         hostility: parseFloat(searchParams.get('hostility') ?? '0.7'),
         exposureSeconds: parseFloat(searchParams.get('exposure') ?? '6'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'tad') {
@@ -339,7 +358,7 @@ export async function GET(request: NextRequest) {
           ? parseFloat(searchParams.get('eliteThresh')!)
           : undefined,
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'sub-decay') {
@@ -348,7 +367,7 @@ export async function GET(request: NextRequest) {
         subQuality: parseFloat(searchParams.get('subQuality') ?? '0.7'),
         opponentAdjustment: parseFloat(searchParams.get('oppAdj') ?? '0.5'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'ipr') {
@@ -360,7 +379,7 @@ export async function GET(request: NextRequest) {
         wasDerby: searchParams.get('derby') === 'true',
         crowdFactor: parseFloat(searchParams.get('crowd') ?? '0.8'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── COMPOSITE: FULL ANALYSIS ───────────────────────────────────────
@@ -380,7 +399,7 @@ export async function GET(request: NextRequest) {
 
       const params: FullAdvancedAnalysisParams = JSON.parse(rawParams)
       const result = runFullAdvancedAnalysis(params)
-      return NextResponse.json({
+      return NextResponse.json(withExperimentalMetadata({
         compositeScore: result.compositeScore,
         compositeLabel: result.compositeLabel,
         flags: result.flags,
@@ -394,7 +413,7 @@ export async function GET(request: NextRequest) {
           confidence: f.confidence,
         })),
         timestamp: result.timestamp,
-      })
+      }, action))
     }
 
     // ─── UNKNOWN ACTION ─────────────────────────────────────────────────
@@ -424,50 +443,50 @@ export async function POST(request: NextRequest) {
 
     if (action === 'full') {
       const result = runFullAdvancedAnalysis(params as FullAdvancedAnalysisParams)
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     switch (action) {
       case 'cri':
-        return NextResponse.json(calculateCRI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateCRI(params), action))
       case 'scs':
-        return NextResponse.json(calculateSCS(params))
+        return NextResponse.json(withExperimentalMetadata(calculateSCS(params), action))
       case 'iti':
-        return NextResponse.json(calculateITI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateITI(params), action))
       case 'referee-drift':
-        return NextResponse.json(calculateRefereeDrift(params))
+        return NextResponse.json(withExperimentalMetadata(calculateRefereeDrift(params), action))
       case 'crd':
-        return NextResponse.json(calculateCRD(params))
+        return NextResponse.json(withExperimentalMetadata(calculateCRD(params), action))
       case 'fcd':
-        return NextResponse.json(calculateFCD(params))
+        return NextResponse.json(withExperimentalMetadata(calculateFCD(params), action))
       case 'reintegration':
-        return NextResponse.json(calculateReintegration(params))
+        return NextResponse.json(withExperimentalMetadata(calculateReintegration(params), action))
       case 'mai':
-        return NextResponse.json(calculateMAI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateMAI(params), action))
       case 'dse':
-        return NextResponse.json(calculateDSE(params))
+        return NextResponse.json(withExperimentalMetadata(calculateDSE(params), action))
       case 'sbdi':
-        return NextResponse.json(calculateSBDI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateSBDI(params), action))
       case 'press-lag':
-        return NextResponse.json(calculatePressLag(params))
+        return NextResponse.json(withExperimentalMetadata(calculatePressLag(params), action))
       case 'soa':
-        return NextResponse.json(calculateSOA(params))
+        return NextResponse.json(withExperimentalMetadata(calculateSOA(params), action))
       case 'line-alpha':
-        return NextResponse.json(calculateLineAlpha(params))
+        return NextResponse.json(withExperimentalMetadata(calculateLineAlpha(params), action))
       case 'rbei':
-        return NextResponse.json(calculateRBEI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateRBEI(params), action))
       case 'ctc':
-        return NextResponse.json(calculateCTC(params))
+        return NextResponse.json(withExperimentalMetadata(calculateCTC(params), action))
       case 'narrative':
-        return NextResponse.json(calculateNarrativeMomentum(params))
+        return NextResponse.json(withExperimentalMetadata(calculateNarrativeMomentum(params), action))
       case 'capz':
-        return NextResponse.json(calculateCAPZ(params))
+        return NextResponse.json(withExperimentalMetadata(calculateCAPZ(params), action))
       case 'tad':
-        return NextResponse.json(calculateTAD(params))
+        return NextResponse.json(withExperimentalMetadata(calculateTAD(params), action))
       case 'sub-decay':
-        return NextResponse.json(calculateSubDecay(params))
+        return NextResponse.json(withExperimentalMetadata(calculateSubDecay(params), action))
       case 'ipr':
-        return NextResponse.json(calculateIPR(params))
+        return NextResponse.json(withExperimentalMetadata(calculateIPR(params), action))
       default:
         return NextResponse.json(
           { error: `Unknown POST action: "${action}"`, available: FORMULA_CATALOG.map((f) => f.action) },
