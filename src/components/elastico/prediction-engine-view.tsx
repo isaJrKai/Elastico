@@ -32,8 +32,8 @@ import { StatusBadge, SectionHeader, StatBlock } from '@/components/elastico/pri
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
 function authHeaders() {
-  const t = typeof window !== 'undefined' ? localStorage.getItem('elastico_token') : null
-  return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) }
+  // Authentication is carried by the HttpOnly session cookie; never read tokens from localStorage.
+  return { 'Content-Type': 'application/json' }
 }
 
 const CONF_COLORS: Record<string, string> = {
