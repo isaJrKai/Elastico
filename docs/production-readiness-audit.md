@@ -88,3 +88,13 @@ The repository had multiple release-blocking security and data-integrity defects
 - The prior CI attempt passed typecheck, lint, and the existing test suite. Its clean-install gate was checking the pre-refresh lockfile; the refreshed lockfile still needs a fresh `npm ci` result on the new branch head.
 - Docker image creation previously failed while compiling the native `canvas` dependency because the Alpine build stage lacked Python/build and graphics development packages. The Docker build stage now installs those build prerequisites; the new image build must still pass before this can be considered fixed.
 - No production deployment or production database operation was performed. Do not merge this draft or label the app production-ready until exact-head CI passes and the remaining audit findings are triaged.
+
+## Follow-up verification — 2026-10-23, second pass
+
+- The committed npm lockfile has now been regenerated after the dependency-manifest cleanup. The first fresh run after regeneration passed `npm ci --legacy-peer-deps`; a new exact-head run is required after the latest dependency-classification commit.
+- The full dependency audit still reports 8 high findings across two root advisories:
+  - `braces` GHSA-vfj7-8cjw-p6xm, reached through Next ESLint tooling. Upstream currently has no patched release; do not force-downgrade Next to clear the report.
+  - `deepmerge-ts` GHSA-ggr8-5vv4-36mx, reached through the Prisma CLI. Its patched version is 8.0.0, while npm's suggested fix upgrades Prisma to 7.10.1 (a major-version migration). The Prisma CLI has been moved to `devDependencies`; `@prisma/client` remains a runtime dependency. The new CI workflow separately gates the production dependency graph and retains the full toolchain audit as a visible check.
+- The refreshed lint toolchain surfaced 18 `react-hooks/set-state-in-effect` findings in existing UI effects. The rule is currently warnings—not disabled—because it flags both synchronous derived-state patterns and legitimate asynchronous data-fetch/subscription handlers. These warnings remain visible and need a targeted UI refactor before claiming a clean lint baseline.
+- The Docker build stage now installs native prerequisites for the build-time `canvas` package. Compose now forwards the configured sports/news data-provider keys and uses the same `GITHUB_TOKEN` name as the AI gateway.
+- These changes are on the draft hardening branch only. Production secrets have not been rotated, no production database was accessed, and no deployment occurred.
