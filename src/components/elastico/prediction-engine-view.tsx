@@ -110,11 +110,13 @@ export default function PredictionEngineView() {
   const [awayTeamId, setAwayTeamId] = useState('')
   const [homeXg, setHomeXg] = useState('')
   const [awayXg, setAwayXg] = useState('')
-  const [homeElo, setHomeElo] = useState('1850')
-  const [awayElo, setAwayElo] = useState('1780')
-  const [oddsHome, setOddsHome] = useState('2.10')
-  const [oddsDraw, setOddsDraw] = useState('3.40')
-  const [oddsAway, setOddsAway] = useState('3.60')
+  const [homeElo, setHomeElo] = useState('')
+  const [awayElo, setAwayElo] = useState('')
+  const [homeGoalsConceded, setHomeGoalsConceded] = useState('')
+  const [awayGoalsConceded, setAwayGoalsConceded] = useState('')
+  const [oddsHome, setOddsHome] = useState('')
+  const [oddsDraw, setOddsDraw] = useState('')
+  const [oddsAway, setOddsAway] = useState('')
   const [bankroll, setBankroll] = useState('1000')
   const [simRuns, setSimRuns] = useState('150000')
   const [injuries, setInjuries] = useState<InjuryAdjustment[]>([])
@@ -146,21 +148,48 @@ export default function PredictionEngineView() {
   const homeTeam = teams.find(t => t.id === homeTeamId)
   const awayTeam = teams.find(t => t.id === awayTeamId)
 
-  // Default ELO to 1500 when not available
-  const effectiveHomeElo = homeElo || '1500'
-  const effectiveAwayElo = awayElo || '1500'
-
   // ── Run simulation ────────────────────────────────────────────────────────────
   const runSimulation = useCallback(async () => {
     if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
+    const requiredValues = {
+      'Home xG': homeXg,
+      'Away xG': awayXg,
+      'Home goals conceded per match': homeGoalsConceded,
+      'Away goals conceded per match': awayGoalsConceded,
+      'Home ELO (verified)': homeElo,
+      'Away ELO (verified)': awayElo,
+      'Home bookmaker odds': oddsHome,
+      'Draw bookmaker odds': oddsDraw,
+      'Away bookmaker odds': oddsAway,
+    }
+    const missing = Object.entries(requiredValues).find(([, value]) => value.trim() === '')
+    if (missing) { toast.error(`Enter ${missing[0]} before running the analysis`); return }
+    const numbers = Object.fromEntries(Object.entries(requiredValues).map(([key, value]) => [key, Number(value)]))
+    const invalid = Object.entries(numbers).find(([key, value]) =>
+      !Number.isFinite(value) || (key.includes('odds') ? value <= 1 : value < 0)
+    )
+    if (invalid) { toast.error(`${invalid[0]} must be a valid positive numeric input`); return }
+    if (numbers['Home ELO (verified)'] <= 0 || numbers['Away ELO (verified)'] <= 0) {
+      toast.error('ELO ratings must be greater than zero'); return
+    }
+    const runs = Number(simRuns)
+    const stakeBankroll = Number(bankroll)
+    if (!Number.isInteger(runs) || runs < 1000 || runs > 500000) {
+      toast.error('Simulation runs must be an integer between 1,000 and 500,000'); return
+    }
+    if (!Number.isFinite(stakeBankroll) || stakeBankroll <= 0) {
+      toast.error('Enter a positive bankroll'); return
+    }
     setSimulating(true)
     try {
       const input: MatchInput = {
         homeTeam: homeTeam?.name ?? '', awayTeam: awayTeam?.name ?? '',
-        homeTeamId, awayTeamId, homeXg: +homeXg, awayXg: +awayXg,
-        homeGoalsConceded: +awayXg * 0.9, awayGoalsConceded: +homeXg * 0.9,
-        homeElo: +effectiveHomeElo || 1500, awayElo: +effectiveAwayElo || 1500,
-        bookmakerOdds: { home: +oddsHome, draw: +oddsDraw, away: +oddsAway },
+        homeTeamId, awayTeamId,
+        homeXg: Number(homeXg), awayXg: Number(awayXg),
+        homeGoalsConceded: Number(homeGoalsConceded),
+        awayGoalsConceded: Number(awayGoalsConceded),
+        homeElo: Number(homeElo), awayElo: Number(awayElo),
+        bookmakerOdds: { home: Number(oddsHome), draw: Number(oddsDraw), away: Number(oddsAway) },
         injuries: injuries.length ? injuries : undefined,
       }
       const res = await fetch('/api/prediction-engine/simulate', {
@@ -179,7 +208,7 @@ export default function PredictionEngineView() {
     } finally {
       setSimulating(false)
     }
-  }, [homeTeamId, awayTeamId, homeTeam, awayTeam, homeXg, awayXg, homeElo, awayElo, oddsHome, oddsDraw, oddsAway, bankroll, simRuns, injuries])
+  }, [homeTeamId, awayTeamId, homeTeam, awayTeam, homeXg, awayXg, homeGoalsConceded, awayGoalsConceded, homeElo, awayElo, oddsHome, oddsDraw, oddsAway, bankroll, simRuns, injuries])
 
   // ── Run Kelly ─────────────────────────────────────────────────────────────────
   const runKelly = useCallback(async () => {
@@ -351,7 +380,7 @@ export default function PredictionEngineView() {
                     Monte Carlo simulation generates thousands of match outcomes using Poisson-distributed goals,
                     ELO-based strength, and xG inputs. It estimates win/draw/loss probabilities,
                     totals markets (O/U 1.5, 2.5, 3.5), BTTS likelihood, and Asian Handicap lines.
-                    When no ELO data exists, a default rating of 1500 is used.
+                    No ratings or goal metrics are fabricated. Enter verified xG, goals-conceded averages, ELO ratings, and current bookmaker odds. Results remain experimental until the model is historically validated.
                   </p>
                 </CardDescription>
                 <CardContent className="space-y-3">
@@ -371,7 +400,7 @@ export default function PredictionEngineView() {
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setHomeElo(''); setHomeGoalsConceded(''); setHomeXg(String(t.xgPerGame ?? '')) }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -382,7 +411,7 @@ export default function PredictionEngineView() {
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setAwayElo(''); setAwayGoalsConceded(''); setAwayXg(String(t.xgPerGame ?? '')) }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -402,16 +431,26 @@ export default function PredictionEngineView() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-zinc-500">Home ELO</Label>
+                      <Label className="text-xs text-zinc-500">Home goals conceded / match</Label>
+                      <Input type="number" min="0" step="0.01" value={homeGoalsConceded} onChange={e => setHomeGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-zinc-500">Away goals conceded / match</Label>
+                      <Input type="number" min="0" step="0.01" value={awayGoalsConceded} onChange={e => setAwayGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-zinc-500">Home ELO (verify)</Label>
                       <Input type="number" value={homeElo} onChange={e => setHomeElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-zinc-500">Away ELO</Label>
+                      <Label className="text-xs text-zinc-500">Away ELO (verify)</Label>
                       <Input type="number" value={awayElo} onChange={e => setAwayElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
                   <Separator className="bg-zinc-800/50" />
-                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(enter current market odds — pre-filled values are examples only)</span></p>
+                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(required; enter current prices)</span></p>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <Label className="text-xs text-emerald-400">Home</Label>
