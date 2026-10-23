@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateToken, toSafeUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { rateLimit } from '@/lib/rate-limit'
-import { resolveDemoAccount } from '@/lib/demo-accounts'
+import { isEligibleExistingDemoUser, resolveDemoAccount } from '@/lib/demo-accounts'
 
 /**
  * Public demo login is limited to three reserved, non-admin identities.
@@ -26,11 +26,8 @@ export async function POST(request: NextRequest) {
 
     if (user) {
       // A reserved demo email must never be used to sign into a real or privileged account.
-      if (user.provider !== 'demo' || user.role === 'admin') {
+      if (!isEligibleExistingDemoUser(user)) {
         return NextResponse.json({ error: 'Demo account is unavailable' }, { status: 409 })
-      }
-      if (!user.isActive || user.isBanned) {
-        return NextResponse.json({ error: 'Demo account is unavailable' }, { status: 403 })
       }
     } else {
       user = await db.user.create({
