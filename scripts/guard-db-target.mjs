@@ -38,8 +38,8 @@ if (mode === 'deploy') {
   if (!isLocal && process.env.ELASTICO_ALLOW_REMOTE_DB_MUTATIONS !== 'true') {
     refuse('remote migrations require ELASTICO_ALLOW_REMOTE_DB_MUTATIONS=true')
   }
-  if (process.env.NODE_ENV === 'production' && process.env.ELASTICO_ALLOW_PRODUCTION_DB_MUTATIONS !== 'true') {
-    refuse('production database mutations require ELASTICO_ALLOW_PRODUCTION_DB_MUTATIONS=true')
+  if (!isLocal && process.env.NODE_ENV === 'production' && process.env.ELASTICO_ALLOW_PRODUCTION_DB_MUTATIONS !== 'true') {
+    refuse('remote production database mutations require ELASTICO_ALLOW_PRODUCTION_DB_MUTATIONS=true')
   }
   console.log(`Database safety guard: ${isLocal ? 'local' : 'remote'} migration target accepted.`)
   process.exit(0)
