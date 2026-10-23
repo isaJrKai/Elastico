@@ -45,7 +45,7 @@ function checkTimeout() {
 function validateCron(req: NextRequest): boolean {
   const suppliedHeader = req.headers.get('x-cron-secret')
   const authorization = req.headers.get('authorization')
-  const bearer = authorization?.match(/^Bearer\\s+(.+)$/i)?.[1]
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]
   const supplied = suppliedHeader || bearer
   const expected = process.env.CRON_SECRET
 
