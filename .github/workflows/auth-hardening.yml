@@ -1,0 +1,66 @@
+name: Authentication security
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/auth.ts"
+      - "src/lib/rbac.ts"
+      - "src/lib/demo-accounts.ts"
+      - "src/app/api/auth/**"
+      - "src/components/elastico/login-view.tsx"
+      - "prisma/seed.ts"
+      - "scripts/test-auth-hardening.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/auth-hardening.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/auth.ts"
+      - "src/lib/rbac.ts"
+      - "src/lib/demo-accounts.ts"
+      - "src/app/api/auth/**"
+      - "src/components/elastico/login-view.tsx"
+      - "prisma/seed.ts"
+      - "scripts/test-auth-hardening.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/auth-hardening.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  auth-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      npm_config_legacy_peer_deps: "true"
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/elastico_test?sslmode=disable"
+      DIRECT_URL: "postgresql://postgres:postgres@127.0.0.1:5432/elastico_test?sslmode=disable"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Test demo identity and privilege boundaries
+        run: npm run test:auth-hardening
+      - name: Lint changed authentication code
+        run: >-
+          npx eslint
+          src/lib/auth.ts
+          src/lib/rbac.ts
+          src/lib/demo-accounts.ts
+          src/app/api/auth/demo/route.ts
+          src/app/api/auth/login/route.ts
+          src/app/api/auth/register/route.ts
+          src/components/elastico/login-view.tsx
+          prisma/seed.ts
+          scripts/test-auth-hardening.ts
