@@ -20,24 +20,41 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const matchInput: MatchInput = body.matchInput
     const config: Partial<EngineConfig> = body.config || {}
-    const bankroll = body.bankroll || 1000
+    const bankroll = body.bankroll
     const openingOdds = body.openingOdds
 
-    if (!matchInput || !matchInput.homeTeam || !matchInput.awayTeam) {
+    if (!matchInput || !matchInput.homeTeam?.trim() || !matchInput.awayTeam?.trim()) {
       return NextResponse.json({ error: 'matchInput with homeTeam and awayTeam is required' }, { status: 400 })
     }
 
+    // The engine must not silently invent xG, goals-conceded, or team-strength
+    // inputs. Callers must provide measured/estimated values with provenance.
+    const requiredNumericInputs = [
+      'homeXg', 'awayXg', 'homeGoalsConceded', 'awayGoalsConceded', 'homeElo', 'awayElo',
+    ] as const
+    const missingInputs = requiredNumericInputs.filter((key) =>
+      typeof matchInput[key] !== 'number' ||
+      !Number.isFinite(matchInput[key]) ||
+      matchInput[key] < 0
+    )
+    if (missingInputs.length > 0) {
+      return NextResponse.json({
+        error: 'Required model inputs are missing or invalid; no defaults are fabricated.',
+        missingInputs,
+      }, { status: 400 })
+    }
+
     const input: MatchInput = {
-      homeTeam: matchInput.homeTeam,
-      awayTeam: matchInput.awayTeam,
+      homeTeam: matchInput.homeTeam.trim(),
+      awayTeam: matchInput.awayTeam.trim(),
       homeTeamId: matchInput.homeTeamId,
       awayTeamId: matchInput.awayTeamId,
-      homeXg: matchInput.homeXg ?? 1.5,
-      awayXg: matchInput.awayXg ?? 1.1,
-      homeGoalsConceded: matchInput.homeGoalsConceded ?? 0.9,
-      awayGoalsConceded: matchInput.awayGoalsConceded ?? 1.2,
-      homeElo: matchInput.homeElo ?? 1600,
-      awayElo: matchInput.awayElo ?? 1500,
+      homeXg: matchInput.homeXg,
+      awayXg: matchInput.awayXg,
+      homeGoalsConceded: matchInput.homeGoalsConceded,
+      awayGoalsConceded: matchInput.awayGoalsConceded,
+      homeElo: matchInput.homeElo,
+      awayElo: matchInput.awayElo,
       bookmakerOdds: matchInput.bookmakerOdds ?? null,
       historicalResiduals: matchInput.historicalResiduals,
       injuries: matchInput.injuries,
@@ -54,6 +71,12 @@ export async function POST(request: NextRequest) {
     }
 
     const mode = body.mode || 'full'
+    if (mode !== 'simulation-only' && mode !== 'full') {
+      return NextResponse.json({ error: 'mode must be full or simulation-only' }, { status: 400 })
+    }
+    if (mode === 'full' && (typeof bankroll !== 'number' || !Number.isFinite(bankroll) || bankroll <= 0)) {
+      return NextResponse.json({ error: 'A positive numeric bankroll is required for full analysis.' }, { status: 400 })
+    }
 
     if (mode === 'simulation-only') {
       const result = runStochasticSimulation(input, fullConfig)
@@ -106,7 +129,8 @@ export async function GET() {
   return NextResponse.json({
     engine: 'ELASTICO Stochastic Prediction Engine',
     version: '3.0',
-    status: 'operational',
+    status: 'experimental-unvalidated',
+    warning: 'Endpoint availability does not imply model validation. Supply real, timestamped inputs; predictions are estimates, not guarantees.',
     capabilities: [
       'Merton Jump-Diffusion Simulation',
       'GARCH(1,1) Volatility Calibration',
