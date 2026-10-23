@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { hashPassword, generateToken } from '@/lib/auth'
+import { hashPassword, generateToken, toSafeUser } from '@/lib/auth'
+import { isReservedDemoEmail } from '@/lib/demo-accounts'
 import { rateLimit } from '@/lib/rate-limit'
 import { validateEmail, validatePassword, sanitizeInput } from '@/lib/security'
 
@@ -27,6 +28,9 @@ export async function POST(req: NextRequest) {
     const emailCheck = validateEmail(email)
     if (!emailCheck.valid) {
       return NextResponse.json({ error: emailCheck.error }, { status: 400 })
+    }
+    if (isReservedDemoEmail(email)) {
+      return NextResponse.json({ error: 'This email is reserved for demo access' }, { status: 409 })
     }
 
     // Validate password strength
@@ -75,10 +79,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    const { passwordHash: _, ...userWithoutPassword } = user
-
     return NextResponse.json(
-      { user: userWithoutPassword, token },
+      { user: toSafeUser(user), token },
       { status: 201 }
     )
   } catch (error) {
