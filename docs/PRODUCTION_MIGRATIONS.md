@@ -2,7 +2,7 @@
 
 ## Current status
 
-The initial PostgreSQL migration `20261023000000_initial` was generated from the checked-in Prisma schema. CI is being extended to apply it to a disposable PostgreSQL 17 database.
+The initial PostgreSQL migration `20261023000000_initial` was generated from the checked-in Prisma schema. The CI workflow now applies it to a disposable PostgreSQL 17 database and checks migration status; this passed on commit `052be9a86e4d057989aaa76b776836caec77d388`.
 
 **It has not been applied to any production or existing database.** Do not run the initial migration against an existing database until its schema has been compared and the baseline procedure below is complete.
 
