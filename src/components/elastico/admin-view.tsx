@@ -50,8 +50,8 @@ const NEWS_SENTIMENTS = ['positive', 'negative', 'neutral']
 // ── Helper: Auth Headers ─────────────────────────────────────────────────────
 
 function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('elastico_token') : null
-  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+  // Authentication is carried by the HttpOnly session cookie; never read tokens from localStorage.
+  return { 'Content-Type': 'application/json' }
 }
 
 // ── Sub-Components ───────────────────────────────────────────────────────────
