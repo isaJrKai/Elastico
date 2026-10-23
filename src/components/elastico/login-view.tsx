@@ -59,6 +59,9 @@ export default function LoginView() {
       const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginEmail, password: loginPassword }) })
       const data = await res.json()
       if (!res.ok) { setLoginError(data.error || data.message || 'Login failed.'); return }
+      // Remove credentials from the previous localStorage-token auth flow.
+      localStorage.removeItem('elastico_token')
+      localStorage.removeItem('elastico_user')
       setUser(data.user, null); setView('dashboard')
     } catch { setLoginError('Network error.') } finally { setLoginLoading(false) }
   }
@@ -73,6 +76,9 @@ export default function LoginView() {
       const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: regName, email: regEmail, password: regPassword }) })
       const data = await res.json()
       if (!res.ok) { setRegError(data.error || data.message || 'Registration failed.'); return }
+      // Remove credentials from the previous localStorage-token auth flow.
+      localStorage.removeItem('elastico_token')
+      localStorage.removeItem('elastico_user')
       setUser(data.user, null); setView('dashboard')
     } catch { setRegError('Network error.') } finally { setRegLoading(false) }
   }
