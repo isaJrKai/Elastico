@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "setup:dev": "if [ \"$NODE_ENV\" = \"production\" ]; then echo 'Refusing db push in production; use reviewed migrations.' >&2; exit 1; fi && node scripts/guard-db-target.mjs local && prisma generate && prisma db push && prisma db seed",
-    "db:migrate:deploy": "node scripts/guard-db-target.mjs deploy && prisma migrate deploy"
+    "db:migrate:deploy": "node scripts/guard-db-target.mjs deploy && prisma migrate deploy",
+    "db:migrate:baseline": "node scripts/guard-db-target.mjs deploy && prisma migrate resolve --applied 20261023000000_initial"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
