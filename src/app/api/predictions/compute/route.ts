@@ -48,34 +48,59 @@ export async function GET(request: NextRequest) {
       matchSource = 'espn'
     }
 
-    // Normalize to common shape
+    // Normalize without inventing labels or scores for missing provider fields.
     const normalized = matches.map((m: any) => ({
       id: m.id,
       competition: m.competition,
       homeTeam: {
         id: m.homeTeam?.id || '',
-        name: m.homeTeam?.name || 'Home',
+        name: m.homeTeam?.name || '',
         abbreviation: m.homeTeam?.abbreviation || m.homeTeam?.code || '',
       },
       awayTeam: {
         id: m.awayTeam?.id || '',
-        name: m.awayTeam?.name || 'Away',
+        name: m.awayTeam?.name || '',
         abbreviation: m.awayTeam?.abbreviation || m.awayTeam?.code || '',
       },
-      homeScore: m.homeScore ?? 0,
-      awayScore: m.awayScore ?? 0,
+      homeScore: m.homeScore ?? null,
+      awayScore: m.awayScore ?? null,
       status: m.status,
       date: m.date || m.utcDate || '',
       venue: m.venue || '',
-      minute: m.minute,
+      minute: m.minute ?? null,
     }))
 
-    // Take upcoming and recent matches, compute predictions
-    const predictions = normalized.slice(0, 20).map((m: any) => {
+    // Drop incomplete fixture records rather than showing fictitious team names.
+    const validFixtures = normalized.filter((m: any) =>
+      Boolean(m.id && m.homeTeam.name && m.awayTeam.name && m.date)
+    )
+    const invalidFixtureCount = normalized.length - validFixtures.length
+
+    // Only emit predictions when both teams have an explicitly curated rating.
+    // Unknown teams are reported as skipped; never synthesize strength from a name/hash.
+    const supportedMatches = validFixtures.filter((m: any) =>
+      Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.homeTeam.abbreviation) &&
+      Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.awayTeam.abbreviation)
+    )
+    const skippedMatches = validFixtures
+      .filter((m: any) =>
+        !Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.homeTeam.abbreviation) ||
+        !Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.awayTeam.abbreviation)
+      )
+      .map((m: any) => ({
+        matchId: m.id,
+        homeTeam: m.homeTeam.name,
+        awayTeam: m.awayTeam.name,
+        reason: 'No curated rating for one or both teams; prediction withheld.',
+      }))
+
+    // Take up to 20 supported fixtures. Ratings below are static curated offsets,
+    // not dynamically updated ELO ratings; do not present this as a validated model.
+    const predictions = supportedMatches.slice(0, 20).map((m: any) => {
       const homeAbbr = m.homeTeam.abbreviation
       const awayAbbr = m.awayTeam.abbreviation
-      const homeElo = 1500 + (homeAbbr ? hashToElo(homeAbbr) : 0)
-      const awayElo = 1500 + (awayAbbr ? hashToElo(awayAbbr) : 0)
+      const homeElo = 1500 + TEAM_ELO_MAP[homeAbbr]
+      const awayElo = 1500 + TEAM_ELO_MAP[awayAbbr]
 
       // 1. ELO Model
       const elo: EloResult = calculateElo(homeElo, awayElo, 20, 0)
@@ -132,7 +157,17 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, count: predictions.length, source: matchSource, predictions })
+    return NextResponse.json({
+      success: true,
+      count: predictions.length,
+      source: matchSource,
+      ratingSource: 'static-curated-team-offsets',
+      modelStatus: 'experimental-unvalidated',
+      invalidFixtureCount,
+      skippedCount: skippedMatches.length,
+      skippedMatches,
+      predictions,
+    })
   } catch (error) {
     console.error('[PREDICT] Error:', error)
     return NextResponse.json(
@@ -142,8 +177,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Deterministic hash from team abbreviation to approximate ELO offset
-// Uses manually curated team strengths mapped to ESPN abbreviations
+// Static, manually curated offsets for a limited set of team abbreviations.
+// These are not live ratings and must be replaced by a trained/updating rating source
+// before this endpoint is used for production-grade betting analysis.
 const TEAM_ELO_MAP: Record<string, number> = {
   // Premier League
   'MCI': 380, 'ARS': 360, 'LIV': 370, 'MUN': 320, 'CHE': 340, 'NEW': 310, 'TOT': 300, 'AVL': 290,
@@ -165,15 +201,6 @@ const TEAM_ELO_MAP: Record<string, number> = {
   'ANG': 200, 'AUX': 210, 'LEH': 190, 'BRE_L1': 220, 'MHS': 200,
 }
 
-function hashToElo(abbr: string): number {
-  if (TEAM_ELO_MAP[abbr]) return TEAM_ELO_MAP[abbr]
-  // Deterministic fallback from abbreviation
-  let hash = 0
-  for (let i = 0; i < abbr.length; i++) {
-    hash = ((hash << 5) - hash) + abbr.charCodeAt(i)
-    hash |= 0
-  }
-  return 150 + (Math.abs(hash) % 300) // Range: 150-450 offset from 1500
-}
+// Deliberately no fallback rating: unsupported teams must not receive synthetic strength.
 
 export const dynamic = 'force-dynamic'
