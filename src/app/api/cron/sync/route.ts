@@ -43,11 +43,14 @@ function checkTimeout() {
 // ── Cron Secret Validation ──────────────────────────────────────────────────
 
 function validateCron(req: NextRequest): boolean {
-  const supplied = req.headers.get('x-cron-secret')
+  const suppliedHeader = req.headers.get('x-cron-secret')
+  const authorization = req.headers.get('authorization')
+  const bearer = authorization?.match(/^Bearer\\s+(.+)$/i)?.[1]
+  const supplied = suppliedHeader || bearer
   const expected = process.env.CRON_SECRET
 
-  // Fail closed: never accept a public/default secret. Operators must configure
-  // a high-entropy CRON_SECRET (at least 32 characters) in the deployment.
+  // Vercel Cron sends Authorization: Bearer <CRON_SECRET>; manual callers may
+  // use x-cron-secret. Neither header can bypass the configured secret.
   if (!expected || expected.length < 32 || !supplied) return false
   return supplied === expected
 }
