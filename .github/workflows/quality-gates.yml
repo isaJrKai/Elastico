@@ -31,7 +31,7 @@ jobs:
       - name: Scan tracked working tree for committed credential patterns
         shell: bash
         run: |
-          if git grep -nE 'npg_[A-Za-z0-9_-]+|postgresql://[^:[:space:]]+:[^@[:space:]]+@' -- . ':!.env.example'; then
+          if git grep -nE 'npg_[A-Za-z0-9_-]+|postgresql://[^:[:space:]]+:[^@[:space:]]+@' -- . ':!.env.example' ':!.github/workflows/quality-gates.yml'; then
             echo "Potential hard-coded database credential detected in tracked files."
             exit 1
           fi
