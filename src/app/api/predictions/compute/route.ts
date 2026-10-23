@@ -54,24 +54,36 @@ export async function GET(request: NextRequest) {
       competition: m.competition,
       homeTeam: {
         id: m.homeTeam?.id || '',
-        name: m.homeTeam?.name || 'Home',
+        name: typeof m.homeTeam?.name === 'string' ? m.homeTeam.name : '',
         abbreviation: m.homeTeam?.abbreviation || m.homeTeam?.code || '',
       },
       awayTeam: {
         id: m.awayTeam?.id || '',
-        name: m.awayTeam?.name || 'Away',
+        name: typeof m.awayTeam?.name === 'string' ? m.awayTeam.name : '',
         abbreviation: m.awayTeam?.abbreviation || m.awayTeam?.code || '',
       },
       homeScore: m.homeScore ?? null,
       awayScore: m.awayScore ?? null,
-      status: m.status,
+      status: matchSource === 'espn' ? mapStatus(m.status || '') : m.status,
       date: m.date || m.utcDate || '',
       venue: m.venue || '',
       minute: m.minute,
     }))
 
-    // Take upcoming and recent matches, compute predictions
-    const rawPredictions = normalized.slice(0, 20).map((m: any) => {
+    // Only forecast valid, genuinely upcoming fixtures. Live/finished results
+    // must never enter a pre-match prediction path.
+    const validFixtures = normalized.filter((m: any) =>
+      typeof m.id === 'string' && m.id.length > 0 &&
+      typeof m.homeTeam.name === 'string' && m.homeTeam.name.trim().length > 0 &&
+      typeof m.awayTeam.name === 'string' && m.awayTeam.name.trim().length > 0 &&
+      Number.isFinite(Date.parse(m.date))
+    )
+    const upcomingFixtures = validFixtures.filter((m: any) =>
+      m.status === 'upcoming' && Date.parse(m.date) > Date.now()
+    )
+    const invalidFixtureCount = normalized.length - validFixtures.length
+    const ignoredNonUpcomingCount = validFixtures.length - upcomingFixtures.length
+    const rawPredictions = upcomingFixtures.slice(0, 20).map((m: any) => {
       const homeAbbr = m.homeTeam.abbreviation
       const awayAbbr = m.awayTeam.abbreviation
       const homeOffset = TEAM_ELO_MAP[homeAbbr]
@@ -148,7 +160,10 @@ export async function GET(request: NextRequest) {
       source: matchSource,
       forecastQuality: 'UNVALIDATED_HEURISTIC',
       calibrated: false,
-      disclaimer: 'Experimental probabilities from manually curated team priors; not validated against out-of-sample results. Matches without a mapped prior are omitted.',
+      invalidFixtureCount,
+      ignoredNonUpcomingCount,
+      skippedUnsupportedTeamCount: rawPredictions.length - predictions.length,
+      disclaimer: 'Experimental probabilities from manually curated team priors; not validated against out-of-sample results. Only valid upcoming fixtures with mapped team priors are returned.',
       predictions,
     })
   } catch (error) {
@@ -160,8 +175,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Deterministic hash from team abbreviation to approximate ELO offset
-// Uses manually curated team strengths mapped to ESPN abbreviations
+// Manually curated static priors mapped to team abbreviations. These are not live ELO ratings and remain unvalidated.
 const TEAM_ELO_MAP: Record<string, number> = {
   // Premier League
   'MCI': 380, 'ARS': 360, 'LIV': 370, 'MUN': 320, 'CHE': 340, 'NEW': 310, 'TOT': 300, 'AVL': 290,
