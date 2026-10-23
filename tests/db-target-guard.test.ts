@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 const guardScript = path.resolve(process.cwd(), 'scripts/guard-db-target.mjs')
@@ -62,6 +64,30 @@ describe('database mutation target guard', () => {
     })
     assert.notEqual(result.status, 0)
     assert.match(result.stderr, /ELASTICO_ALLOW_PRODUCTION_DB_MUTATIONS=true/)
+  })
+
+
+  it('loads a local DATABASE_URL from .env before guarding the target', () => {
+    const tempDir = mkdtempSync(path.join(tmpdir(), 'elastico-db-guard-'))
+    try {
+      writeFileSync(
+        path.join(tempDir, '.env'),
+        'DATABASE_URL=postgresql://test:test@localhost:5432/elastico\\n',
+        'utf8',
+      )
+      const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: 'development' }
+      delete env.DATABASE_URL
+      delete env.ELASTICO_ALLOW_REMOTE_DB_MUTATIONS
+      delete env.ELASTICO_ALLOW_PRODUCTION_DB_MUTATIONS
+      const result = spawnSync(process.execPath, [guardScript, 'local'], {
+        cwd: tempDir,
+        env,
+        encoding: 'utf8',
+      })
+      assert.equal(result.status, 0, result.stderr)
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true })
+    }
   })
 
   it('blocks missing or malformed database URLs', () => {
