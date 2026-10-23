@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       },
       homeScore: m.homeScore ?? null,
       awayScore: m.awayScore ?? null,
-      status: m.status,
+      status: matchSource === 'espn' ? mapStatus(m.status || '') : m.status,
       date: m.date || m.utcDate || '',
       venue: m.venue || '',
       minute: m.minute ?? null,
@@ -78,11 +78,17 @@ export async function GET(request: NextRequest) {
 
     // Only emit predictions when both teams have an explicitly curated rating.
     // Unknown teams are reported as skipped; never synthesize strength from a name/hash.
-    const supportedMatches = validFixtures.filter((m: any) =>
+    // Never generate a pre-match forecast for live, finished, postponed, or
+    // undated fixtures. This also prevents post-kickoff information leakage.
+    const upcomingFixtures = validFixtures.filter((m: any) =>
+      m.status === 'upcoming' && Number.isFinite(Date.parse(m.date)) && Date.parse(m.date) > Date.now()
+    )
+    const ignoredNonUpcomingCount = validFixtures.length - upcomingFixtures.length
+    const supportedMatches = upcomingFixtures.filter((m: any) =>
       Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.homeTeam.abbreviation) &&
       Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.awayTeam.abbreviation)
     )
-    const skippedMatches = validFixtures
+    const skippedMatches = upcomingFixtures
       .filter((m: any) =>
         !Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.homeTeam.abbreviation) ||
         !Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.awayTeam.abbreviation)
@@ -164,6 +170,7 @@ export async function GET(request: NextRequest) {
       ratingSource: 'static-curated-team-offsets',
       modelStatus: 'experimental-unvalidated',
       invalidFixtureCount,
+      ignoredNonUpcomingCount,
       skippedCount: skippedMatches.length,
       skippedMatches,
       predictions,
