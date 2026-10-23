@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isValidCronSecret } from '@/lib/cron-auth'
 import { db } from '@/lib/db'
 import {
   ESPN_LEAGUES,
@@ -43,16 +44,11 @@ function checkTimeout() {
 // ── Cron Secret Validation ──────────────────────────────────────────────────
 
 function validateCron(req: NextRequest): boolean {
-  const suppliedHeader = req.headers.get('x-cron-secret')
-  const authorization = req.headers.get('authorization')
-  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]
-  const supplied = suppliedHeader || bearer
-  const expected = process.env.CRON_SECRET
-
-  // Vercel Cron sends Authorization: Bearer <CRON_SECRET>; manual callers may
-  // use x-cron-secret. Neither header can bypass the configured secret.
-  if (!expected || expected.length < 32 || !supplied) return false
-  return supplied === expected
+  return isValidCronSecret(
+    process.env.CRON_SECRET,
+    req.headers.get('x-cron-secret'),
+    req.headers.get('authorization'),
+  )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
