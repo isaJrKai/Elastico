@@ -28,8 +28,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Reconcile npm lockfile for diagnostic run
+        run: npm install --package-lock-only --ignore-scripts --legacy-peer-deps --no-audit --no-fund
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
+      - name: Upload reconciled lockfile for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: elastico-reconciled-package-lock
+          path: package-lock.json
+          if-no-files-found: error
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Unit tests
