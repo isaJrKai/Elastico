@@ -406,10 +406,10 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
 
   fetchMatches: async () => {
     try {
-      const token = get().token
-      const headers: Record<string, string> = { 'Accept-Encoding': 'gzip, deflate' }
-      if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch('/api/matches', { headers })
+      const res = await fetch('/api/matches', {
+        credentials: 'same-origin',
+        headers: { 'Accept-Encoding': 'gzip, deflate' },
+      })
       if (res.ok) {
         const data = await res.json()
         const raw = Array.isArray(data) ? data : data.matches || []
@@ -477,10 +477,9 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
 
   fetchNotifications: async () => {
     try {
-      const token = get().token
-      if (!token) return
       const res = await fetch('/api/notifications', {
-        headers: { Authorization: `Bearer ${token}`, 'Accept-Encoding': 'gzip, deflate' },
+        credentials: 'same-origin',
+        headers: { 'Accept-Encoding': 'gzip, deflate' },
       })
       if (res.ok) {
         const data = await res.json()
