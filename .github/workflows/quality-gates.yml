@@ -28,6 +28,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Scan tracked working tree for committed credential patterns
+        shell: bash
+        run: |
+          if git grep -nE 'npg_[A-Za-z0-9_-]+|postgresql://[^:[:space:]]+:[^@[:space:]]+@' -- .; then
+            echo "Potential hard-coded database credential detected in tracked files."
+            exit 1
+          fi
+          echo "No known hard-coded database credential patterns found in the working tree."
       - name: Reconcile npm lockfile for diagnostic run
         run: npm install --package-lock-only --ignore-scripts --legacy-peer-deps --no-audit --no-fund
       - name: Install dependencies
