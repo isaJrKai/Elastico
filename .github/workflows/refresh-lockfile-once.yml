@@ -5,6 +5,7 @@ on:
     branches: [production-readiness/hardening]
     paths:
       - "package.json"
+      - "eslint.config.mjs"
       - ".github/workflows/refresh-lockfile-once.yml"
 
 permissions:
