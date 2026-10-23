@@ -107,3 +107,10 @@ The repository had multiple release-blocking security and data-integrity defects
 - The database-target guard and its regression tests are now committed, so a fresh exact-head run is still required.
 - **Still release-blocking:** rotate the exposed Neon credential and review/purge repository history; create and test an initial Prisma migration plus a safe baseline plan for any existing database; decide how to handle the upstream-blocked development-toolchain advisories; perform deployment/health and authenticated browser verification only after those gates are closed.
 - No production database was accessed or changed, and no deployment was performed.
+
+## Follow-up verification — 2026-10-23, fourth pass
+
+- On the preceding hardening-branch head, CI passed clean lockfile installation, typecheck, lint, tests, Next.js production build, Docker image build, and the production-only dependency audit. The full dependency audit remains the sole failed gate on that head because the two upstream/toolchain advisories documented above remain unresolved.
+- The database-target guard now loads local `.env` configuration before checking the host, so standard local setup commands do not fail merely because the database URL is stored in `.env`. A regression test covers this behavior.
+- A route-level regression test now verifies that `/api/cron/sync?force=true` still returns 401 without a valid secret.
+- A fresh exact-head CI run is required for these final tests and environment-loading changes. The branch remains a draft; no merge, production database access, secret rotation, or deployment has occurred.
