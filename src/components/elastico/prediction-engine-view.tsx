@@ -38,22 +38,22 @@ function authHeaders() {
 
 const CONF_COLORS: Record<string, string> = {
   'very-high': 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-  high: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  high: 'bg-emerald-500/20 text-primary border-emerald-500/30',
   medium: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   low: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 }
 
 const RISK_COLORS: Record<string, string> = {
-  'very-high': 'bg-red-500/20 text-red-400 border-red-500/30',
-  high: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  'very-high': 'bg-red-500/20 text-destructive border-red-500/30',
+  high: 'bg-amber-500/20 text-secondary-foreground border-amber-500/30',
   medium: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  low: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  low: 'bg-emerald-500/20 text-primary border-emerald-500/30',
 }
 
 const ACTION_STYLE: Record<string, string> = {
-  BET: 'bg-emerald-500/20 text-emerald-400',
-  NO_EDGE: 'bg-red-500/20 text-red-400',
-  RISKY: 'bg-amber-500/20 text-amber-400',
+  BET: 'bg-emerald-500/20 text-primary',
+  NO_EDGE: 'bg-red-500/20 text-destructive',
+  RISKY: 'bg-amber-500/20 text-secondary-foreground',
 }
 
 const DEFAULT_INJURY: InjuryAdjustment = {
@@ -202,7 +202,7 @@ export default function PredictionEngineView() {
       const json = await res.json()
       const data: FullMatchAnalysis = json.data || json
       setAnalysis(data)
-      toast.success('Simulation complete', { icon: <Sparkles className="text-emerald-400" /> })
+      toast.success('Simulation complete', { icon: <Sparkles className="text-primary" /> })
     } catch (e: any) {
       toast.error(e.message || 'Simulation error')
     } finally {
@@ -339,26 +339,26 @@ export default function PredictionEngineView() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-          <Brain className="w-6 h-6 text-emerald-400" />
+        <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+          <Brain className="w-6 h-6 text-primary" />
         </div>
         <div>
-<p className="text-sm text-zinc-500">Stochastic simulation • Kelly criterion • Market signals</p>
+<p className="text-sm text-muted-foreground">Stochastic simulation • Kelly criterion • Market signals</p>
         </div>
       </div>
 
       <Tabs defaultValue="simulator" className="w-full">
         <TabsList className="rounded-lg border border-border bg-card border-0 bg-transparent p-1 gap-1 overflow-x-auto flex-nowrap">
-          <TabsTrigger value="simulator" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="simulator" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-primary text-muted-foreground transition-all">
             <Cpu className="w-4 h-4 mr-2" />Stochastic Simulator
           </TabsTrigger>
-          <TabsTrigger value="kelly" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="kelly" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-primary text-muted-foreground transition-all">
             <Calculator className="w-4 h-4 mr-2" />Kelly Bankroll
           </TabsTrigger>
-          <TabsTrigger value="signals" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="signals" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-primary text-muted-foreground transition-all">
             <Radio className="w-4 h-4 mr-2" />Market Signals
           </TabsTrigger>
-          <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+          <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-primary text-muted-foreground transition-all">
             <Settings className="w-4 h-4 mr-2" />Engine Config
           </TabsTrigger>
         </TabsList>
@@ -368,10 +368,10 @@ export default function PredictionEngineView() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Input Panel */}
             <motion.div layout className="lg:col-span-1 space-y-4">
-              <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+              <Card className="rounded-lg border border-border bg-card border-border">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                    <Target className="w-4 h-4 text-emerald-400" /> Match Setup
+                  <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" /> Match Setup
                   </CardTitle>
                 </CardHeader>
                 <CardDescription className="px-6 -mt-2 pb-1">
@@ -385,9 +385,9 @@ export default function PredictionEngineView() {
                 </CardDescription>
                 <CardContent className="space-y-3">
                   <div>
-                    <Label className="text-xs text-zinc-500 mb-1">League Filter</Label>
+                    <Label className="text-xs text-muted-foreground mb-1">League Filter</Label>
                     <Select value={simLeague} onValueChange={v => { setSimLeague(v); setHomeTeamId(''); setAwayTeamId('') }}>
-                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="All Leagues" /></SelectTrigger>
+                      <SelectTrigger className="bg-background border-border text-sm"><SelectValue placeholder="All Leagues" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="">All Leagues</SelectItem>
                         {LEAGUE_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
@@ -396,96 +396,96 @@ export default function PredictionEngineView() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-zinc-500 mb-1">Home Team</Label>
+                      <Label className="text-xs text-muted-foreground mb-1">Home Team</Label>
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
                         if (t) { setHomeElo(''); setHomeGoalsConceded(''); setHomeXg('') }
                       }}>
-                        <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
+                        <SelectTrigger className="bg-background border-border text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-zinc-500 mb-1">Away Team</Label>
+                      <Label className="text-xs text-muted-foreground mb-1">Away Team</Label>
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
                         if (t) { setAwayElo(''); setAwayGoalsConceded(''); setAwayXg('') }
                       }}>
-                        <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
+                        <SelectTrigger className="bg-background border-border text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
-                  <Separator className="bg-zinc-800/50" />
+                  <Separator className="bg-secondary" />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-zinc-500">Home xG (verified)</Label>
-                      <Input type="number" step="0.01" value={homeXg} onChange={e => setHomeXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-muted-foreground">Home xG (verified)</Label>
+                      <Input type="number" step="0.01" value={homeXg} onChange={e => setHomeXg(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-zinc-500">Away xG (verified)</Label>
-                      <Input type="number" step="0.01" value={awayXg} onChange={e => setAwayXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-muted-foreground">Away xG (verified)</Label>
+                      <Input type="number" step="0.01" value={awayXg} onChange={e => setAwayXg(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-zinc-500">Home goals conceded / match</Label>
-                      <Input type="number" min="0" step="0.01" value={homeGoalsConceded} onChange={e => setHomeGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-muted-foreground">Home goals conceded / match</Label>
+                      <Input type="number" min="0" step="0.01" value={homeGoalsConceded} onChange={e => setHomeGoalsConceded(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-zinc-500">Away goals conceded / match</Label>
-                      <Input type="number" min="0" step="0.01" value={awayGoalsConceded} onChange={e => setAwayGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-muted-foreground">Away goals conceded / match</Label>
+                      <Input type="number" min="0" step="0.01" value={awayGoalsConceded} onChange={e => setAwayGoalsConceded(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-zinc-500">Home ELO (verify)</Label>
-                      <Input type="number" value={homeElo} onChange={e => setHomeElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-muted-foreground">Home ELO (verify)</Label>
+                      <Input type="number" value={homeElo} onChange={e => setHomeElo(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-zinc-500">Away ELO (verify)</Label>
-                      <Input type="number" value={awayElo} onChange={e => setAwayElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-muted-foreground">Away ELO (verify)</Label>
+                      <Input type="number" value={awayElo} onChange={e => setAwayElo(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                   </div>
-                  <Separator className="bg-zinc-800/50" />
-                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(required; enter current prices)</span></p>
+                  <Separator className="bg-secondary" />
+                  <p className="text-xs text-muted-foreground font-medium">Bookmaker Odds <span className="text-zinc-600">(required; enter current prices)</span></p>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <Label className="text-xs text-emerald-400">Home</Label>
-                      <Input type="number" step="0.01" value={oddsHome} onChange={e => setOddsHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-primary">Home</Label>
+                      <Input type="number" step="0.01" value={oddsHome} onChange={e => setOddsHome(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-yellow-400">Draw</Label>
-                      <Input type="number" step="0.01" value={oddsDraw} onChange={e => setOddsDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" step="0.01" value={oddsDraw} onChange={e => setOddsDraw(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-red-400">Away</Label>
-                      <Input type="number" step="0.01" value={oddsAway} onChange={e => setOddsAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-destructive">Away</Label>
+                      <Input type="number" step="0.01" value={oddsAway} onChange={e => setOddsAway(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-zinc-500">Bankroll (your currency)</Label>
-                      <Input type="number" value={bankroll} onChange={e => setBankroll(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-muted-foreground">Bankroll (your currency)</Label>
+                      <Input type="number" value={bankroll} onChange={e => setBankroll(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-zinc-500">Sim Runs</Label>
-                      <Input type="number" value={simRuns} onChange={e => setSimRuns(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Label className="text-xs text-muted-foreground">Sim Runs</Label>
+                      <Input type="number" value={simRuns} onChange={e => setSimRuns(e.target.value)} className="bg-background border-border text-sm" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Injury Overlay */}
-              <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+              <Card className="rounded-lg border border-border bg-card border-border">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-400" /> Injury Overlay
+                    <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-secondary-foreground" /> Injury Overlay
                     </CardTitle>
-                    <Button variant="ghost" size="sm" onClick={addInjury} className="h-7 text-xs text-emerald-400 hover:text-emerald-300">
+                    <Button variant="ghost" size="sm" onClick={addInjury} className="h-7 text-xs text-primary hover:text-primary">
                       <Plus className="w-3 h-3 mr-1" /> Add
                     </Button>
                   </div>
@@ -493,20 +493,20 @@ export default function PredictionEngineView() {
                 <CardContent className="space-y-3">
                   {injuries.length === 0 && <p className="text-xs text-zinc-600 text-center py-2">No injury adjustments</p>}
                   {injuries.map((inj, i) => (
-                    <motion.div key={i} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50 space-y-2">
+                    <motion.div key={i} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-2.5 rounded-lg bg-background border border-border space-y-2">
                       <div className="flex items-center justify-between">
                         <Select value={inj.teamId} onValueChange={v => updateInjury(i, { teamId: v })}>
-                          <SelectTrigger className="w-[120px] h-7 text-xs bg-zinc-800/60"><SelectValue placeholder="Team" /></SelectTrigger>
+                          <SelectTrigger className="w-[120px] h-7 text-xs bg-secondary/60"><SelectValue placeholder="Team" /></SelectTrigger>
                           <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id} className="text-xs">{t.code}</SelectItem>)}</SelectContent>
                         </Select>
-                        <Button variant="ghost" size="sm" onClick={() => removeInjury(i)} className="h-7 w-7 p-0 text-red-400 hover:text-red-300">
+                        <Button variant="ghost" size="sm" onClick={() => removeInjury(i)} className="h-7 w-7 p-0 text-destructive hover:text-red-300">
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
-                      <Input placeholder="Player name" value={inj.playerName} onChange={e => updateInjury(i, { playerName: e.target.value })} className="h-7 text-xs bg-zinc-800/60 border-zinc-700/50" />
+                      <Input placeholder="Player name" value={inj.playerName} onChange={e => updateInjury(i, { playerName: e.target.value })} className="h-7 text-xs bg-secondary/60 border-border" />
                       <div className="grid grid-cols-2 gap-2">
                         <Select value={inj.status} onValueChange={v => updateInjury(i, { status: v as InjuryAdjustment['status'] })}>
-                          <SelectTrigger className="h-7 text-xs bg-zinc-800/60"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-7 text-xs bg-secondary/60"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="out" className="text-xs">Out</SelectItem>
                             <SelectItem value="doubtful" className="text-xs">Doubtful</SelectItem>
@@ -514,7 +514,7 @@ export default function PredictionEngineView() {
                           </SelectContent>
                         </Select>
                         <Select value={inj.importance} onValueChange={v => updateInjury(i, { importance: v as InjuryAdjustment['importance'] })}>
-                          <SelectTrigger className="h-7 text-xs bg-zinc-800/60"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-7 text-xs bg-secondary/60"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="star" className="text-xs">Star</SelectItem>
                             <SelectItem value="key" className="text-xs">Key</SelectItem>
@@ -524,8 +524,8 @@ export default function PredictionEngineView() {
                       </div>
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-zinc-500">xG Impact</span>
-                          <span className="text-xs text-emerald-400">{(inj.xgImpact ?? 0).toFixed(2)}</span>
+                          <span className="text-xs text-muted-foreground">xG Impact</span>
+                          <span className="text-xs text-primary">{(inj.xgImpact ?? 0).toFixed(2)}</span>
                         </div>
                         <Slider value={[inj.xgImpact]} min={0} max={1} step={0.05} onValueChange={([v]) => updateInjury(i, { xgImpact: v })} className="py-1" />
                       </div>
@@ -542,10 +542,10 @@ export default function PredictionEngineView() {
             {/* Results Panel */}
             <motion.div layout className="lg:col-span-2 space-y-4">
               {!analysis ? (
-                <Card className="rounded-lg border border-border bg-card border-zinc-800/50 h-full min-h-[500px] flex items-center justify-center">
+                <Card className="rounded-lg border border-border bg-card border-border h-full min-h-[500px] flex items-center justify-center">
                   <div className="text-center space-y-3">
-                    <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center">
-                      <Brain className="w-8 h-8 text-emerald-400/50" />
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Brain className="w-8 h-8 text-primary/50" />
                     </div>
                     {teams.length === 0 && !teamsLoading ? (
                       <>
@@ -557,7 +557,7 @@ export default function PredictionEngineView() {
                       </>
                     ) : teamsLoading ? (
                       <>
-                        <Loader2 className="w-5 h-5 animate-spin text-emerald-400 mx-auto" />
+                        <Loader2 className="w-5 h-5 animate-spin text-primary mx-auto" />
                         <p className="text-zinc-600 text-sm">Loading teams…</p>
                       </>
                     ) : (
@@ -575,17 +575,17 @@ export default function PredictionEngineView() {
                     <Badge className={cn('text-xs font-medium border', RISK_COLORS[analysis.riskRating])}>
                       <Shield className="w-3 h-3 mr-1" /> {analysis.riskRating.toUpperCase()} RISK
                     </Badge>
-                    <Badge className="text-xs font-medium border bg-zinc-800/60 text-zinc-300 border-zinc-700/50">
+                    <Badge className="text-xs font-medium border bg-secondary/60 text-foreground border-border">
                       <Activity className="w-3 h-3 mr-1" /> Volatility: {analysis.simulation.volatilityIndex.toFixed(0)}/100
                     </Badge>
                   </div>
 
                   {/* Probabilities + Totals row */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
-                          <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> Match Probabilities
+                        <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                          <BarChart3 className="w-3.5 h-3.5 text-primary" /> Match Probabilities
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -601,10 +601,10 @@ export default function PredictionEngineView() {
                         </ResponsiveContainer>
                       </CardContent>
                     </Card>
-                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
-                          <GitBranch className="w-3.5 h-3.5 text-emerald-400" /> Totals Market
+                        <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                          <GitBranch className="w-3.5 h-3.5 text-primary" /> Totals Market
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
@@ -615,10 +615,10 @@ export default function PredictionEngineView() {
                         ].map(t => (
                           <div key={t.label} className="space-y-1">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-zinc-400">{t.label}</span>
-                              <span className="text-zinc-300">O {(t.over * 100).toFixed(1)}% / U {((1 - t.over) * 100).toFixed(1)}%</span>
+                              <span className="text-muted-foreground">{t.label}</span>
+                              <span className="text-foreground">O {(t.over * 100).toFixed(1)}% / U {((1 - t.over) * 100).toFixed(1)}%</span>
                             </div>
-                            <div className="flex h-2 rounded-full overflow-hidden bg-zinc-800">
+                            <div className="flex h-2 rounded-full overflow-hidden bg-secondary">
                               <motion.div initial={{ width: 0 }} animate={{ width: `${t.over * 100}%` }} transition={{ duration: 0.8 }} className="bg-emerald-500 rounded-l-full" />
                               <motion.div initial={{ width: 0 }} animate={{ width: `${(1 - t.over) * 100}%` }} transition={{ duration: 0.8 }} className="bg-red-500/70 rounded-r-full" />
                             </div>
@@ -630,67 +630,67 @@ export default function PredictionEngineView() {
 
                   {/* Scorelines + xG + BTTS */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Top 5 Scorelines</CardTitle>
+                        <CardTitle className="text-xs font-medium text-muted-foreground">Top 5 Scorelines</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <Table>
-                          <TableHeader><TableRow className="border-zinc-800/50 hover:bg-transparent">
-                            <TableHead className="text-xs text-zinc-500">Score</TableHead>
-                            <TableHead className="text-xs text-zinc-500 text-right">Prob</TableHead>
+                          <TableHeader><TableRow className="border-border hover:bg-transparent">
+                            <TableHead className="text-xs text-muted-foreground">Score</TableHead>
+                            <TableHead className="text-xs text-muted-foreground text-right">Prob</TableHead>
                           </TableRow></TableHeader>
                           <TableBody>
                             {topScorelines.map((s, i) => (
-                              <TableRow key={s.score} className="border-zinc-800/30 hover:bg-zinc-800/20">
-                                <TableCell className="text-xs font-mono text-zinc-300">{s.score}</TableCell>
-                                <TableCell className="text-xs text-right text-emerald-400 font-medium">{s.prob}%</TableCell>
+                              <TableRow key={s.score} className="border-border/30 hover:bg-secondary/20">
+                                <TableCell className="text-xs font-mono text-foreground">{s.score}</TableCell>
+                                <TableCell className="text-xs text-right text-primary font-medium">{s.prob}%</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
                       </CardContent>
                     </Card>
-                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-border">
                       <CardHeader className="pb-2">
                         <div className="flex items-center gap-2">
-                          <CardTitle className="text-xs font-medium text-zinc-400">Expected Goals</CardTitle>
+                          <CardTitle className="text-xs font-medium text-muted-foreground">Expected Goals</CardTitle>
                           <StatusBadge variant="dataclass" value="SIMULATION" />
                         </div>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-3">
                         <div className="text-center">
-                          <p className="text-3xl font-bold text-white">{analysis.simulation.expectedMeans.home.toFixed(2)}</p>
-                          <p className="text-xs text-zinc-500">Home xG</p>
+                          <p className="text-3xl font-bold text-foreground">{analysis.simulation.expectedMeans.home.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground">Home xG</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-3xl font-bold text-white">{analysis.simulation.expectedMeans.away.toFixed(2)}</p>
-                          <p className="text-xs text-zinc-500">Away xG</p>
+                          <p className="text-3xl font-bold text-foreground">{analysis.simulation.expectedMeans.away.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground">Away xG</p>
                         </div>
-                        <Badge variant="outline" className="text-xs text-zinc-400 border-zinc-700/50">
+                        <Badge variant="outline" className="text-xs text-muted-foreground border-border">
                           Total: {analysis.simulation.expectedMeans.total.toFixed(2)}
                         </Badge>
                       </CardContent>
                     </Card>
-                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-border">
                       <CardHeader className="pb-2">
                         <div className="flex items-center gap-2">
-                          <CardTitle className="text-xs font-medium text-zinc-400">BTTS & Volatility</CardTitle>
+                          <CardTitle className="text-xs font-medium text-muted-foreground">BTTS & Volatility</CardTitle>
                           <StatusBadge variant="dataclass" value="SIMULATION" />
                         </div>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[140px] space-y-4">
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-emerald-400">{(analysis.simulation.bothTeamsToScore * 100).toFixed(1)}%</p>
-                          <p className="text-xs text-zinc-500">Both Teams To Score</p>
+                          <p className="text-2xl font-bold text-primary">{(analysis.simulation.bothTeamsToScore * 100).toFixed(1)}%</p>
+                          <p className="text-xs text-muted-foreground">Both Teams To Score</p>
                         </div>
-                        <Separator className="bg-zinc-800/50" />
+                        <Separator className="bg-secondary" />
                         <div className="text-center w-full">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs text-zinc-500">Volatility Index</span>
-                            <span className="text-xs font-mono text-zinc-300">{analysis.simulation.volatilityIndex.toFixed(0)}</span>
+                            <span className="text-xs text-muted-foreground">Volatility Index</span>
+                            <span className="text-xs font-mono text-foreground">{analysis.simulation.volatilityIndex.toFixed(0)}</span>
                           </div>
-                          <div className="h-2.5 rounded-full bg-zinc-800 overflow-hidden">
+                          <div className="h-2.5 rounded-full bg-secondary overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{ width: `${analysis.simulation.volatilityIndex}%` }}
@@ -704,23 +704,23 @@ export default function PredictionEngineView() {
                   </div>
 
                   {/* Asian Handicap */}
-                  <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                  <Card className="rounded-lg border border-border bg-card border-border">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
-                        <Gauge className="w-3.5 h-3.5 text-emerald-400" /> Asian Handicap Probabilities
+                      <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                        <Gauge className="w-3.5 h-3.5 text-primary" /> Asian Handicap Probabilities
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-4 gap-4">
                         {ahData.map(ah => (
-                          <div key={ah.line} className="text-center p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50 space-y-2">
-                            <p className="text-xs text-zinc-500 font-mono">Line {ah.line}</p>
+                          <div key={ah.line} className="text-center p-3 rounded-lg bg-background border border-border space-y-2">
+                            <p className="text-xs text-muted-foreground font-mono">Line {ah.line}</p>
                             <div className="space-y-1">
                               <div className="flex justify-between text-xs">
-                                <span className="text-emerald-400">H {ah.home}%</span>
-                                <span className="text-red-400">A {ah.away}%</span>
+                                <span className="text-primary">H {ah.home}%</span>
+                                <span className="text-destructive">A {ah.away}%</span>
                               </div>
-                              <div className="flex h-1.5 rounded-full overflow-hidden bg-zinc-800">
+                              <div className="flex h-1.5 rounded-full overflow-hidden bg-secondary">
                                 <motion.div initial={{ width: 0 }} animate={{ width: `${ah.home}%` }} transition={{ duration: 0.8 }} className="bg-emerald-500" />
                                 <motion.div initial={{ width: 0 }} animate={{ width: `${ah.away}%` }} transition={{ duration: 0.8 }} className="bg-red-500/70" />
                               </div>
@@ -740,16 +740,16 @@ export default function PredictionEngineView() {
         <TabsContent value="kelly" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="space-y-4">
-              <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+              <Card className="rounded-lg border border-border bg-card border-border">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-emerald-400" /> Bankroll Setup
+                  <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-primary" /> Bankroll Setup
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <Label className="text-xs text-zinc-500">Total Bankroll ($)</Label>
-                    <Input type="number" value={kellyBankroll} onChange={e => setKellyBankroll(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                    <Label className="text-xs text-muted-foreground">Total Bankroll ($)</Label>
+                    <Input type="number" value={kellyBankroll} onChange={e => setKellyBankroll(e.target.value)} className="bg-background border-border text-sm" />
                   </div>
                   <p className="text-xs text-zinc-600">Uses the last simulation results. Run a simulation first for Kelly analysis.</p>
                   <Button onClick={runKelly} disabled={kellyLoading || !analysis} className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
@@ -761,41 +761,41 @@ export default function PredictionEngineView() {
               {/* Portfolio summary */}
               {kellyResult && (
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                  <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                  <Card className="rounded-lg border border-border bg-card border-border">
                     <CardHeader className="pb-2">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Portfolio Summary</CardTitle>
+                        <CardTitle className="text-xs font-medium text-muted-foreground">Portfolio Summary</CardTitle>
                         <StatusBadge variant="dataclass" value="DERIVED" />
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500">Total Exposure</span>
-                        <span className="text-white font-medium">${kellyResult.totalExposure.toFixed(2)}</span>
+                        <span className="text-muted-foreground">Total Exposure</span>
+                        <span className="text-foreground font-medium">${kellyResult.totalExposure.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500">Expected Value</span>
-                        <span className={cn('font-medium', kellyResult.totalExpectedValue >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+                        <span className="text-muted-foreground">Expected Value</span>
+                        <span className={cn('font-medium', kellyResult.totalExpectedValue >= 0 ? 'text-primary' : 'text-destructive')}>
                           ${kellyResult.totalExpectedValue.toFixed(2)}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500">Sharpe Ratio</span>
-                        <span className="text-white font-medium">{kellyResult.sharpeRatio.toFixed(3)}</span>
+                        <span className="text-muted-foreground">Sharpe Ratio</span>
+                        <span className="text-foreground font-medium">{kellyResult.sharpeRatio.toFixed(3)}</span>
                       </div>
-                      <Separator className="bg-zinc-800/50" />
+                      <Separator className="bg-secondary" />
                       <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500">Bankroll Utilization</span>
-                        <span className="text-emerald-400 font-medium">{((kellyResult.totalExposure / kellyResult.totalBankroll) * 100).toFixed(1)}%</span>
+                        <span className="text-muted-foreground">Bankroll Utilization</span>
+                        <span className="text-primary font-medium">{((kellyResult.totalExposure / kellyResult.totalBankroll) * 100).toFixed(1)}%</span>
                       </div>
                     </CardContent>
                   </Card>
 
                   {/* Pie chart */}
                   {kellyPie.length > 0 && (
-                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Bankroll Allocation</CardTitle>
+                        <CardTitle className="text-xs font-medium text-muted-foreground">Bankroll Allocation</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <ResponsiveContainer width="100%" height={180}>
@@ -808,7 +808,7 @@ export default function PredictionEngineView() {
                         </ResponsiveContainer>
                         <div className="flex flex-wrap gap-2 justify-center mt-1">
                           {kellyPie.map((p, i) => (
-                            <div key={i} className="flex items-center gap-1 text-xs text-zinc-400">
+                            <div key={i} className="flex items-center gap-1 text-xs text-muted-foreground">
                               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: chartColor(i) }} />
                               {p.name}: ${p.value}
                             </div>
@@ -823,11 +823,11 @@ export default function PredictionEngineView() {
 
             {/* Kelly results table */}
             <div className="lg:col-span-2">
-              <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+              <Card className="rounded-lg border border-border bg-card border-border">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
-                    <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                      <Target className="w-4 h-4 text-emerald-400" /> Kelly Criterion Results
+                    <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Target className="w-4 h-4 text-primary" /> Kelly Criterion Results
                     </CardTitle>
                     <StatusBadge variant="dataclass" value="DERIVED" />
                   </div>
@@ -841,27 +841,27 @@ export default function PredictionEngineView() {
                     <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
-                        <TableRow className="border-zinc-800/50 hover:bg-transparent">
-                          <TableHead className="text-xs text-zinc-500">Outcome</TableHead>
-                          <TableHead className="text-xs text-zinc-500 text-right">Model Prob</TableHead>
-                          <TableHead className="text-xs text-zinc-500 text-right">Market Odds</TableHead>
-                          <TableHead className="text-xs text-zinc-500 text-right">Edge %</TableHead>
-                          <TableHead className="text-xs text-zinc-500 text-right">Fraction</TableHead>
-                          <TableHead className="text-xs text-zinc-500 text-right">Wager</TableHead>
-                          <TableHead className="text-xs text-zinc-500 text-center">Action</TableHead>
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="text-xs text-muted-foreground">Outcome</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right">Model Prob</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right">Market Odds</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right">Edge %</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right">Fraction</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-right">Wager</TableHead>
+                          <TableHead className="text-xs text-muted-foreground text-center">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {kellyResult.outcomes.map((o, i) => (
-                          <TableRow key={i} className="border-zinc-800/30 hover:bg-zinc-800/20">
-                            <TableCell className="text-xs font-medium text-white">{o.label}</TableCell>
-                            <TableCell className="text-xs text-right text-zinc-300">{(o.modelProb * 100).toFixed(1)}%</TableCell>
-                            <TableCell className="text-xs text-right text-zinc-300">{o.marketOdds.toFixed(2)}</TableCell>
-                            <TableCell className={cn('text-xs text-right font-medium', o.edge > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                          <TableRow key={i} className="border-border/30 hover:bg-secondary/20">
+                            <TableCell className="text-xs font-medium text-foreground">{o.label}</TableCell>
+                            <TableCell className="text-xs text-right text-foreground">{(o.modelProb * 100).toFixed(1)}%</TableCell>
+                            <TableCell className="text-xs text-right text-foreground">{o.marketOdds.toFixed(2)}</TableCell>
+                            <TableCell className={cn('text-xs text-right font-medium', o.edge > 0 ? 'text-primary' : 'text-destructive')}>
                               {o.edge > 0 ? '+' : ''}{(o.edge * 100).toFixed(1)}%
                             </TableCell>
-                            <TableCell className="text-xs text-right text-zinc-300">{(o.kellyFraction * 100).toFixed(1)}%</TableCell>
-                            <TableCell className="text-xs text-right text-white font-medium">${o.wagerAmount.toFixed(2)}</TableCell>
+                            <TableCell className="text-xs text-right text-foreground">{(o.kellyFraction * 100).toFixed(1)}%</TableCell>
+                            <TableCell className="text-xs text-right text-foreground font-medium">${o.wagerAmount.toFixed(2)}</TableCell>
                             <TableCell className="text-center">
                               <Badge className={cn('text-[10px] font-bold', ACTION_STYLE[o.action])}>{o.action}</Badge>
                             </TableCell>
@@ -880,17 +880,17 @@ export default function PredictionEngineView() {
         {/* ═════════════════════ TAB 3: MARKET SIGNALS ═════════════════════ */}
         <TabsContent value="signals" className="space-y-6 mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+            <Card className="rounded-lg border border-border bg-card border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-emerald-400" /> Signal Input
+                <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-primary" /> Signal Input
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <Label className="text-xs text-zinc-500 mb-1">League Filter</Label>
+                  <Label className="text-xs text-muted-foreground mb-1">League Filter</Label>
                   <Select value={sigLeague} onValueChange={v => { setSigLeague(v); setSigHomeTeam(''); setSigAwayTeam('') }}>
-                    <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder="All Leagues" /></SelectTrigger>
+                    <SelectTrigger className="bg-background border-border text-sm"><SelectValue placeholder="All Leagues" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">All Leagues</SelectItem>
                       {LEAGUE_OPTIONS.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
@@ -899,32 +899,32 @@ export default function PredictionEngineView() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs text-zinc-500">Home Team</Label>
+                    <Label className="text-xs text-muted-foreground">Home Team</Label>
                     <Select value={sigHomeTeam} onValueChange={setSigHomeTeam}>
-                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading…' : 'Home'} /></SelectTrigger>
+                      <SelectTrigger className="bg-background border-border text-sm"><SelectValue placeholder={teamsLoading ? 'Loading…' : 'Home'} /></SelectTrigger>
                       <SelectContent>{sigFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs text-zinc-500">Away Team</Label>
+                    <Label className="text-xs text-muted-foreground">Away Team</Label>
                     <Select value={sigAwayTeam} onValueChange={setSigAwayTeam}>
-                      <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading…' : 'Away'} /></SelectTrigger>
+                      <SelectTrigger className="bg-background border-border text-sm"><SelectValue placeholder={teamsLoading ? 'Loading…' : 'Away'} /></SelectTrigger>
                       <SelectContent>{sigFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                 </div>
-                <Separator className="bg-zinc-800/50" />
-                <p className="text-xs text-zinc-500 font-medium">Opening Odds</p>
+                <Separator className="bg-secondary" />
+                <p className="text-xs text-muted-foreground font-medium">Opening Odds</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <Input type="number" step="0.01" placeholder="Home" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Draw" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Away" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" step="0.01" placeholder="Home" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-background border-border text-xs" />
+                  <Input type="number" step="0.01" placeholder="Draw" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-background border-border text-xs" />
+                  <Input type="number" step="0.01" placeholder="Away" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-background border-border text-xs" />
                 </div>
-                <p className="text-xs text-zinc-500 font-medium">Current Odds</p>
+                <p className="text-xs text-muted-foreground font-medium">Current Odds</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <Input type="number" step="0.01" placeholder="Home" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Draw" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Away" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" step="0.01" placeholder="Home" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-background border-border text-xs" />
+                  <Input type="number" step="0.01" placeholder="Draw" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-background border-border text-xs" />
+                  <Input type="number" step="0.01" placeholder="Away" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-background border-border text-xs" />
                 </div>
                 <Button onClick={runSignals} disabled={sigLoading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
                   {sigLoading ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</> : <><Eye className="w-4 h-4 mr-2" /> ANALYZE</>}
@@ -934,10 +934,10 @@ export default function PredictionEngineView() {
 
             <div className="lg:col-span-2 space-y-4">
               {!signalResult ? (
-                <Card className="rounded-lg border border-border bg-card border-zinc-800/50 h-full min-h-[400px] flex items-center justify-center">
+                <Card className="rounded-lg border border-border bg-card border-border h-full min-h-[400px] flex items-center justify-center">
                   <div className="text-center space-y-3">
-                    <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-500/10 flex items-center justify-center">
-                      <Radio className="w-8 h-8 text-emerald-400/50" />
+                    <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Radio className="w-8 h-8 text-primary/50" />
                     </div>
                     <p className="text-zinc-600 text-sm">Enter opening & current odds to analyze line movements</p>
                   </div>
@@ -945,10 +945,10 @@ export default function PredictionEngineView() {
               ) : (
                 <>
                   {/* Line Velocity */}
-                  <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                  <Card className="rounded-lg border border-border bg-card border-border">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-xs font-medium text-zinc-400 flex items-center gap-2">
-                        <Activity className="w-3.5 h-3.5 text-emerald-400" /> Line Velocity
+                      <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                        <Activity className="w-3.5 h-3.5 text-primary" /> Line Velocity
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -957,13 +957,13 @@ export default function PredictionEngineView() {
                           const vel = signalResult.lineVelocity[side]
                           const direction = vel > 0 ? 'down' : vel < 0 ? 'up' : 'flat'
                           return (
-                            <div key={side} className="text-center p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
-                              <p className="text-xs text-zinc-500 capitalize mb-1">{side}</p>
+                            <div key={side} className="text-center p-3 rounded-lg bg-background border border-border">
+                              <p className="text-xs text-muted-foreground capitalize mb-1">{side}</p>
                               <div className="flex items-center justify-center gap-2">
-                                {direction === 'up' && <ArrowUpRight className="w-5 h-5 text-emerald-400" />}
-                                {direction === 'down' && <ArrowDownRight className="w-5 h-5 text-red-400" />}
-                                {direction === 'flat' && <Minus className="w-5 h-5 text-zinc-500" />}
-                                <span className={cn('text-lg font-bold', direction === 'up' ? 'text-emerald-400' : direction === 'down' ? 'text-red-400' : 'text-zinc-400')}>
+                                {direction === 'up' && <ArrowUpRight className="w-5 h-5 text-primary" />}
+                                {direction === 'down' && <ArrowDownRight className="w-5 h-5 text-destructive" />}
+                                {direction === 'flat' && <Minus className="w-5 h-5 text-muted-foreground" />}
+                                <span className={cn('text-lg font-bold', direction === 'up' ? 'text-primary' : direction === 'down' ? 'text-destructive' : 'text-muted-foreground')}>
                                   {vel > 0 ? '+' : ''}{vel.toFixed(4)}
                                 </span>
                               </div>
@@ -976,51 +976,51 @@ export default function PredictionEngineView() {
 
                   {/* Alerts + Confidence */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Detection Alerts</CardTitle>
+                        <CardTitle className="text-xs font-medium text-muted-foreground">Detection Alerts</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border">
                           <div className="flex items-center gap-2">
                             <Flame className={cn('w-4 h-4', signalResult.steamMove ? 'text-orange-400' : 'text-zinc-600')} />
-                            <span className="text-sm text-zinc-300">Steam Move</span>
+                            <span className="text-sm text-foreground">Steam Move</span>
                           </div>
                           {signalResult.steamMove
                             ? <Badge className="text-[10px] font-bold bg-orange-500/20 text-orange-400 border-orange-500/30">DETECTED</Badge>
-                            : <Badge className="text-[10px] font-bold bg-zinc-800/60 text-zinc-500 border-zinc-700/50">NONE</Badge>
+                            : <Badge className="text-[10px] font-bold bg-secondary/60 text-muted-foreground border-border">NONE</Badge>
                           }
                         </div>
-                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border">
                           <div className="flex items-center gap-2">
                             <AlertOctagon className={cn('w-4 h-4', signalResult.rlmDetected ? 'text-purple-400' : 'text-zinc-600')} />
-                            <span className="text-sm text-zinc-300">RLM Detected</span>
+                            <span className="text-sm text-foreground">RLM Detected</span>
                           </div>
                           {signalResult.rlmDetected
                             ? <Badge className="text-[10px] font-bold bg-purple-500/20 text-purple-400 border-purple-500/30">DETECTED</Badge>
-                            : <Badge className="text-[10px] font-bold bg-zinc-800/60 text-zinc-500 border-zinc-700/50">NONE</Badge>
+                            : <Badge className="text-[10px] font-bold bg-secondary/60 text-muted-foreground border-border">NONE</Badge>
                           }
                         </div>
-                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
+                        <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border">
                           <div className="flex items-center gap-2">
-                            <Eye className={cn('w-4 h-4', signalResult.sharpAction !== 'neutral' ? 'text-emerald-400' : 'text-zinc-600')} />
-                            <span className="text-sm text-zinc-300">Sharp Action</span>
+                            <Eye className={cn('w-4 h-4', signalResult.sharpAction !== 'neutral' ? 'text-primary' : 'text-zinc-600')} />
+                            <span className="text-sm text-foreground">Sharp Action</span>
                           </div>
                           <Badge className={cn('text-[10px] font-bold border',
-                            signalResult.sharpAction === 'neutral' ? 'bg-zinc-800/60 text-zinc-500 border-zinc-700/50' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                            signalResult.sharpAction === 'neutral' ? 'bg-secondary/60 text-muted-foreground border-border' : 'bg-emerald-500/20 text-primary border-emerald-500/30'
                           )}>
                             {signalResult.sharpAction === 'neutral' ? 'NEUTRAL' : signalResult.sharpAction.toUpperCase()}
                           </Badge>
                         </div>
                       </CardContent>
                     </Card>
-                    <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+                    <Card className="rounded-lg border border-border bg-card border-border">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Signal Confidence</CardTitle>
+                        <CardTitle className="text-xs font-medium text-muted-foreground">Signal Confidence</CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[160px] space-y-3">
-                        <p className="text-4xl font-bold text-white">{(signalResult.confidence * 100).toFixed(0)}%</p>
-                        <div className="w-full h-3 rounded-full bg-zinc-800 overflow-hidden">
+                        <p className="text-4xl font-bold text-foreground">{(signalResult.confidence * 100).toFixed(0)}%</p>
+                        <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${signalResult.confidence * 100}%` }}
@@ -1028,7 +1028,7 @@ export default function PredictionEngineView() {
                             className={cn('h-full rounded-full', signalResult.confidence > 0.7 ? 'bg-emerald-500' : signalResult.confidence > 0.4 ? 'bg-amber-500' : 'bg-red-500')}
                           />
                         </div>
-                        <p className="text-xs text-zinc-500">{signalResult.homeTeam} vs {signalResult.awayTeam}</p>
+                        <p className="text-xs text-muted-foreground">{signalResult.homeTeam} vs {signalResult.awayTeam}</p>
                       </CardContent>
                     </Card>
                   </div>
@@ -1041,19 +1041,19 @@ export default function PredictionEngineView() {
         {/* ═════════════════════ TAB 4: ENGINE CONFIG ═════════════════════ */}
         <TabsContent value="config" className="space-y-6 mt-6">
           <div className="max-w-2xl mx-auto space-y-6">
-            <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
+            <Card className="rounded-lg border border-border bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-emerald-400" /> Engine Configuration
+                <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-primary" /> Engine Configuration
                 </CardTitle>
-                <CardDescription className="text-xs text-zinc-500">Fine-tune the stochastic engine parameters</CardDescription>
+                <CardDescription className="text-xs text-muted-foreground">Fine-tune the stochastic engine parameters</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Simulation runs */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm text-zinc-300">Simulation Runs</Label>
-                    <span className="text-xs font-mono text-emerald-400">{config.simulationRuns.toLocaleString()}</span>
+                    <Label className="text-sm text-foreground">Simulation Runs</Label>
+                    <span className="text-xs font-mono text-primary">{config.simulationRuns.toLocaleString()}</span>
                   </div>
                   <Slider
                     value={[config.simulationRuns]}
@@ -1063,13 +1063,13 @@ export default function PredictionEngineView() {
                   <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>500K</span></div>
                 </div>
 
-                <Separator className="bg-zinc-800/50" />
+                <Separator className="bg-secondary" />
 
                 {/* Kelly fraction */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm text-zinc-300">Kelly Fraction</Label>
-                    <span className="text-xs font-mono text-emerald-400">{(config.kellyFraction * 100).toFixed(0)}%</span>
+                    <Label className="text-sm text-foreground">Kelly Fraction</Label>
+                    <span className="text-xs font-mono text-primary">{(config.kellyFraction * 100).toFixed(0)}%</span>
                   </div>
                   <Slider
                     value={[config.kellyFraction * 100]}
@@ -1079,13 +1079,13 @@ export default function PredictionEngineView() {
                   <div className="flex justify-between text-[10px] text-zinc-600"><span>5% (Quarter)</span><span>100% (Full)</span></div>
                 </div>
 
-                <Separator className="bg-zinc-800/50" />
+                <Separator className="bg-secondary" />
 
                 {/* Min edge threshold */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm text-zinc-300">Min Edge Threshold</Label>
-                    <span className="text-xs font-mono text-emerald-400">{(config.minEdgeThreshold * 100).toFixed(1)}%</span>
+                    <Label className="text-sm text-foreground">Min Edge Threshold</Label>
+                    <span className="text-xs font-mono text-primary">{(config.minEdgeThreshold * 100).toFixed(1)}%</span>
                   </div>
                   <Slider
                     value={[config.minEdgeThreshold * 100]}
@@ -1095,13 +1095,13 @@ export default function PredictionEngineView() {
                   <div className="flex justify-between text-[10px] text-zinc-600"><span>0%</span><span>10%</span></div>
                 </div>
 
-                <Separator className="bg-zinc-800/50" />
+                <Separator className="bg-secondary" />
 
                 {/* Max bankroll risk */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm text-zinc-300">Max Bankroll Risk</Label>
-                    <span className="text-xs font-mono text-emerald-400">{(config.maxBankrollRisk * 100).toFixed(0)}%</span>
+                    <Label className="text-sm text-foreground">Max Bankroll Risk</Label>
+                    <span className="text-xs font-mono text-primary">{(config.maxBankrollRisk * 100).toFixed(0)}%</span>
                   </div>
                   <Slider
                     value={[config.maxBankrollRisk * 100]}
@@ -1111,33 +1111,33 @@ export default function PredictionEngineView() {
                   <div className="flex justify-between text-[10px] text-zinc-600"><span>1%</span><span>25%</span></div>
                 </div>
 
-                <Separator className="bg-zinc-800/50" />
+                <Separator className="bg-secondary" />
 
                 {/* Toggles */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label className="text-sm text-zinc-300">GARCH Volatility Model</Label>
+                      <Label className="text-sm text-foreground">GARCH Volatility Model</Label>
                       <p className="text-[10px] text-zinc-600">Conditional variance estimation for volatility clustering</p>
                     </div>
                     <Switch checked={config.garchEnabled} onCheckedChange={v => setConfig(p => ({ ...p, garchEnabled: v }))} />
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <Label className="text-sm text-zinc-300">Jump-Diffusion Model</Label>
+                      <Label className="text-sm text-foreground">Jump-Diffusion Model</Label>
                       <p className="text-[10px] text-zinc-600">Merton jump process for sudden momentum shifts</p>
                     </div>
                     <Switch checked={config.jumpDiffusionEnabled} onCheckedChange={v => setConfig(p => ({ ...p, jumpDiffusionEnabled: v }))} />
                   </div>
                 </div>
 
-                <Separator className="bg-zinc-800/50" />
+                <Separator className="bg-secondary" />
 
                 <div className="flex gap-3">
                   <Button onClick={saveConfig} disabled={configLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
                     <Save className="w-4 h-4 mr-2" /> {configLoading ? 'Saving...' : 'Save Configuration'}
                   </Button>
-                  <Button onClick={resetConfig} variant="outline" className="border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl">
+                  <Button onClick={resetConfig} variant="outline" className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl">
                     <RotateCcw className="w-4 h-4 mr-2" /> Reset
                   </Button>
                 </div>
