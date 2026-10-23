@@ -52,15 +52,17 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
 
 /** Remove authentication secrets and internal lockout state before returning a user to a client. */
 export function toSafeUser(user: object): Record<string, unknown> {
-  const {
-    passwordHash,
-    twoFactorSecret,
-    sessionId,
-    failedLogins,
-    lockedUntil,
-    providerId,
-    ...safeUser
-  } = user as Record<string, unknown>
+  const safeUser = { ...(user as Record<string, unknown>) }
+  for (const key of [
+    'passwordHash',
+    'twoFactorSecret',
+    'sessionId',
+    'failedLogins',
+    'lockedUntil',
+    'providerId',
+  ]) {
+    delete safeUser[key]
+  }
   return safeUser
 }
 
