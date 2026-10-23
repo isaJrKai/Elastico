@@ -4,7 +4,12 @@ import bcrypt from 'bcryptjs'
 const db = new PrismaClient()
 
 async function main() {
-  console.log('Seeding ELASTICO Neon database...')
+  // Guard before any database mutation, not halfway through seeding.
+  if (process.env.NODE_ENV === 'production' && process.env.ELASTICO_SEED_ALLOW_PRODUCTION !== 'true') {
+    throw new Error('Refusing to seed production without ELASTICO_SEED_ALLOW_PRODUCTION=true')
+  }
+
+  console.log('Seeding ELASTICO database...')
 
   // System settings
   await db.systemSetting.upsert({
@@ -23,11 +28,6 @@ async function main() {
     create: { key: 'prediction_engine', value: 'ensemble', type: 'string' },
   })
   console.log('  System settings created')
-
-  // Never seed a known/default administrator password. Set a unique secret explicitly.
-  if (process.env.NODE_ENV === 'production' && process.env.ELASTICO_SEED_ALLOW_PRODUCTION !== 'true') {
-    throw new Error('Refusing to seed production without ELASTICO_SEED_ALLOW_PRODUCTION=true')
-  }
 
   const adminPassword = process.env.ELASTICO_SEED_ADMIN_PASSWORD
   if (adminPassword) {
