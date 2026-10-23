@@ -48,30 +48,37 @@ export async function GET(request: NextRequest) {
       matchSource = 'espn'
     }
 
-    // Normalize to common shape
+    // Normalize without inventing labels or scores for missing provider fields.
     const normalized = matches.map((m: any) => ({
       id: m.id,
       competition: m.competition,
       homeTeam: {
         id: m.homeTeam?.id || '',
-        name: m.homeTeam?.name || 'Home',
+        name: m.homeTeam?.name || '',
         abbreviation: m.homeTeam?.abbreviation || m.homeTeam?.code || '',
       },
       awayTeam: {
         id: m.awayTeam?.id || '',
-        name: m.awayTeam?.name || 'Away',
+        name: m.awayTeam?.name || '',
         abbreviation: m.awayTeam?.abbreviation || m.awayTeam?.code || '',
       },
-      homeScore: m.homeScore ?? 0,
-      awayScore: m.awayScore ?? 0,
+      homeScore: m.homeScore ?? null,
+      awayScore: m.awayScore ?? null,
       status: m.status,
       date: m.date || m.utcDate || '',
       venue: m.venue || '',
-      minute: m.minute,
+      minute: m.minute ?? null,
     }))
 
+    // Incomplete records are excluded instead of being shown as a fictitious
+    // "Home vs Away" fixture or a 0-0 score. Keep counts for observability.
+    const validFixtures = normalized.filter((m: any) =>
+      Boolean(m.id && m.homeTeam.name && m.awayTeam.name && m.date)
+    )
+    const invalidFixtureCount = normalized.length - validFixtures.length
+
     // Take upcoming and recent matches, compute predictions
-    const predictions = normalized.slice(0, 20).map((m: any) => {
+    const predictions = validFixtures.slice(0, 20).map((m: any) => {
       const homeAbbr = m.homeTeam.abbreviation
       const awayAbbr = m.awayTeam.abbreviation
       const homeElo = 1500 + (homeAbbr ? hashToElo(homeAbbr) : 0)
@@ -132,7 +139,13 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, count: predictions.length, source: matchSource, predictions })
+    return NextResponse.json({
+      success: true,
+      count: predictions.length,
+      source: matchSource,
+      invalidFixtureCount,
+      predictions,
+    })
   } catch (error) {
     console.error('[PREDICT] Error:', error)
     return NextResponse.json(
