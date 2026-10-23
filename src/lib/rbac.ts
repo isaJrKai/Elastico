@@ -28,16 +28,17 @@ export async function requireAdmin(request: Request): Promise<{ authorized: true
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
     const token = authHeader.slice(7)
-    const decoded = jwt.verify(token, secret) as { userId: string; email: string; role: string; plan: string }
-    if (decoded.role !== 'admin') {
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as { userId: string; email: string; role: string; plan: string }
+    if (!decoded.userId || decoded.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
     const { db } = await import('@/lib/db')
     const user = await db.user.findUnique({ where: { id: decoded.userId } })
-    if (!user || !user.isActive || user.isBanned) {
+    // Never authorize from a token claim alone: role changes must take effect immediately.
+    if (!user || !user.isActive || user.isBanned || user.role !== 'admin') {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
-    return { authorized: true, userId: decoded.userId }
+    return { authorized: true, userId: user.id }
   } catch {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
   }
