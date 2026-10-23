@@ -4,9 +4,14 @@ import bcrypt from 'bcryptjs'
 const db = new PrismaClient()
 
 async function main() {
-  console.log('Seeding ELASTICO Neon database...')
+  // This script contains demo-only setup. Never allow it to run against production.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Refusing to run the demo seed in production. Use controlled production migrations instead.')
+  }
 
-  // System settings
+  console.log('Seeding ELASTICO non-production database...')
+
+  // System settings: safe for local/test environments only.
   await db.systemSetting.upsert({
     where: { key: 'registration_open' },
     update: { value: 'true' },
@@ -24,26 +29,72 @@ async function main() {
   })
   console.log('  System settings created')
 
-  // Demo users
-  const users = [
-    { email: 'admin@elastico.ai', password: 'Admin123!', name: 'ELASTICO Admin', displayName: 'Admin', role: 'admin' as const, plan: 'elite' as const },
-    { email: 'pro@elastico.ai', password: 'Pro12345!', name: 'Pro Demo', displayName: 'Pro User', role: 'user' as const, plan: 'pro' as const },
-    { email: 'demo@elastico.ai', password: 'Demo1234!', name: 'Free User', displayName: 'Demo', role: 'user' as const, plan: 'free' as const },
-  ]
+  // Demo accounts are opt-in and require operator-supplied credentials.
+  // Never ship known default passwords, even for local demo accounts.
+  if (process.env.SEED_DEMO_USERS === 'true') {
+    const users = [
+      {
+        email: process.env.SEED_ADMIN_EMAIL,
+        password: process.env.SEED_ADMIN_PASSWORD,
+        name: 'ELASTICO Admin',
+        displayName: 'Admin',
+        role: 'admin' as const,
+        plan: 'elite' as const,
+      },
+      {
+        email: process.env.SEED_PRO_EMAIL,
+        password: process.env.SEED_PRO_PASSWORD,
+        name: 'Pro Demo',
+        displayName: 'Pro User',
+        role: 'user' as const,
+        plan: 'pro' as const,
+      },
+      {
+        email: process.env.SEED_DEMO_EMAIL,
+        password: process.env.SEED_DEMO_PASSWORD,
+        name: 'Free User',
+        displayName: 'Demo',
+        role: 'user' as const,
+        plan: 'free' as const,
+      },
+    ]
 
-  for (const u of users) {
-    const hash = await bcrypt.hash(u.password, 10)
-    await db.user.upsert({
-      where: { email: u.email },
-      update: { name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
-      create: { email: u.email, passwordHash: hash, name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
-    })
-    console.log(`  User: ${u.email} (${u.plan})`)
+    for (const user of users) {
+      if (!user.email || !user.password || user.password.length < 20) {
+        throw new Error('Opt-in demo seeding requires all SEED_*_EMAIL and SEED_*_PASSWORD values; passwords must be at least 20 characters.')
+      }
+      const passwordHash = await bcrypt.hash(user.password, 12)
+      await db.user.upsert({
+        where: { email: user.email },
+        update: {
+          name: user.name,
+          displayName: user.displayName,
+          role: user.role,
+          plan: user.plan,
+        },
+        create: {
+          email: user.email,
+          passwordHash,
+          name: user.name,
+          displayName: user.displayName,
+          role: user.role,
+          plan: user.plan,
+        },
+      })
+      console.log(`  User: ${user.email} (${user.plan})`)
+    }
+  } else {
+    console.log('  Demo users skipped. Set SEED_DEMO_USERS=true with strong SEED_* credentials to opt in.')
   }
 
   console.log('\nSeed complete!')
 }
 
 main()
-  .catch(console.error)
-  .finally(() => db.$disconnect())
+  .catch((error) => {
+    console.error('Seed failed:', error)
+    process.exitCode = 1
+  })
+  .finally(async () => {
+    await db.$disconnect()
+  })

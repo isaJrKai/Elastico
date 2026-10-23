@@ -43,10 +43,16 @@ function checkTimeout() {
 // ── Cron Secret Validation ──────────────────────────────────────────────────
 
 function validateCron(req: NextRequest): boolean {
-  const secret = req.headers.get('x-cron-secret')
-  const expected = process.env.CRON_SECRET || 'elastico-cron-2024'
-  // Accept the expected secret OR the well-known default (for backward compat)
-  return secret === expected || secret === 'elastico-cron-2024'
+  const suppliedHeader = req.headers.get('x-cron-secret')
+  const authorization = req.headers.get('authorization')
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]
+  const supplied = suppliedHeader || bearer
+  const expected = process.env.CRON_SECRET
+
+  // Vercel Cron sends Authorization: Bearer <CRON_SECRET>; manual callers may
+  // use x-cron-secret. Neither header can bypass the configured secret.
+  if (!expected || expected.length < 32 || !supplied) return false
+  return supplied === expected
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -838,9 +844,9 @@ async function logSync(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function GET(req: NextRequest) {
-  // 1. Validate cron secret (skip if ?force=true for manual triggers)
-  const forceSync = new URL(req.url).searchParams.get('force') === 'true'
-  if (!forceSync && !validateCron(req)) {
+  // All triggers, including manual/forced syncs, must authenticate.
+  // Query parameters must never bypass the cron secret.
+  if (!validateCron(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
