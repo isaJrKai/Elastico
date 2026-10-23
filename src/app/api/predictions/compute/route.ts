@@ -48,35 +48,41 @@ export async function GET(request: NextRequest) {
       matchSource = 'espn'
     }
 
-    // Normalize to common shape
+    // Normalize without inventing labels or scores for missing provider fields.
     const normalized = matches.map((m: any) => ({
       id: m.id,
       competition: m.competition,
       homeTeam: {
         id: m.homeTeam?.id || '',
-        name: m.homeTeam?.name || 'Home',
+        name: m.homeTeam?.name || '',
         abbreviation: m.homeTeam?.abbreviation || m.homeTeam?.code || '',
       },
       awayTeam: {
         id: m.awayTeam?.id || '',
-        name: m.awayTeam?.name || 'Away',
+        name: m.awayTeam?.name || '',
         abbreviation: m.awayTeam?.abbreviation || m.awayTeam?.code || '',
       },
-      homeScore: m.homeScore ?? 0,
-      awayScore: m.awayScore ?? 0,
+      homeScore: m.homeScore ?? null,
+      awayScore: m.awayScore ?? null,
       status: m.status,
       date: m.date || m.utcDate || '',
       venue: m.venue || '',
-      minute: m.minute,
+      minute: m.minute ?? null,
     }))
+
+    // Drop incomplete fixture records rather than showing fictitious team names.
+    const validFixtures = normalized.filter((m: any) =>
+      Boolean(m.id && m.homeTeam.name && m.awayTeam.name && m.date)
+    )
+    const invalidFixtureCount = normalized.length - validFixtures.length
 
     // Only emit predictions when both teams have an explicitly curated rating.
     // Unknown teams are reported as skipped; never synthesize strength from a name/hash.
-    const supportedMatches = normalized.filter((m: any) =>
+    const supportedMatches = validFixtures.filter((m: any) =>
       Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.homeTeam.abbreviation) &&
       Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.awayTeam.abbreviation)
     )
-    const skippedMatches = normalized
+    const skippedMatches = validFixtures
       .filter((m: any) =>
         !Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.homeTeam.abbreviation) ||
         !Object.prototype.hasOwnProperty.call(TEAM_ELO_MAP, m.awayTeam.abbreviation)
@@ -157,6 +163,7 @@ export async function GET(request: NextRequest) {
       source: matchSource,
       ratingSource: 'static-curated-team-offsets',
       modelStatus: 'experimental-unvalidated',
+      invalidFixtureCount,
       skippedCount: skippedMatches.length,
       skippedMatches,
       predictions,
