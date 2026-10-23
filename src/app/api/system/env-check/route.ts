@@ -10,6 +10,7 @@
  */
 import { NextResponse } from 'next/server'
 import { getProviderStatus } from '@/lib/ai-gateway'
+import { requireAdmin } from '@/lib/rbac'
 
 const AI_KEYS = [
   { name: 'GROQ_API_KEY', label: 'Groq' },
@@ -36,15 +37,15 @@ const OTHER_KEYS = [
   { name: 'DISCORD_WEBHOOK_URL', label: 'Discord Webhook' },
 ] as const
 
-function keyStatus(envKey: string): { configured: boolean; prefix: string } {
+function keyStatus(envKey: string): { configured: boolean } {
   const val = process.env[envKey]
-  if (!val || val.length === 0) return { configured: false, prefix: '' }
-  // Show first 4 chars + length to help identify which key it is
-  const prefix = val.length > 4 ? `${val.slice(0, 4)}... (${val.length} chars)` : `${val.slice(0, 2)}... (${val.length} chars)`
-  return { configured: true, prefix }
+  return { configured: Boolean(val && val.length > 0) }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await requireAdmin(request)
+  if (auth instanceof NextResponse) return auth
+
   const aiProviders = getProviderStatus()
 
   const aiKeys = AI_KEYS.map(k => {
@@ -53,7 +54,6 @@ export async function GET() {
       envVar: k.name,
       label: k.label,
       configured: status.configured,
-      prefix: status.prefix,
     }
   })
 
@@ -63,7 +63,6 @@ export async function GET() {
       envVar: k.name,
       label: k.label,
       configured: status.configured,
-      prefix: status.prefix,
     }
   })
 
@@ -73,7 +72,6 @@ export async function GET() {
       envVar: k.name,
       label: k.label,
       configured: status.configured,
-      prefix: status.prefix,
     }
   })
 

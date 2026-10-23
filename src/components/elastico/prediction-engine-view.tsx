@@ -32,8 +32,8 @@ import { StatusBadge, SectionHeader, StatBlock } from '@/components/elastico/pri
 // ── Helpers ───────────────────────────────────────────────────────────────────────
 
 function authHeaders() {
-  const t = typeof window !== 'undefined' ? localStorage.getItem('elastico_token') : null
-  return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) }
+  // Authentication is carried by the HttpOnly session cookie; never read tokens from localStorage.
+  return { 'Content-Type': 'application/json' }
 }
 
 const CONF_COLORS: Record<string, string> = {
@@ -76,7 +76,6 @@ const LEAGUE_OPTIONS = [
 export default function PredictionEngineView() {
   const teams = useElasticoStore(s => s.teams)
   const fetchTeams = useElasticoStore(s => s.fetchTeams)
-  const token = useElasticoStore(s => s.token)
 
   // Fetch teams on mount if the store is empty
   const [teamsLoading, setTeamsLoading] = useState(false)
@@ -110,27 +109,29 @@ export default function PredictionEngineView() {
   const [awayTeamId, setAwayTeamId] = useState('')
   const [homeXg, setHomeXg] = useState('')
   const [awayXg, setAwayXg] = useState('')
-  const [homeElo, setHomeElo] = useState('1850')
-  const [awayElo, setAwayElo] = useState('1780')
-  const [oddsHome, setOddsHome] = useState('2.10')
-  const [oddsDraw, setOddsDraw] = useState('3.40')
-  const [oddsAway, setOddsAway] = useState('3.60')
-  const [bankroll, setBankroll] = useState('1000')
+  const [homeGoalsConceded, setHomeGoalsConceded] = useState('')
+  const [awayGoalsConceded, setAwayGoalsConceded] = useState('')
+  const [homeElo, setHomeElo] = useState('')
+  const [awayElo, setAwayElo] = useState('')
+  const [oddsHome, setOddsHome] = useState('')
+  const [oddsDraw, setOddsDraw] = useState('')
+  const [oddsAway, setOddsAway] = useState('')
+  const [bankroll, setBankroll] = useState('')
   const [simRuns, setSimRuns] = useState('150000')
   const [injuries, setInjuries] = useState<InjuryAdjustment[]>([])
 
   // ── Kelly state ───────────────────────────────────────────────────────────────
-  const [kellyBankroll, setKellyBankroll] = useState('1000')
+  const [kellyBankroll, setKellyBankroll] = useState('')
   const [kellyLoading, setKellyLoading] = useState(false)
   const [kellyResult, setKellyResult] = useState<FullMatchAnalysis['portfolioAllocation'] | null>(null)
 
   // ── Market signals state ──────────────────────────────────────────────────────
-  const [sigOpenHome, setSigOpenHome] = useState('2.10')
-  const [sigOpenDraw, setSigOpenDraw] = useState('3.40')
-  const [sigOpenAway, setSigOpenAway] = useState('3.60')
-  const [sigCurHome, setSigCurHome] = useState('1.95')
-  const [sigCurDraw, setSigCurDraw] = useState('3.50')
-  const [sigCurAway, setSigCurAway] = useState('4.00')
+  const [sigOpenHome, setSigOpenHome] = useState('')
+  const [sigOpenDraw, setSigOpenDraw] = useState('')
+  const [sigOpenAway, setSigOpenAway] = useState('')
+  const [sigCurHome, setSigCurHome] = useState('')
+  const [sigCurDraw, setSigCurDraw] = useState('')
+  const [sigCurAway, setSigCurAway] = useState('')
   const [sigHomeTeam, setSigHomeTeam] = useState('')
   const [sigAwayTeam, setSigAwayTeam] = useState('')
   const [sigLoading, setSigLoading] = useState(false)
@@ -146,20 +147,35 @@ export default function PredictionEngineView() {
   const homeTeam = teams.find(t => t.id === homeTeamId)
   const awayTeam = teams.find(t => t.id === awayTeamId)
 
-  // Default ELO to 1500 when not available
-  const effectiveHomeElo = homeElo || '1500'
-  const effectiveAwayElo = awayElo || '1500'
-
   // ── Run simulation ────────────────────────────────────────────────────────────
   const runSimulation = useCallback(async () => {
     if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
+    const requiredNumbers = [
+      ['Home xG', homeXg, 0, 10],
+      ['Away xG', awayXg, 0, 10],
+      ['Home goals conceded per game', homeGoalsConceded, 0, 10],
+      ['Away goals conceded per game', awayGoalsConceded, 0, 10],
+      ['Home ELO', homeElo, 500, 3000],
+      ['Away ELO', awayElo, 500, 3000],
+      ['Home odds', oddsHome, 1.01, 100],
+      ['Draw odds', oddsDraw, 1.01, 100],
+      ['Away odds', oddsAway, 1.01, 100],
+      ['Bankroll', bankroll, 0.01, 1000000000],
+    ] as const
+    for (const [label, raw, min, max] of requiredNumbers) {
+      const value = Number(raw)
+      if (raw.trim() === '' || !Number.isFinite(value) || value < min || value > max) {
+        toast.error('Required input missing or invalid', { description: `${label} must be between ${min} and ${max}.` })
+        return
+      }
+    }
     setSimulating(true)
     try {
       const input: MatchInput = {
         homeTeam: homeTeam?.name ?? '', awayTeam: awayTeam?.name ?? '',
         homeTeamId, awayTeamId, homeXg: +homeXg, awayXg: +awayXg,
-        homeGoalsConceded: +awayXg * 0.9, awayGoalsConceded: +homeXg * 0.9,
-        homeElo: +effectiveHomeElo || 1500, awayElo: +effectiveAwayElo || 1500,
+        homeGoalsConceded: +homeGoalsConceded, awayGoalsConceded: +awayGoalsConceded,
+        homeElo: +homeElo, awayElo: +awayElo,
         bookmakerOdds: { home: +oddsHome, draw: +oddsDraw, away: +oddsAway },
         injuries: injuries.length ? injuries : undefined,
       }
@@ -179,11 +195,15 @@ export default function PredictionEngineView() {
     } finally {
       setSimulating(false)
     }
-  }, [homeTeamId, awayTeamId, homeTeam, awayTeam, homeXg, awayXg, homeElo, awayElo, oddsHome, oddsDraw, oddsAway, bankroll, simRuns, injuries])
+  }, [homeTeamId, awayTeamId, homeTeam, awayTeam, homeXg, awayXg, homeGoalsConceded, awayGoalsConceded, homeElo, awayElo, oddsHome, oddsDraw, oddsAway, bankroll, simRuns, injuries])
 
   // ── Run Kelly ─────────────────────────────────────────────────────────────────
   const runKelly = useCallback(async () => {
     if (!analysis) { toast.error('Run a simulation first'); return }
+    if (kellyBankroll.trim() === '' || !Number.isFinite(Number(kellyBankroll)) || Number(kellyBankroll) <= 0) {
+      toast.error('Enter a valid bankroll before calculating Kelly allocation')
+      return
+    }
     setKellyLoading(true)
     try {
       // Map portfolio outcomes to the format calculatePortfolioAllocation expects
@@ -214,6 +234,11 @@ export default function PredictionEngineView() {
   // ── Run market signals ────────────────────────────────────────────────────────
   const runSignals = useCallback(async () => {
     if (!sigHomeTeam || !sigAwayTeam) { toast.error('Select both teams'); return }
+    const oddsInputs = [sigOpenHome, sigOpenDraw, sigOpenAway, sigCurHome, sigCurDraw, sigCurAway]
+    if (oddsInputs.some(raw => raw.trim() === '' || !Number.isFinite(Number(raw)) || Number(raw) <= 1 || Number(raw) > 1000)) {
+      toast.error('Enter valid opening and current decimal odds above 1.0 for all outcomes')
+      return
+    }
     setSigLoading(true)
     try {
       const res = await fetch('/api/prediction-engine/market-signals', {
@@ -314,7 +339,7 @@ export default function PredictionEngineView() {
           <Brain className="w-6 h-6 text-emerald-400" />
         </div>
         <div>
-<p className="text-sm text-zinc-500">Stochastic simulation • Kelly criterion • Market signals</p>
+<p className="text-sm text-zinc-500">Scenario simulation • Kelly criterion • Heuristic market signals</p>
         </div>
       </div>
 
@@ -348,10 +373,7 @@ export default function PredictionEngineView() {
                 <CardDescription className="px-6 -mt-2 pb-1">
                   <p className="text-[10px] text-zinc-600 leading-relaxed">
                     <Info className="inline w-3 h-3 mr-1 opacity-60" />
-                    Monte Carlo simulation generates thousands of match outcomes using Poisson-distributed goals,
-                    ELO-based strength, and xG inputs. It estimates win/draw/loss probabilities,
-                    totals markets (O/U 1.5, 2.5, 3.5), BTTS likelihood, and Asian Handicap lines.
-                    When no ELO data exists, a default rating of 1500 is used.
+                    Monte Carlo simulation generates scenarios from explicitly supplied xG, goals-conceded rates, ELO ratings, and bookmaker odds. Missing values must be entered explicitly. Outputs are illustrative model scenarios, not calibrated forecasts or betting guarantees.
                   </p>
                 </CardDescription>
                 <CardContent className="space-y-3">
@@ -371,7 +393,7 @@ export default function PredictionEngineView() {
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setHomeElo(''); setHomeXg(t.xgPerGame != null && (t.xgTruthClass === 'REAL' || t.xgTruthClass === 'DERIVED') ? String(t.xgPerGame) : '') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -382,7 +404,7 @@ export default function PredictionEngineView() {
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setAwayElo(''); setAwayXg(t.xgPerGame != null && (t.xgTruthClass === 'REAL' || t.xgTruthClass === 'DERIVED') ? String(t.xgPerGame) : '') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -402,16 +424,26 @@ export default function PredictionEngineView() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-zinc-500">Home ELO</Label>
+                      <Label className="text-xs text-zinc-500">Home Goals Conceded / game</Label>
+                      <Input type="number" min="0" max="10" step="0.01" value={homeGoalsConceded} onChange={e => setHomeGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-zinc-500">Away Goals Conceded / game</Label>
+                      <Input type="number" min="0" max="10" step="0.01" value={awayGoalsConceded} onChange={e => setAwayGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-zinc-500">Home ELO (manual)</Label>
                       <Input type="number" value={homeElo} onChange={e => setHomeElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-zinc-500">Away ELO</Label>
+                      <Label className="text-xs text-zinc-500">Away ELO (manual)</Label>
                       <Input type="number" value={awayElo} onChange={e => setAwayElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
                   <Separator className="bg-zinc-800/50" />
-                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(enter current market odds — pre-filled values are examples only)</span></p>
+                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(enter verified current market odds)</span></p>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <Label className="text-xs text-emerald-400">Home</Label>
@@ -977,7 +1009,7 @@ export default function PredictionEngineView() {
                     </Card>
                     <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Signal Confidence</CardTitle>
+                        <CardTitle className="text-xs font-medium text-zinc-400">Heuristic Signal Score</CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[160px] space-y-3">
                         <p className="text-4xl font-bold text-white">{(signalResult.confidence * 100).toFixed(0)}%</p>
@@ -989,6 +1021,7 @@ export default function PredictionEngineView() {
                             className={cn('h-full rounded-full', signalResult.confidence > 0.7 ? 'bg-emerald-500' : signalResult.confidence > 0.4 ? 'bg-amber-500' : 'bg-red-500')}
                           />
                         </div>
+                        <p className="text-xs text-zinc-500">Heuristic score from user-entered odds; not a calibrated probability.</p>
                         <p className="text-xs text-zinc-500">{signalResult.homeTeam} vs {signalResult.awayTeam}</p>
                       </CardContent>
                     </Card>
@@ -1018,10 +1051,10 @@ export default function PredictionEngineView() {
                   </div>
                   <Slider
                     value={[config.simulationRuns]}
-                    min={10000} max={500000} step={10000}
+                    min={10000} max={150000} step={10000}
                     onValueChange={([v]) => setConfig(p => ({ ...p, simulationRuns: v }))}
                   />
-                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>500K</span></div>
+                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>150K</span></div>
                 </div>
 
                 <Separator className="bg-zinc-800/50" />

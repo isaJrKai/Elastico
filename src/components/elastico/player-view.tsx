@@ -81,7 +81,6 @@ interface EnhancedPlayer extends Player {
 
 export function PlayerView() {
   const teams = useElasticoStore(s => s.teams)
-  const token = useElasticoStore(s => s.token)
   const [players, setPlayers] = useState<EnhancedPlayer[]>([])
   const [loading, setLoading] = useState(true)
   const [league, setLeague] = useState('PL')
@@ -103,7 +102,6 @@ export function PlayerView() {
       setTeamFilter('all')
       try {
         const headers: Record<string, string> = {}
-        if (token) headers['Authorization'] = `Bearer ${token}`
         const params = new URLSearchParams()
         params.set('league', league)
         if (sortBy) params.set('sortBy', sortBy)
@@ -178,7 +176,7 @@ export function PlayerView() {
     }
     fetchPlayers()
     return () => { cancelled = true }
-  }, [token, league, sortBy, positionFilter, search])
+  }, [league, sortBy, positionFilter, search])
 
   // Derived data
   const filteredPlayers = useMemo(() => {

@@ -9,10 +9,16 @@ export async function GET(request: NextRequest) {
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth
 
-    return NextResponse.json({
-      status: 'ok',
-      message: 'Data syncs from API-Sports/ESPN on schedule. Use POST to trigger immediately.',
-    })
+    const cronSecret = process.env.CRON_SECRET
+    const secretConfigured = Boolean(cronSecret && cronSecret.length >= 32)
+    return NextResponse.json(
+      {
+        status: secretConfigured ? 'configured' : 'unconfigured',
+        schedulerConfigured: 'unknown',
+        message: 'This endpoint checks sync-secret readiness only. Scheduler registration must be verified in the deployment platform.',
+      },
+      { headers: { 'Cache-Control': 'no-store' } },
+    )
   } catch (error) {
     console.error('[SYNC] Error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -27,14 +33,21 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateRequest(request)
     if (auth instanceof Response) return auth
+    if (auth.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required to trigger sync' }, { status: 403 })
+    }
+
+    const cronSecret = process.env.CRON_SECRET
+    if (!cronSecret || cronSecret.length < 32) {
+      return NextResponse.json({ error: 'Sync is not configured on this deployment' }, { status: 503 })
+    }
 
     // Import and call the cron sync handler directly
     const cronModule = await import('@/app/api/cron/sync/route')
     const cronGet = cronModule.GET
 
     // Build a fake NextRequest with the cron secret header
-    const cronSecret = process.env.CRON_SECRET || 'elastico-cron-2024'
-    const req = new NextRequest('http://internal/api/sync', {
+    const req = new NextRequest('http://internal/api/cron/sync', {
       headers: { 'x-cron-secret': cronSecret },
     })
 

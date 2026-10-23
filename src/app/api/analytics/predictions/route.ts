@@ -1,20 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { Prisma } from '@prisma/client'
+import { rateLimit } from '@/lib/rate-limit'
 import { authenticateRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req)
     if (auth instanceof Response) return auth
+    if (auth.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+    const limit = rateLimit(`analytics-predictions:${auth.user.id}`, 30, 60_000)
+    if (!limit.allowed) {
+      return NextResponse.json({ error: 'Rate limited', retryAfterMs: limit.retryAfterMs }, { status: 429 })
+    }
 
     const url = req.nextUrl.searchParams
     const model = url.get('model') || 'all'
     const startDate = url.get('startDate')
 
-    const where: Record<string, unknown> = {}
+    if (model.length > 50) return NextResponse.json({ error: 'Invalid model filter' }, { status: 400 })
+    const where: Prisma.PredictionWhereInput = {}
     if (model !== 'all') where.model = model
     if (startDate) {
-      where.createdAt = { gte: new Date(startDate) }
+      const parsedStartDate = new Date(startDate)
+      if (Number.isNaN(parsedStartDate.getTime())) {
+        return NextResponse.json({ error: 'startDate must be a valid date' }, { status: 400 })
+      }
+      where.createdAt = { gte: parsedStartDate }
     }
 
     const predictions = await db.prediction.findMany({
@@ -26,39 +40,34 @@ export async function GET(req: NextRequest) {
       take: 100,
     })
 
-    // Aggregate accuracy by model
-    const modelStats = await db.prediction.groupBy({
-      by: ['model'],
-      _count: { id: true },
-    })
+    // Aggregate from the full filtered dataset; do not mix a 100-row sample with global totals.
+    const [modelStats, correctStats, totalPreds, correctPreds] = await Promise.all([
+      db.prediction.groupBy({
+        by: ['model'],
+        where,
+        _count: { id: true },
+      }),
+      db.prediction.groupBy({
+        by: ['model'],
+        where: { ...where, isCorrect: true },
+        _count: { id: true },
+      }),
+      db.prediction.count({ where }),
+      db.prediction.count({ where: { ...where, isCorrect: true } }),
+    ])
 
-    // Count correct predictions per model
-    const accuracyData: Record<string, { total: number; correct: number }> = {}
-    for (const stat of modelStats) {
+    const correctByModel = new Map(correctStats.map((stat) => [stat.model || 'unknown', stat._count.id]))
+    const accuracy = modelStats.map((stat) => {
       const modelKey = stat.model || 'unknown'
-      accuracyData[modelKey] = { total: stat._count.id, correct: 0 }
-    }
-
-    // Count correct predictions from fetched predictions (where isCorrect is true)
-    for (const p of predictions) {
-      if (p.isCorrect === true && p.model) {
-        if (!accuracyData[p.model]) {
-          accuracyData[p.model] = { total: 0, correct: 0 }
-        }
-        accuracyData[p.model].correct++
+      const total = stat._count.id
+      const correct = correctByModel.get(modelKey) || 0
+      return {
+        model: modelKey,
+        total,
+        correct,
+        accuracy: total > 0 ? (correct / total) * 100 : null,
       }
-    }
-
-    const accuracy = Object.entries(accuracyData).map(([modelKey, data]) => ({
-      model: modelKey,
-      total: data.total,
-      correct: data.correct,
-      accuracy: data.total > 0 ? (data.correct / data.total) * 100 : 0,
-    }))
-
-    // Overall accuracy
-    const totalPreds = predictions.length
-    const correctPreds = predictions.filter((p) => p.isCorrect === true).length
+    })
 
     return NextResponse.json({
       predictions,
@@ -66,7 +75,7 @@ export async function GET(req: NextRequest) {
       overall: {
         total: totalPreds,
         correct: correctPreds,
-        accuracy: totalPreds > 0 ? (correctPreds / totalPreds) * 100 : 0,
+        accuracy: totalPreds > 0 ? (correctPreds / totalPreds) * 100 : null,
       },
     })
   } catch (error) {

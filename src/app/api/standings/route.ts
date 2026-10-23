@@ -5,6 +5,7 @@ import { fetchStandings as fetchFDStandings } from '@/lib/football-data-org'
 import { fetchStandings as fetchESPNStandings } from '@/lib/football-data'
 
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
 /** Dynamic season: Aug+ = current year, else previous year */
@@ -16,8 +17,9 @@ function getSeason(): string {
 export async function GET(request: Request) {
   try {
     // Rate limiting
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = rateLimit(`standings:${ip}`, 30, 60000)
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
+    const rl = rateLimit(`standings:${auth.user.id}`, 30, 60000)
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }

@@ -50,14 +50,14 @@ const NEWS_SENTIMENTS = ['positive', 'negative', 'neutral']
 // ── Helper: Auth Headers ─────────────────────────────────────────────────────
 
 function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('elastico_token') : null
-  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+  // Authentication is carried by the HttpOnly session cookie; never read tokens from localStorage.
+  return { 'Content-Type': 'application/json' }
 }
 
 // ── Sub-Components ───────────────────────────────────────────────────────────
 
 function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix = '', dataClass }: {
-  title: string; value: string | number; icon: React.ElementType; change?: number; color?: string; suffix?: string; dataClass?: 'REAL' | 'DERIVED' | 'DEMO' | 'SIMULATION' | 'BUG' | 'MIXED'
+  title: string; value: string | number; icon: React.ElementType; change?: number; color?: string; suffix?: string; dataClass?: 'REAL' | 'DERIVED' | 'DEMO' | 'SIMULATION' | 'BUG' | 'MIXED' | 'MISSING'
 }) {
   const isPositive = change !== undefined && change >= 0
   const colorMap: Record<string, string> = {
@@ -295,11 +295,16 @@ export default function AdminView() {
         body.title = 'ELASTICO Update'
         body.type = 'info'
       }
-      const res = await fetch('/api/admin', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) })
+      const endpoint = action === 'sync' ? '/api/sync' : '/api/admin'
+      const requestOptions: RequestInit = {
+        method: 'POST',
+        headers: authHeaders(),
+        ...(action === 'sync' ? {} : { body: JSON.stringify(body) }),
+      }
+      const res = await fetch(endpoint, requestOptions)
       if (res.ok) {
         const data = await res.json()
         toast.success(data.message || `Action "${action}" completed`)
-        if (action === 'maintenance') fetchAdminData()
       } else {
         toast.error('Action failed')
       }
@@ -308,20 +313,27 @@ export default function AdminView() {
   }
 
   const handleExportCSV = () => {
-    const csv = [
-      'Email,Name,Plan,Role,Active,Predictions,Accuracy,Last Login',
-      ...users.map((u: any) =>
-        `${u.email},${u.name || ''},${u.plan},${u.role},${u.isActive},${u.totalPredictions},${u.predictionAccuracy}%,${u.lastLoginAt || 'Never'}`
-      ),
-    ].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const csvCell = (value: unknown) => {
+      let text = String(value ?? '')
+      // Prevent spreadsheet formula injection from user-controlled profile fields.
+      if (/^[\t\r\n ]*[=+\-@]/.test(text)) text = `'${text}`
+      return `"${text.replace(/"/g, '""')}"`
+    }
+    const rows = [
+      ['Email', 'Name', 'Plan', 'Role', 'Active', 'Predictions', 'Accuracy', 'Last Login'],
+      ...users.map((u: any) => [
+        u.email, u.name, u.plan, u.role, u.isActive,
+        u.totalPredictions, `${u.predictionAccuracy}%`, u.lastLoginAt || 'Never',
+      ]),
+    ]
+    const csv = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'elastico_users_export.csv'
     a.click()
     URL.revokeObjectURL(url)
-    toast.success('CSV exported')
   }
 
   const handleCreateAnnouncement = async () => {
@@ -588,8 +600,8 @@ export default function AdminView() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatCard title="Total Users" value={stats?.totalUsers ?? '—'} icon={Users} color="emerald" dataClass="REAL" />
             <StatCard title="Active Today" value={stats?.activeToday ?? '—'} icon={Activity} color="blue" dataClass="REAL" />
-            <StatCard title="MRR Revenue" value={stats?.revenueEstimate != null ? `$${stats.revenueEstimate.toFixed(0)}` : '—'} icon={DollarSign} color="gold" dataClass="DERIVED" />
-            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate ?? 0) * 2).toFixed(1) : '—'}`} icon={Target} color="emerald" dataClass="DERIVED" />
+            <StatCard title="Paid MRR" value={stats?.revenueEstimate != null ? `${stats.revenueEstimate.toFixed(0)}` : '—'} icon={DollarSign} color="gold" dataClass="MISSING" />
+            <StatCard title="Prediction Accuracy" value="—" icon={Target} color="emerald" dataClass="MISSING" />
             <StatCard title="AI Queries" value={stats?.totalApiCalls24h ?? '—'} icon={Brain} color="purple" dataClass="REAL" />
             <StatCard title="Uptime" value={stats?.uptime ?? '—'} icon={Server} color="emerald" dataClass="REAL" />
           </div>
@@ -658,14 +670,8 @@ export default function AdminView() {
             {/* Feature 5: Quick Actions Panel */}
             <SectionCard title="Quick Actions" icon={Zap}>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Cache cleared'); handleQuickAction('clearCache') }}>
-                  <RefreshCw className={`h-3.5 w-3.5 ${actionLoading === 'clearCache' ? 'animate-spin' : ''}`} /> Clear Cache
-                </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('broadcast')}>
                   <Megaphone className="h-3.5 w-3.5" /> Send Broadcast
-                </Button>
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('maintenance')}>
-                  <ToggleLeft className="h-3.5 w-3.5" /> Maintenance
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('sync')}>
                   <Upload className="h-3.5 w-3.5" /> Sync Data
@@ -1440,7 +1446,6 @@ export default function AdminView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[
                 { key: 'registration_open', label: 'Registration Open', type: 'boolean', default: 'true' },
-                { key: 'maintenance_mode', label: 'Maintenance Mode', type: 'boolean', default: 'false' },
                 { key: 'max_predictions_free', label: 'Max Predictions (Free)', type: 'number', default: '5' },
                 { key: 'ai_chat_enabled', label: 'AI Chat Enabled', type: 'boolean', default: 'true' },
                 { key: 'default_user_plan', label: 'Default User Plan', type: 'string', default: 'free' },

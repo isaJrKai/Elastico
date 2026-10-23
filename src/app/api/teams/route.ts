@@ -4,6 +4,7 @@ import { fetchTeams, fetchStandings } from '@/lib/football-data'
 import { fetchLeagueTeams as fetchASLeagueTeams, fetchStandings as fetchASStandings, AS_LEAGUES } from '@/lib/api-sports'
 
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
 /** Dynamic season */
@@ -26,8 +27,9 @@ function getSeason(): number {
 export async function GET(req: NextRequest) {
   try {
     // Rate limiting
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = rateLimit(`teams:${ip}`, 30, 60000)
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
+    const rl = rateLimit(`teams:${auth.user.id}`, 30, 60000)
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }

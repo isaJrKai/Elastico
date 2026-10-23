@@ -157,50 +157,13 @@ export async function POST(
       eloBefore: { home: homeElo, away: awayElo },
     }
 
-    // Evaluate any existing predictions for this match
-    const predictions = await db.prediction.findMany({ where: { matchId: id } })
-    const actualOutcome = homeScore > awayScore ? 'home' : homeScore === awayScore ? 'draw' : 'away'
-
-    for (const pred of predictions) {
-      const isCorrect = pred.predictedOutcome === actualOutcome
-      const points = isCorrect ? Math.round(pred.confidence * 10) : 0
-
-      await db.prediction.update({
-        where: { id: pred.id },
-        data: { isCorrect, points },
-      })
-
-      if (isCorrect) {
-        const currentUser = await db.user.findUnique({ where: { id: pred.userId }, select: { bestStreak: true, predictionStreak: true } })
-        const newStreak = (currentUser?.predictionStreak || 0) + 1
-        await db.user.update({
-          where: { id: pred.userId },
-          data: {
-            totalPredictions: { increment: 1 },
-            correctPredictions: { increment: 1 },
-            predictionStreak: { increment: 1 },
-            bestStreak: Math.max(newStreak, currentUser?.bestStreak || 0),
-          },
-        })
-        const updatedUser = await db.user.findUnique({ where: { id: pred.userId }, select: { totalPredictions: true, correctPredictions: true } })
-        if (updatedUser && updatedUser.totalPredictions > 0) {
-          await db.user.update({
-            where: { id: pred.userId },
-            data: { predictionAccuracy: Math.round((updatedUser.correctPredictions / updatedUser.totalPredictions) * 1000) / 100 },
-          })
-        }
-      } else {
-        await db.user.update({
-          where: { id: pred.userId },
-          data: {
-            totalPredictions: { increment: 1 },
-            predictionStreak: 0,
-          },
-        })
-      }
-    }
-
-    return NextResponse.json(result)
+    // Simulation output is illustrative only. Never settle predictions or update
+    // user accuracy/streaks from stochastic simulated scores.
+    return NextResponse.json({
+      ...result,
+      simulationOnly: true,
+      disclaimer: 'Illustrative stochastic simulation based on heuristic ratings; not an actual result or validated forecast.',
+    })
   } catch (error) {
     console.error('Simulation error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

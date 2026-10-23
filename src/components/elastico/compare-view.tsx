@@ -29,7 +29,7 @@ type ViewState = 'loading' | 'empty' | 'error' | 'success'
 export default function CompareView() {
   const teams = useElasticoStore(s => s.teams)
   const fetchTeams = useElasticoStore(s => s.fetchTeams)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(teams.length === 0)
   const [homeTeamId, setHomeTeamId] = useState<string>('')
   const [awayTeamId, setAwayTeamId] = useState<string>('')
 
@@ -40,8 +40,6 @@ export default function CompareView() {
   useEffect(() => {
     if (teams.length === 0) {
       fetchTeams().finally(() => setLoading(false))
-    } else {
-      setLoading(false)
     }
   }, [teams.length, fetchTeams])
 

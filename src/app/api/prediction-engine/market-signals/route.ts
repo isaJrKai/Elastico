@@ -17,12 +17,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }
 
-    const body = await request.json()
-    const { openingOdds, currentOdds, matchId, homeTeam, awayTeam, source } = body
+    const contentLength = Number(request.headers.get('content-length') || 0)
+    if (Number.isFinite(contentLength) && contentLength > 16_384) {
+      return NextResponse.json({ error: 'Request body too large' }, { status: 413 })
+    }
 
-    if (!openingOdds || !currentOdds || !homeTeam || !awayTeam) {
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    const { openingOdds, currentOdds, matchId, homeTeam, awayTeam } = body || {}
+
+    const validOdds = (odds: any) => odds
+      && typeof odds === 'object'
+      && ['home', 'draw', 'away'].every((key) =>
+        typeof odds[key] === 'number' && Number.isFinite(odds[key]) && odds[key] > 1 && odds[key] <= 1000
+      )
+
+    if (typeof homeTeam !== 'string' || !homeTeam.trim() || homeTeam.length > 100
+      || typeof awayTeam !== 'string' || !awayTeam.trim() || awayTeam.length > 100
+      || !validOdds(openingOdds) || !validOdds(currentOdds)
+      || (matchId !== undefined && (typeof matchId !== 'string' || matchId.length > 128))) {
       return NextResponse.json({
-        error: 'openingOdds, currentOdds, homeTeam, and awayTeam are required'
+        error: 'Valid team names and decimal opening/current odds above 1.0 are required',
       }, { status: 400 })
     }
 
@@ -30,18 +49,18 @@ export async function POST(request: Request) {
       openingOdds,
       currentOdds,
       matchId || '',
-      homeTeam,
-      awayTeam
+      homeTeam.trim(),
+      awayTeam.trim()
     )
 
     return NextResponse.json({
       success: true,
-      source: source || 'user-input',
+      source: 'user-input',
       data: signal,
     })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('[Market signals] Calculation failed')
+    return NextResponse.json({ error: 'Market signal calculation failed' }, { status: 500 })
   }
 }
 

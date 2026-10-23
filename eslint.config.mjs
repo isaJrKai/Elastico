@@ -17,6 +17,10 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "@typescript-eslint/no-unused-disable-directive": "off",
     
     // React rules
+    // Keep this heuristic visible as warnings while effects that start async fetches
+    // and external subscriptions are refactored; it currently flags legitimate
+    // state updates from several asynchronous completion handlers.
+    "react-hooks/set-state-in-effect": "warn",
     "react-hooks/exhaustive-deps": "off",
     "react-hooks/purity": "off",
     "react/no-unescaped-entities": "off",

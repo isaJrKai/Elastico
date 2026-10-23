@@ -14,6 +14,7 @@ import {
 import { fetchEvents, extractShots, extractPasses } from '@/lib/statsbomb'
 
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 import {
   calculateXG, shotAngle, shotDistance, batchCalculateXG,
   passCompletionProbability, passInterceptionCDA, expectedAssist,
@@ -50,8 +51,9 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try {
     // Rate limiting
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = rateLimit(`analytics:${ip}`, 15, 60000)
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
+    const rl = rateLimit(`analytics:${auth.user.id}`, 15, 60000)
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }

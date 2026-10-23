@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     if (auth instanceof Response) return auth
 
     // AuthUser already has sensitive fields stripped
-    return NextResponse.json({ user: auth.user })
+    return NextResponse.json({ user: auth.user }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('Me error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -3,13 +3,15 @@ import { db } from '@/lib/db'
 import { fetchLeagueLeaders, fetchTeamRoster } from '@/lib/football-data'
 
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   try {
     // Rate limiting
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = rateLimit(`players:${ip}`, 30, 60000)
+    const auth = await authenticateRequest(req)
+    if (auth instanceof Response) return auth
+    const rl = rateLimit(`players:${auth.user.id}`, 30, 60000)
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }

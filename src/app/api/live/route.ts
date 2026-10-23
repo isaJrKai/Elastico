@@ -10,6 +10,7 @@ import {
 import { fetchStandings as fetchFDStandings, fetchTodaysMatches, normalizeFDMatch } from '@/lib/football-data-org'
 
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
 /**
@@ -17,15 +18,24 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: NextRequest) {
   try {
-    // Rate limiting
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = rateLimit(`live:${ip}`, 30, 60000)
+    const { searchParams } = new URL(request.url)
+    const action = searchParams.get('action') || 'scores'
+    const publicActions = new Set(['scores', 'leagues'])
+    let rateLimitKey = `live:${request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'}`
+
+    // Public scoreboards and the static league list are anonymous-safe. Provider-backed
+    // analytics actions require a session so unauthenticated callers cannot burn API quotas.
+    if (!publicActions.has(action)) {
+      const auth = await authenticateRequest(request)
+      if (auth instanceof Response) return auth
+      rateLimitKey = `live:${auth.user.id}`
+    }
+
+    const rl = rateLimit(rateLimitKey, 30, 60000)
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const action = searchParams.get('action') || 'scores'
     const league = searchParams.get('league') || undefined
     const status = searchParams.get('status') || undefined
     const date = searchParams.get('date') || undefined

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 import {
   fetchStandings, fetchMatches, fetchTodaysMatches, fetchScorers,
   fetchCompetitions, fetchMatchesWithOdds, normalizeFDMatch,
@@ -185,8 +186,9 @@ function mapFDStatusToInternal(status: string): string {
 export async function GET(request: NextRequest) {
   try {
     // Rate limiting
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = rateLimit(`football-data:${ip}`, 15, 60000)
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
+    const rl = rateLimit(`football-data:${auth.user.id}`, 15, 60000)
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }
@@ -195,6 +197,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action') || 'today'
     const competition = searchParams.get('competition') || 'PL'
     const refresh = searchParams.get('refresh') === 'true'
+    if (refresh && auth.user.role !== 'admin') return NextResponse.json({ error: 'Admin access required to refresh provider data' }, { status: 403 })
     const season = getFdSeason()
 
     if (!process.env.FOOTBALL_DATA_API_KEY) {

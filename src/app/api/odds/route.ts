@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 /**
  * GET /api/odds?competition=PL&refresh=true
  *
@@ -242,8 +243,9 @@ async function persistFootballDataOddsToDb(competition: string) {
 export async function GET(request: NextRequest) {
   try {
     // Rate limiting
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = rateLimit(`odds:${ip}`, 10, 60000)
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
+    const rl = rateLimit(`odds:${auth.user.id}`, 10, 60000)
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }
@@ -251,6 +253,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const competition = searchParams.get('competition') || 'PL'
     const refresh = searchParams.get('refresh') === 'true'
+    if (refresh && auth.user.role !== 'admin') return NextResponse.json({ error: 'Admin access required to refresh provider data' }, { status: 403 })
     const sportFilter = `soccer_${competition.toLowerCase()}`
 
     // ── Refresh from APIs if requested or DB is empty ─────────────────────

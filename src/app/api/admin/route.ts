@@ -26,22 +26,21 @@ export async function GET(req: NextRequest) {
       proCount,
       eliteCount,
       totalPredictions,
+      totalMatches,
     ] = await Promise.all([
       db.user.count(),
       db.user.count({ where: { lastLoginAt: { gte: today } } }),
       db.user.count({ where: { plan: 'pro', isActive: true } }),
       db.user.count({ where: { plan: 'elite', isActive: true } }),
       db.prediction.count(),
+      db.match.count(),
     ])
 
-    // Data for matches now comes from ESPN — return 0
-    // Data for API logs now comes from serverless provider logs — return 0
-    const totalMatches = 0
-    const errorRate = 0
-    const totalApiCalls24h = 0
-
-    // Revenue estimate: pro=$9.99/mo, elite=$24.99/mo
-    const revenueEstimate = proCount * 9.99 + eliteCount * 24.99
+    // These operational and billing metrics are not currently instrumented.
+    // Do not turn missing data into zero or estimate revenue from plan labels.
+    const errorRate: number | null = null
+    const totalApiCalls24h: number | null = null
+    const revenueEstimate: number | null = null
 
     return NextResponse.json({
       dashboard: {
@@ -51,7 +50,7 @@ export async function GET(req: NextRequest) {
         eliteCount,
         totalMatches,
         totalPredictions,
-        revenueEstimate: Math.round(revenueEstimate * 100) / 100,
+        revenueEstimate: revenueEstimate === null ? null : Math.round(revenueEstimate * 100) / 100,
         errorRate,
         totalApiCalls24h,
       },
@@ -75,18 +74,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'clearEvents') {
-      // Match events no longer exist — data comes from ESPN
-      return NextResponse.json({ success: true, message: 'Match events are now handled by ESPN live data. No local events to clear.' })
+      return NextResponse.json(
+        { success: false, status: 'unavailable', message: 'No local event-clearing operation is implemented.' },
+        { status: 501 },
+      )
     }
 
     if (action === 'maintenance') {
-      // Set maintenance mode
-      await db.systemSetting.upsert({
-        where: { key: 'maintenance_mode' },
-        update: { value: 'true' },
-        create: { key: 'maintenance_mode', value: 'true', type: 'boolean' },
-      })
-      return NextResponse.json({ success: true, message: 'Maintenance mode enabled' })
+      return NextResponse.json(
+        { success: false, status: 'unavailable', message: 'Maintenance mode is not enforced by the request layer yet.' },
+        { status: 501 },
+      )
     }
 
     if (action === 'broadcast') {
@@ -122,12 +120,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'sync') {
-      // Teams, players, matches data now comes from ESPN — no local sync needed
-      return NextResponse.json({
-        success: true,
-        message: 'Data sync completed',
-        synced: { teams: 0, players: 0, matches: 0 },
-      })
+      return NextResponse.json(
+        { success: false, status: 'unavailable', message: 'Use the authenticated scheduled sync pipeline; this admin action is not implemented.' },
+        { status: 501 },
+      )
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })

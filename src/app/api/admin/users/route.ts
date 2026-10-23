@@ -19,6 +19,22 @@ export async function GET(req: NextRequest) {
     const role = searchParams.get('role') || undefined
     const status = searchParams.get('status') || undefined
 
+    if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return NextResponse.json({ error: 'page must be >= 1 and limit must be between 1 and 100' }, { status: 400 })
+    }
+    if (search && search.length > 100) {
+      return NextResponse.json({ error: 'search must be 100 characters or fewer' }, { status: 400 })
+    }
+    if (plan && !['free', 'pro', 'elite'].includes(plan)) {
+      return NextResponse.json({ error: 'Invalid plan filter' }, { status: 400 })
+    }
+    if (role && !['user', 'admin'].includes(role)) {
+      return NextResponse.json({ error: 'Invalid role filter' }, { status: 400 })
+    }
+    if (status && !['banned', 'inactive', 'active'].includes(status)) {
+      return NextResponse.json({ error: 'Invalid status filter' }, { status: 400 })
+    }
+
     const where: Record<string, unknown> = {}
     const q = search?.toLowerCase()
     if (q) {
@@ -32,6 +48,7 @@ export async function GET(req: NextRequest) {
     if (role) where.role = role
     if (status === 'banned') where.isBanned = true
     else if (status === 'inactive') where.isActive = false
+    else if (status === 'active') where.isActive = true
 
     const [users, total] = await Promise.all([
       db.user.findMany({

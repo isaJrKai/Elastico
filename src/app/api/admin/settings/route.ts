@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
+import { z } from 'zod'
+import type { SystemSetting } from '@prisma/client'
+
+const AdminSettingsPatchSchema = z.object({
+  settings: z.array(z.object({
+    key: z.string().trim().min(1).max(100),
+    value: z.unknown(),
+    type: z.enum(['string', 'number', 'boolean', 'json']).optional(),
+  }).strict()).min(1).max(100),
+}).strict()
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,23 +41,45 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const { settings } = await req.json()
-
-    if (!settings || !Array.isArray(settings)) {
-      return NextResponse.json({ error: 'settings array is required' }, { status: 400 })
+    const contentLength = Number(req.headers.get('content-length') || 0)
+    if (Number.isFinite(contentLength) && contentLength > 65_536) {
+      return NextResponse.json({ error: 'Request body too large' }, { status: 413 })
+    }
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    const parsed = AdminSettingsPatchSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid settings payload' }, { status: 400 })
+    }
+    if (parsed.data.settings.some((item) => item.key === 'maintenance_mode')) {
+      return NextResponse.json(
+        { error: 'Maintenance mode is unavailable until request-layer enforcement is implemented' },
+        { status: 501 },
+      )
     }
 
-    const results: any[] = []
-    for (const item of settings) {
-      if (!item.key || item.value === undefined) continue
-
-      const result = await db.systemSetting.upsert({
-        where: { key: item.key },
-        update: { value: String(item.value) },
-        create: { key: item.key, value: String(item.value), type: item.type || 'string' },
-      })
-      results.push(result)
-    }
+    const results = await db.$transaction(async (tx) => {
+      const saved: SystemSetting[] = []
+      for (const item of parsed.data.settings) {
+        const serializedValue = item.type === 'json' || (item.value !== null && typeof item.value === 'object')
+          ? JSON.stringify(item.value)
+          : String(item.value)
+        if (serializedValue === undefined || serializedValue.length > 10_000) {
+          throw new Error('Invalid or oversized setting value')
+        }
+        const result = await tx.systemSetting.upsert({
+          where: { key: item.key },
+          update: { value: serializedValue, type: item.type || 'string' },
+          create: { key: item.key, value: serializedValue, type: item.type || 'string' },
+        })
+        saved.push(result)
+      }
+      return saved
+    })
 
     return NextResponse.json({ settings: results })
   } catch (error) {

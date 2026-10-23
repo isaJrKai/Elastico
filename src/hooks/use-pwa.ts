@@ -50,6 +50,7 @@ export function usePWA() {
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize browser display-mode state after hydration
     setState((s) => ({ ...s, isStandalone }))
   }, [])
 
@@ -58,6 +59,7 @@ export function usePWA() {
     const handleOnline = () => setState((s) => ({ ...s, isOffline: false }))
     const handleOffline = () => setState((s) => ({ ...s, isOffline: true }))
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronize browser connectivity state after hydration
     setState((s) => ({ ...s, isOffline: !navigator.onLine }))
 
     window.addEventListener('online', handleOnline)
