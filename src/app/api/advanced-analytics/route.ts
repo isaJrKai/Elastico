@@ -398,7 +398,7 @@ export async function GET(request: NextRequest) {
 
       const params: FullAdvancedAnalysisParams = JSON.parse(rawParams)
       const result = runFullAdvancedAnalysis(params)
-      return NextResponse.json({
+      return NextResponse.json(withExperimentalMetadata({
         compositeScore: result.compositeScore,
         compositeLabel: result.compositeLabel,
         flags: result.flags,
@@ -412,7 +412,7 @@ export async function GET(request: NextRequest) {
           confidence: f.confidence,
         })),
         timestamp: result.timestamp,
-      })
+      }, action))
     }
 
     // ─── UNKNOWN ACTION ─────────────────────────────────────────────────
