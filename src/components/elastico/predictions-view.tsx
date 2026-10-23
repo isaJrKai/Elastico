@@ -131,7 +131,7 @@ export default function PredictionsView() {
       setComputeError(err instanceof Error ? err.message : 'Failed to compute predictions.')
       setComputeState('error')
     }
-  }, []
+  }, [])
 
   // ── Data Fetching ────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -170,7 +170,7 @@ export default function PredictionsView() {
       setErrorMessage(msg)
       setViewState('error')
     }
-  }, [user?.id]
+  }, [user?.id])
 
   useEffect(() => { fetchData() }, [fetchData])
   // Auto-fetch compute predictions when user has predictions loaded
@@ -320,7 +320,7 @@ export default function PredictionsView() {
     } finally {
       setSubmittingMatchId(null)
     }
-  }, [user?.id, quickScores, quickConfidence, matchMap, fetchData]
+  }, [user?.id, quickScores, quickConfidence, matchMap, fetchData])
 
   const updateScore = useCallback((matchId: string, side: 'home' | 'away', value: string) => {
     // Allow only digits

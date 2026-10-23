@@ -162,7 +162,7 @@ export default function MatchDetailView() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load match')
     } finally { setLoading(false) }
-  }, [selectedMatchId]
+  }, [selectedMatchId])
 
   useEffect(() => { fetchMatch() }, [fetchMatch])
 
@@ -173,7 +173,7 @@ export default function MatchDetailView() {
       await fetch(`/api/matches/${selectedMatchId}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ choice }) })
       fetchMatch()
     } catch (err) { console.error('[MatchDetail] Vote submission failed:', err) }
-  }, [selectedMatchId, user, fetchMatch]
+  }, [selectedMatchId, user, fetchMatch])
 
   const handleToggleBookmark = useCallback(async () => {
     if (!selectedMatchId) return
@@ -191,7 +191,7 @@ export default function MatchDetailView() {
         }
       }
     } catch (err) { console.error('[MatchDetail] Bookmark toggle failed:', err) }
-  }, [selectedMatchId, user, bookmarked]
+  }, [selectedMatchId, user, bookmarked])
 
   const handleSimulate = useCallback(async () => {
     if (!selectedMatchId) return
@@ -209,7 +209,7 @@ export default function MatchDetailView() {
     } catch (e: any) {
       toast.error('Simulation error', { description: e.message || 'Failed to run simulation' })
     } finally { setSimulating(false) }
-  }, [selectedMatchId, user, fetchMatch]
+  }, [selectedMatchId, user, fetchMatch])
 
   const handleCopySummary = useCallback(() => {
     if (!match) return
@@ -229,7 +229,7 @@ export default function MatchDetailView() {
       method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: `Analyze the match ${match.homeTeam?.name} vs ${match.awayTeam?.name}. ELO: ${match.homeEloBefore} vs ${match.awayEloBefore}. Score: ${match.homeScore}-${match.awayScore}. xG: ${match.homeXg}-${match.awayXg}.`, matchId: selectedMatchId }),
     }).then(() => { setView('ai-chat'); setAiLoading(false) }).catch((err) => { console.error('[MatchDetail] AI analysis request failed:', err); setAiLoading(false) })
-  }, [match, selectedMatchId, setView]
+  }, [match, selectedMatchId, setView])
 
   // Derived
   const isUpcoming = match?.status === 'upcoming'
