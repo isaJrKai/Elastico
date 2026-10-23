@@ -216,7 +216,6 @@ export function TacticalView() {
   // Fetch teams if store is empty (supports live API fallbacks)
   useEffect(() => {
     if (teams.length === 0) {
-      setLoading(true)
       fetchTeams().finally(() => setLoading(false))
     }
   }, [teams.length, fetchTeams])
