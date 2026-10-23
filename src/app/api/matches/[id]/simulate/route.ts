@@ -136,7 +136,7 @@ export async function POST(
         id: espnMatch.id,
         homeTeam: espnMatch.homeTeam,
         awayTeam: espnMatch.awayTeam,
-        status: 'finished',
+        status: 'simulated',
         homeScore,
         awayScore,
         homeXg,
@@ -162,7 +162,7 @@ export async function POST(
     return NextResponse.json({
       ...result,
       simulationOnly: true,
-      disclaimer: 'Illustrative stochastic simulation based on heuristic ratings; not an actual result or validated forecast.',
+      disclaimer: 'Illustrative stochastic simulation. Scores, xG, possession, shots and events are synthetic; this is not an actual result or validated forecast.',
     })
   } catch (error) {
     console.error('Simulation error:', error)
