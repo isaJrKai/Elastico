@@ -11,8 +11,7 @@ async function main() {
 
   console.log('Seeding ELASTICO non-production database...')
 
-  // System settings
-  // System settings
+  // System settings: safe for local/test environments only.
   await db.systemSetting.upsert({
     where: { key: 'registration_open' },
     update: { value: 'true' },
@@ -21,7 +20,16 @@ async function main() {
   await db.systemSetting.upsert({
     where: { key: 'site_name' },
     update: {},
-    creat  // Demo accounts are opt-in and require operator-supplied credentials.
+    create: { key: 'site_name', value: 'ELASTICO', type: 'string' },
+  })
+  await db.systemSetting.upsert({
+    where: { key: 'prediction_engine' },
+    update: {},
+    create: { key: 'prediction_engine', value: 'ensemble', type: 'string' },
+  })
+  console.log('  System settings created')
+
+  // Demo accounts are opt-in and require operator-supplied credentials.
   // Never ship known default passwords, even for local demo accounts.
   if (process.env.SEED_DEMO_USERS === 'true') {
     const users = [
@@ -51,31 +59,42 @@ async function main() {
       },
     ]
 
-    for (const u of users) {
-      if (!u.email || !u.password || u.password.length < 20) {
+    for (const user of users) {
+      if (!user.email || !user.password || user.password.length < 20) {
         throw new Error('Opt-in demo seeding requires all SEED_*_EMAIL and SEED_*_PASSWORD values; passwords must be at least 20 characters.')
       }
-      const hash = await bcrypt.hash(u.password, 12)
+      const passwordHash = await bcrypt.hash(user.password, 12)
       await db.user.upsert({
-        where: { email: u.email },
-        update: { name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
-        create: { email: u.email, passwordHash: hash, name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
+        where: { email: user.email },
+        update: {
+          name: user.name,
+          displayName: user.displayName,
+          role: user.role,
+          plan: user.plan,
+        },
+        create: {
+          email: user.email,
+          passwordHash,
+          name: user.name,
+          displayName: user.displayName,
+          role: user.role,
+          plan: user.plan,
+        },
       })
-      console.log(`  User: ${u.email} (${u.plan})`)
+      console.log(`  User: ${user.email} (${user.plan})`)
     }
   } else {
     console.log('  Demo users skipped. Set SEED_DEMO_USERS=true with strong SEED_* credentials to opt in.')
-  }
-email },
-      update: { name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
-      create: { email: u.email, passwordHash: hash, name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
-    })
-    console.log(`  User: ${u.email} (${u.plan})`)
   }
 
   console.log('\nSeed complete!')
 }
 
 main()
-  .catch(console.error)
-  .finally(() => db.$disconnect())
+  .catch((error) => {
+    console.error('Seed failed:', error)
+    process.exitCode = 1
+  })
+  .finally(async () => {
+    await db.$disconnect()
+  })
