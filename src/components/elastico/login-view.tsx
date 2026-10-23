@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import {
   Zap, Mail, Lock, User, Eye, EyeOff, Loader2,
-  ShieldCheck, Trophy, Crown, UserCheck, Megaphone, X, ChevronRight,
+  Trophy, Crown, UserCheck, Megaphone, X, ChevronRight,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -25,7 +25,6 @@ interface DemoAccount {
 }
 
 const DEMO_ACCOUNTS: DemoAccount[] = [
-  { label: 'Admin', email: 'admin@elastico.ai', password: '', icon: <ShieldCheck className="size-3.5" />, color: 'text-red-400', hoverColor: 'hover:border-red-500/40 hover:text-red-300', plan: 'admin' },
   { label: 'Pro', email: 'pro@elastico.ai', password: '', icon: <Crown className="size-3.5" />, color: 'text-amber-400', hoverColor: 'hover:border-amber-500/40 hover:text-amber-300', plan: 'pro' },
   { label: 'Elite', email: 'elite@elastico.ai', password: '', icon: <Trophy className="size-3.5" />, color: 'text-primary', hoverColor: 'hover:border-primary/40 hover:text-primary/80', plan: 'elite' },
   { label: 'Free', email: 'user@elastico.ai', password: '', icon: <UserCheck className="size-3.5" />, color: 'text-sky-400', hoverColor: 'hover:border-sky-500/40 hover:text-sky-300', plan: 'free' },
