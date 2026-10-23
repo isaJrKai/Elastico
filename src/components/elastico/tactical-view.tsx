@@ -80,59 +80,35 @@ const RADAR_DIMS = [
   { key: 'setPiece', label: 'Set Piece' },
 ]
 
-// ── Derived Tactical Profiles ───────────────────────────────────────────
-// Generates tactical dimensions from real team metrics where available.
-// When advanced analytics are missing, computes approximate values from basic stats.
-
+// ── Tactical Profiles ───────────────────────────────────────────────────
+// Only show a dimension when the corresponding measured input exists.
+// Match outcomes alone cannot establish xG, possession, passing, pressing,
+// or set-piece quality; missing dimensions remain unavailable.
 function deriveTacticalProfile(team: {
-  style: string | null
   xgPerGame: number | null
   xgaPerGame: number | null
   possession: number | null
   pressIntensity: number | null
   passAccuracy: number | null
-  // Basic stats for fallback derivation
-  wins?: number
-  draws?: number
-  losses?: number
-  goalsFor?: number
-  goalsAgainst?: number
 }) {
-  const wins = team.wins ?? 0
-  const draws = team.draws ?? 0
-  const losses = team.losses ?? 0
-  const goalsFor = team.goalsFor ?? 0
-  const goalsAgainst = team.goalsAgainst ?? 0
-  const played = Math.max(wins + draws + losses, 1)
-
-  // Attack: prefer real xG, fallback to goals per game scaled to 0-95
   const attack = team.xgPerGame != null
     ? Math.min(95, Math.max(20, team.xgPerGame * 25))
-    : Math.min(95, Math.max(20, (goalsFor / played) * 15))
-
-  // Defense: prefer real xGA, fallback to inverse of goals conceded
+    : null
   const defense = team.xgaPerGame != null
     ? Math.min(95, Math.max(20, 100 - team.xgaPerGame * 30))
-    : Math.min(95, Math.max(20, 100 - (goalsAgainst / played) * 25))
-
-  // Midfield: prefer real possession + pass accuracy, fallback to points percentage
-  const midfield = (team.possession != null && team.passAccuracy != null)
+    : null
+  const midfield = team.possession != null && team.passAccuracy != null
     ? Math.min(95, Math.max(20, team.possession * 0.7 + team.passAccuracy * 0.2))
-    : Math.min(95, Math.max(20, ((wins + draws * 0.5) / played) * 80 + 20))
-
-  // Pressing: prefer real pressIntensity, fallback to win ratio proxy
+    : null
   const pressing = team.pressIntensity != null && team.pressIntensity > 0
     ? Math.min(95, Math.max(20, team.pressIntensity))
-    : Math.min(95, Math.max(20, (wins / played) * 90 + 20))
-
-  // Possession: prefer real possession, fallback to goal diff proxy (clamped 30-70)
+    : null
   const possession = team.possession != null
     ? Math.min(95, Math.max(20, team.possession))
-    : Math.min(70, Math.max(30, 50 + ((goalsFor - goalsAgainst) / played) * 3))
+    : null
 
-  // Set piece: goal efficiency proxy
-  const setPiece = Math.min(95, Math.max(20, ((goalsFor - goalsAgainst) / Math.max(goalsFor, 1)) * 40 + 50))
-
+  // No set-piece-specific input exists in the current Team contract.
+  const setPiece = null
   return { attack, midfield, defense, pressing, possession, setPiece }
 }
 
@@ -289,49 +265,36 @@ export function TacticalView() {
   // Style comparison bar chart
   const styleData = useMemo(() => {
     if (!homeTeam || !awayTeam) return []
-    const homePlayed = Math.max(homeTeam.wins + homeTeam.draws + homeTeam.losses, 1)
-    const awayPlayed = Math.max(awayTeam.wins + awayTeam.draws + awayTeam.losses, 1)
-
-    // Derived possession fallback (goal diff proxy, clamped 30-70)
-    const homePossDerived = Math.min(70, Math.max(30, 50 + ((homeTeam.goalsFor - homeTeam.goalsAgainst) / homePlayed) * 3))
-    const awayPossDerived = Math.min(70, Math.max(30, 50 + ((awayTeam.goalsFor - awayTeam.goalsAgainst) / awayPlayed) * 3))
-    // Derived pass accuracy fallback
-    const homePassDerived = Math.min(95, ((homeTeam.wins + homeTeam.draws) / homePlayed) * 15 + 70)
-    const awayPassDerived = Math.min(95, ((awayTeam.wins + awayTeam.draws) / awayPlayed) * 15 + 70)
-    // Derived pressing fallback
-    const homePressDerived = Math.min(95, (homeTeam.wins / homePlayed) * 90 + 20)
-    const awayPressDerived = Math.min(95, (awayTeam.wins / awayPlayed) * 90 + 20)
-
     return [
       {
         metric: 'xG/Game',
-        [homeTeam.code]: homeTeam.xgPerGame ?? +(homeTeam.goalsFor / homePlayed).toFixed(2),
-        [awayTeam.code]: awayTeam.xgPerGame ?? +(awayTeam.goalsFor / awayPlayed).toFixed(2),
-        dataClass: homeTeam.xgPerGame != null ? (homeTeam.xgTruthClass || 'REAL') : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.xgPerGame,
+        [awayTeam.code]: awayTeam.xgPerGame,
+        dataClass: homeTeam.xgPerGame != null && awayTeam.xgPerGame != null ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
       {
         metric: 'xGA/Game',
-        [homeTeam.code]: homeTeam.xgaPerGame ?? +(homeTeam.goalsAgainst / homePlayed).toFixed(2),
-        [awayTeam.code]: awayTeam.xgaPerGame ?? +(awayTeam.goalsAgainst / awayPlayed).toFixed(2),
-        dataClass: homeTeam.xgaPerGame != null ? (homeTeam.xgTruthClass || 'REAL') : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.xgaPerGame,
+        [awayTeam.code]: awayTeam.xgaPerGame,
+        dataClass: homeTeam.xgaPerGame != null && awayTeam.xgaPerGame != null ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
       {
         metric: 'Poss %',
-        [homeTeam.code]: homeTeam.possession ?? homePossDerived,
-        [awayTeam.code]: awayTeam.possession ?? awayPossDerived,
-        dataClass: (homeTeam.possession != null && awayTeam.possession != null) ? 'REAL' as const : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.possession,
+        [awayTeam.code]: awayTeam.possession,
+        dataClass: homeTeam.possession != null && awayTeam.possession != null ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
       {
         metric: 'Pass Acc',
-        [homeTeam.code]: homeTeam.passAccuracy ?? homePassDerived,
-        [awayTeam.code]: awayTeam.passAccuracy ?? awayPassDerived,
-        dataClass: (homeTeam.passAccuracy != null && awayTeam.passAccuracy != null) ? 'REAL' as const : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.passAccuracy,
+        [awayTeam.code]: awayTeam.passAccuracy,
+        dataClass: homeTeam.passAccuracy != null && awayTeam.passAccuracy != null ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
       {
         metric: 'Press',
-        [homeTeam.code]: (homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0) ? homeTeam.pressIntensity : homePressDerived,
-        [awayTeam.code]: (awayTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? awayTeam.pressIntensity : awayPressDerived,
-        dataClass: (homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0) ? 'DERIVED' as const : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0 ? homeTeam.pressIntensity : null,
+        [awayTeam.code]: awayTeam.pressIntensity != null && awayTeam.pressIntensity > 0 ? awayTeam.pressIntensity : null,
+        dataClass: homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0 && awayTeam.pressIntensity != null && awayTeam.pressIntensity > 0 ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
     ]
   }, [homeTeam, awayTeam])
