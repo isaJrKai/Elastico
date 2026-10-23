@@ -56,14 +56,6 @@ export default function CommandPalette() {
   const [activeIndex, setActiveIndex] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
-  // Reset state on open/close
-  useEffect(() => {
-    if (commandPaletteOpen) { setQuery(''); setActiveIndex(0) }
-  }, [commandPaletteOpen])
-
-  // Reset selection on query change
-  useEffect(() => { setActiveIndex(0) }, [query])
-
   const handleSelect = useCallback((item: any) => {
     if (item.view) setView(item.view)
     else if (item.matchId) selectMatch(item.matchId)
@@ -176,7 +168,10 @@ export default function CommandPalette() {
   }
 
   return (
-    <Dialog open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen}>
+    <Dialog open={commandPaletteOpen} onOpenChange={open => {
+      if (open) { setQuery(''); setActiveIndex(0) }
+      setCommandPaletteOpen(open)
+    }}>
       <DialogContent className="sm:max-w-lg p-0 gap-0 bg-popover border-border" onOpenAutoFocus={(e) => { e.preventDefault(); }}>
         {/* Search input */}
         <div className="flex items-center border-b border-border/50 px-4">
@@ -184,7 +179,7 @@ export default function CommandPalette() {
           <Input
             placeholder="Search matches, navigate, or type a command..."
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => { setQuery(e.target.value); setActiveIndex(0) }}
             onKeyDown={handleKeyDown}
             className="border-0 focus-visible:ring-0 h-12 bg-transparent px-0"
             autoFocus
