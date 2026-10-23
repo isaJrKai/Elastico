@@ -841,9 +841,9 @@ async function logSync(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function GET(req: NextRequest) {
-  // 1. Validate cron secret (skip if ?force=true for manual triggers)
-  const forceSync = new URL(req.url).searchParams.get('force') === 'true'
-  if (!forceSync && !validateCron(req)) {
+  // All triggers, including manual/forced syncs, must authenticate.
+  // Query parameters must never bypass the cron secret.
+  if (!validateCron(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
