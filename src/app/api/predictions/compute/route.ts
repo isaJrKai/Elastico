@@ -62,8 +62,9 @@ export async function GET(request: NextRequest) {
         name: typeof m.awayTeam?.name === 'string' ? m.awayTeam.name : '',
         abbreviation: m.awayTeam?.abbreviation || m.awayTeam?.code || '',
       },
-      homeScore: m.homeScore ?? null,
-      awayScore: m.awayScore ?? null,
+      homeScore: matchSource === 'espn' && m.status === 'STATUS_SCHEDULED' ? null : (m.homeScore ?? null),
+      awayScore: matchSource === 'espn' && m.status === 'STATUS_SCHEDULED' ? null : (m.awayScore ?? null),
+      rawStatus: m.status,
       status: matchSource === 'espn' ? mapStatus(m.status || '') : m.status,
       date: m.date || m.utcDate || '',
       venue: m.venue || '',
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
       Number.isFinite(Date.parse(m.date))
     )
     const upcomingFixtures = validFixtures.filter((m: any) =>
-      m.status === 'upcoming' && Date.parse(m.date) > Date.now()
+      (matchSource === 'espn' ? m.rawStatus === 'STATUS_SCHEDULED' : m.status === 'upcoming') && Date.parse(m.date) > Date.now()
     )
     const invalidFixtureCount = normalized.length - validFixtures.length
     const ignoredNonUpcomingCount = validFixtures.length - upcomingFixtures.length
