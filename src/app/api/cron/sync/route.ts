@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isValidCronSecret } from '@/lib/cron-auth'
 import { db } from '@/lib/db'
 import {
   ESPN_LEAGUES,
@@ -43,10 +44,11 @@ function checkTimeout() {
 // ── Cron Secret Validation ──────────────────────────────────────────────────
 
 function validateCron(req: NextRequest): boolean {
-  const secret = req.headers.get('x-cron-secret')
-  const expected = process.env.CRON_SECRET || 'elastico-cron-2024'
-  // Accept the expected secret OR the well-known default (for backward compat)
-  return secret === expected || secret === 'elastico-cron-2024'
+  return isValidCronSecret(
+    process.env.CRON_SECRET,
+    req.headers.get('x-cron-secret'),
+    req.headers.get('authorization'),
+  )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -838,9 +840,9 @@ async function logSync(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function GET(req: NextRequest) {
-  // 1. Validate cron secret (skip if ?force=true for manual triggers)
-  const forceSync = new URL(req.url).searchParams.get('force') === 'true'
-  if (!forceSync && !validateCron(req)) {
+  // All triggers, including manual/forced syncs, must authenticate.
+  // Query parameters must never bypass the cron secret.
+  if (!validateCron(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

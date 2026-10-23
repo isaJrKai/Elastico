@@ -1,7 +1,7 @@
 // Cycle 4.5 Step 2: Test Understat accessibility + Small sync
 // Tests: Can we reach understat.com? Does the new API work?
 
-process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_8zPlbIK5NwaR@ep-late-sunset-axydccn7-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require';
+if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL in the environment before running this maintenance script.');
 process.env.DIRECT_URL = process.env.DATABASE_URL;
 
 const BASE = 'https://understat.com';

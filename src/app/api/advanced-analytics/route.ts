@@ -40,6 +40,26 @@ import {
  * COMPOSITE: full, list
  */
 
+/**
+ * These formulas are exploratory heuristics, not validated football forecasts.
+ * Preserve result fields for existing consumers while making that limitation
+ * machine-readable in every successful response.
+ */
+function withExperimentalMetadata(result: unknown, action: string) {
+  const payload = result && typeof result === 'object' && !Array.isArray(result)
+    ? result as Record<string, unknown>
+    : { value: result }
+
+  return {
+    ...payload,
+    formulaAction: action,
+    modelStatus: 'experimental-unvalidated',
+    validatedAgainstHistoricalResults: false,
+    inputsMayIncludeRouteDefaults: true,
+    warning: 'Exploratory formula output only. Some GET parameters default to illustrative values; outputs have not been validated against historical match outcomes and are not production betting predictions.',
+  }
+}
+
 const FORMULA_CATALOG = [
   { action: 'cri', tier: 1, name: 'Coach Risk Index', description: 'Prospect Theory applied to coaching decisions. Loss-averse value function x probability weighting x time pressure.' },
   { action: 'scs', tier: 1, name: 'Social Contagion Score', description: 'Emotional momentum propagation across a team. How fast does celebration/despair spread and affect performance?' },
@@ -49,18 +69,18 @@ const FORMULA_CATALOG = [
   { action: 'fcd', tier: 2, name: 'Fixture Congestion Decay', description: 'Non-linear fatigue from condensed schedule. Exponential decay, position-weighted.' },
   { action: 'reintegration', tier: 2, name: 'Reintegration Readiness', description: 'Injury return readiness using training load x match minutes x opponent intensity.' },
   { action: 'mai', tier: 2, name: 'Motivation Index', description: 'Schedule-adjusted motivation gap. Quantifies dead rubber vs must-win asymmetry.' },
-  { action: 'dse', tier: 3, name: 'Defensive Shape Entropy', description: 'Formation breakdown detection. High entropy -> 340% increased goal probability within 8 seconds.' },
-  { action: 'sbdi', tier: 3, name: 'Second-Ball Dominance', description: 'Second ball win rate. SBDI > 0.61 correlates with 71% win probability.' },
-  { action: 'press-lag', tier: 3, name: 'Press Trigger Lag', description: 'Press execution delay measurement. Optimal <1.2s, exploitable >2.1s.' },
+  { action: 'dse', tier: 3, name: 'Defensive Shape Entropy', description: 'Formation-breakdown heuristic computed from supplied player-position and zone data. No causal effect size has been validated.' },
+  { action: 'sbdi', tier: 3, name: 'Second-Ball Dominance', description: 'Second-ball dominance index computed from supplied duel/recovery inputs. Any relationship to match outcomes remains unvalidated.' },
+  { action: 'press-lag', tier: 3, name: 'Press Trigger Lag', description: 'Press execution-delay index based on supplied event timings. Thresholds require empirical validation.' },
   { action: 'soa', tier: 3, name: 'Spatial Overload Asymmetry', description: 'Gap between intended tactical overloads and actual player positioning.' },
-  { action: 'line-alpha', tier: 4, name: 'Line Movement Alpha', description: 'Sharp money detection via causality decomposition of line movements.' },
-  { action: 'rbei', tier: 4, name: 'Recency Bias Exploitation', description: 'Market overreaction detection. RBEI > 1.8 = fade signal.' },
-  { action: 'ctc', tier: 4, name: 'Coaching Tenure Curve', description: 'New manager effect lifecycle. Peak 6-18mo, cliff 30-36mo unless roster turnover > 40%.' },
-  { action: 'narrative', tier: 4, name: 'Narrative Momentum', description: 'Media-to-performance feedback loop. Self-fulfilling prophecy coefficient: 0.023.' },
-  { action: 'capz', tier: 5, name: 'Crowd Acoustic Pressure', description: 'Stadium-specific acoustic impact on player decisions. >112dB for >4s -> 34% error increase.' },
-  { action: 'tad', tier: 5, name: 'Tactical Plagiarism Detection', description: 'How fast a team copies opponent tactics. Elite threshold: <2.1 games.' },
-  { action: 'sub-decay', tier: 5, name: 'Substitution Impact Decay', description: 'Warm-up (tau=8min) + counter-adjustment (tau=11min) curve. Net peak at ~19 min.' },
-  { action: 'ipr', tier: 5, name: 'Psychological Residue', description: 'Inter-game hangover model. Dramatic win = -4.2%, narrow loss = +3.1% next game.' },
+  { action: 'line-alpha', tier: 4, name: 'Line Movement Alpha', description: 'Experimental line-movement signal from supplied odds history; it cannot verify bettor identity or establish that sharp money caused a movement.' },
+  { action: 'rbei', tier: 4, name: 'Recency Bias Exploitation', description: 'Experimental recency-bias index from supplied market and form inputs; no betting threshold is validated.' },
+  { action: 'ctc', tier: 4, name: 'Coaching Tenure Curve', description: 'Experimental coaching-tenure curve; time windows and turnover effects require historical validation.' },
+  { action: 'narrative', tier: 4, name: 'Narrative Momentum', description: 'Experimental narrative-momentum heuristic; the coefficient is an assumption, not an established causal estimate.' },
+  { action: 'capz', tier: 5, name: 'Crowd Acoustic Pressure', description: 'Experimental crowd-acoustic heuristic. No causal error-rate effect size is validated.' },
+  { action: 'tad', tier: 5, name: 'Tactical Plagiarism Detection', description: 'Experimental tactical-similarity heuristic; thresholds require validated tactical tracking data.' },
+  { action: 'sub-decay', tier: 5, name: 'Substitution Impact Decay', description: 'Experimental substitution-impact decay curve; time constants are assumptions requiring validation.' },
+  { action: 'ipr', tier: 5, name: 'Psychological Residue', description: 'Inter-game hangover model. Experimental psychological-residue heuristic; claimed effects are not validated against historical outcomes.' },
 ]
 
 export async function GET(request: NextRequest) {
@@ -90,7 +110,7 @@ export async function GET(request: NextRequest) {
   try {
     // ─── CATALOG ─────────────────────────────────────────────────────────
     if (action === 'list') {
-      return NextResponse.json({ formulas: FORMULA_CATALOG, total: FORMULA_CATALOG.length })
+      return NextResponse.json({ formulas: FORMULA_CATALOG, total: FORMULA_CATALOG.length, modelStatus: 'experimental-unvalidated', validatedAgainstHistoricalResults: false, warning: 'Formula catalog only; no empirical performance claims are established.' })
     }
 
     // ─── TIER 1: PSYCHOLOGICAL ───────────────────────────────────────────
@@ -102,7 +122,7 @@ export async function GET(request: NextRequest) {
         outcomeMagnitude: parseFloat(searchParams.get('outcome') ?? '0.5'),
         minutesRemaining: parseInt(searchParams.get('minutes') ?? '45'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'scs') {
@@ -125,7 +145,7 @@ export async function GET(request: NextRequest) {
         teammates,
         currentMinute: parseInt(searchParams.get('currentMinute') ?? '35'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'iti') {
@@ -135,7 +155,7 @@ export async function GET(request: NextRequest) {
         resilienceBaseline: parseFloat(searchParams.get('resilience') ?? '0.5'),
         daysSinceCriticism: parseInt(searchParams.get('days') ?? '2'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'referee-drift') {
@@ -146,7 +166,7 @@ export async function GET(request: NextRequest) {
         crowdNoise: parseFloat(searchParams.get('crowd') ?? '0.7'),
         homeBiasBaseline: parseFloat(searchParams.get('homeBias') ?? '0.15'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── TIER 2: TEMPORAL ───────────────────────────────────────────────
@@ -159,14 +179,14 @@ export async function GET(request: NextRequest) {
         daysSinceArrival: parseInt(searchParams.get('daysArrival') ?? '2'),
         positionGroup: (searchParams.get('position') ?? 'striker') as 'striker' | 'midfielder' | 'defender' | 'goalkeeper',
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'fcd') {
       const rawMatchDays = searchParams.get('matchDays')
       const matchDays: number[] = rawMatchDays ? JSON.parse(rawMatchDays) : [0, 3, 6]
       const result = calculateFCD({ matchDays })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'reintegration') {
@@ -176,7 +196,7 @@ export async function GET(request: NextRequest) {
         highIntensityRuns: parseFloat(searchParams.get('hir') ?? '5'),
         opponentDefensiveIntensity: parseFloat(searchParams.get('oppIntensity') ?? '0.6'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'mai') {
@@ -187,7 +207,7 @@ export async function GET(request: NextRequest) {
         teamAForm: parseFloat(searchParams.get('teamAForm') ?? '1.8'),
         teamBForm: parseFloat(searchParams.get('teamBForm') ?? '1.2'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── TIER 3: TACTICAL ───────────────────────────────────────────────
@@ -209,7 +229,7 @@ export async function GET(request: NextRequest) {
             { playerId: 'st', currentX: 0.85, currentY: 0.5, assignedZone: [0.75, 1.0, 0.35, 0.65] as [number, number, number, number] },
           ]
       const result = calculateDSE({ players, teamName: searchParams.get('teamName') ?? 'Team' })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'sbdi') {
@@ -218,7 +238,7 @@ export async function GET(request: NextRequest) {
         secondBallsWon: parseInt(searchParams.get('won') ?? '28'),
         territorialWeight: parseFloat(searchParams.get('territorial') ?? '0.7'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'press-lag') {
@@ -233,7 +253,7 @@ export async function GET(request: NextRequest) {
             { triggerType: 'back_pass_to_keeper', lagSeconds: 0.9, oppositionTransitionSpeed: 0.65 },
           ]
       const result = calculatePressLag({ pressEvents: events })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'soa') {
@@ -251,7 +271,7 @@ export async function GET(request: NextRequest) {
             { zoneId: 'midfield', intendedDensity: 3, actualDensity: 2.5 },
           ]
       const result = calculateSOA({ zones })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── TIER 4: MARKET ─────────────────────────────────────────────────
@@ -264,7 +284,7 @@ export async function GET(request: NextRequest) {
         weatherAdjustment: parseFloat(searchParams.get('weather') ?? '0.1'),
         direction: (parseInt(searchParams.get('direction') ?? '1')) as 1 | -1,
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'rbei') {
@@ -276,7 +296,7 @@ export async function GET(request: NextRequest) {
         performanceStdDev: parseFloat(searchParams.get('sigma') ?? '0.12'),
         recentResults,
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'ctc') {
@@ -288,7 +308,7 @@ export async function GET(request: NextRequest) {
           ? parseFloat(searchParams.get('nmEffect')!)
           : undefined,
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'narrative') {
@@ -306,7 +326,7 @@ export async function GET(request: NextRequest) {
         mediaMentions: mentions,
         currentForm: parseFloat(searchParams.get('form') ?? '2.0'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── TIER 5: THE ABYSS ──────────────────────────────────────────────
@@ -322,7 +342,7 @@ export async function GET(request: NextRequest) {
         hostility: parseFloat(searchParams.get('hostility') ?? '0.7'),
         exposureSeconds: parseFloat(searchParams.get('exposure') ?? '6'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'tad') {
@@ -337,7 +357,7 @@ export async function GET(request: NextRequest) {
           ? parseFloat(searchParams.get('eliteThresh')!)
           : undefined,
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'sub-decay') {
@@ -346,7 +366,7 @@ export async function GET(request: NextRequest) {
         subQuality: parseFloat(searchParams.get('subQuality') ?? '0.7'),
         opponentAdjustment: parseFloat(searchParams.get('oppAdj') ?? '0.5'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     if (action === 'ipr') {
@@ -358,7 +378,7 @@ export async function GET(request: NextRequest) {
         wasDerby: searchParams.get('derby') === 'true',
         crowdFactor: parseFloat(searchParams.get('crowd') ?? '0.8'),
       })
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     // ─── COMPOSITE: FULL ANALYSIS ───────────────────────────────────────
@@ -378,7 +398,7 @@ export async function GET(request: NextRequest) {
 
       const params: FullAdvancedAnalysisParams = JSON.parse(rawParams)
       const result = runFullAdvancedAnalysis(params)
-      return NextResponse.json({
+      return NextResponse.json(withExperimentalMetadata({
         compositeScore: result.compositeScore,
         compositeLabel: result.compositeLabel,
         flags: result.flags,
@@ -392,7 +412,7 @@ export async function GET(request: NextRequest) {
           confidence: f.confidence,
         })),
         timestamp: result.timestamp,
-      })
+      }, action))
     }
 
     // ─── UNKNOWN ACTION ─────────────────────────────────────────────────
@@ -421,50 +441,50 @@ export async function POST(request: NextRequest) {
 
     if (action === 'full') {
       const result = runFullAdvancedAnalysis(params as FullAdvancedAnalysisParams)
-      return NextResponse.json(result)
+      return NextResponse.json(withExperimentalMetadata(result, action))
     }
 
     switch (action) {
       case 'cri':
-        return NextResponse.json(calculateCRI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateCRI(params), action))
       case 'scs':
-        return NextResponse.json(calculateSCS(params))
+        return NextResponse.json(withExperimentalMetadata(calculateSCS(params), action))
       case 'iti':
-        return NextResponse.json(calculateITI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateITI(params), action))
       case 'referee-drift':
-        return NextResponse.json(calculateRefereeDrift(params))
+        return NextResponse.json(withExperimentalMetadata(calculateRefereeDrift(params), action))
       case 'crd':
-        return NextResponse.json(calculateCRD(params))
+        return NextResponse.json(withExperimentalMetadata(calculateCRD(params), action))
       case 'fcd':
-        return NextResponse.json(calculateFCD(params))
+        return NextResponse.json(withExperimentalMetadata(calculateFCD(params), action))
       case 'reintegration':
-        return NextResponse.json(calculateReintegration(params))
+        return NextResponse.json(withExperimentalMetadata(calculateReintegration(params), action))
       case 'mai':
-        return NextResponse.json(calculateMAI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateMAI(params), action))
       case 'dse':
-        return NextResponse.json(calculateDSE(params))
+        return NextResponse.json(withExperimentalMetadata(calculateDSE(params), action))
       case 'sbdi':
-        return NextResponse.json(calculateSBDI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateSBDI(params), action))
       case 'press-lag':
-        return NextResponse.json(calculatePressLag(params))
+        return NextResponse.json(withExperimentalMetadata(calculatePressLag(params), action))
       case 'soa':
-        return NextResponse.json(calculateSOA(params))
+        return NextResponse.json(withExperimentalMetadata(calculateSOA(params), action))
       case 'line-alpha':
-        return NextResponse.json(calculateLineAlpha(params))
+        return NextResponse.json(withExperimentalMetadata(calculateLineAlpha(params), action))
       case 'rbei':
-        return NextResponse.json(calculateRBEI(params))
+        return NextResponse.json(withExperimentalMetadata(calculateRBEI(params), action))
       case 'ctc':
-        return NextResponse.json(calculateCTC(params))
+        return NextResponse.json(withExperimentalMetadata(calculateCTC(params), action))
       case 'narrative':
-        return NextResponse.json(calculateNarrativeMomentum(params))
+        return NextResponse.json(withExperimentalMetadata(calculateNarrativeMomentum(params), action))
       case 'capz':
-        return NextResponse.json(calculateCAPZ(params))
+        return NextResponse.json(withExperimentalMetadata(calculateCAPZ(params), action))
       case 'tad':
-        return NextResponse.json(calculateTAD(params))
+        return NextResponse.json(withExperimentalMetadata(calculateTAD(params), action))
       case 'sub-decay':
-        return NextResponse.json(calculateSubDecay(params))
+        return NextResponse.json(withExperimentalMetadata(calculateSubDecay(params), action))
       case 'ipr':
-        return NextResponse.json(calculateIPR(params))
+        return NextResponse.json(withExperimentalMetadata(calculateIPR(params), action))
       default:
         return NextResponse.json(
           { error: `Unknown POST action: "${action}"`, available: FORMULA_CATALOG.map((f) => f.action) },

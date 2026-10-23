@@ -718,7 +718,7 @@ function UpcomingFixtures({ matches }: { matches: any[] }) {
 export default function DashboardView() {
   const { fetchLiveScores, fetchNews, fetchMatches, matches, liveMatches } = useElasticoStore()
   const [fdMatches, setFdMatches] = useState<any[]>([])
-  const [fdLoading, setFdLoading] = useState(false)
+  const [fdLoading, setFdLoading] = useState(true)
 
   // Compute featured (same logic as FeaturedMatchPanel) to know when to show fallback
   const featured = useMemo(() => {
@@ -748,7 +748,6 @@ export default function DashboardView() {
   // Fetch upcoming fixtures: try football-data.org first, fallback to /api/live (ESPN)
   useEffect(() => {
     let cancelled = false
-    setFdLoading(true)
     const loadFixtures = async () => {
       try {
         // 1. football-data.org (requires API key)
