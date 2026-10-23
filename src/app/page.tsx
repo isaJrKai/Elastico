@@ -78,6 +78,8 @@ export default function Home() {
         })
         if (response.status === 401) {
           if (!cancelled) {
+            localStorage.removeItem('elastico_token')
+            localStorage.removeItem('elastico_user')
             useElasticoStore.getState().setUser(null, null)
             useElasticoStore.getState().setView('login')
           }
