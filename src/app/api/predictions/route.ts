@@ -41,19 +41,42 @@ export async function POST(req: NextRequest) {
       matchDate,
     } = await req.json()
 
-    if (!matchId || predictedHomeGoals == null || predictedAwayGoals == null || !predictedOutcome || !confidence) {
+    if (
+      typeof matchId !== 'string' || !matchId.trim() ||
+      predictedHomeGoals == null || predictedAwayGoals == null ||
+      typeof predictedOutcome !== 'string' || confidence == null
+    ) {
       return NextResponse.json(
         { error: 'matchId, predictedHomeGoals, predictedAwayGoals, predictedOutcome, and confidence are required' },
         { status: 400 }
       )
     }
 
+    if (
+      typeof predictedHomeGoals !== 'number' || !Number.isFinite(predictedHomeGoals) ||
+      !Number.isInteger(predictedHomeGoals) || predictedHomeGoals < 0 || predictedHomeGoals > 20 ||
+      typeof predictedAwayGoals !== 'number' || !Number.isFinite(predictedAwayGoals) ||
+      !Number.isInteger(predictedAwayGoals) || predictedAwayGoals < 0 || predictedAwayGoals > 20
+    ) {
+      return NextResponse.json({ error: 'Predicted goals must be integers between 0 and 20' }, { status: 400 })
+    }
+
     if (!['home', 'draw', 'away'].includes(predictedOutcome)) {
       return NextResponse.json({ error: 'predictedOutcome must be home, draw, or away' }, { status: 400 })
     }
 
-    if (confidence < 0 || confidence > 100) {
-      return NextResponse.json({ error: 'confidence must be between 0 and 100' }, { status: 400 })
+    if (typeof confidence !== 'number' || !Number.isFinite(confidence) || confidence < 0 || confidence > 100) {
+      return NextResponse.json({ error: 'confidence must be a finite number between 0 and 100' }, { status: 400 })
+    }
+
+    for (const [field, value] of Object.entries({ model, homeTeam, awayTeam, competition })) {
+      if (value != null && (typeof value !== 'string' || value.length > 200)) {
+        return NextResponse.json({ error: `${field} must be a string of at most 200 characters` }, { status: 400 })
+      }
+    }
+
+    if (matchDate != null && (typeof matchDate !== 'string' || Number.isNaN(Date.parse(matchDate)))) {
+      return NextResponse.json({ error: 'matchDate must be a valid date string' }, { status: 400 })
     }
 
     // Check free plan limit
@@ -66,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     // Upsert prediction (uses denormalized fields)
     const prediction = await db.prediction.upsert({
-      where: { userId_matchId: { userId: user.id, matchId } },
+      where: { userId_matchId: { userId: user.id, matchId: matchId.trim() } },
       update: {
         predictedHomeGoals,
         predictedAwayGoals,
@@ -80,7 +103,7 @@ export async function POST(req: NextRequest) {
       },
       create: {
         userId: user.id,
-        matchId,
+        matchId: matchId.trim(),
         predictedHomeGoals,
         predictedAwayGoals,
         predictedOutcome,
@@ -98,7 +121,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId: user.id,
         type: 'prediction',
-        metadata: JSON.stringify({ matchId, predictedOutcome, confidence, homeTeam, awayTeam, competition }),
+        metadata: JSON.stringify({ matchId: matchId.trim(), predictedOutcome, confidence, homeTeam, awayTeam, competition }),
       },
     })
 
