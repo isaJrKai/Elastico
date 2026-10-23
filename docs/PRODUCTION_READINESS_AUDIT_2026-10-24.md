@@ -15,6 +15,9 @@ The most important goal is to make the product honest and reproducible: live dat
 - **Visual system:** `feat/ui-redesign-premium` introduces a quieter paper/ink palette and removes glow-heavy tokens as a first redesign step. It is not yet a full view-by-view redesign. Draft PR #9: https://github.com/isaJrKai/Elastico/pull/9
 - **Quality gates:** `test/production-readiness-gates` adds a standalone build setting, probability invariant tests, and CI checks for Prisma generation, unit tests, lint, type-check and production build. Draft PR #6: https://github.com/isaJrKai/Elastico/pull/6
 - **Repository checkout hygiene:** `chore/remove-orphaned-submodule` removes an orphaned `elastico-source` gitlink with no `.gitmodules` mapping. Draft PR #12: https://github.com/isaJrKai/Elastico/pull/12
+- **Advanced analytics honesty:** `fix/advanced-analytics-truth` removes unsupported numerical effect-size claims and labels formula outputs experimental/unvalidated. Draft PR #15: https://github.com/isaJrKai/Elastico/pull/15
+- **Credential cleanup:** `fix/remove-committed-credentials` removes database credentials from maintenance scripts/audit artifacts, requires environment configuration, guards destructive maintenance scripts, and removes default seed passwords. Draft PR #17: https://github.com/isaJrKai/Elastico/pull/17. This does not scrub Git history or rotate the credential.
+- **Integrated release candidate:** PR #16 combines the main fixes and now includes startup/API smoke tests, cron-auth unit tests, a working-tree credential-pattern scan, README/setup documentation, and removal of the stale nested source snapshot/orphaned submodule: https://github.com/isaJrKai/Elastico/pull/16
 - **Sale-readiness tracking:** Draft PR #10 documents buyer due-diligence requirements: https://github.com/isaJrKai/Elastico/pull/10
 
 ## CI evidence and limitations
@@ -31,7 +34,7 @@ Passed in that run:
 
 **Important limitation:** the committed `package-lock.json` was stale. The workflow regenerated it inside the runner before running `npm ci` and uploaded the generated file as an artifact. Therefore this run does **not** prove that a fresh checkout can install using the currently committed lockfile. The reconciled lockfile still needs to be reviewed and committed; the install step must then be changed back to a strict `npm ci` from the committed lock.
 
-The statistical tests only verify probability invariants. They do not establish forecast accuracy, calibration, profitability, or model superiority.
+The statistical tests only verify probability invariants. Cron-auth tests verify missing/weak/mismatched credentials are rejected and that the `force=true` query cannot bypass auth. Production smoke tests check the home page and protected API boundaries. These checks do not establish forecast accuracy, calibration, profitability, or model superiority.
 
 ## Remaining release blockers
 
