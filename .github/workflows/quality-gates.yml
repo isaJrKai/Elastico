@@ -32,6 +32,8 @@ jobs:
         run: npm ci
       - name: Generate Prisma client
         run: npx prisma generate
+      - name: Unit tests
+        run: npm test
       - name: Lint
         run: npm run lint
       - name: Type-check
