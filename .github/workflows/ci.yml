@@ -67,9 +67,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      # Temporary diagnostic install lets the other checks run while lockfile-check
-      # independently fails until the committed package-lock.json is regenerated.
-      - run: npm install --legacy-peer-deps
+      # Verify the exact committed dependency graph in the full build/test job too.
+      - run: npm ci --legacy-peer-deps
       - run: npx prisma generate
       - run: npm run typecheck
       - run: npm run lint
