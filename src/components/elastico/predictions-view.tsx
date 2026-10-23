@@ -90,7 +90,6 @@ type ComputeState = 'idle' | 'loading' | 'error' | 'success'
 
 export default function PredictionsView() {
   const user = useElasticoStore(s => s.user)
-  const token = useElasticoStore(s => s.token)
   const matches = useElasticoStore(s => s.matches)
 
   // ── State ────────────────────────────────────────────────────────────────
@@ -118,9 +117,7 @@ export default function PredictionsView() {
     setComputeState('loading')
     setComputeError('')
     try {
-      const headers: Record<string, string> = {}
-      if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch('/api/predictions/compute', { headers })
+      const res = await fetch('/api/predictions/compute', { credentials: 'same-origin' })
       if (!res.ok) {
         if (res.status === 429) throw new Error('Rate limited — max 5 requests per minute. Wait a moment and try again.')
         if (res.status === 401) throw new Error('Sign in to load model predictions.')
@@ -134,7 +131,7 @@ export default function PredictionsView() {
       setComputeError(err instanceof Error ? err.message : 'Failed to compute predictions.')
       setComputeState('error')
     }
-  }, [token])
+  }, []
 
   // ── Data Fetching ────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -142,11 +139,8 @@ export default function PredictionsView() {
     setErrorMessage('')
 
     try {
-      const headers: Record<string, string> = {}
-      if (token) headers['Authorization'] = `Bearer ${token}`
-
-      // Fetch predictions
-      const res = await fetch('/api/predictions', { headers })
+      // Fetch predictions through the HttpOnly session cookie.
+      const res = await fetch('/api/predictions', { credentials: 'same-origin' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error || `Request failed (${res.status})`)
@@ -176,7 +170,7 @@ export default function PredictionsView() {
       setErrorMessage(msg)
       setViewState('error')
     }
-  }, [token, user?.id])
+  }, [user?.id]
 
   useEffect(() => { fetchData() }, [fetchData])
   // Auto-fetch compute predictions when user has predictions loaded
@@ -268,8 +262,8 @@ export default function PredictionsView() {
   }, [filteredResolved])
 
   const handleQuickPredict = useCallback(async (matchId: string, choice: string) => {
-    if (!token) {
-      toast.error('Not authenticated')
+    if (!user) {
+      toast.error('Sign in to submit a prediction')
       return
     }
 
@@ -299,7 +293,8 @@ export default function PredictionsView() {
     try {
       const res = await fetch('/api/predictions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           matchId,
           predictedHomeGoals: homeGoals,
@@ -325,7 +320,7 @@ export default function PredictionsView() {
     } finally {
       setSubmittingMatchId(null)
     }
-  }, [token, quickScores, quickConfidence, matchMap, fetchData])
+  }, [user?.id, quickScores, quickConfidence, matchMap, fetchData]
 
   const updateScore = useCallback((matchId: string, side: 'home' | 'away', value: string) => {
     // Allow only digits

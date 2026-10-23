@@ -87,7 +87,6 @@ const API_ENDPOINTS = [
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function ExportView() {
-  const token = useElasticoStore(s => s.token)
   const user = useElasticoStore(s => s.user)
   const [exportType, setExportType] = useState('matches')
   const [exportFormat, setExportFormat] = useState('csv')
@@ -100,10 +99,10 @@ export function ExportView() {
     setExporting(true)
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (token) headers['Authorization'] = `Bearer ${token}`
 
       const res = await fetch('/api/export', {
         method: 'POST',
+        credentials: 'same-origin',
         headers,
         body: JSON.stringify({ type: exportType, format: exportFormat, filters: {} }),
       })
@@ -152,7 +151,7 @@ export function ExportView() {
     } finally {
       setExporting(false)
     }
-  }, [exportType, exportFormat, token])
+  }, [exportType, exportFormat])
 
   const handleReportTemplate = useCallback((template: typeof REPORT_TEMPLATES[0]) => {
     toast.info(`Generating ${template.name}...`)
@@ -445,17 +444,15 @@ export function ExportView() {
                 <Code2 className="size-4 text-primary" /> API Documentation
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Programmatic access to ELASTICO data. Use Bearer token authentication for protected endpoints.
+                Endpoint reference for integrations. Programmatic API tokens are not enabled in this build; in-app requests use your secure sign-in session.
               </p>
             </CardHeader>
             <CardContent>
-              {/* Auth info */}
-              <div className="rounded-lg border border-border bg-card p-3 rounded-lg border border-border/30 mb-4">
+              <div className="rounded-lg border border-border/30 bg-muted/20 p-3 mb-4">
                 <div className="text-xs font-medium mb-1">Authentication</div>
-                <code className="text-[11px] text-primary bg-primary/5 px-2 py-1 rounded block overflow-x-auto">
-                  Authorization: Bearer {'{'}token{'}'}
-                </code>
-                <div className="text-[10px] text-muted-foreground mt-1">Your API token is the same as your session token.</div>
+                <p className="text-[11px] text-muted-foreground">
+                  Browser requests use secure HttpOnly session cookies. Personal API tokens are not issued in this version; never copy a session cookie into scripts.
+                </p>
               </div>
 
               <div className="space-y-2 max-h-96 overflow-y-auto">

@@ -138,7 +138,6 @@ export default function ChatView() {
   const clearChat = useElasticoStore(s => s.clearChat)
   const matches = useElasticoStore(s => s.matches)
   const teams = useElasticoStore(s => s.teams)
-  const token = useElasticoStore(s => s.token)
   const currentView = useElasticoStore(s => s.currentView)
   const storeSelectedMatchId = useElasticoStore(s => s.selectedMatchId)
 
@@ -174,7 +173,7 @@ export default function ChatView() {
       try {
         const res = await fetch('/api/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: '__status_check__', model: 'pro', stream: false }),
         })
         const data = await res.json()
@@ -288,7 +287,6 @@ export default function ChatView() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(body),
       })
@@ -345,7 +343,7 @@ export default function ChatView() {
       setIsLoading(false)
       setStreamingMsgId(null)
     }
-  }, [input, isLoading, selectedMatchId, selectedModel, matches, token, addChatMessage, updateChatMessage])
+  }, [input, isLoading, selectedMatchId, selectedModel, matches, addChatMessage, updateChatMessage])
 
   // ── Clear Chat ───────────────────────────────────────────────────────────
 

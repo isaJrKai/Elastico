@@ -132,7 +132,6 @@ export default function MatchDetailView() {
   const selectedMatchId = useElasticoStore(s => s.selectedMatchId)
   const setView = useElasticoStore(s => s.setView)
   const user = useElasticoStore(s => s.user)
-  const token = useElasticoStore(s => s.token)
   const [match, setMatch] = useState<MatchDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -146,9 +145,7 @@ export default function MatchDetailView() {
     if (!selectedMatchId) return
     setLoading(true)
     try {
-      const headers: Record<string, string> = {}
-      if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch(`/api/matches/${selectedMatchId}`, { headers })
+      const res = await fetch(`/api/matches/${selectedMatchId}`, { credentials: 'same-origin' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: 'Unknown error' }))
         const stages = body.stagesAttempted?.length
@@ -165,40 +162,43 @@ export default function MatchDetailView() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load match')
     } finally { setLoading(false) }
-  }, [selectedMatchId, token])
+  }, [selectedMatchId]
 
   useEffect(() => { fetchMatch() }, [fetchMatch])
 
   const handleVote = useCallback(async (choice: 'home' | 'draw' | 'away') => {
-    if (!selectedMatchId || !token) return
+    if (!selectedMatchId) return
+    if (!user) { toast.error('Sign in to submit a vote'); return }
     try {
-      await fetch(`/api/matches/${selectedMatchId}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ choice }) })
+      await fetch(`/api/matches/${selectedMatchId}`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ choice }) })
       fetchMatch()
     } catch (err) { console.error('[MatchDetail] Vote submission failed:', err) }
-  }, [selectedMatchId, token, fetchMatch])
+  }, [selectedMatchId, user, fetchMatch]
 
   const handleToggleBookmark = useCallback(async () => {
-    if (!selectedMatchId || !token) return
+    if (!selectedMatchId) return
+    if (!user) { toast.error('Sign in to bookmark matches'); return }
     try {
       if (bookmarked) {
-        await fetch(`/api/bookmarks?matchId=${selectedMatchId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+        await fetch(`/api/bookmarks?matchId=${selectedMatchId}`, { method: 'DELETE', credentials: 'same-origin' })
         setBookmarked(false)
         toast.success('Bookmark removed')
       } else {
-        const res = await fetch('/api/bookmarks', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ matchId: selectedMatchId }) })
+        const res = await fetch('/api/bookmarks', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: selectedMatchId }) })
         if (res.ok) {
           setBookmarked(true)
           toast.success('Match bookmarked')
         }
       }
     } catch (err) { console.error('[MatchDetail] Bookmark toggle failed:', err) }
-  }, [selectedMatchId, token, bookmarked])
+  }, [selectedMatchId, user, bookmarked]
 
   const handleSimulate = useCallback(async () => {
-    if (!selectedMatchId || !token) return
+    if (!selectedMatchId) return
+    if (!user) { toast.error('Sign in to run a simulation'); return }
     setSimulating(true)
     try {
-      const res = await fetch(`/api/matches/${selectedMatchId}/simulate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch(`/api/matches/${selectedMatchId}/simulate`, { method: 'POST', credentials: 'same-origin' })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Simulation failed' }))
         toast.error('Simulation failed', { description: err.error || 'Unknown error' })
@@ -209,7 +209,7 @@ export default function MatchDetailView() {
     } catch (e: any) {
       toast.error('Simulation error', { description: e.message || 'Failed to run simulation' })
     } finally { setSimulating(false) }
-  }, [selectedMatchId, token, fetchMatch])
+  }, [selectedMatchId, user, fetchMatch]
 
   const handleCopySummary = useCallback(() => {
     if (!match) return
@@ -226,10 +226,10 @@ export default function MatchDetailView() {
     if (!match) return
     setAiLoading(true)
     fetch('/api/chat', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: `Analyze the match ${match.homeTeam?.name} vs ${match.awayTeam?.name}. ELO: ${match.homeEloBefore} vs ${match.awayEloBefore}. Score: ${match.homeScore}-${match.awayScore}. xG: ${match.homeXg}-${match.awayXg}.`, matchId: selectedMatchId }),
     }).then(() => { setView('ai-chat'); setAiLoading(false) }).catch((err) => { console.error('[MatchDetail] AI analysis request failed:', err); setAiLoading(false) })
-  }, [match, token, selectedMatchId, setView])
+  }, [match, selectedMatchId, setView]
 
   // Derived
   const isUpcoming = match?.status === 'upcoming'

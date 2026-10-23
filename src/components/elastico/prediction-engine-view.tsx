@@ -76,7 +76,6 @@ const LEAGUE_OPTIONS = [
 export default function PredictionEngineView() {
   const teams = useElasticoStore(s => s.teams)
   const fetchTeams = useElasticoStore(s => s.fetchTeams)
-  const token = useElasticoStore(s => s.token)
 
   // Fetch teams on mount if the store is empty
   const [teamsLoading, setTeamsLoading] = useState(false)
