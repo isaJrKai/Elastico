@@ -98,3 +98,12 @@ The repository had multiple release-blocking security and data-integrity defects
 - The refreshed lint toolchain surfaced 18 `react-hooks/set-state-in-effect` findings in existing UI effects. The rule is currently warnings—not disabled—because it flags both synchronous derived-state patterns and legitimate asynchronous data-fetch/subscription handlers. These warnings remain visible and need a targeted UI refactor before claiming a clean lint baseline.
 - The Docker build stage now installs native prerequisites for the build-time `canvas` package. Compose now forwards the configured sports/news data-provider keys and uses the same `GITHUB_TOKEN` name as the AI gateway.
 - These changes are on the draft hardening branch only. Production secrets have not been rotated, no production database was accessed, and no deployment occurred.
+
+## Follow-up verification — 2026-10-23, third pass
+
+- **Cron authorization:** removed the public `?force=true` bypass. All scheduled-sync requests now require a valid secret; both Vercel's `Authorization: Bearer …` header and the internal `x-cron-secret` header are supported. Focused header-validation tests were added.
+- **Database mutation safety:** local-only `db:push`, `migrate dev`, and `db:reset` commands now require a local database host. Remote deployment migrations require explicit opt-in, and production mutations require a second explicit flag. Seed scripts now refuse remote/production writes without their own opt-ins; the Prisma CLI seed runner is configured to load environment files through Prisma.
+- **Latest completed validation before the database-target guard tests:** clean `npm ci`, typecheck, lint, tests, Next.js build, and Docker image build all passed on the preceding hardening-branch head. The production-only dependency audit passed. The full toolchain audit remains red for 8 high findings in development tooling; do not force a major Prisma downgrade/upgrade or pretend the audit is clean.
+- The database-target guard and its regression tests are now committed, so a fresh exact-head run is still required.
+- **Still release-blocking:** rotate the exposed Neon credential and review/purge repository history; create and test an initial Prisma migration plus a safe baseline plan for any existing database; decide how to handle the upstream-blocked development-toolchain advisories; perform deployment/health and authenticated browser verification only after those gates are closed.
+- No production database was accessed or changed, and no deployment was performed.
