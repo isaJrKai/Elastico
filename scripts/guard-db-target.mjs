@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const { loadEnvConfig } = require('@next/env')
+loadEnvConfig(process.cwd())
+
 const mode = process.argv[2] ?? 'local'
 const rawUrl = process.env.DATABASE_URL
 
