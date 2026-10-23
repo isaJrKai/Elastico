@@ -297,7 +297,7 @@ async function buildExistingPredictionSection(matchId: string): Promise<Evidence
   return {
     label: 'EXISTING PREDICTION',
     truthClass: 'DERIVED',
-    content: `${prediction.homeTeam} ${prediction.predictedHomeGoals}-${prediction.predictedAwayGoals} ${prediction.awayTeam} · Outcome: ${prediction.predictedOutcome} · Confidence: ${(prediction.confidence * 100).toFixed(0)}% · Model: ${prediction.model} · Created: ${prediction.createdAt.toISOString().slice(0, 10)}${prediction.isCorrect != null ? ` · Actual result: ${prediction.actualHomeGoals ?? '?'}-${prediction.actualAwayGoals ?? '?'} (${prediction.isCorrect ? 'CORRECT' : 'INCORRECT'})` : ''}`,
+    content: `${prediction.homeTeam} ${prediction.predictedHomeGoals}-${prediction.predictedAwayGoals} ${prediction.awayTeam} · Outcome: ${prediction.predictedOutcome} · Confidence: ${prediction.confidence.toFixed(0)}% · Model: ${prediction.model} · Created: ${prediction.createdAt.toISOString().slice(0, 10)}${prediction.isCorrect != null ? ` · Actual result: ${prediction.actualHomeGoals ?? '?'}-${prediction.actualAwayGoals ?? '?'} (${prediction.isCorrect ? 'CORRECT' : 'INCORRECT'})` : ''}`,
   }
 }
 
