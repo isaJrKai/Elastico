@@ -117,12 +117,12 @@ export default function PredictionEngineView() {
   const [oddsHome, setOddsHome] = useState('')
   const [oddsDraw, setOddsDraw] = useState('')
   const [oddsAway, setOddsAway] = useState('')
-  const [bankroll, setBankroll] = useState('1000')
+  const [bankroll, setBankroll] = useState('')
   const [simRuns, setSimRuns] = useState('150000')
   const [injuries, setInjuries] = useState<InjuryAdjustment[]>([])
 
   // ── Kelly state ───────────────────────────────────────────────────────────────
-  const [kellyBankroll, setKellyBankroll] = useState('1000')
+  const [kellyBankroll, setKellyBankroll] = useState('')
   const [kellyLoading, setKellyLoading] = useState(false)
   const [kellyResult, setKellyResult] = useState<FullMatchAnalysis['portfolioAllocation'] | null>(null)
 
@@ -400,7 +400,7 @@ export default function PredictionEngineView() {
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(''); setHomeGoalsConceded(''); setHomeXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setHomeElo(''); setHomeGoalsConceded(''); setHomeXg('') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -411,7 +411,7 @@ export default function PredictionEngineView() {
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(''); setAwayGoalsConceded(''); setAwayXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setAwayElo(''); setAwayGoalsConceded(''); setAwayXg('') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -421,11 +421,11 @@ export default function PredictionEngineView() {
                   <Separator className="bg-zinc-800/50" />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-zinc-500">Home xG</Label>
+                      <Label className="text-xs text-zinc-500">Home xG (verified)</Label>
                       <Input type="number" step="0.01" value={homeXg} onChange={e => setHomeXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
-                      <Label className="text-xs text-zinc-500">Away xG</Label>
+                      <Label className="text-xs text-zinc-500">Away xG (verified)</Label>
                       <Input type="number" step="0.01" value={awayXg} onChange={e => setAwayXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
@@ -467,7 +467,7 @@ export default function PredictionEngineView() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs text-zinc-500">Bankroll ($)</Label>
+                      <Label className="text-xs text-zinc-500">Bankroll (your currency)</Label>
                       <Input type="number" value={bankroll} onChange={e => setBankroll(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
