@@ -24,21 +24,71 @@ async function main() {
   })
   console.log('  System settings created')
 
-  // Demo users
-  const users = [
-    { email: 'admin@elastico.ai', password: 'Admin123!', name: 'ELASTICO Admin', displayName: 'Admin', role: 'admin' as const, plan: 'elite' as const },
-    { email: 'pro@elastico.ai', password: 'Pro12345!', name: 'Pro Demo', displayName: 'Pro User', role: 'user' as const, plan: 'pro' as const },
-    { email: 'demo@elastico.ai', password: 'Demo1234!', name: 'Free User', displayName: 'Demo', role: 'user' as const, plan: 'free' as const },
-  ]
+  // Never seed a known/default administrator password. Set a unique secret explicitly.
+  if (process.env.NODE_ENV === 'production' && process.env.ELASTICO_SEED_ALLOW_PRODUCTION !== 'true') {
+    throw new Error('Refusing to seed production without ELASTICO_SEED_ALLOW_PRODUCTION=true')
+  }
 
-  for (const u of users) {
-    const hash = await bcrypt.hash(u.password, 10)
+  const adminPassword = process.env.ELASTICO_SEED_ADMIN_PASSWORD
+  if (adminPassword) {
+    if (adminPassword.length < 16) {
+      throw new Error('ELASTICO_SEED_ADMIN_PASSWORD must be at least 16 characters')
+    }
+    const passwordHash = await bcrypt.hash(adminPassword, 12)
     await db.user.upsert({
-      where: { email: u.email },
-      update: { name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
-      create: { email: u.email, passwordHash: hash, name: u.name, displayName: u.displayName, role: u.role, plan: u.plan },
+      where: { email: 'admin@elastico.ai' },
+      update: {
+        name: 'ELASTICO Admin',
+        displayName: 'Admin',
+        role: 'admin',
+        plan: 'elite',
+        passwordHash,
+        provider: 'email',
+      },
+      create: {
+        email: 'admin@elastico.ai',
+        passwordHash,
+        name: 'ELASTICO Admin',
+        displayName: 'Admin',
+        role: 'admin',
+        plan: 'elite',
+        provider: 'email',
+      },
     })
-    console.log(`  User: ${u.email} (${u.plan})`)
+    console.log('  Administrator seeded using ELASTICO_SEED_ADMIN_PASSWORD')
+  } else {
+    console.log('  Administrator seed skipped; set ELASTICO_SEED_ADMIN_PASSWORD explicitly if needed')
+  }
+
+  // Public demo accounts are non-admin, reserved, and intentionally have no password login.
+  const demoUsers = [
+    { email: 'user@elastico.ai', name: 'Free Demo', displayName: 'Free Demo', plan: 'free' },
+    { email: 'pro@elastico.ai', name: 'Pro Demo', displayName: 'Pro Demo', plan: 'pro' },
+    { email: 'elite@elastico.ai', name: 'Elite Demo', displayName: 'Elite Demo', plan: 'elite' },
+  ] as const
+
+  for (const demo of demoUsers) {
+    await db.user.upsert({
+      where: { email: demo.email },
+      update: {
+        name: demo.name,
+        displayName: demo.displayName,
+        role: 'user',
+        plan: demo.plan,
+        provider: 'demo',
+        passwordHash: null,
+      },
+      create: {
+        email: demo.email,
+        name: demo.name,
+        displayName: demo.displayName,
+        role: 'user',
+        plan: demo.plan,
+        provider: 'demo',
+        passwordHash: null,
+      },
+    })
+    console.log(`  Demo user: ${demo.email} (${demo.plan})`)
   }
 
   console.log('\nSeed complete!')
