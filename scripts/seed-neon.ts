@@ -3,6 +3,12 @@ import { PrismaClient } from '@prisma/client'
 if (!process.env.DATABASE_URL) {
   throw new Error('Set DATABASE_URL in the environment before running this script')
 }
+if (process.env.ELASTICO_SEED_ALLOW_REMOTE !== 'true') {
+  throw new Error('Refusing remote seeding without ELASTICO_SEED_ALLOW_REMOTE=true')
+}
+if (process.env.NODE_ENV === 'production' && process.env.ELASTICO_SEED_ALLOW_PRODUCTION !== 'true') {
+  throw new Error('Refusing production seeding without ELASTICO_SEED_ALLOW_PRODUCTION=true')
+}
 
 const prisma = new PrismaClient({
   datasources: { db: { url: process.env.DATABASE_URL } },
