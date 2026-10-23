@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Required by the package build script and container deployment target.
+  output: "standalone",
   typescript: {
     ignoreBuildErrors: false,
   },
