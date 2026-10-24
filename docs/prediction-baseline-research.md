@@ -16,6 +16,7 @@ The Elo experiment requires Python 3.10+ and no third-party packages. The Poisso
 python scripts/train_openfootball_baseline.py
 python -m pip install numpy scipy
 python scripts/train_openfootball_poisson.py
+python scripts/benchmark_openfootball_market.py
 ```
 
 Optional Elo-only run:
@@ -28,7 +29,7 @@ Outputs are written under `artifacts/openfootball-elo/`:
 - `holdout_predictions.json` — timestamped fixture-by-fixture holdout probabilities and ratings.
 - `elo_ratings.json` — sequentially updated final ratings.
 
-The Poisson experiment writes `artifacts/openfootball-poisson/metrics.json` and `holdout_predictions.json`, plus `trained_poisson_model.json`. The model artifact is research output and is not wired into production inference until its holdout results and runtime integration are reviewed.
+The Poisson experiment writes `artifacts/openfootball-poisson/metrics.json` and `holdout_predictions.json`, plus `trained_poisson_model.json`. The market diagnostic writes `artifacts/openfootball-market-comparison/metrics.json`. It compares only exact overlaps against TipsAudit's CC-BY-4.0 fair probabilities and marks small samples as insufficient; this is not an exhaustive market benchmark. Credit TipsAudit and link to [its dataset](https://tipsaudit.com/data). Model artifacts are research outputs and are not wired into production inference until their holdout results and runtime integration are reviewed.
 
 ## Method and limitations
 - Data is sorted chronologically and split on unique dates, so one calendar date cannot appear in both training and test. The Elo holdout is walk-forward; the Poisson model is fitted only on the training period and does not update from holdout results.
