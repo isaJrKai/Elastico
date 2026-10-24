@@ -1,7 +1,7 @@
 # ELASTICO prediction baseline research
 
 ## Why this exists
-The live web endpoint is a statistical baseline, not a trained machine-learning model. This reproducible experiment downloads public historical match results, fits sequential Elo ratings and evaluates them on a later chronological holdout. It compares Elo with a simple training-frequency baseline. It deliberately does not claim betting profitability.
+The live web endpoint is a statistical baseline, not a trained machine-learning model. The reproducible experiments download public historical match results, fit sequential Elo ratings and a regularized team-attack/defence Poisson model, then evaluate them on a later chronological holdout. Both are compared with a simple training-frequency baseline. It deliberately does not claim betting profitability.
 
 ## Data source and licensing
 - Source: [OpenFootball football.json](https://github.com/openfootball/football.json)
@@ -10,7 +10,7 @@ The live web endpoint is a statistical baseline, not a trained machine-learning 
 - No xG, injuries, player features, odds, or other fields are fabricated. The experiment uses dates, teams, and full-time scores only.
 
 ## Run
-Requires Python 3.10+ and no third-party Python packages.
+The Elo experiment requires Python 3.10+ and no third-party packages. The Poisson experiment additionally uses NumPy and SciPy (both free, open-source libraries).
 
 ```bash
 python scripts/train_openfootball_baseline.py
@@ -26,8 +26,10 @@ Outputs are written under `artifacts/openfootball-elo/`:
 - `holdout_predictions.json` — timestamped fixture-by-fixture holdout probabilities and ratings.
 - `elo_ratings.json` — sequentially updated final ratings.
 
+The Poisson experiment writes `artifacts/openfootball-poisson/metrics.json` and `holdout_predictions.json`, plus `trained_poisson_model.json`. The model artifact is research output and is not wired into production inference until its holdout results and runtime integration are reviewed.
+
 ## Method and limitations
-- Data is sorted chronologically; the earliest 80% is the rating warm-up/training period and the latest 20% is a sequential holdout.
+- Data is sorted chronologically and split on unique dates, so one calendar date cannot appear in both training and test. The Elo holdout is walk-forward; the Poisson model is fitted only on the training period and does not update from holdout results.
 - Each holdout fixture is predicted before that match's result updates the Elo ratings. This is a walk-forward evaluation, not random splitting.
 - Draw probability is estimated only from the training period.
 - Leagues are kept separate in team rating keys.
