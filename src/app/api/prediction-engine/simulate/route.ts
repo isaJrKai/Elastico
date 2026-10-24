@@ -139,6 +139,10 @@ export async function POST(request: NextRequest) {
         config: fullConfig,
         engineInfo: {
           model: 'ELASTICO Merton Jump-Diffusion v3.0',
+          trainingStatus: 'not-trained; stochastic simulation uses supplied match inputs',
+          calibrationStatus: input.historicalResiduals &&
+            input.historicalResiduals.home.length >= 20 && input.historicalResiduals.away.length >= 20
+              ? 'residual-history-available' : 'default-parameters-no-sufficient-residual-history',
           simulationRuns: fullConfig.simulationRuns,
           garchEnabled: fullConfig.garchEnabled,
           jumpDiffusionEnabled: fullConfig.jumpDiffusionEnabled,
@@ -156,6 +160,10 @@ export async function POST(request: NextRequest) {
       config: fullConfig,
       engineInfo: {
         model: 'ELASTICO Merton Jump-Diffusion v3.0',
+        trainingStatus: 'not-trained; stochastic simulation uses supplied match inputs',
+        calibrationStatus: input.historicalResiduals &&
+          input.historicalResiduals.home.length >= 20 && input.historicalResiduals.away.length >= 20
+            ? 'residual-history-available' : 'default-parameters-no-sufficient-residual-history',
         features: [
           'GARCH(1,1) Volatility Calibration',
           'Merton Jump-Diffusion Process',
