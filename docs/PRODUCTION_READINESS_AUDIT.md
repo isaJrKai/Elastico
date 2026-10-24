@@ -30,6 +30,7 @@ A feature is only marked **PASS** after the real user journey and its backend/da
 | ID | Severity | Area | Finding | Action/status |
 |---|---|---|---|---|
 | DATA-001 | P1 | Match export | ESPN fallback previously converted unknown scores to 0, which could falsely export an upcoming fixture as 0–0. | Fixed in candidate: unknown scores remain blank. |
+| PRED-013 | P1 | Stochastic API input integrity | Optional opening odds, historical residuals and team IDs were not fully validated. | Fixed in candidate: bounded validation added; needs automated tests and CI verification. |
 | SEC-001 | P1 | CSV export | Exported untrusted strings were not protected against spreadsheet formula injection. | Fixed in candidate: string cells beginning with formula-like prefixes are neutralized and CSV escaping handles CR/LF. Needs automated tests. |
 | FEAT-001 | P2 | Social/community | `SocialView` is a deliberate feature stub; discussions, sharing, profiles and trending topics are not implemented. | OPEN: keep visibly marked as under development or implement persistence/API before marketing the feature. |
 | FEAT-002 | P2 | Scheduled reports/export UI | Scheduled report automation and bulk export are explicitly marked coming soon. Export API currently exports at most 500 records per category and does not apply meaningful filters. | OPEN: either finish and test scheduled/bulk exports or remove/disable unsupported controls and disclose limits. |
@@ -48,7 +49,7 @@ A feature is only marked **PASS** after the real user journey and its backend/da
 
 - Vercel team access was authorized by the user.
 - Latest ready preview deployment observed: commit `7138db3639b257fa9aef08b2de7593eedb88d75d`.
-- Latest candidate code commit checked: `5b9589fa31cee1f04263c79d399b5c2b6e66ecf0`; it is newer than the ready preview.
+- Candidate code continues to change after the latest ready preview; that preview is not evidence that current fixes are deployed.
 - The fixes listed above are newer than that deployment and are **not yet verified in the running preview**.
 - Vercel status checks for the candidate still report `upgradeToPro=build-rate-limit`; this blocks reliable automatic preview updates. Do not promote or merge to production to work around it.
 - Added unit tests for stochastic probability normalization, observed-goal provenance, 1X2-only Kelly outputs, Dixon–Coles score-grid normalization/symmetry, and ELO updates.
