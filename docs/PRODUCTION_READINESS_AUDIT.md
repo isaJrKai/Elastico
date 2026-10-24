@@ -21,14 +21,17 @@ A feature is only marked **PASS** after the real user journey and its backend/da
 | PRED-007 | P1 | Prediction quality | Main predictions use manually curated team-rating priors; response labels forecasts `UNVALIDATED_HEURISTIC` and `calibrated: false`. | OPEN: obtain a reliable, versioned rating/history source and run out-of-sample backtests before describing forecasts as validated. |
 | PRED-008 | P1 | Prediction Engine UI | Core xG/ELO inputs are manual when trustworthy source data is absent; no complete match-input pipeline exists yet. | PARTIAL: xG auto-fills only when source class is REAL/DERIVED; goals-conceded rates derive from standings when possible; ELO remains explicitly manual. Build the canonical match-to-input pipeline next. |
 | PRED-009 | P1 | Model validation | No current evidence yet of a reproducible held-out backtest for the production prediction path. | OPEN: create dataset/version manifest, time-based train/test split, calibration metrics (log loss, Brier, reliability), and baseline comparisons. |
+| PRED-010 | P1 | ELO updates | `calculateElo` previously assumed a home win when returning post-match ratings, even when no result was known. | Fixed in candidate: ratings remain unchanged for a forecast; update only when an actual outcome is explicitly provided. Unit test added. |
 
 ## Deployment status at last check
 
 - Vercel team access was authorized by the user.
 - Latest ready preview deployment observed: commit `7138db3639b257fa9aef08b2de7593eedb88d75d`.
+- Latest candidate code commit checked: `4786d50751860c298f55f49dd79b3e0fc18f414d`; it is newer than the ready preview.
 - The fixes listed above are newer than that deployment and are **not yet verified in the running preview**.
 - Vercel status checks for the candidate still report `upgradeToPro=build-rate-limit`; this blocks reliable automatic preview updates. Do not promote or merge to production to work around it.
-- GitHub production-readiness and dependency-remediation runs were pending at the last check. No green result has been claimed for the latest fixes.
+- Added unit tests for stochastic probability normalization, observed-goal provenance, 1X2-only Kelly outputs, Dixon–Coles score-grid normalization/symmetry, and ELO updates.
+- GitHub production-readiness and dependency-remediation runs remain pending with no jobs reported at the last check. No green result has been claimed for the latest fixes.
 
 ## Required end-to-end audit matrix
 
