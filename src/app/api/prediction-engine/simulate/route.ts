@@ -59,6 +59,40 @@ export async function POST(request: NextRequest) {
 
     // A probability simulation does not require betting-market inputs. Only the
     // full analysis/Kelly path may consume bookmaker odds or a bankroll.
+    const optionalNumericInputs: Array<[string, unknown, number, number]> = [
+      ['homeActualGoalsPerGame', matchInput.homeActualGoalsPerGame, 0, 10],
+      ['awayActualGoalsPerGame', matchInput.awayActualGoalsPerGame, 0, 10],
+    ]
+    for (const [field, raw, min, max] of optionalNumericInputs) {
+      if (raw !== undefined && (typeof raw !== 'number' || !Number.isFinite(raw) || raw < min || raw > max)) {
+        return NextResponse.json({ error: `${field} must be a finite number between ${min} and ${max}` }, { status: 400 })
+      }
+    }
+    for (const [field, raw] of [['homeSampleSize', matchInput.homeSampleSize], ['awaySampleSize', matchInput.awaySampleSize]] as const) {
+      if (raw !== undefined && (!Number.isInteger(raw) || (raw as number) < 1 || (raw as number) > 1000)) {
+        return NextResponse.json({ error: `${field} must be an integer between 1 and 1000` }, { status: 400 })
+      }
+    }
+    if (matchInput.correlation !== undefined &&
+      (typeof matchInput.correlation !== 'number' || !Number.isFinite(matchInput.correlation) || matchInput.correlation < -0.5 || matchInput.correlation > 0.5)) {
+      return NextResponse.json({ error: 'correlation must be a finite number between -0.5 and 0.5' }, { status: 400 })
+    }
+    if (matchInput.injuries !== undefined) {
+      if (!Array.isArray(matchInput.injuries) || matchInput.injuries.length > 50) {
+        return NextResponse.json({ error: 'injuries must be an array containing at most 50 entries' }, { status: 400 })
+      }
+      const validStatuses = new Set(['out', 'doubtful', 'questionable'])
+      const validImportance = new Set(['star', 'key', 'rotation'])
+      for (const injury of matchInput.injuries) {
+        if (!injury || typeof injury.teamId !== 'string' || injury.teamId.length > 128 ||
+          typeof injury.playerName !== 'string' || injury.playerName.length > 120 ||
+          !validStatuses.has(injury.status) || !validImportance.has(injury.importance) ||
+          typeof injury.xgImpact !== 'number' || !Number.isFinite(injury.xgImpact) || injury.xgImpact < 0 || injury.xgImpact > 0.5) {
+          return NextResponse.json({ error: 'Each injury must have a teamId, playerName, supported status/importance, and xgImpact between 0 and 0.5' }, { status: 400 })
+        }
+      }
+    }
+
     if (mode === 'full') {
       if (typeof bankroll !== 'number' || !Number.isFinite(bankroll) || bankroll < 0.01 || bankroll > 1_000_000_000) {
         return NextResponse.json({ error: 'bankroll must be a finite number between 0.01 and 1000000000' }, { status: 400 })
