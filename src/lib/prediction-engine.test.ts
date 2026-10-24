@@ -9,6 +9,7 @@ import {
   type EngineConfig,
   type MatchInput,
 } from './prediction-engine'
+import { dixonColesFromLambdas } from './predictions'
 
 const input: MatchInput = {
   homeTeam: 'Home FC',
@@ -107,4 +108,13 @@ test('full analysis does not invent totals-market odds from home-win odds', () =
   for (const outcome of result.portfolioAllocation?.outcomes ?? []) {
     assert.ok(outcome.wagerAmount <= 50)
   }
+})
+
+test('Dixon-Coles adapter accepts expected-goal lambdas and returns valid probabilities', () => {
+  const result = dixonColesFromLambdas(1.6, 1.1)
+  for (const value of [result.homeWinProb, result.drawProb, result.awayWinProb]) {
+    assert.ok(Number.isFinite(value))
+    assert.ok(value >= 0 && value <= 1)
+  }
+  assert.ok(Math.abs(result.homeWinProb + result.drawProb + result.awayWinProb - 1) < 1e-9)
 })
