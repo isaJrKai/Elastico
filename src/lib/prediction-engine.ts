@@ -112,6 +112,10 @@ export interface MatchInput {
   awayTeamId?: string
   homeXg: number        // Historical expected goals per game
   awayXg: number
+  homeActualGoalsPerGame?: number // Observed historical goals/game for luck adjustment; omit when unavailable
+  awayActualGoalsPerGame?: number
+  homeSampleSize?: number // Number of matches represented by the historical averages
+  awaySampleSize?: number
   homeGoalsConceded: number
   awayGoalsConceded: number
   homeElo: number
@@ -681,8 +685,6 @@ export interface FullMatchAnalysis {
     home: KellyResult
     draw: KellyResult
     away: KellyResult
-    over25: KellyResult
-    under25: KellyResult
   }
   portfolioAllocation?: PortfolioAllocation
   marketSignal: MarketSignal | null
@@ -710,17 +712,16 @@ export function runFullMatchAnalysis(
    * 6. Produce final recommendation
    */
 
-  // Step 1: Luck adjustment
-  const homeLuck = adjustForLuck(
-    input.homeXg * 1.1, // Approximate actual goals from xG
-    input.homeXg
-  )
-  const awayLuck = adjustForLuck(
-    input.awayXg * 0.9,
-    input.awayXg
-  )
+  // Step 1: Adjust for observed finishing luck only when actual historical goals
+  // are supplied. Never invent observed goals by multiplying xG by arbitrary factors.
+  const homeLuck = typeof input.homeActualGoalsPerGame === 'number'
+    ? adjustForLuck(input.homeActualGoalsPerGame, input.homeXg, input.homeSampleSize ?? 10)
+    : { luckAdjustedGoals: input.homeXg, luckFactor: 1 }
+  const awayLuck = typeof input.awayActualGoalsPerGame === 'number'
+    ? adjustForLuck(input.awayActualGoalsPerGame, input.awayXg, input.awaySampleSize ?? 10)
+    : { luckAdjustedGoals: input.awayXg, luckFactor: 1 }
 
-  // Step 2: Run simulation with luck-adjusted inputs
+  // Step 2: Apply evidence-based adjustments; without observed goals, use xG unchanged.
   const adjustedInput: MatchInput = {
     ...input,
     homeXg: homeLuck.luckAdjustedGoals,
@@ -745,18 +746,6 @@ export function runFullMatchAnalysis(
     away: calculateKelly(
       simulation.matchProbabilities.awayVictory,
       input.bookmakerOdds.away,
-      bankroll,
-      config.kellyFraction
-    ),
-    over25: calculateKelly(
-      simulation.totalsMarket.over25,
-      input.bookmakerOdds.home * 0.9, // Approximate over/under odds
-      bankroll,
-      config.kellyFraction
-    ),
-    under25: calculateKelly(
-      simulation.totalsMarket.under25,
-      input.bookmakerOdds.home * 1.1,
       bankroll,
       config.kellyFraction
     ),
