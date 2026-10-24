@@ -396,7 +396,7 @@ export default function PredictionEngineView() {
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(t.xgTruthClass === 'REAL' ? String(t.xgPerGame ?? '') : '') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -407,7 +407,7 @@ export default function PredictionEngineView() {
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(t.xgTruthClass === 'REAL' ? String(t.xgPerGame ?? '') : '') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -436,7 +436,7 @@ export default function PredictionEngineView() {
                     </div>
                   </div>
                   <Separator className="bg-zinc-800/50" />
-                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(enter current market odds — pre-filled values are examples only)</span></p>
+                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(optional — leave all blank to disable Kelly calculations)</span></p>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <Label className="text-xs text-emerald-400">Home</Label>
