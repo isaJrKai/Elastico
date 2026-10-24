@@ -38,8 +38,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install locked dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install locked dependencies, including CI development tools
+        run: npm install --legacy-peer-deps --include=dev
 
       - name: Validate Prisma schema
         run: npx prisma validate
