@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     if (mode === 'portfolio') {
       const outcomes = body.outcomes
       const bankroll = body.bankroll ?? 1000
-      const correlationMatrix = body.correlationMatrix
+      const correlationMatrix = body.correlationMatrix as number[][] | undefined
       if (!Array.isArray(outcomes) || outcomes.length < 1 || outcomes.length > 20) {
         return NextResponse.json({ error: 'outcomes must be an array containing 1 to 20 items' }, { status: 400 })
       }
