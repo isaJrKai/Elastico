@@ -168,8 +168,35 @@ def main() -> None:
         raise SystemExit("No holdout fixtures matched fitted league models.")
     metrics = {key: value / evaluated for key, value in metrics.items()}
 
-    # Run Elo on the same dataset/split for a like-for-like benchmark.
+    # Run Elo on the same dataset/split for a like-for-like benchmark, then evaluate
+    # a fixed 50/50 blend without tuning weights on the holdout.
     elo_metrics = evaluate_elo(matches, args.elo_output)
+    elo_holdout = json.loads((args.elo_output / "holdout_predictions.json").read_text(encoding="utf-8"))
+    elo_by_key = {(item["date"][:10], item["home"], item["away"]): item for item in elo_holdout}
+    blend_totals = {"log_loss": 0.0, "brier": 0.0, "correct": 0.0}
+    blend_predictions = []
+    for item in predictions:
+        elo_item = elo_by_key.get((item["date"][:10], item["home"], item["away"]))
+        if not elo_item:
+            continue
+        elo_probs = [elo_item["probabilities"][key] for key in ("home", "draw", "away")]
+        poisson_probs = [item["probabilities"][key] for key in ("home", "draw", "away")]
+        blended = [(elo_prob + poisson_prob) / 2 for elo_prob, poisson_prob in zip(elo_probs, poisson_probs)]
+        actual = {"home": 0, "draw": 1, "away": 2}[item["actual"]]
+        score = score_prediction(blended, actual)
+        for key in blend_totals:
+            blend_totals[key] += float(score[key])
+        blend_predictions.append({
+            "date": item["date"], "league": item["league"], "home": item["home"], "away": item["away"],
+            "actual": item["actual"],
+            "probabilities": {"home": blended[0], "draw": blended[1], "away": blended[2]},
+        })
+    blend_metrics = {
+        "log_loss": blend_totals["log_loss"] / max(1, len(blend_predictions)),
+        "multiclass_brier_score": blend_totals["brier"] / max(1, len(blend_predictions)),
+        "accuracy": blend_totals["correct"] / max(1, len(blend_predictions)),
+        "matches": len(blend_predictions),
+    }
     result = {
         "dataset": "OpenFootball football.json",
         "trainMatches": len(train),
@@ -178,6 +205,7 @@ def main() -> None:
         "trainDateRange": [train[0]["date"], train[-1]["date"]],
         "testDateRange": [test[0]["date"], test[-1]["date"]],
         "poisson": metrics,
+        "fixed50_50_elo_poisson_blend": blend_metrics,
         "elo": elo_metrics["elo"],
         "trainingFrequencyBaseline": elo_metrics["trainingFrequencyBaseline"],
         "regularization": REGULARIZATION,
@@ -186,6 +214,7 @@ def main() -> None:
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "metrics.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     (args.output / "holdout_predictions.json").write_text(json.dumps(predictions, indent=2), encoding="utf-8")
+    (args.output / "fixed50_50_blend_predictions.json").write_text(json.dumps(blend_predictions, indent=2), encoding="utf-8")
     model_artifact = {
         "model": "regularized-team-attack-defence-poisson",
         "trainedThroughDate": train[-1]["date"],
