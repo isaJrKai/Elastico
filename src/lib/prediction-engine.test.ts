@@ -4,6 +4,7 @@ import {
   applyInjuryAdjustments,
   calculateKelly,
   calibrateGARCH,
+  runFullMatchAnalysis,
   runStochasticSimulation,
   type EngineConfig,
   type MatchInput,
@@ -81,5 +82,17 @@ test('Kelly returns no wager when model probability does not exceed implied prob
 test('Kelly output stays finite for a positive edge', () => {
   const result = calculateKelly(0.6, 2.2, 1000, 0.25)
   assert.ok(Number.isFinite(result.suggestedWager))
-  assert.ok(result.suggestedWager >= 0 && result.suggestedWager <= 1000)
+  assert.ok(result.suggestedWager >= 0 && result.suggestedWager <= 50)
+})
+
+test('full analysis does not invent observed goals from xG', () => {
+  const result = runFullMatchAnalysis(input, 1000, undefined, config)
+  assert.equal(result.matchInput.homeXg, input.homeXg)
+  assert.equal(result.matchInput.awayXg, input.awayXg)
+  assert.equal(result.luckAdjustment, null)
+})
+
+test('fractional Kelly exposure is capped at the configured maximum risk', () => {
+  const result = calculateKelly(0.9, 5, 1000, 1, 0.03)
+  assert.ok(result.suggestedWager <= 30)
 })
