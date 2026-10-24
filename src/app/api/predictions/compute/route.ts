@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       // ELO probabilities are computed from persisted ratings, with neutral ratings
       // only when team history is missing. Goal lambdas use observed goals per match
       // when both teams have historical counts; otherwise use an explicitly marked baseline.
-      const elo: EloResult = calculateElo(homeElo, awayElo, 20, 0)
+      const elo: EloResult = calculateElo(homeElo, awayElo, 20, 65)
       const homeAttack = homeHistoryAvailable ? storedHome!.goalsFor / homePlayed : 1.35
       const homeDefence = homeHistoryAvailable ? storedHome!.goalsAgainst / homePlayed : 1.35
       const awayAttack = awayHistoryAvailable ? storedAway!.goalsFor / awayPlayed : 1.35
