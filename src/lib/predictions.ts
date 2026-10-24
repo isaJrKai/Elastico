@@ -281,6 +281,7 @@ export function calculateElo(
   awayElo: number,
   K: number = 40,
   homeAdvantage: number = 65,
+  actualOutcome?: 'home' | 'draw' | 'away',
 ): EloResult {
   const eloDiff = homeElo + homeAdvantage - awayElo;
 
@@ -320,13 +321,16 @@ export function calculateElo(
     3.5,
   );
 
-  // Assume a home win for demonstration of new ratings
-  const homeEloNew = Math.round(
-    homeElo + K * (1 - expectedHome),
-  );
-  const awayEloNew = Math.round(
-    awayElo + K * (0 - expectedAway),
-  );
+  // Only update ratings when the actual match outcome is known. A forecast
+  // must never imply that a home win already happened.
+  const actualHomeScore = actualOutcome === 'home' ? 1 : actualOutcome === 'draw' ? 0.5 : actualOutcome === 'away' ? 0 : null;
+  const actualAwayScore = actualHomeScore === null ? null : 1 - actualHomeScore;
+  const homeEloNew = actualHomeScore === null
+    ? homeElo
+    : Math.round(homeElo + K * (actualHomeScore - expectedHome));
+  const awayEloNew = actualAwayScore === null
+    ? awayElo
+    : Math.round(awayElo + K * (actualAwayScore - expectedAway));
 
   return {
     homeProb,
