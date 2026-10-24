@@ -64,6 +64,30 @@ export async function POST(request: NextRequest) {
     if (matchInput.correlation !== undefined && !isFiniteIn(matchInput.correlation, -0.95, 0.95)) {
       return NextResponse.json({ error: 'correlation must be between -0.95 and 0.95' }, { status: 400 })
     }
+    if (config.garchEnabled !== undefined && typeof config.garchEnabled !== 'boolean') {
+      return NextResponse.json({ error: 'garchEnabled must be a boolean' }, { status: 400 })
+    }
+    if (config.jumpDiffusionEnabled !== undefined && typeof config.jumpDiffusionEnabled !== 'boolean') {
+      return NextResponse.json({ error: 'jumpDiffusionEnabled must be a boolean' }, { status: 400 })
+    }
+    if (matchInput.historicalResiduals !== undefined) {
+      const residuals = matchInput.historicalResiduals
+      if (!residuals || !Array.isArray(residuals.home) || !Array.isArray(residuals.away) ||
+          residuals.home.length > 500 || residuals.away.length > 500 ||
+          [...residuals.home, ...residuals.away].some(value => !isFiniteIn(value, -20, 20))) {
+        return NextResponse.json({ error: 'historicalResiduals must contain at most 500 finite values per team, each between -20 and 20' }, { status: 400 })
+      }
+    }
+    if (matchInput.injuries !== undefined) {
+      if (!Array.isArray(matchInput.injuries) || matchInput.injuries.length > 50 ||
+          matchInput.injuries.some(injury => !injury || typeof injury.teamId !== 'string' ||
+            typeof injury.playerName !== 'string' ||
+            !['out', 'doubtful', 'questionable'].includes(injury.status) ||
+            !['star', 'key', 'rotation'].includes(injury.importance) ||
+            !isFiniteIn(injury.xgImpact, 0, 1))) {
+        return NextResponse.json({ error: 'injuries must contain at most 50 valid entries with xgImpact between 0 and 1' }, { status: 400 })
+      }
+    }
     if (matchInput.bookmakerOdds !== undefined && matchInput.bookmakerOdds !== null) {
       const odds = matchInput.bookmakerOdds
       if (!odds || !isFiniteIn(odds.home, 1.01, 1000) || !isFiniteIn(odds.draw, 1.01, 1000) || !isFiniteIn(odds.away, 1.01, 1000)) {
@@ -157,7 +181,8 @@ export async function GET() {
   return NextResponse.json({
     engine: 'ELASTICO Stochastic Prediction Engine',
     version: '3.0',
-    status: 'operational',
+    status: 'available',
+    validationStatus: 'not-yet-independently-validated',
     capabilities: [
       'Merton Jump-Diffusion Simulation',
       'GARCH(1,1) Volatility Calibration',
