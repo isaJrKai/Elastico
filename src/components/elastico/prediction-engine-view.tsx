@@ -150,6 +150,8 @@ export default function PredictionEngineView() {
   // ── Run simulation ────────────────────────────────────────────────────────────
   const runSimulation = useCallback(async () => {
     if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
+    if (homeTeamId === awayTeamId) { toast.error('Choose two different teams'); return }
+
     const requiredNumbers = [
       ['Home xG', homeXg, 0, 10],
       ['Away xG', awayXg, 0, 10],
@@ -157,10 +159,6 @@ export default function PredictionEngineView() {
       ['Away goals conceded per game', awayGoalsConceded, 0, 10],
       ['Home ELO', homeElo, 500, 3000],
       ['Away ELO', awayElo, 500, 3000],
-      ['Home odds', oddsHome, 1.01, 100],
-      ['Draw odds', oddsDraw, 1.01, 100],
-      ['Away odds', oddsAway, 1.01, 100],
-      ['Bankroll', bankroll, 0.01, 1000000000],
     ] as const
     for (const [label, raw, min, max] of requiredNumbers) {
       const value = Number(raw)
@@ -169,6 +167,21 @@ export default function PredictionEngineView() {
         return
       }
     }
+
+    const odds = [oddsHome, oddsDraw, oddsAway]
+    const allOddsBlank = odds.every(raw => raw.trim() === '')
+    const allOddsValid = odds.every(raw => raw.trim() !== '' && Number.isFinite(Number(raw)) && Number(raw) > 1 && Number(raw) <= 100)
+    const hasBankroll = bankroll.trim() !== '' && Number.isFinite(Number(bankroll)) && Number(bankroll) >= 0.01 && Number(bankroll) <= 1_000_000_000
+
+    // Never substitute home-win odds for totals odds or imply market analysis without real inputs.
+    const simulationOnly = allOddsBlank && bankroll.trim() === ''
+    if (!simulationOnly && (!allOddsValid || !hasBankroll)) {
+      toast.error('Incomplete market inputs', {
+        description: 'For probability-only simulation, leave all three odds and bankroll blank. For full analysis, enter valid home/draw/away decimal odds and a bankroll.',
+      })
+      return
+    }
+
     setSimulating(true)
     try {
       const input: MatchInput = {
@@ -176,22 +189,48 @@ export default function PredictionEngineView() {
         homeTeamId, awayTeamId, homeXg: +homeXg, awayXg: +awayXg,
         homeGoalsConceded: +homeGoalsConceded, awayGoalsConceded: +awayGoalsConceded,
         homeElo: +homeElo, awayElo: +awayElo,
-        bookmakerOdds: { home: +oddsHome, draw: +oddsDraw, away: +oddsAway },
+        bookmakerOdds: simulationOnly ? undefined : { home: +oddsHome, draw: +oddsDraw, away: +oddsAway },
         injuries: injuries.length ? injuries : undefined,
       }
       const res = await fetch('/api/prediction-engine/simulate', {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify({ matchInput: input, config: { simulationRuns: +simRuns }, bankroll: +bankroll }),
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          matchInput: input,
+          config: { simulationRuns: +simRuns },
+          ...(simulationOnly ? { mode: 'simulation-only' } : { bankroll: +bankroll, mode: 'full' }),
+        }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Simulation failed' }))
         throw new Error(err.error || 'Simulation failed')
       }
       const json = await res.json()
-      const data: FullMatchAnalysis = json.data || json
-      setAnalysis(data)
-      toast.success('Simulation complete', { icon: <Sparkles className="text-primary" /> })
-    } catch (e: any) {
-      toast.error(e.message || 'Simulation error')
+      if (simulationOnly) {
+        const simulation = json.data
+        if (!simulation?.matchProbabilities || !simulation?.expectedMeans) {
+          throw new Error('The prediction service returned an incomplete simulation result.')
+        }
+        setAnalysis({
+          matchInput: input,
+          simulation,
+          marketSignal: null,
+          luckAdjustment: {
+            home: { luckAdjustedGoals: +homeXg, luckFactor: 1 },
+            away: { luckAdjustedGoals: +awayXg, luckFactor: 1 },
+          },
+          recommendation: 'Probability-only simulation. No bookmaker odds were supplied, so market edge and betting allocation are unavailable.',
+          riskRating: simulation.volatilityIndex > 70 ? 'very-high' : simulation.volatilityIndex > 50 ? 'high' : simulation.volatilityIndex > 30 ? 'medium' : 'low',
+        })
+        toast.success('Probability simulation complete')
+      } else {
+        const data: FullMatchAnalysis = json.data || json
+        if (!data?.simulation?.matchProbabilities) throw new Error('The prediction service returned an incomplete analysis.')
+        setAnalysis(data)
+        toast.success('Full analysis complete', { icon: <Sparkles className="text-primary" /> })
+      }
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Simulation error')
     } finally {
       setSimulating(false)
     }
