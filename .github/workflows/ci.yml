@@ -2,9 +2,10 @@ name: Production readiness
 
 on:
   push:
-    branches: [main, 'production-readiness/**']
+    branches: [main, 'production-readiness/**', 'integration/release-candidate-**']
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
