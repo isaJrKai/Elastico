@@ -69,7 +69,7 @@ function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix 
     orange: 'bg-orange-500/10 text-orange-400',
   }
   return (
-    <Card className="rounded-lg border border-border bg-card rounded-lg border border-border bg-card-hover">
+    <Card className="rounded-xl border border-border bg-card transition-colors duration-150">
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1 min-w-0">
@@ -103,7 +103,7 @@ function SectionCard({ title, icon: Icon, children, className = '' }: { title: s
     <Card className={`rounded-lg border border-border bg-card  ${className}`}>
       <CardHeader className="pb-3 pt-4 px-4">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Icon className="h-4 w-4 text-emerald-400" />
+          <Icon className="h-4 w-4 text-primary" />
           {title}
         </CardTitle>
       </CardHeader>
@@ -115,7 +115,7 @@ function SectionCard({ title, icon: Icon, children, className = '' }: { title: s
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number; color?: string }>; label?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-border bg-card p-2 rounded-lg text-xs border border-border" style={tooltipContentStyle}>
+    <div className="rounded-lg border border-border bg-popover p-3 text-xs" style={tooltipContentStyle}>
       <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((p, i: number) => (
         <p key={i} className="flex items-center gap-1.5">
