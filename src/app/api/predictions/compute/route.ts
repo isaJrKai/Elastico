@@ -93,8 +93,13 @@ export async function GET(request: NextRequest) {
       const storedAway = findStoredTeam(m.awayTeam.name, awayAbbr)
       const homePlayed = (storedHome?.wins ?? 0) + (storedHome?.draws ?? 0) + (storedHome?.losses ?? 0)
       const awayPlayed = (storedAway?.wins ?? 0) + (storedAway?.draws ?? 0) + (storedAway?.losses ?? 0)
-      const homeHistoryAvailable = Boolean(storedHome && homePlayed > 0 && storedHome.source !== 'unknown')
-      const awayHistoryAvailable = Boolean(storedAway && awayPlayed > 0 && storedAway.source !== 'unknown')
+      const isRecentlySynced = (team: typeof storedTeams[number] | undefined) => {
+        if (!team?.lastSyncedAt) return false
+        const ageMs = Date.now() - team.lastSyncedAt.getTime()
+        return ageMs >= 0 && ageMs <= 180 * 24 * 60 * 60 * 1000
+      }
+      const homeHistoryAvailable = Boolean(storedHome && homePlayed > 0 && storedHome.source !== 'unknown' && isRecentlySynced(storedHome))
+      const awayHistoryAvailable = Boolean(storedAway && awayPlayed > 0 && storedAway.source !== 'unknown' && isRecentlySynced(storedAway))
       const homeElo = homeHistoryAvailable ? storedHome!.eloRating : 1500
       const awayElo = awayHistoryAvailable ? storedAway!.eloRating : 1500
 
@@ -147,6 +152,8 @@ export async function GET(request: NextRequest) {
           awayRatingSource: storedAway?.source ?? 'missing',
           homeMatchesObserved: homePlayed,
           awayMatchesObserved: awayPlayed,
+          homeLastSyncedAt: storedHome?.lastSyncedAt?.toISOString() ?? null,
+          awayLastSyncedAt: storedAway?.lastSyncedAt?.toISOString() ?? null,
         },
         ensemble,
         elo: { home: Math.round(elo.homeProb * 1000) / 10, draw: Math.round(elo.drawProb * 1000) / 10, away: Math.round(elo.awayProb * 1000) / 10, expHome: homeLambda.toFixed(2), expAway: awayLambda.toFixed(2) },
