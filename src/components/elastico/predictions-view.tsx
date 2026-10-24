@@ -493,8 +493,10 @@ export default function PredictionsView() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              ELO + Poisson + Dixon-Coles. Data source: ESPN live scores.
-              Stochastic model available in the Prediction Engine view with real odds inputs.
+              Statistical baseline: ELO + Poisson + Dixon-Coles (not a trained or independently validated ML model).
+              Fixtures come from the configured live source; team ratings and goals use stored team history when available.
+              Missing team history is explicitly flagged and falls back to neutral estimates. No profitability is implied.
+              Stochastic scenario analysis is separate and requires explicit historical xG; bookmaker odds are optional.
             </p>
           </CardHeader>
           <CardContent>
