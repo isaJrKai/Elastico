@@ -112,9 +112,10 @@ export default function PredictionEngineView() {
   const [awayXg, setAwayXg] = useState('')
   const [homeElo, setHomeElo] = useState('1850')
   const [awayElo, setAwayElo] = useState('1780')
-  const [oddsHome, setOddsHome] = useState('2.10')
-  const [oddsDraw, setOddsDraw] = useState('3.40')
-  const [oddsAway, setOddsAway] = useState('3.60')
+  // Blank by default: bookmaker prices must be entered from a real, current source.
+  const [oddsHome, setOddsHome] = useState('')
+  const [oddsDraw, setOddsDraw] = useState('')
+  const [oddsAway, setOddsAway] = useState('')
   const [bankroll, setBankroll] = useState('1000')
   const [simRuns, setSimRuns] = useState('150000')
   const [injuries, setInjuries] = useState<InjuryAdjustment[]>([])
@@ -153,14 +154,37 @@ export default function PredictionEngineView() {
   // ── Run simulation ────────────────────────────────────────────────────────────
   const runSimulation = useCallback(async () => {
     if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
+    const hXg = Number(homeXg), aXg = Number(awayXg)
+    const hElo = Number(effectiveHomeElo), aElo = Number(effectiveAwayElo)
+    if (!Number.isFinite(hXg) || hXg < 0.1 || hXg > 5 || !Number.isFinite(aXg) || aXg < 0.1 || aXg > 5) {
+      toast.error('Enter genuine historical xG values between 0.1 and 5 for both teams')
+      return
+    }
+    if (!Number.isFinite(hElo) || hElo < 500 || hElo > 3000 || !Number.isFinite(aElo) || aElo < 500 || aElo > 3000) {
+      toast.error('ELO ratings must be between 500 and 3000')
+      return
+    }
+    const oddsValues = [oddsHome, oddsDraw, oddsAway]
+    const oddsEntered = oddsValues.filter(v => v.trim() !== '').length
+    if (oddsEntered > 0 && oddsEntered < 3) {
+      toast.error('Enter all three current bookmaker odds, or leave all three blank')
+      return
+    }
+    const parsedOdds = oddsEntered === 3
+      ? { home: Number(oddsHome), draw: Number(oddsDraw), away: Number(oddsAway) }
+      : null
+    if (parsedOdds && Object.values(parsedOdds).some(v => !Number.isFinite(v) || v <= 1.01 || v > 1000)) {
+      toast.error('Bookmaker odds must be real decimal odds greater than 1.01 and no greater than 1000')
+      return
+    }
     setSimulating(true)
     try {
       const input: MatchInput = {
         homeTeam: homeTeam?.name ?? '', awayTeam: awayTeam?.name ?? '',
-        homeTeamId, awayTeamId, homeXg: +homeXg, awayXg: +awayXg,
-        homeGoalsConceded: +awayXg * 0.9, awayGoalsConceded: +homeXg * 0.9,
-        homeElo: +effectiveHomeElo || 1500, awayElo: +effectiveAwayElo || 1500,
-        bookmakerOdds: { home: +oddsHome, draw: +oddsDraw, away: +oddsAway },
+        homeTeamId, awayTeamId, homeXg: hXg, awayXg: aXg,
+        homeGoalsConceded: 0, awayGoalsConceded: 0,
+        homeElo: hElo, awayElo: aElo,
+        bookmakerOdds: parsedOdds,
         injuries: injuries.length ? injuries : undefined,
       }
       const res = await fetch('/api/prediction-engine/simulate', {
@@ -313,8 +337,9 @@ export default function PredictionEngineView() {
         <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
           <Brain className="w-6 h-6 text-emerald-400" />
         </div>
-        <div>
-<p className="text-sm text-zinc-500">Stochastic simulation • Kelly criterion • Market signals</p>
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-white">ELASTICO — Stochastic Scenario Analysis</h1>
+          <p className="text-sm text-zinc-500">Monte Carlo scenarios • Match probabilities • Market analysis when verified odds are supplied</p>
         </div>
       </div>
 
