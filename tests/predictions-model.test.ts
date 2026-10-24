@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { dixonColesFromExpectedGoals } from '../src/lib/predictions'
+import { calculateElo, dixonColesFromExpectedGoals } from '../src/lib/predictions'
 
 test('Dixon-Coles probabilities normalize and use the full score grid', () => {
   const result = dixonColesFromExpectedGoals(1.8, 0.9)
@@ -19,4 +19,14 @@ test('Dixon-Coles is symmetric for equal expected goals', () => {
 test('Dixon-Coles rejects invalid goal intensities rather than producing fake probabilities', () => {
   assert.throws(() => dixonColesFromExpectedGoals(Number.NaN, 1.2), /Expected goals/)
   assert.throws(() => dixonColesFromExpectedGoals(1.2, 0), /Expected goals/)
+})
+
+test('ELO ratings are not updated using an assumed home-win outcome', () => {
+  const forecast = calculateElo(1500, 1500)
+  assert.equal(forecast.homeEloNew, 1500)
+  assert.equal(forecast.awayEloNew, 1500)
+
+  const completedHomeWin = calculateElo(1500, 1500, 40, 65, 'home')
+  assert.ok(completedHomeWin.homeEloNew > 1500)
+  assert.ok(completedHomeWin.awayEloNew < 1500)
 })
