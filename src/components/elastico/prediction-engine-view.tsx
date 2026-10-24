@@ -105,6 +105,12 @@ export default function PredictionEngineView() {
   // ── Simulation state ──────────────────────────────────────────────────────────
   const [simulating, setSimulating] = useState(false)
   const [analysis, setAnalysis] = useState<FullMatchAnalysis | null>(null)
+  const [engineInfo, setEngineInfo] = useState<{
+    trainingStatus?: string
+    calibrationStatus?: string
+    simulationRuns?: number
+    computedAt?: string
+  } | null>(null)
 
   const [homeTeamId, setHomeTeamId] = useState('')
   const [awayTeamId, setAwayTeamId] = useState('')
@@ -197,6 +203,7 @@ export default function PredictionEngineView() {
       const json = await res.json()
       const data: FullMatchAnalysis = json.data || json
       setAnalysis(data)
+      setEngineInfo(json.engineInfo ?? null)
       toast.success('Simulation complete', { icon: <Sparkles className="text-emerald-400" /> })
     } catch (e: any) {
       toast.error(e.message || 'Simulation error')
@@ -553,6 +560,18 @@ export default function PredictionEngineView() {
                 </Card>
               ) : (
                 <>
+                  {/* Provenance and calibration disclosure */}
+                  <Card className="rounded-lg border border-amber-500/20 bg-amber-500/5">
+                    <CardContent className="p-3 space-y-1">
+                      <p className="text-xs font-semibold text-amber-300">Research status — not independently validated</p>
+                      <p className="text-xs text-zinc-400">
+                        {engineInfo?.trainingStatus ?? 'Stochastic simulation; no trained model is used by this endpoint.'}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        Calibration: {engineInfo?.calibrationStatus ?? 'Not reported'} · Runs: {engineInfo?.simulationRuns?.toLocaleString() ?? config.simulationRuns.toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
                   {/* Meta badges */}
                   <div className="flex items-center gap-3 flex-wrap">
                     <Badge className={cn('text-xs font-medium border', CONF_COLORS[analysis.simulation.confidence])}>
