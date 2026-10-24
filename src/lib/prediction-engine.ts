@@ -268,12 +268,11 @@ export function runStochasticSimulation(
   config: EngineConfig = DEFAULT_CONFIG
 ): StochasticMatchResult {
   /**
-   * Executes a high-iteration Monte Carlo simulation using a
-   * Bivariate Merton Jump-Diffusion Process with GARCH volatility scaling.
-   * 
-   * This models match outcomes as continuous stochastic differential
-   * processes interrupted by Poisson-distributed structural jumps,
-   * matching the methodology used by elite quantitative sports funds.
+   * Executes a Monte Carlo scenario simulation with optional GARCH-style
+   * volatility scaling and Poisson jump components. This is a heuristic
+   * scenario generator, not a trained or empirically validated match model.
+   * Its output must not be presented as a calibrated forecast or evidence of
+   * betting edge without a separate out-of-sample evaluation.
    */
   const { simulationRuns, garchEnabled, jumpDiffusionEnabled } = config
 
