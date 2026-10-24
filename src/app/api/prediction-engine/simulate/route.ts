@@ -77,6 +77,29 @@ export async function POST(request: NextRequest) {
       (typeof matchInput.correlation !== 'number' || !Number.isFinite(matchInput.correlation) || matchInput.correlation < -0.5 || matchInput.correlation > 0.5)) {
       return NextResponse.json({ error: 'correlation must be a finite number between -0.5 and 0.5' }, { status: 400 })
     }
+    if (matchInput.homeTeamId !== undefined && (typeof matchInput.homeTeamId !== 'string' || matchInput.homeTeamId.length > 128) ||
+        matchInput.awayTeamId !== undefined && (typeof matchInput.awayTeamId !== 'string' || matchInput.awayTeamId.length > 128)) {
+      return NextResponse.json({ error: 'Team IDs must be strings of at most 128 characters' }, { status: 400 })
+    }
+    if (matchInput.homeTeamId && matchInput.awayTeamId && matchInput.homeTeamId === matchInput.awayTeamId) {
+      return NextResponse.json({ error: 'Home and away teams must be different' }, { status: 400 })
+    }
+    if (openingOdds !== undefined && openingOdds !== null) {
+      if (typeof openingOdds !== 'object' || Array.isArray(openingOdds) ||
+        !Number.isFinite(openingOdds.home) || openingOdds.home <= 1 || openingOdds.home > 100 ||
+        !Number.isFinite(openingOdds.draw) || openingOdds.draw <= 1 || openingOdds.draw > 100 ||
+        !Number.isFinite(openingOdds.away) || openingOdds.away <= 1 || openingOdds.away > 100) {
+        return NextResponse.json({ error: 'openingOdds, when supplied, must contain finite decimal home/draw/away odds between 1 and 100' }, { status: 400 })
+      }
+    }
+    if (matchInput.historicalResiduals !== undefined) {
+      const residuals = matchInput.historicalResiduals
+      if (!residuals || !Array.isArray(residuals.home) || !Array.isArray(residuals.away) ||
+        residuals.home.length > 2000 || residuals.away.length > 2000 ||
+        [...residuals.home, ...residuals.away].some(v => typeof v !== 'number' || !Number.isFinite(v) || v < -10 || v > 10)) {
+        return NextResponse.json({ error: 'historicalResiduals must contain home/away arrays of at most 2000 finite values between -10 and 10' }, { status: 400 })
+      }
+    }
     if (matchInput.injuries !== undefined) {
       if (!Array.isArray(matchInput.injuries) || matchInput.injuries.length > 50) {
         return NextResponse.json({ error: 'injuries must be an array containing at most 50 entries' }, { status: 400 })
