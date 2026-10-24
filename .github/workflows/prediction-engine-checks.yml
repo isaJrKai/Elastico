@@ -12,6 +12,7 @@ on:
       - "src/components/elastico/predictions-view.tsx"
       - "scripts/train_openfootball_baseline.py"
       - "scripts/train_openfootball_poisson.py"
+      - "scripts/benchmark_openfootball_market.py"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/prediction-engine-checks.yml"
@@ -56,6 +57,9 @@ jobs:
       - name: Train and evaluate regularized Poisson model
         run: python scripts/train_openfootball_poisson.py
 
+      - name: Compare holdout predictions with licensed fair-market probabilities
+        run: python scripts/benchmark_openfootball_market.py
+
       - name: Upload baseline metrics and holdout predictions
         if: always()
         uses: actions/upload-artifact@v4
@@ -64,6 +68,7 @@ jobs:
           path: |
             artifacts/openfootball-elo/*.json
             artifacts/openfootball-poisson/*.json
+            artifacts/openfootball-market-comparison/*.json
           if-no-files-found: warn
 
       - name: TypeScript type check
