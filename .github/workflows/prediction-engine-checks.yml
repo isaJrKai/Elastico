@@ -1,0 +1,48 @@
+name: Prediction Engine Checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/lib/prediction-engine.ts"
+      - "src/lib/prediction-engine.test.ts"
+      - "src/app/api/prediction-engine/**"
+      - "src/app/api/predictions/compute/**"
+      - "src/components/elastico/prediction-engine-view.tsx"
+      - "src/components/elastico/predictions-view.tsx"
+      - "scripts/train_openfootball_baseline.py"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/prediction-engine-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  prediction-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Test prediction engine invariants
+        run: npm run test:prediction-engine
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Lint changed prediction surfaces
+        run: npx eslint src/lib/prediction-engine.ts src/lib/prediction-engine.test.ts src/app/api/prediction-engine/simulate/route.ts src/app/api/prediction-engine/kelly/route.ts src/app/api/predictions/compute/route.ts src/components/elastico/prediction-engine-view.tsx src/components/elastico/predictions-view.tsx
