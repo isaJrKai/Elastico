@@ -299,7 +299,7 @@ export function runStochasticSimulation(
     : { sigma: 0.20, jumpLambda: 0, jumpMu: 0, jumpSigma: 0 }
   const awayJd = jumpDiffusionEnabled
     ? extractJumpDiffusionParams(awayResiduals)
-    : { sigma: 0.20, jumpLambda: 0.05, jumpMu: 0, jumpSigma: 0.15 }
+    : { sigma: 0.20, jumpLambda: 0, jumpMu: 0, jumpSigma: 0 }
 
   // Step 5: Compute inter-team correlation
   const rho = input.correlation ?? 0.12
@@ -687,10 +687,11 @@ export interface FullMatchAnalysis {
   }
   portfolioAllocation?: PortfolioAllocation
   marketSignal: MarketSignal | null
+  // null when actual goals are unavailable; xG is never used as a fake goals proxy.
   luckAdjustment: {
     home: ReturnType<typeof adjustForLuck>
     away: ReturnType<typeof adjustForLuck>
-  }
+  } | null
   recommendation: string
   riskRating: 'low' | 'medium' | 'high' | 'very-high'
 }
@@ -728,7 +729,8 @@ export function runFullMatchAnalysis(
       simulation.matchProbabilities.draw,
       input.bookmakerOdds.draw,
       bankroll,
-      config.kellyFraction
+      config.kellyFraction,
+      config.maxBankrollRisk
     ),
     away: calculateKelly(
       simulation.matchProbabilities.awayVictory,
