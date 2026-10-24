@@ -48,10 +48,15 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: 'correlationMatrix must be a square matrix matching outcomes, with values between -1 and 1' }, { status: 400 })
         }
       }
+      // The core allocator's default matrix is 3x3. For 1-2 outcome portfolios,
+      // use an identity matrix unless the caller explicitly supplies correlations.
+      const effectiveCorrelationMatrix = correlationMatrix ??
+        (outcomes.length === 3 ? undefined : outcomes.map((_: unknown, i: number) =>
+          outcomes.map((__: unknown, j: number) => i === j ? 1 : 0)))
       const allocation: PortfolioAllocation = calculatePortfolioAllocation(
-        outcomes,
+        outcomes as { label: string; modelProb: number; odds: number }[],
         bankroll,
-        correlationMatrix
+        effectiveCorrelationMatrix
       )
       return NextResponse.json({ success: true, mode: 'portfolio', data: allocation })
     }
