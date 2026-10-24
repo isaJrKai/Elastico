@@ -25,6 +25,18 @@ A feature is only marked **PASS** after the real user journey and its backend/da
 | PRED-011 | P1 | Training data licensing | The candidate Hugging Face dataset declares CC BY 4.0, but its stated upstream sources include football-data.co.uk, whose site states its data is intended for private individuals and not commercial data-training products. | BLOCKED for commercial training/use until rights and upstream terms are confirmed. Do not ship a model trained on this data based only on the dataset-card license. |
 | PRED-012 | P1 | Trained model pipeline | A reproducible chronological training/evaluation script and manual GitHub Actions workflow have been added. No trained artifact or measured result exists yet. | OPEN: run the workflow for research evaluation only, inspect metrics/schema/coverage, resolve data rights, then implement and test live inference with explicit team-name mapping. |
 
+## Additional cross-feature audit findings
+
+| ID | Severity | Area | Finding | Action/status |
+|---|---|---|---|---|
+| DATA-001 | P1 | Match export | ESPN fallback previously converted unknown scores to 0, which could falsely export an upcoming fixture as 0–0. | Fixed in candidate: unknown scores remain blank. |
+| SEC-001 | P1 | CSV export | Exported untrusted strings were not protected against spreadsheet formula injection. | Fixed in candidate: string cells beginning with formula-like prefixes are neutralized and CSV escaping handles CR/LF. Needs automated tests. |
+| FEAT-001 | P2 | Social/community | `SocialView` is a deliberate feature stub; discussions, sharing, profiles and trending topics are not implemented. | OPEN: keep visibly marked as under development or implement persistence/API before marketing the feature. |
+| FEAT-002 | P2 | Scheduled reports/export UI | Scheduled report automation and bulk export are explicitly marked coming soon. Export API currently exports at most 500 records per category and does not apply meaningful filters. | OPEN: either finish and test scheduled/bulk exports or remove/disable unsupported controls and disclose limits. |
+| FEAT-003 | P2 | Admin operations | Some admin actions return HTTP 501 because no persistent operation exists. Operational metrics such as API calls, error rate and revenue are correctly returned as unknown/null rather than invented. | PARTIAL: no false metrics; remaining actions need implementation or visibly disabled controls. |
+| SIM-001 | P2 | Match simulator | `/api/matches/[id]/simulate` intentionally creates synthetic scores, events, xG and possession. The API marks the output `simulationOnly` and disclaims that the values are synthetic. | VERIFY UI: keep the synthetic/illustrative label visible wherever this output is rendered; never feed simulated results into prediction accuracy or match history. |
+| AI-001 | P2 | AI chat | With no provider key, the API returns an explicit no-provider response rather than pretending an LLM ran. | CONFIGURATION REQUIRED: set a valid provider key and test failover before selling AI analysis as active. |
+
 ## Training pipeline added
 
 - `ml/train_match_model.py`: chronological feature construction from prior results, multinomial logistic regression, held-out metrics (accuracy, log loss, multiclass Brier), final model coefficients and latest team-state export.
