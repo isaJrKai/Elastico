@@ -156,6 +156,7 @@ export default function AdminView() {
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [featureFlags, setFeatureFlags] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadErrors, setLoadErrors] = useState<string[]>([])
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // ── User Tab State ──
@@ -197,22 +198,36 @@ export default function AdminView() {
     setLoading(true)
     try {
       const headers = authHeaders()
+      const safeJson = async (url: string) => {
+        try {
+          const response = await fetch(url, { headers, credentials: 'same-origin', cache: 'no-store' })
+          const payload = await response.json().catch(() => ({}))
+          if (!response.ok) throw new Error(`${url} returned ${response.status}`)
+          return payload
+        } catch (error) {
+          return { __error: error instanceof Error ? error.message : `${url} failed` }
+        }
+      }
       const [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes] = await Promise.all([
-        fetch('/api/admin', { headers }).then(r => r.json()).catch(() => null),
-        fetch('/api/admin/users', { headers }).then(r => r.json()).catch(() => ({ users: [] })),
-        fetch('/api/admin/logs?limit=50', { headers }).then(r => r.json()).catch(() => ({ logs: [] })),
-        fetch('/api/admin/settings', { headers }).then(r => r.json()).catch(() => ({ settings: [] })),
-        fetch('/api/admin/announcements', { headers }).then(r => r.json()).catch(() => ({ announcements: [] })),
-        fetch('/api/admin/feature-flags', { headers }).then(r => r.json()).catch(() => ({ flags: [] })),
+        safeJson('/api/admin'),
+        safeJson('/api/admin/users'),
+        safeJson('/api/admin/logs?limit=50'),
+        safeJson('/api/admin/settings'),
+        safeJson('/api/admin/announcements'),
+        safeJson('/api/admin/feature-flags'),
       ])
-      setStats(statsRes?.dashboard || statsRes || null)
-      setUsers(usersRes.users || [])
-      setUserPagination(usersRes.pagination || { page: 1, totalPages: 1, total: 0 })
-      setLogs(logsRes.logs || [])
-      setLogPagination(logsRes.pagination || { page: 1, totalPages: 1, total: 0 })
-      setSettingsList(Array.isArray(settingsRes.settings) ? settingsRes.settings : [])
-      setAnnouncements(Array.isArray(annRes.announcements) ? annRes.announcements : [])
-      setFeatureFlags(Array.isArray(flagsRes.flags) ? flagsRes.flags : [])
+      const failures = [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes]
+        .filter((payload: any) => payload?.__error)
+        .map((payload: any) => payload.__error as string)
+      setLoadErrors(failures)
+      setStats(statsRes?.__error ? null : statsRes?.dashboard || statsRes || null)
+      setUsers(usersRes?.__error ? [] : usersRes.users || [])
+      setUserPagination(usersRes?.pagination || { page: 1, totalPages: 1, total: 0 })
+      setLogs(logsRes?.__error ? [] : logsRes.logs || [])
+      setLogPagination(logsRes?.pagination || { page: 1, totalPages: 1, total: 0 })
+      setSettingsList(!settingsRes?.__error && Array.isArray(settingsRes.settings) ? settingsRes.settings : [])
+      setAnnouncements(!annRes?.__error && Array.isArray(annRes.announcements) ? annRes.announcements : [])
+      setFeatureFlags(!flagsRes?.__error && Array.isArray(flagsRes.flags) ? flagsRes.flags : [])
     } catch (e) { console.error('Admin fetch error:', e) }
     finally { setLoading(false) }
   }, [])
@@ -355,29 +370,38 @@ export default function AdminView() {
   }
 
   const handleCreateNews = () => {
-    if (!newsForm.title) { toast.error('Title required'); return }
-    if (editingNews) {
-      setNewsItems(prev => prev.map(n => n.id === editingNews.id ? { ...n, ...newsForm } : n))
-      toast.success('News updated')
-    } else {
-      const newItem = { id: `n-${Date.now()}`, ...newsForm, readCount: 0, publishedAt: new Date().toISOString() }
-      setNewsItems(prev => [newItem, ...prev])
-      toast.success('News published')
+    if (!newsForm.title.trim()) { toast.error('Title required'); return }
+    toast.error('News publishing is not connected to a persistent admin API yet. Nothing was published.')
+  }
+
+  const handleDeleteNews = (_id: string) => {
+    toast.error('News deletion is not connected to a persistent admin API yet. Nothing was deleted.')
+  }
+
+  const handleSendPush = async () => {
+    if (!pushForm.title.trim() || !pushForm.message.trim()) { toast.error('Title and message required'); return }
+    if (pushForm.segment !== 'all') {
+      toast.error('Targeted push delivery is not implemented. Choose “all users” or cancel.')
+      return
     }
-    setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
-    setNewsModal(false)
-    setEditingNews(null)
-  }
-
-  const handleDeleteNews = (id: string) => {
-    setNewsItems(prev => prev.filter(n => n.id !== id))
-    toast.success('News deleted')
-  }
-
-  const handleSendPush = () => {
-    if (!pushForm.title || !pushForm.message) { toast.error('Title and message required'); return }
-    toast.success(`Push notification sent to ${pushForm.segment === 'all' ? 'all users' : pushForm.segment}`)
-    setPushForm({ title: '', message: '', segment: 'all' })
+    setActionLoading('broadcast')
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'broadcast', title: pushForm.title.trim(), message: pushForm.message.trim(), type: 'info' }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || `Broadcast failed (${response.status})`)
+      toast.success(`Announcement delivered to ${payload.notifiedUsers ?? 0} active users`)
+      setPushForm({ title: '', message: '', segment: 'all' })
+      fetchAdminData()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Broadcast failed. No success was reported.')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleBulkAction = async () => {
@@ -405,18 +429,19 @@ export default function AdminView() {
 
   const handleInviteUser = () => {
     if (!inviteForm.email || !inviteForm.email.includes('@')) { toast.error('Valid email required'); return }
-    toast.success(`Invitation sent to ${inviteForm.email} with ${inviteForm.plan} plan`)
-    setInviteForm({ email: '', plan: 'free', role: 'user' })
-    setInviteModal(false)
+    toast.error('User invitations are not wired to a server endpoint yet. No invitation was sent.')
   }
 
   const handleToggleSetting = async (key: string, value: string) => {
     try {
-      await fetch('/api/admin/settings', {
+      const response = await fetch('/api/admin/settings', {
         method: 'PATCH',
         headers: authHeaders(),
+        credentials: 'same-origin',
         body: JSON.stringify({ settings: [{ key, value, type: 'string' }] }),
       })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || `Settings update failed (${response.status})`)
       setSettingsList(prev => prev.map(s => s.key === key ? { ...s, value } : s))
       toast.success('Setting updated')
     } catch { toast.error('Error updating setting') }
@@ -547,6 +572,19 @@ export default function AdminView() {
   // ── Render ──
   return (
     <div className="p-4 md:p-6 space-y-6">
+      {loadErrors.length > 0 && (
+        <div role="alert" className="flex flex-col gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 text-sm">
+          <div className="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Some admin data could not be loaded
+          </div>
+          <p className="text-muted-foreground">Unavailable sections are not being treated as zero or successful empty results.</p>
+          <ul className="list-disc pl-5 text-muted-foreground">
+            {loadErrors.map((message) => <li key={message}>{message}</li>)}
+          </ul>
+          <div><Button size="sm" variant="outline" onClick={() => void fetchAdminData()}>Retry data load</Button></div>
+        </div>
+      )}
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
