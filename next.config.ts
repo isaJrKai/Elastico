@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // package.json's build script copies assets into .next/standalone, so this
+  // output mode must be enabled for that directory to exist after next build.
+  output: "standalone",
   typescript: {
     ignoreBuildErrors: false,
   },
