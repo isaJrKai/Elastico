@@ -104,8 +104,13 @@ def score_prediction(probs: list[float], actual: int) -> dict[str, float | int]:
 def evaluate(matches: list[dict[str, Any]], output_dir: Path) -> dict[str, Any]:
     if len(matches) < 100:
         raise SystemExit(f"Need at least 100 valid matches; found {len(matches)}. Check data availability.")
-    cutoff = max(1, min(len(matches) - 1, int(len(matches) * 0.8)))
-    train, test = matches[:cutoff], matches[cutoff:]
+    # Split on unique dates, not rows, so fixtures played on the same date
+    # cannot land on both sides of the train/test boundary.
+    unique_dates = sorted({match["date"] for match in matches})
+    date_cutoff_index = max(1, min(len(unique_dates) - 1, int(len(unique_dates) * 0.8)))
+    cutoff_date = unique_dates[date_cutoff_index]
+    train = [match for match in matches if match["date"] < cutoff_date]
+    test = [match for match in matches if match["date"] >= cutoff_date]
     train_draw_rate = sum(outcome_index(m) == 1 for m in train) / len(train)
     draw_probability = min(0.40, max(0.10, train_draw_rate))
     ratings: dict[tuple[str, str], float] = {}
@@ -126,27 +131,36 @@ def evaluate(matches: list[dict[str, Any]], output_dir: Path) -> dict[str, Any]:
     train_counts = Counter(outcome_index(m) for m in train)
     baseline = [(train_counts[i] + 1) / (len(train) + 3) for i in range(3)]
     predictions = []
+    # Predict every match on a date from the same start-of-day ratings. Results
+    # from that date update Elo only after all predictions for that date are made.
+    test_by_date: dict[str, list[dict[str, Any]]] = {}
     for match in test:
-        home_key, away_key = rating_for(match, "home"), rating_for(match, "away")
-        home_elo, away_elo = ratings.get(home_key, INITIAL_ELO), ratings.get(away_key, INITIAL_ELO)
-        probs = probabilities(home_elo, away_elo, draw_probability)
-        actual = outcome_index(match)
-        score = score_prediction(probs, actual)
-        base_score = score_prediction(baseline, actual)
-        for key in totals:
-            totals[key] += score[key]
-            baseline_totals[key] += base_score[key]
-        predictions.append({
-            "date": match["date"], "league": match["league"], "home": match["home"], "away": match["away"],
-            "actual": ["home", "draw", "away"][actual],
-            "probabilities": {"home": probs[0], "draw": probs[1], "away": probs[2]},
-            "elo": {"home": home_elo, "away": away_elo},
-        })
-        expected = 1.0 / (1.0 + 10.0 ** (-((home_elo + HOME_ADVANTAGE) - away_elo) / 400.0))
-        actual_score = 1.0 if match["home_goals"] > match["away_goals"] else (0.5 if match["home_goals"] == match["away_goals"] else 0.0)
-        ratings[home_key] = home_elo + K_FACTOR * (actual_score - expected)
-        ratings[away_key] = away_elo + K_FACTOR * ((1.0 - actual_score) - (1.0 - expected))
-
+        test_by_date.setdefault(match["date"], []).append(match)
+    for match_date in sorted(test_by_date):
+        day_matches = test_by_date[match_date]
+        day_updates = []
+        for match in day_matches:
+            home_key, away_key = rating_for(match, "home"), rating_for(match, "away")
+            home_elo, away_elo = ratings.get(home_key, INITIAL_ELO), ratings.get(away_key, INITIAL_ELO)
+            probs = probabilities(home_elo, away_elo, draw_probability)
+            actual = outcome_index(match)
+            score = score_prediction(probs, actual)
+            base_score = score_prediction(baseline, actual)
+            for key in totals:
+                totals[key] += score[key]
+                baseline_totals[key] += base_score[key]
+            predictions.append({
+                "date": match["date"], "league": match["league"], "home": match["home"], "away": match["away"],
+                "actual": ["home", "draw", "away"][actual],
+                "probabilities": {"home": probs[0], "draw": probs[1], "away": probs[2]},
+                "elo": {"home": home_elo, "away": away_elo},
+            })
+            expected = 1.0 / (1.0 + 10.0 ** (-((home_elo + HOME_ADVANTAGE) - away_elo) / 400.0))
+            actual_score = 1.0 if match["home_goals"] > match["away_goals"] else (0.5 if match["home_goals"] == match["away_goals"] else 0.0)
+            day_updates.append((home_key, away_key, home_elo, away_elo, expected, actual_score))
+        for home_key, away_key, home_elo, away_elo, expected, actual_score in day_updates:
+            ratings[home_key] = home_elo + K_FACTOR * (actual_score - expected)
+            ratings[away_key] = away_elo + K_FACTOR * ((1.0 - actual_score) - (1.0 - expected))
     n = len(test)
     def summarize(values: dict[str, float]) -> dict[str, float]:
         return {
