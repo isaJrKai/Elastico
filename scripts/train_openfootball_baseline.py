@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 BASE_URL = "https://raw.githubusercontent.com/openfootball/football.json/master"
-DEFAULT_SEASONS = ["2019-20", "2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26"]
+DEFAULT_SEASONS = ["2019-20", "2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26", "2026-27"]
 DEFAULT_LEAGUES = ["en.1", "es.1", "de.1", "it.1", "fr.1"]
 K_FACTOR = 20.0
 HOME_ADVANTAGE = 65.0
