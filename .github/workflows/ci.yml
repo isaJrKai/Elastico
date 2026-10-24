@@ -70,7 +70,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm install --legacy-peer-deps
+      - run: npm ci --legacy-peer-deps
       - run: npm audit --omit=dev --audit-level=high
 
   dependency-audit:
@@ -82,7 +82,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm install --legacy-peer-deps
+      - run: npm ci --legacy-peer-deps
       - run: npm audit --audit-level=high
 
   verify:
