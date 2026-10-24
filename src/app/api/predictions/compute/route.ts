@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { fetchAllLiveScores, mapStatus, type ESPNMatch } from '@/lib/football-data'
 import { fetchTodaysMatches, normalizeFDMatch } from '@/lib/football-data-org'
-import { calculateElo, poissonProbabilities, dixonColes, type EloResult } from '@/lib/predictions'
+import { calculateElo, poissonProbabilities, dixonColesFromExpectedGoals, type EloResult } from '@/lib/predictions'
 
 /** GET /api/predictions/compute — compute predictions from ESPN match data (auth required)
  *
@@ -103,8 +103,9 @@ export async function GET(request: NextRequest) {
       )
 
       // 3. Dixon-Coles Model
-      const dc = dixonColes(
-        elo.expectedHomeGoals, elo.expectedAwayGoals, 0.1, -0.1, 0.1, 0.0
+      const dc = dixonColesFromExpectedGoals(
+        elo.expectedHomeGoals,
+        elo.expectedAwayGoals,
       )
 
       // Ensemble: average of 3 models (no stochastic — requires real odds)
