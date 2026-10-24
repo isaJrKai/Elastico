@@ -32,6 +32,11 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
@@ -40,6 +45,17 @@ jobs:
 
       - name: Test prediction engine invariants
         run: npm run test:prediction-engine
+
+      - name: Train and evaluate OpenFootball Elo baseline
+        run: python scripts/train_openfootball_baseline.py
+
+      - name: Upload baseline metrics and holdout predictions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openfootball-elo-baseline
+          path: artifacts/openfootball-elo/*.json
+          if-no-files-found: warn
 
       - name: TypeScript type check
         run: npx tsc --noEmit
