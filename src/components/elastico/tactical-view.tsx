@@ -85,54 +85,25 @@ const RADAR_DIMS = [
 // When advanced analytics are missing, computes approximate values from basic stats.
 
 function deriveTacticalProfile(team: {
-  style: string | null
   xgPerGame: number | null
   xgaPerGame: number | null
   possession: number | null
   pressIntensity: number | null
   passAccuracy: number | null
-  // Basic stats for fallback derivation
-  wins?: number
-  draws?: number
-  losses?: number
-  goalsFor?: number
-  goalsAgainst?: number
 }) {
-  const wins = team.wins ?? 0
-  const draws = team.draws ?? 0
-  const losses = team.losses ?? 0
-  const goalsFor = team.goalsFor ?? 0
-  const goalsAgainst = team.goalsAgainst ?? 0
-  const played = Math.max(wins + draws + losses, 1)
-
-  // Attack: prefer real xG, fallback to goals per game scaled to 0-95
-  const attack = team.xgPerGame != null
-    ? Math.min(95, Math.max(20, team.xgPerGame * 25))
-    : Math.min(95, Math.max(20, (goalsFor / played) * 15))
-
-  // Defense: prefer real xGA, fallback to inverse of goals conceded
-  const defense = team.xgaPerGame != null
-    ? Math.min(95, Math.max(20, 100 - team.xgaPerGame * 30))
-    : Math.min(95, Math.max(20, 100 - (goalsAgainst / played) * 25))
-
-  // Midfield: prefer real possession + pass accuracy, fallback to points percentage
-  const midfield = (team.possession != null && team.passAccuracy != null)
+  // Only transform measured inputs; do not infer tactical metrics from results.
+  const attack = team.xgPerGame != null ? Math.min(95, Math.max(20, team.xgPerGame * 25)) : null
+  const defense = team.xgaPerGame != null ? Math.min(95, Math.max(20, 100 - team.xgaPerGame * 30)) : null
+  const midfield = team.possession != null && team.passAccuracy != null
     ? Math.min(95, Math.max(20, team.possession * 0.7 + team.passAccuracy * 0.2))
-    : Math.min(95, Math.max(20, ((wins + draws * 0.5) / played) * 80 + 20))
-
-  // Pressing: prefer real pressIntensity, fallback to win ratio proxy
+    : null
   const pressing = team.pressIntensity != null && team.pressIntensity > 0
     ? Math.min(95, Math.max(20, team.pressIntensity))
-    : Math.min(95, Math.max(20, (wins / played) * 90 + 20))
+    : null
+  const possession = team.possession != null ? Math.min(95, Math.max(20, team.possession)) : null
 
-  // Possession: prefer real possession, fallback to goal diff proxy (clamped 30-70)
-  const possession = team.possession != null
-    ? Math.min(95, Math.max(20, team.possession))
-    : Math.min(70, Math.max(30, 50 + ((goalsFor - goalsAgainst) / played) * 3))
-
-  // Set piece: goal efficiency proxy
-  const setPiece = Math.min(95, Math.max(20, ((goalsFor - goalsAgainst) / Math.max(goalsFor, 1)) * 40 + 50))
-
+  // The current Team contract has no measured set-piece input.
+  const setPiece = null
   return { attack, midfield, defense, pressing, possession, setPiece }
 }
 
@@ -216,6 +187,7 @@ export function TacticalView() {
   // Fetch teams if store is empty (supports live API fallbacks)
   useEffect(() => {
     if (teams.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading when the store is cleared after initial render
       setLoading(true)
       fetchTeams().finally(() => setLoading(false))
     }
@@ -289,49 +261,36 @@ export function TacticalView() {
   // Style comparison bar chart
   const styleData = useMemo(() => {
     if (!homeTeam || !awayTeam) return []
-    const homePlayed = Math.max(homeTeam.wins + homeTeam.draws + homeTeam.losses, 1)
-    const awayPlayed = Math.max(awayTeam.wins + awayTeam.draws + awayTeam.losses, 1)
-
-    // Derived possession fallback (goal diff proxy, clamped 30-70)
-    const homePossDerived = Math.min(70, Math.max(30, 50 + ((homeTeam.goalsFor - homeTeam.goalsAgainst) / homePlayed) * 3))
-    const awayPossDerived = Math.min(70, Math.max(30, 50 + ((awayTeam.goalsFor - awayTeam.goalsAgainst) / awayPlayed) * 3))
-    // Derived pass accuracy fallback
-    const homePassDerived = Math.min(95, ((homeTeam.wins + homeTeam.draws) / homePlayed) * 15 + 70)
-    const awayPassDerived = Math.min(95, ((awayTeam.wins + awayTeam.draws) / awayPlayed) * 15 + 70)
-    // Derived pressing fallback
-    const homePressDerived = Math.min(95, (homeTeam.wins / homePlayed) * 90 + 20)
-    const awayPressDerived = Math.min(95, (awayTeam.wins / awayPlayed) * 90 + 20)
-
     return [
       {
         metric: 'xG/Game',
-        [homeTeam.code]: homeTeam.xgPerGame ?? +(homeTeam.goalsFor / homePlayed).toFixed(2),
-        [awayTeam.code]: awayTeam.xgPerGame ?? +(awayTeam.goalsFor / awayPlayed).toFixed(2),
-        dataClass: homeTeam.xgPerGame != null ? (homeTeam.xgTruthClass || 'REAL') : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.xgPerGame,
+        [awayTeam.code]: awayTeam.xgPerGame,
+        dataClass: homeTeam.xgPerGame != null && awayTeam.xgPerGame != null ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
       {
         metric: 'xGA/Game',
-        [homeTeam.code]: homeTeam.xgaPerGame ?? +(homeTeam.goalsAgainst / homePlayed).toFixed(2),
-        [awayTeam.code]: awayTeam.xgaPerGame ?? +(awayTeam.goalsAgainst / awayPlayed).toFixed(2),
-        dataClass: homeTeam.xgaPerGame != null ? (homeTeam.xgTruthClass || 'REAL') : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.xgaPerGame,
+        [awayTeam.code]: awayTeam.xgaPerGame,
+        dataClass: homeTeam.xgaPerGame != null && awayTeam.xgaPerGame != null ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
       {
         metric: 'Poss %',
-        [homeTeam.code]: homeTeam.possession ?? homePossDerived,
-        [awayTeam.code]: awayTeam.possession ?? awayPossDerived,
-        dataClass: (homeTeam.possession != null && awayTeam.possession != null) ? 'REAL' as const : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.possession,
+        [awayTeam.code]: awayTeam.possession,
+        dataClass: homeTeam.possession != null && awayTeam.possession != null ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
       {
         metric: 'Pass Acc',
-        [homeTeam.code]: homeTeam.passAccuracy ?? homePassDerived,
-        [awayTeam.code]: awayTeam.passAccuracy ?? awayPassDerived,
-        dataClass: (homeTeam.passAccuracy != null && awayTeam.passAccuracy != null) ? 'REAL' as const : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.passAccuracy,
+        [awayTeam.code]: awayTeam.passAccuracy,
+        dataClass: homeTeam.passAccuracy != null && awayTeam.passAccuracy != null ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
       {
         metric: 'Press',
-        [homeTeam.code]: (homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0) ? homeTeam.pressIntensity : homePressDerived,
-        [awayTeam.code]: (awayTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? awayTeam.pressIntensity : awayPressDerived,
-        dataClass: (homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0) ? 'DERIVED' as const : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0 ? homeTeam.pressIntensity : null,
+        [awayTeam.code]: awayTeam.pressIntensity != null && awayTeam.pressIntensity > 0 ? awayTeam.pressIntensity : null,
+        dataClass: homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0 && awayTeam.pressIntensity != null && awayTeam.pressIntensity > 0 ? 'REAL' as const : 'UNAVAILABLE' as const,
       },
     ]
   }, [homeTeam, awayTeam])
@@ -348,7 +307,8 @@ export function TacticalView() {
   }, [awayTeam])
 
   const hasBothTeams = homeTeam && awayTeam
-  const hasData = hasBothTeams && homeProfile && awayProfile
+  const hasComparableMetrics = Boolean(homeProfile && awayProfile && RADAR_DIMS.some((dim) => homeProfile[dim.key as keyof typeof homeProfile] != null && awayProfile[dim.key as keyof typeof awayProfile] != null))
+  const hasData = Boolean(hasBothTeams && hasComparableMetrics)
 
   // ── Empty state ──
   if (teams.length === 0) {
@@ -420,7 +380,7 @@ export function TacticalView() {
       {!hasData ? (
         <DataState
           type="empty"
-          message="Select two teams to compare tactical profiles."
+          message="Select two teams with verified advanced metrics to compare tactical profiles. Missing metrics remain unavailable."
         />
       ) : (
         <Tabs defaultValue="formations" className="w-full">
@@ -445,6 +405,7 @@ export function TacticalView() {
 
           {/* ── FORMATIONS TAB ── */}
           <TabsContent value="formations">
+            <p className="text-xs text-muted-foreground mt-3">Formation diagrams are illustrative templates, not confirmed live lineups.</p>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
               {/* Home Formation */}
               <Card className="border-border/60">
@@ -512,33 +473,32 @@ export function TacticalView() {
 
             {/* Quick stat comparison row */}
             {(() => {
-              const homePlayed = Math.max(homeTeam!.wins + homeTeam!.draws + homeTeam!.losses, 1)
-              const awayPlayed = Math.max(awayTeam!.wins + awayTeam!.draws + awayTeam!.losses, 1)
-              const homeXg = homeTeam!.xgPerGame ?? +(homeTeam!.goalsFor / homePlayed).toFixed(2)
-              const awayXg = awayTeam!.xgPerGame ?? +(awayTeam!.goalsFor / awayPlayed).toFixed(2)
-              const homePoss = homeTeam!.possession ?? Math.min(70, Math.max(30, 50 + ((homeTeam!.goalsFor - homeTeam!.goalsAgainst) / homePlayed) * 3))
-              const awayPoss = awayTeam!.possession ?? Math.min(70, Math.max(30, 50 + ((awayTeam!.goalsFor - awayTeam!.goalsAgainst) / awayPlayed) * 3))
+              const homeXg = homeTeam!.xgPerGame
+              const awayXg = awayTeam!.xgPerGame
+              const homePoss = homeTeam!.possession
+              const awayPoss = awayTeam!.possession
+              const hasPossession = homePoss != null && awayPoss != null
               return (
               <div className="grid grid-cols-3 gap-3 mt-4">
                 <StatBlock
                   label="Home xG/Game"
-                  value={homeXg.toFixed(2)}
-                  dataClass={(homeTeam!.xgTruthClass as 'MISSING' | 'DERIVED' | 'REAL' | 'PROXY' | 'STALE' | 'UNAVAILABLE' | undefined) || 'DERIVED'}
+                  value={homeXg != null ? homeXg.toFixed(2) : '—'}
+                  dataClass={homeXg != null ? (homeTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'UNAVAILABLE'}
                   compact
                   className="p-3 rounded-lg bg-card border border-border/60"
                 />
                 <StatBlock
                   label="Away xG/Game"
-                  value={awayXg.toFixed(2)}
-                  dataClass={(awayTeam!.xgTruthClass as 'MISSING' | 'DERIVED' | 'REAL' | 'PROXY' | 'STALE' | 'UNAVAILABLE' | undefined) || 'DERIVED'}
+                  value={awayXg != null ? awayXg.toFixed(2) : '—'}
+                  dataClass={awayXg != null ? (awayTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'UNAVAILABLE'}
                   compact
                   className="p-3 rounded-lg bg-card border border-border/60"
                 />
                 <StatBlock
                   label="Possession Gap"
-                  value={`${Math.abs(homePoss - awayPoss).toFixed(0)}%`}
-                  sublabel={homePoss > awayPoss ? homeTeam!.code : awayPoss > homePoss ? awayTeam!.code : 'Even'}
-                  dataClass={homeTeam!.possession != null && awayTeam!.possession != null ? 'DERIVED' : 'DERIVED'}
+                  value={hasPossession ? `${Math.abs(homePoss - awayPoss).toFixed(0)}%` : '—'}
+                  sublabel={hasPossession ? (homePoss > awayPoss ? homeTeam!.code : awayPoss > homePoss ? awayTeam!.code : 'Even') : 'Data unavailable'}
+                  dataClass={hasPossession ? 'REAL' : 'UNAVAILABLE'}
                   compact
                   className="p-3 rounded-lg bg-card border border-border/60"
                 />
@@ -663,19 +623,18 @@ export function TacticalView() {
                     <span className={TYPE.h3}>{homeTeam!.name}</span>
                   </div>
                   {(() => {
-                    const p = Math.max(homeTeam!.wins + homeTeam!.draws + homeTeam!.losses, 1)
-                    const xg = homeTeam!.xgPerGame ?? +(homeTeam!.goalsFor / p).toFixed(2)
-                    const xga = homeTeam!.xgaPerGame ?? +(homeTeam!.goalsAgainst / p).toFixed(2)
-                    const poss = homeTeam!.possession ?? Math.min(70, Math.max(30, 50 + ((homeTeam!.goalsFor - homeTeam!.goalsAgainst) / p) * 3))
-                    const pass = homeTeam!.passAccuracy ?? Math.min(95, ((homeTeam!.wins + homeTeam!.draws) / p) * 15 + 70)
-                    const press = (homeTeam!.pressIntensity != null && homeTeam!.pressIntensity > 0) ? homeTeam!.pressIntensity : Math.min(95, (homeTeam!.wins / p) * 90 + 20)
+                    const xg = homeTeam!.xgPerGame
+                    const xga = homeTeam!.xgaPerGame
+                    const poss = homeTeam!.possession
+                    const pass = homeTeam!.passAccuracy
+                    const press = homeTeam!.pressIntensity != null && homeTeam!.pressIntensity > 0 ? homeTeam!.pressIntensity : null
                     return (
                     <div className="grid grid-cols-2 gap-3">
-                      <StatBlock label="xG/Game" value={xg.toFixed(2)} dataClass={homeTeam!.xgPerGame != null ? (homeTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'DERIVED' as StatBlockProps['dataClass']} compact />
-                      <StatBlock label="xGA/Game" value={xga.toFixed(2)} dataClass={homeTeam!.xgaPerGame != null ? (homeTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'DERIVED' as StatBlockProps['dataClass']} compact />
-                      <StatBlock label="Possession" value={`${poss.toFixed(0)}%`} dataClass={homeTeam!.possession != null ? 'REAL' : 'DERIVED'} compact />
-                      <StatBlock label="Pass Acc" value={`${pass.toFixed(0)}%`} dataClass={homeTeam!.passAccuracy != null ? 'REAL' : 'DERIVED'} compact />
-                      <StatBlock label="Press Int." value={press.toFixed(0)} dataClass={(homeTeam!.pressIntensity != null && homeTeam!.pressIntensity > 0) ? 'DERIVED' : 'DERIVED'} compact />
+                      <StatBlock label="xG/Game" value={xg != null ? xg.toFixed(2) : '—'} dataClass={xg != null ? (homeTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'UNAVAILABLE'} compact />
+                      <StatBlock label="xGA/Game" value={xga != null ? xga.toFixed(2) : '—'} dataClass={xga != null ? (homeTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'UNAVAILABLE'} compact />
+                      <StatBlock label="Possession" value={poss != null ? `${poss.toFixed(0)}%` : '—'} dataClass={poss != null ? 'REAL' : 'UNAVAILABLE'} compact />
+                      <StatBlock label="Pass Acc" value={pass != null ? `${pass.toFixed(0)}%` : '—'} dataClass={pass != null ? 'REAL' : 'UNAVAILABLE'} compact />
+                      <StatBlock label="Press Int." value={press != null ? press.toFixed(0) : '—'} dataClass={press != null ? 'REAL' : 'UNAVAILABLE'} compact />
                       <StatBlock label="Form" value={homeTeam!.form || 'N/A'} dataClass={homeTeam!.form ? 'REAL' : 'MISSING'} compact />
                     </div>
                     )
@@ -690,19 +649,18 @@ export function TacticalView() {
                     <span className={TYPE.h3}>{awayTeam!.name}</span>
                   </div>
                   {(() => {
-                    const p = Math.max(awayTeam!.wins + awayTeam!.draws + awayTeam!.losses, 1)
-                    const xg = awayTeam!.xgPerGame ?? +(awayTeam!.goalsFor / p).toFixed(2)
-                    const xga = awayTeam!.xgaPerGame ?? +(awayTeam!.goalsAgainst / p).toFixed(2)
-                    const poss = awayTeam!.possession ?? Math.min(70, Math.max(30, 50 + ((awayTeam!.goalsFor - awayTeam!.goalsAgainst) / p) * 3))
-                    const pass = awayTeam!.passAccuracy ?? Math.min(95, ((awayTeam!.wins + awayTeam!.draws) / p) * 15 + 70)
-                    const press = (awayTeam!.pressIntensity != null && awayTeam!.pressIntensity > 0) ? awayTeam!.pressIntensity : Math.min(95, (awayTeam!.wins / p) * 90 + 20)
+                    const xg = awayTeam!.xgPerGame
+                    const xga = awayTeam!.xgaPerGame
+                    const poss = awayTeam!.possession
+                    const pass = awayTeam!.passAccuracy
+                    const press = awayTeam!.pressIntensity != null && awayTeam!.pressIntensity > 0 ? awayTeam!.pressIntensity : null
                     return (
                     <div className="grid grid-cols-2 gap-3">
-                      <StatBlock label="xG/Game" value={xg.toFixed(2)} dataClass={awayTeam!.xgPerGame != null ? (awayTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'DERIVED' as StatBlockProps['dataClass']} compact />
-                      <StatBlock label="xGA/Game" value={xga.toFixed(2)} dataClass={awayTeam!.xgaPerGame != null ? (awayTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'DERIVED' as StatBlockProps['dataClass']} compact />
-                      <StatBlock label="Possession" value={`${poss.toFixed(0)}%`} dataClass={awayTeam!.possession != null ? 'REAL' : 'DERIVED'} compact />
-                      <StatBlock label="Pass Acc" value={`${pass.toFixed(0)}%`} dataClass={awayTeam!.passAccuracy != null ? 'REAL' : 'DERIVED'} compact />
-                      <StatBlock label="Press Int." value={press.toFixed(0)} dataClass={(awayTeam!.pressIntensity != null && awayTeam!.pressIntensity > 0) ? 'DERIVED' : 'DERIVED'} compact />
+                      <StatBlock label="xG/Game" value={xg != null ? xg.toFixed(2) : '—'} dataClass={xg != null ? (awayTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'UNAVAILABLE'} compact />
+                      <StatBlock label="xGA/Game" value={xga != null ? xga.toFixed(2) : '—'} dataClass={xga != null ? (awayTeam!.xgTruthClass || 'REAL') as StatBlockProps['dataClass'] : 'UNAVAILABLE'} compact />
+                      <StatBlock label="Possession" value={poss != null ? `${poss.toFixed(0)}%` : '—'} dataClass={poss != null ? 'REAL' : 'UNAVAILABLE'} compact />
+                      <StatBlock label="Pass Acc" value={pass != null ? `${pass.toFixed(0)}%` : '—'} dataClass={pass != null ? 'REAL' : 'UNAVAILABLE'} compact />
+                      <StatBlock label="Press Int." value={press != null ? press.toFixed(0) : '—'} dataClass={press != null ? 'REAL' : 'UNAVAILABLE'} compact />
                       <StatBlock label="Form" value={awayTeam!.form || 'N/A'} dataClass={awayTeam!.form ? 'REAL' : 'MISSING'} compact />
                     </div>
                     )

@@ -1,18 +1,6 @@
 import type { Metadata } from "next";
-import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
-
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "ELASTICO — Football Analytics",
@@ -29,16 +17,14 @@ export const metadata: Metadata = {
     icon: [
       { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
-      { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2310B981'/><text x='50' y='72' font-size='65' font-weight='bold' text-anchor='middle' fill='white'>E</text></svg>", sizes: "any" },
+      { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23D44743'/><text x='50' y='72' font-size='65' font-weight='bold' text-anchor='middle' fill='white'>E</text></svg>", sizes: "any" },
     ],
-    apple: [
-      { url: "/icons/icon-152x152.png", sizes: "152x152" },
-    ],
+    apple: [{ url: "/icons/icon-152x152.png", sizes: "152x152" }],
   },
   other: {
     "mobile-web-app-capable": "yes",
-    "theme-color": "#10B981",
-    "msapplication-TileColor": "#0B0E14",
+    "theme-color": "#E3E0D8",
+    "msapplication-TileColor": "#E3E0D8",
   },
 };
 
@@ -48,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -56,12 +42,16 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
       </head>
       <body
-        className={`${dmSans.variable} ${jetbrainsMono.variable} antialiased bg-background text-foreground`}
-        style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif' }}
+        className="antialiased bg-background text-foreground"
+        style={{
+          fontFamily: '"Aptos", "Segoe UI", system-ui, -apple-system, sans-serif',
+          ["--font-dm-sans" as string]: '"Aptos", "Segoe UI", system-ui, -apple-system, sans-serif',
+          ["--font-jetbrains-mono" as string]: '"SFMono-Regular", Consolas, "Liberation Mono", monospace',
+        }}
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          defaultTheme="light"
           enableSystem={false}
           disableTransitionOnChange
         >

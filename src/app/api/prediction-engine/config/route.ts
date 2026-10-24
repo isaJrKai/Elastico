@@ -2,17 +2,27 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest } from '@/lib/auth'
 import { DEFAULT_CONFIG, type EngineConfig } from '@/lib/prediction-engine'
+import { z } from 'zod'
 
 // Config is persisted in the database. Falls back to defaults if not set.
 async function getConfig(): Promise<EngineConfig> {
-  try {
-    const setting = await db.systemSetting.findUnique({ where: { key: 'prediction_engine_config' } })
-    if (setting?.type === 'json') {
-      return { ...DEFAULT_CONFIG, ...JSON.parse(setting.value) }
-    }
-  } catch { /* fall through to default */ }
-  return { ...DEFAULT_CONFIG }
+  const setting = await db.systemSetting.findUnique({ where: { key: 'prediction_engine_config' } })
+  if (!setting) return { ...DEFAULT_CONFIG }
+  if (setting.type !== 'json') {
+    throw new Error('Stored prediction-engine configuration has an invalid type')
+  }
+  const stored = JSON.parse(setting.value)
+  return { ...DEFAULT_CONFIG, ...stored }
 }
+
+const ConfigUpdatesSchema = z.object({
+  simulationRuns: z.number().int().min(10_000).max(150_000).optional(),
+  kellyFraction: z.number().min(0.05).max(1).optional(),
+  garchEnabled: z.boolean().optional(),
+  jumpDiffusionEnabled: z.boolean().optional(),
+  minEdgeThreshold: z.number().min(0).max(0.2).optional(),
+  maxBankrollRisk: z.number().min(0.01).max(0.25).optional(),
+}).strict()
 
 async function setConfig(config: EngineConfig): Promise<void> {
   await db.systemSetting.upsert({
@@ -49,22 +59,17 @@ async function handleConfigUpdate(request: Request) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const body = await request.json()
-    const updates: Partial<EngineConfig> = body
-
-    // Validate ranges
-    if (updates.simulationRuns !== undefined) {
-      updates.simulationRuns = Math.min(500000, Math.max(10000, updates.simulationRuns))
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
-    if (updates.kellyFraction !== undefined) {
-      updates.kellyFraction = Math.min(1, Math.max(0.05, updates.kellyFraction))
+    const parsed = ConfigUpdatesSchema.safeParse(body)
+    if (!parsed.success || Object.keys(parsed.data || {}).length === 0) {
+      return NextResponse.json({ error: 'Invalid or empty engine configuration update' }, { status: 400 })
     }
-    if (updates.minEdgeThreshold !== undefined) {
-      updates.minEdgeThreshold = Math.min(0.2, Math.max(0.005, updates.minEdgeThreshold))
-    }
-    if (updates.maxBankrollRisk !== undefined) {
-      updates.maxBankrollRisk = Math.min(0.25, Math.max(0.01, updates.maxBankrollRisk))
-    }
+    const updates: Partial<EngineConfig> = parsed.data
 
     const currentConfig = await getConfig()
     const newConfig = { ...currentConfig, ...updates }
@@ -76,8 +81,8 @@ async function handleConfigUpdate(request: Request) {
       message: 'Engine configuration updated',
     })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('[Prediction engine config] Update failed')
+    return NextResponse.json({ error: 'Failed to update engine configuration' }, { status: 500 })
   }
 }
 

@@ -3,7 +3,7 @@ import { authenticateRequest } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { fetchAllLiveScores, mapStatus, type ESPNMatch } from '@/lib/football-data'
 import { fetchTodaysMatches, normalizeFDMatch } from '@/lib/football-data-org'
-import { calculateElo, poissonProbabilities, dixonColes, type EloResult } from '@/lib/predictions'
+import { calculateElo, poissonProbabilities, dixonColesFromExpectedGoals, type EloResult } from '@/lib/predictions'
 
 /** GET /api/predictions/compute — compute predictions from ESPN match data (auth required)
  *
@@ -54,28 +54,45 @@ export async function GET(request: NextRequest) {
       competition: m.competition,
       homeTeam: {
         id: m.homeTeam?.id || '',
-        name: m.homeTeam?.name || 'Home',
+        name: typeof m.homeTeam?.name === 'string' ? m.homeTeam.name : '',
         abbreviation: m.homeTeam?.abbreviation || m.homeTeam?.code || '',
       },
       awayTeam: {
         id: m.awayTeam?.id || '',
-        name: m.awayTeam?.name || 'Away',
+        name: typeof m.awayTeam?.name === 'string' ? m.awayTeam.name : '',
         abbreviation: m.awayTeam?.abbreviation || m.awayTeam?.code || '',
       },
-      homeScore: m.homeScore ?? 0,
-      awayScore: m.awayScore ?? 0,
-      status: m.status,
+      homeScore: matchSource === 'espn' && m.status === 'STATUS_SCHEDULED' ? null : (m.homeScore ?? null),
+      awayScore: matchSource === 'espn' && m.status === 'STATUS_SCHEDULED' ? null : (m.awayScore ?? null),
+      rawStatus: m.status,
+      status: matchSource === 'espn' ? mapStatus(m.status || '') : m.status,
       date: m.date || m.utcDate || '',
       venue: m.venue || '',
       minute: m.minute,
     }))
 
-    // Take upcoming and recent matches, compute predictions
-    const predictions = normalized.slice(0, 20).map((m: any) => {
+    // Only forecast valid, genuinely upcoming fixtures. Live/finished results
+    // must never enter a pre-match prediction path.
+    const validFixtures = normalized.filter((m: any) =>
+      typeof m.id === 'string' && m.id.length > 0 &&
+      typeof m.homeTeam.name === 'string' && m.homeTeam.name.trim().length > 0 &&
+      typeof m.awayTeam.name === 'string' && m.awayTeam.name.trim().length > 0 &&
+      Number.isFinite(Date.parse(m.date))
+    )
+    const upcomingFixtures = validFixtures.filter((m: any) =>
+      (matchSource === 'espn' ? m.rawStatus === 'STATUS_SCHEDULED' : m.status === 'upcoming') && Date.parse(m.date) > Date.now()
+    )
+    const invalidFixtureCount = normalized.length - validFixtures.length
+    const ignoredNonUpcomingCount = validFixtures.length - upcomingFixtures.length
+    const rawPredictions = upcomingFixtures.slice(0, 20).map((m: any) => {
       const homeAbbr = m.homeTeam.abbreviation
       const awayAbbr = m.awayTeam.abbreviation
-      const homeElo = 1500 + (homeAbbr ? hashToElo(homeAbbr) : 0)
-      const awayElo = 1500 + (awayAbbr ? hashToElo(awayAbbr) : 0)
+      const homeOffset = TEAM_ELO_MAP[homeAbbr]
+      const awayOffset = TEAM_ELO_MAP[awayAbbr]
+      // Never synthesize team strength from a name hash. Unknown teams have no forecast.
+      if (homeOffset === undefined || awayOffset === undefined) return null
+      const homeElo = 1500 + homeOffset
+      const awayElo = 1500 + awayOffset
 
       // 1. ELO Model
       const elo: EloResult = calculateElo(homeElo, awayElo, 20, 0)
@@ -86,8 +103,9 @@ export async function GET(request: NextRequest) {
       )
 
       // 3. Dixon-Coles Model
-      const dc = dixonColes(
-        elo.expectedHomeGoals, elo.expectedAwayGoals, 0.1, -0.1, 0.1, 0.0
+      const dc = dixonColesFromExpectedGoals(
+        elo.expectedHomeGoals,
+        elo.expectedAwayGoals,
       )
 
       // Ensemble: average of 3 models (no stochastic — requires real odds)
@@ -117,6 +135,11 @@ export async function GET(request: NextRequest) {
         date: m.date,
         venue: m.venue,
         minute: m.minute,
+        // These are experimental outputs from a manually curated prior map, not a calibrated model.
+        forecastQuality: 'UNVALIDATED_HEURISTIC',
+        ratingSource: 'manual-prior-map',
+        calibrated: false,
+        disclaimer: 'Experimental probabilities from manually curated team priors; not validated against out-of-sample results.',
         // Predictions
         ensemble,
         elo: { home: Math.round(elo.homeProb * 1000) / 10, draw: Math.round(elo.drawProb * 1000) / 10, away: Math.round(elo.awayProb * 1000) / 10, expHome: elo.expectedHomeGoals.toFixed(2), expAway: elo.expectedAwayGoals.toFixed(2) },
@@ -132,7 +155,19 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ success: true, count: predictions.length, source: matchSource, predictions })
+    const predictions = rawPredictions.filter((prediction) => prediction !== null)
+    return NextResponse.json({
+      success: true,
+      count: predictions.length,
+      source: matchSource,
+      forecastQuality: 'UNVALIDATED_HEURISTIC',
+      calibrated: false,
+      invalidFixtureCount,
+      ignoredNonUpcomingCount,
+      skippedUnsupportedTeamCount: rawPredictions.length - predictions.length,
+      disclaimer: 'Experimental probabilities from manually curated team priors; not validated against out-of-sample results. Only valid upcoming fixtures with mapped team priors are returned.',
+      predictions,
+    })
   } catch (error) {
     console.error('[PREDICT] Error:', error)
     return NextResponse.json(
@@ -142,8 +177,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Deterministic hash from team abbreviation to approximate ELO offset
-// Uses manually curated team strengths mapped to ESPN abbreviations
+// Manually curated static priors mapped to team abbreviations. These are not live ELO ratings and remain unvalidated.
 const TEAM_ELO_MAP: Record<string, number> = {
   // Premier League
   'MCI': 380, 'ARS': 360, 'LIV': 370, 'MUN': 320, 'CHE': 340, 'NEW': 310, 'TOT': 300, 'AVL': 290,
@@ -165,15 +199,5 @@ const TEAM_ELO_MAP: Record<string, number> = {
   'ANG': 200, 'AUX': 210, 'LEH': 190, 'BRE_L1': 220, 'MHS': 200,
 }
 
-function hashToElo(abbr: string): number {
-  if (TEAM_ELO_MAP[abbr]) return TEAM_ELO_MAP[abbr]
-  // Deterministic fallback from abbreviation
-  let hash = 0
-  for (let i = 0; i < abbr.length; i++) {
-    hash = ((hash << 5) - hash) + abbr.charCodeAt(i)
-    hash |= 0
-  }
-  return 150 + (Math.abs(hash) % 300) // Range: 150-450 offset from 1500
-}
 
 export const dynamic = 'force-dynamic'

@@ -1,0 +1,106 @@
+name: Production readiness
+
+on:
+  push:
+    branches: [main, 'production-readiness/**', 'integration/release-candidate-**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: test
+  NEXT_TELEMETRY_DISABLED: '1'
+  JWT_SECRET: 'ci-jwt-0123456789abcdef0123456789abcdef'
+  CRON_SECRET: 'ci-cron-0123456789abcdef0123456789abcdef'
+  DATABASE_URL: 'postgresql://elastico:ci-password@localhost:5432/elastico?schema=public'
+  DIRECT_URL: 'postgresql://elastico:ci-password@localhost:5432/elastico?schema=public'
+
+jobs:
+  lockfile-check:
+    name: Verify committed lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+
+  migration-check:
+    name: Fresh PostgreSQL migration check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: elastico
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: elastico
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U elastico -d elastico"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npx prisma generate
+      - run: npm run db:migrate:deploy
+      - run: npx prisma migrate status
+
+  production-dependency-audit:
+    name: Production dependency audit (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm audit --omit=dev --audit-level=high
+
+  dependency-audit:
+    name: Full dependency vulnerability audit (includes build tooling)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: npm audit --audit-level=high
+
+  verify:
+    name: Typecheck, tests, build, and Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # Verify the exact committed dependency graph in the full build/test job too.
+      - run: npm ci --legacy-peer-deps
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: docker build -t elastico:ci .

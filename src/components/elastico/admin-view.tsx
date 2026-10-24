@@ -50,14 +50,14 @@ const NEWS_SENTIMENTS = ['positive', 'negative', 'neutral']
 // ── Helper: Auth Headers ─────────────────────────────────────────────────────
 
 function authHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('elastico_token') : null
-  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+  // Authentication is carried by the HttpOnly session cookie; never read tokens from localStorage.
+  return { 'Content-Type': 'application/json' }
 }
 
 // ── Sub-Components ───────────────────────────────────────────────────────────
 
 function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix = '', dataClass }: {
-  title: string; value: string | number; icon: React.ElementType; change?: number; color?: string; suffix?: string; dataClass?: 'REAL' | 'DERIVED' | 'DEMO' | 'SIMULATION' | 'BUG' | 'MIXED'
+  title: string; value: string | number; icon: React.ElementType; change?: number; color?: string; suffix?: string; dataClass?: 'REAL' | 'DERIVED' | 'DEMO' | 'SIMULATION' | 'BUG' | 'MIXED' | 'MISSING'
 }) {
   const isPositive = change !== undefined && change >= 0
   const colorMap: Record<string, string> = {
@@ -69,7 +69,7 @@ function StatCard({ title, value, icon: Icon, change, color = 'emerald', suffix 
     orange: 'bg-orange-500/10 text-orange-400',
   }
   return (
-    <Card className="rounded-lg border border-border bg-card rounded-lg border border-border bg-card-hover">
+    <Card className="rounded-xl border border-border bg-card transition-colors duration-150">
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1 min-w-0">
@@ -103,7 +103,7 @@ function SectionCard({ title, icon: Icon, children, className = '' }: { title: s
     <Card className={`rounded-lg border border-border bg-card  ${className}`}>
       <CardHeader className="pb-3 pt-4 px-4">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          <Icon className="h-4 w-4 text-emerald-400" />
+          <Icon className="h-4 w-4 text-primary" />
           {title}
         </CardTitle>
       </CardHeader>
@@ -115,7 +115,7 @@ function SectionCard({ title, icon: Icon, children, className = '' }: { title: s
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number; color?: string }>; label?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-border bg-card p-2 rounded-lg text-xs border border-border" style={tooltipContentStyle}>
+    <div className="rounded-lg border border-border bg-popover p-3 text-xs" style={tooltipContentStyle}>
       <p className="text-muted-foreground mb-1">{label}</p>
       {payload.map((p, i: number) => (
         <p key={i} className="flex items-center gap-1.5">
@@ -156,6 +156,7 @@ export default function AdminView() {
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [featureFlags, setFeatureFlags] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadErrors, setLoadErrors] = useState<string[]>([])
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // ── User Tab State ──
@@ -197,22 +198,36 @@ export default function AdminView() {
     setLoading(true)
     try {
       const headers = authHeaders()
+      const safeJson = async (url: string) => {
+        try {
+          const response = await fetch(url, { headers, credentials: 'same-origin', cache: 'no-store' })
+          const payload = await response.json().catch(() => ({}))
+          if (!response.ok) throw new Error(`${url} returned ${response.status}`)
+          return payload
+        } catch (error) {
+          return { __error: error instanceof Error ? error.message : `${url} failed` }
+        }
+      }
       const [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes] = await Promise.all([
-        fetch('/api/admin', { headers }).then(r => r.json()).catch(() => null),
-        fetch('/api/admin/users', { headers }).then(r => r.json()).catch(() => ({ users: [] })),
-        fetch('/api/admin/logs?limit=50', { headers }).then(r => r.json()).catch(() => ({ logs: [] })),
-        fetch('/api/admin/settings', { headers }).then(r => r.json()).catch(() => ({ settings: [] })),
-        fetch('/api/admin/announcements', { headers }).then(r => r.json()).catch(() => ({ announcements: [] })),
-        fetch('/api/admin/feature-flags', { headers }).then(r => r.json()).catch(() => ({ flags: [] })),
+        safeJson('/api/admin'),
+        safeJson('/api/admin/users'),
+        safeJson('/api/admin/logs?limit=50'),
+        safeJson('/api/admin/settings'),
+        safeJson('/api/admin/announcements'),
+        safeJson('/api/admin/feature-flags'),
       ])
-      setStats(statsRes?.dashboard || statsRes || null)
-      setUsers(usersRes.users || [])
-      setUserPagination(usersRes.pagination || { page: 1, totalPages: 1, total: 0 })
-      setLogs(logsRes.logs || [])
-      setLogPagination(logsRes.pagination || { page: 1, totalPages: 1, total: 0 })
-      setSettingsList(Array.isArray(settingsRes.settings) ? settingsRes.settings : [])
-      setAnnouncements(Array.isArray(annRes.announcements) ? annRes.announcements : [])
-      setFeatureFlags(Array.isArray(flagsRes.flags) ? flagsRes.flags : [])
+      const failures = [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes]
+        .filter((payload: any) => payload?.__error)
+        .map((payload: any) => payload.__error as string)
+      setLoadErrors(failures)
+      setStats(statsRes?.__error ? null : statsRes?.dashboard || statsRes || null)
+      setUsers(usersRes?.__error ? [] : usersRes.users || [])
+      setUserPagination(usersRes?.pagination || { page: 1, totalPages: 1, total: 0 })
+      setLogs(logsRes?.__error ? [] : logsRes.logs || [])
+      setLogPagination(logsRes?.pagination || { page: 1, totalPages: 1, total: 0 })
+      setSettingsList(!settingsRes?.__error && Array.isArray(settingsRes.settings) ? settingsRes.settings : [])
+      setAnnouncements(!annRes?.__error && Array.isArray(annRes.announcements) ? annRes.announcements : [])
+      setFeatureFlags(!flagsRes?.__error && Array.isArray(flagsRes.flags) ? flagsRes.flags : [])
     } catch (e) { console.error('Admin fetch error:', e) }
     finally { setLoading(false) }
   }, [])
@@ -295,11 +310,16 @@ export default function AdminView() {
         body.title = 'ELASTICO Update'
         body.type = 'info'
       }
-      const res = await fetch('/api/admin', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) })
+      const endpoint = action === 'sync' ? '/api/sync' : '/api/admin'
+      const requestOptions: RequestInit = {
+        method: 'POST',
+        headers: authHeaders(),
+        ...(action === 'sync' ? {} : { body: JSON.stringify(body) }),
+      }
+      const res = await fetch(endpoint, requestOptions)
       if (res.ok) {
         const data = await res.json()
         toast.success(data.message || `Action "${action}" completed`)
-        if (action === 'maintenance') fetchAdminData()
       } else {
         toast.error('Action failed')
       }
@@ -308,20 +328,27 @@ export default function AdminView() {
   }
 
   const handleExportCSV = () => {
-    const csv = [
-      'Email,Name,Plan,Role,Active,Predictions,Accuracy,Last Login',
-      ...users.map((u: any) =>
-        `${u.email},${u.name || ''},${u.plan},${u.role},${u.isActive},${u.totalPredictions},${u.predictionAccuracy}%,${u.lastLoginAt || 'Never'}`
-      ),
-    ].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const csvCell = (value: unknown) => {
+      let text = String(value ?? '')
+      // Prevent spreadsheet formula injection from user-controlled profile fields.
+      if (/^[\t\r\n ]*[=+\-@]/.test(text)) text = `'${text}`
+      return `"${text.replace(/"/g, '""')}"`
+    }
+    const rows = [
+      ['Email', 'Name', 'Plan', 'Role', 'Active', 'Predictions', 'Accuracy', 'Last Login'],
+      ...users.map((u: any) => [
+        u.email, u.name, u.plan, u.role, u.isActive,
+        u.totalPredictions, `${u.predictionAccuracy}%`, u.lastLoginAt || 'Never',
+      ]),
+    ]
+    const csv = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'elastico_users_export.csv'
     a.click()
     URL.revokeObjectURL(url)
-    toast.success('CSV exported')
   }
 
   const handleCreateAnnouncement = async () => {
@@ -343,29 +370,38 @@ export default function AdminView() {
   }
 
   const handleCreateNews = () => {
-    if (!newsForm.title) { toast.error('Title required'); return }
-    if (editingNews) {
-      setNewsItems(prev => prev.map(n => n.id === editingNews.id ? { ...n, ...newsForm } : n))
-      toast.success('News updated')
-    } else {
-      const newItem = { id: `n-${Date.now()}`, ...newsForm, readCount: 0, publishedAt: new Date().toISOString() }
-      setNewsItems(prev => [newItem, ...prev])
-      toast.success('News published')
+    if (!newsForm.title.trim()) { toast.error('Title required'); return }
+    toast.error('News publishing is not connected to a persistent admin API yet. Nothing was published.')
+  }
+
+  const handleDeleteNews = (_id: string) => {
+    toast.error('News deletion is not connected to a persistent admin API yet. Nothing was deleted.')
+  }
+
+  const handleSendPush = async () => {
+    if (!pushForm.title.trim() || !pushForm.message.trim()) { toast.error('Title and message required'); return }
+    if (pushForm.segment !== 'all') {
+      toast.error('Targeted push delivery is not implemented. Choose “all users” or cancel.')
+      return
     }
-    setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
-    setNewsModal(false)
-    setEditingNews(null)
-  }
-
-  const handleDeleteNews = (id: string) => {
-    setNewsItems(prev => prev.filter(n => n.id !== id))
-    toast.success('News deleted')
-  }
-
-  const handleSendPush = () => {
-    if (!pushForm.title || !pushForm.message) { toast.error('Title and message required'); return }
-    toast.success(`Push notification sent to ${pushForm.segment === 'all' ? 'all users' : pushForm.segment}`)
-    setPushForm({ title: '', message: '', segment: 'all' })
+    setActionLoading('broadcast')
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: authHeaders(),
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'broadcast', title: pushForm.title.trim(), message: pushForm.message.trim(), type: 'info' }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || `Broadcast failed (${response.status})`)
+      toast.success(`Announcement delivered to ${payload.notifiedUsers ?? 0} active users`)
+      setPushForm({ title: '', message: '', segment: 'all' })
+      fetchAdminData()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Broadcast failed. No success was reported.')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleBulkAction = async () => {
@@ -393,18 +429,19 @@ export default function AdminView() {
 
   const handleInviteUser = () => {
     if (!inviteForm.email || !inviteForm.email.includes('@')) { toast.error('Valid email required'); return }
-    toast.success(`Invitation sent to ${inviteForm.email} with ${inviteForm.plan} plan`)
-    setInviteForm({ email: '', plan: 'free', role: 'user' })
-    setInviteModal(false)
+    toast.error('User invitations are not wired to a server endpoint yet. No invitation was sent.')
   }
 
   const handleToggleSetting = async (key: string, value: string) => {
     try {
-      await fetch('/api/admin/settings', {
+      const response = await fetch('/api/admin/settings', {
         method: 'PATCH',
         headers: authHeaders(),
+        credentials: 'same-origin',
         body: JSON.stringify({ settings: [{ key, value, type: 'string' }] }),
       })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || `Settings update failed (${response.status})`)
       setSettingsList(prev => prev.map(s => s.key === key ? { ...s, value } : s))
       toast.success('Setting updated')
     } catch { toast.error('Error updating setting') }
@@ -535,6 +572,19 @@ export default function AdminView() {
   // ── Render ──
   return (
     <div className="p-4 md:p-6 space-y-6">
+      {loadErrors.length > 0 && (
+        <div role="alert" className="flex flex-col gap-2 rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 text-sm">
+          <div className="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Some admin data could not be loaded
+          </div>
+          <p className="text-muted-foreground">Unavailable sections are not being treated as zero or successful empty results.</p>
+          <ul className="list-disc pl-5 text-muted-foreground">
+            {loadErrors.map((message) => <li key={message}>{message}</li>)}
+          </ul>
+          <div><Button size="sm" variant="outline" onClick={() => void fetchAdminData()}>Retry data load</Button></div>
+        </div>
+      )}
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -588,8 +638,8 @@ export default function AdminView() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatCard title="Total Users" value={stats?.totalUsers ?? '—'} icon={Users} color="emerald" dataClass="REAL" />
             <StatCard title="Active Today" value={stats?.activeToday ?? '—'} icon={Activity} color="blue" dataClass="REAL" />
-            <StatCard title="MRR Revenue" value={stats?.revenueEstimate != null ? `$${stats.revenueEstimate.toFixed(0)}` : '—'} icon={DollarSign} color="gold" dataClass="DERIVED" />
-            <StatCard title="Prediction Acc" value={`${stats?.errorRate !== undefined ? (100 - (stats.errorRate ?? 0) * 2).toFixed(1) : '—'}`} icon={Target} color="emerald" dataClass="DERIVED" />
+            <StatCard title="Paid MRR" value={stats?.revenueEstimate != null ? `${stats.revenueEstimate.toFixed(0)}` : '—'} icon={DollarSign} color="gold" dataClass="MISSING" />
+            <StatCard title="Prediction Accuracy" value="—" icon={Target} color="emerald" dataClass="MISSING" />
             <StatCard title="AI Queries" value={stats?.totalApiCalls24h ?? '—'} icon={Brain} color="purple" dataClass="REAL" />
             <StatCard title="Uptime" value={stats?.uptime ?? '—'} icon={Server} color="emerald" dataClass="REAL" />
           </div>
@@ -658,14 +708,8 @@ export default function AdminView() {
             {/* Feature 5: Quick Actions Panel */}
             <SectionCard title="Quick Actions" icon={Zap}>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Cache cleared'); handleQuickAction('clearCache') }}>
-                  <RefreshCw className={`h-3.5 w-3.5 ${actionLoading === 'clearCache' ? 'animate-spin' : ''}`} /> Clear Cache
-                </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('broadcast')}>
                   <Megaphone className="h-3.5 w-3.5" /> Send Broadcast
-                </Button>
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('maintenance')}>
-                  <ToggleLeft className="h-3.5 w-3.5" /> Maintenance
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('sync')}>
                   <Upload className="h-3.5 w-3.5" /> Sync Data
@@ -1440,7 +1484,6 @@ export default function AdminView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[
                 { key: 'registration_open', label: 'Registration Open', type: 'boolean', default: 'true' },
-                { key: 'maintenance_mode', label: 'Maintenance Mode', type: 'boolean', default: 'false' },
                 { key: 'max_predictions_free', label: 'Max Predictions (Free)', type: 'number', default: '5' },
                 { key: 'ai_chat_enabled', label: 'AI Chat Enabled', type: 'boolean', default: 'true' },
                 { key: 'default_user_plan', label: 'Default User Plan', type: 'string', default: 'free' },

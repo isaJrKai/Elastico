@@ -1,0 +1,100 @@
+name: Remediate release dependencies
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "src/**"
+      - "prisma/**"
+      - "Dockerfile"
+      - ".github/workflows/remediate-release-dependencies.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elastico-release-remediation
+  cancel-in-progress: false
+
+jobs:
+  regenerate-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: 1
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/elastico?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/elastico?schema=public
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply patched dependency constraints
+        run: |
+          npm pkg set 'dependencies.zod=^4.6.6'
+          npm pkg set 'overrides.deepmerge-ts=^8.0.2'
+          npm install --package-lock-only --legacy-peer-deps
+      - name: Verify clean lockfile installation
+        run: npm ci --legacy-peer-deps
+      - name: Validate Prisma schema and client generation
+        run: |
+          npx prisma generate
+          npx prisma validate
+      - name: Typecheck, lint, and tests
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+      - name: Production build
+        run: npm run build
+      - name: Full dependency audit
+        run: npm audit --audit-level=high
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Docker image build
+        run: docker build -t elastico:release-candidate .
+      - name: Upload verified dependency files
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-dependency-files
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
+          retention-days: 1
+
+  commit-verified-remediation:
+    if: github.actor != 'github-actions[bot]'
+    needs: regenerate-and-verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/release-candidate-03
+          submodules: false
+          persist-credentials: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-dependency-files
+          path: /tmp/verified-dependency-files
+      - name: Apply only verified dependency files and remove orphaned gitlink
+        run: |
+          cp /tmp/verified-dependency-files/package.json package.json
+          cp /tmp/verified-dependency-files/package-lock.json package-lock.json
+          git rm --cached -f elastico-source
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "fix: patch audited dependencies and remove orphaned submodule"
+          git push origin HEAD:integration/release-candidate-03

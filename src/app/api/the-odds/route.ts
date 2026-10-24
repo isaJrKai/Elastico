@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchSoccerOdds, fetchAllSoccerOdds, extractTheOddsData } from '@/lib/the-odds-api'
 
 import { rateLimit } from '@/lib/rate-limit'
+import { authenticateRequest } from '@/lib/auth'
 /**
  * GET /api/the-odds
  *
@@ -19,8 +20,9 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   try {
     // Rate limiting
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = rateLimit(`the-odds:${ip}`, 10, 60000)
+    const auth = await authenticateRequest(request)
+    if (auth instanceof Response) return auth
+    const rl = rateLimit(`the-odds:${auth.user.id}`, 10, 60000)
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }

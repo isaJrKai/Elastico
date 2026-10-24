@@ -58,11 +58,10 @@ export default function CommandPalette() {
 
   // Reset state on open/close
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset transient state when the global palette opens
     if (commandPaletteOpen) { setQuery(''); setActiveIndex(0) }
   }, [commandPaletteOpen])
 
-  // Reset selection on query change
-  useEffect(() => { setActiveIndex(0) }, [query])
 
   const handleSelect = useCallback((item: any) => {
     if (item.view) setView(item.view)
@@ -184,7 +183,7 @@ export default function CommandPalette() {
           <Input
             placeholder="Search matches, navigate, or type a command..."
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => { setQuery(e.target.value); setActiveIndex(0) }}
             onKeyDown={handleKeyDown}
             className="border-0 focus-visible:ring-0 h-12 bg-transparent px-0"
             autoFocus

@@ -280,15 +280,28 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
 
   // ── Actions — Auth ────────────────────────────────────────────────────────
 
-  setUser: (user, token) =>
+  setUser: (user, _legacyToken) => {
+    if (typeof window !== 'undefined') {
+      // Session credentials live only in the HttpOnly cookie, never in browser storage.
+      localStorage.removeItem('elastico_token')
+      localStorage.removeItem('elastico_user')
+    }
     set({
       user,
-      token,
-      isAuthenticated: user !== null && token !== null,
-    }),
+      token: null,
+      isAuthenticated: user !== null,
+    })
+  },
 
   logout: () => {
     if (typeof window !== 'undefined') {
+      void fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+      }).catch(() => {
+        // Local logout must still complete if the server is unavailable.
+      })
       localStorage.removeItem('elastico_token')
       localStorage.removeItem('elastico_user')
     }
@@ -393,10 +406,10 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
 
   fetchMatches: async () => {
     try {
-      const token = get().token
-      const headers: Record<string, string> = { 'Accept-Encoding': 'gzip, deflate' }
-      if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch('/api/matches', { headers })
+      const res = await fetch('/api/matches', {
+        credentials: 'same-origin',
+        headers: { 'Accept-Encoding': 'gzip, deflate' },
+      })
       if (res.ok) {
         const data = await res.json()
         const raw = Array.isArray(data) ? data : data.matches || []
@@ -464,10 +477,9 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
 
   fetchNotifications: async () => {
     try {
-      const token = get().token
-      if (!token) return
       const res = await fetch('/api/notifications', {
-        headers: { Authorization: `Bearer ${token}`, 'Accept-Encoding': 'gzip, deflate' },
+        credentials: 'same-origin',
+        headers: { 'Accept-Encoding': 'gzip, deflate' },
       })
       if (res.ok) {
         const data = await res.json()

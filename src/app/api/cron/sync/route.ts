@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { isValidCronRequest } from '@/lib/cron-auth'
 import {
   ESPN_LEAGUES,
   fetchStandings as fetchESPNStandings,
@@ -38,15 +39,6 @@ function checkTimeout() {
   if (elapsed() > TIMEOUT_MS) {
     throw new Error('approaching Vercel timeout, stopping early')
   }
-}
-
-// ── Cron Secret Validation ──────────────────────────────────────────────────
-
-function validateCron(req: NextRequest): boolean {
-  const secret = req.headers.get('x-cron-secret')
-  const expected = process.env.CRON_SECRET || 'elastico-cron-2024'
-  // Accept the expected secret OR the well-known default (for backward compat)
-  return secret === expected || secret === 'elastico-cron-2024'
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -838,9 +830,9 @@ async function logSync(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function GET(req: NextRequest) {
-  // 1. Validate cron secret (skip if ?force=true for manual triggers)
-  const forceSync = new URL(req.url).searchParams.get('force') === 'true'
-  if (!forceSync && !validateCron(req)) {
+  // Always authenticate sync requests. Manual admin triggers use /api/sync;
+  // query parameters must never bypass the cron-secret check.
+  if (!isValidCronRequest(req.headers)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -536,7 +536,7 @@ The LSTM model has 15% weight in the default ensemble. Its own metadata says it 
 
 | Data Point | State | File | Line | Evidence |
 |-----------|-------|------|------|----------|
-| `database_url` with embedded password | **FABRICATED** (security) | `config/settings.py` | 15 | `postgresql://neondb_owner:npg_8zPlbIK5NwaR@ep-late-sunset-...`. Should be in `.env` only. The class has `Config.env_file = ".env"` but the default value in the field definition means it works even without `.env`. |
+| `database_url` with embedded password | **FABRICATED** (security) | `config/settings.py` | 15 | `[REDACTED DATABASE_URL — credential exposed; rotate immediately]`. Should be in `.env` only. The class has `Config.env_file = ".env"` but the default value in the field definition means it works even without `.env`. |
 
 ---
 

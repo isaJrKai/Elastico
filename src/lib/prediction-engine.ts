@@ -112,6 +112,10 @@ export interface MatchInput {
   awayTeamId?: string
   homeXg: number        // Historical expected goals per game
   awayXg: number
+  homeActualGoalsPerGame?: number // Observed historical goals/game for luck adjustment; omit when unavailable
+  awayActualGoalsPerGame?: number
+  homeSampleSize?: number // Number of matches represented by the historical averages
+  awaySampleSize?: number
   homeGoalsConceded: number
   awayGoalsConceded: number
   homeElo: number
@@ -264,23 +268,26 @@ export function runStochasticSimulation(
   config: EngineConfig = DEFAULT_CONFIG
 ): StochasticMatchResult {
   /**
-   * Executes a high-iteration Monte Carlo simulation using a
-   * Bivariate Merton Jump-Diffusion Process with GARCH volatility scaling.
-   * 
-   * This models match outcomes as continuous stochastic differential
-   * processes interrupted by Poisson-distributed structural jumps,
-   * matching the methodology used by elite quantitative sports funds.
+   * Executes a Monte Carlo scenario simulation with optional GARCH-style
+   * volatility scaling and Poisson jump components. This is a heuristic
+   * scenario generator, not a trained or empirically validated match model.
+   * Its output must not be presented as a calibrated forecast or evidence of
+   * betting edge without a separate out-of-sample evaluation.
    */
   const { simulationRuns, garchEnabled, jumpDiffusionEnabled } = config
 
   // Step 1: Calibrate base intensity parameters from xG + ELO
   const eloDiff = input.homeElo - input.awayElo
   const eloFactor = 1 / (1 + Math.pow(10, -eloDiff / 400))
-  const avgXg = (input.homeXg + input.awayXg) / 2
+  const leagueAverageGoals = 1.35
 
-  // Home advantage adjustment (+0.25 goals typical for home field)
-  let muHome = input.homeXg * (0.7 + 0.3 * eloFactor) + 0.25
-  let muAway = input.awayXg * (0.7 + 0.3 * (1 - eloFactor))
+  // Team xG captures attacking output; opponent goals-conceded rates provide
+  // a separate defensive adjustment. Clamp the ratio so small samples/extremes
+  // cannot dominate. This is a transparent heuristic, not a trained calibration.
+  const homeDefenseFactor = clamp(input.awayGoalsConceded / leagueAverageGoals, 0.65, 1.45)
+  const awayDefenseFactor = clamp(input.homeGoalsConceded / leagueAverageGoals, 0.65, 1.45)
+  let muHome = input.homeXg * homeDefenseFactor * (0.85 + 0.3 * eloFactor) + 0.2
+  let muAway = input.awayXg * awayDefenseFactor * (0.85 + 0.3 * (1 - eloFactor))
 
   // Step 2: Apply injury adjustments
   const homeInjuries = input.injuries?.filter(i => i.teamId === input.homeTeamId) || []
@@ -681,8 +688,6 @@ export interface FullMatchAnalysis {
     home: KellyResult
     draw: KellyResult
     away: KellyResult
-    over25: KellyResult
-    under25: KellyResult
   }
   portfolioAllocation?: PortfolioAllocation
   marketSignal: MarketSignal | null
@@ -710,17 +715,16 @@ export function runFullMatchAnalysis(
    * 6. Produce final recommendation
    */
 
-  // Step 1: Luck adjustment
-  const homeLuck = adjustForLuck(
-    input.homeXg * 1.1, // Approximate actual goals from xG
-    input.homeXg
-  )
-  const awayLuck = adjustForLuck(
-    input.awayXg * 0.9,
-    input.awayXg
-  )
+  // Step 1: Adjust for observed finishing luck only when actual historical goals
+  // are supplied. Never invent observed goals by multiplying xG by arbitrary factors.
+  const homeLuck = typeof input.homeActualGoalsPerGame === 'number'
+    ? adjustForLuck(input.homeActualGoalsPerGame, input.homeXg, input.homeSampleSize ?? 10)
+    : { luckAdjustedGoals: input.homeXg, luckFactor: 1 }
+  const awayLuck = typeof input.awayActualGoalsPerGame === 'number'
+    ? adjustForLuck(input.awayActualGoalsPerGame, input.awayXg, input.awaySampleSize ?? 10)
+    : { luckAdjustedGoals: input.awayXg, luckFactor: 1 }
 
-  // Step 2: Run simulation with luck-adjusted inputs
+  // Step 2: Apply evidence-based adjustments; without observed goals, use xG unchanged.
   const adjustedInput: MatchInput = {
     ...input,
     homeXg: homeLuck.luckAdjustedGoals,
@@ -745,18 +749,6 @@ export function runFullMatchAnalysis(
     away: calculateKelly(
       simulation.matchProbabilities.awayVictory,
       input.bookmakerOdds.away,
-      bankroll,
-      config.kellyFraction
-    ),
-    over25: calculateKelly(
-      simulation.totalsMarket.over25,
-      input.bookmakerOdds.home * 0.9, // Approximate over/under odds
-      bankroll,
-      config.kellyFraction
-    ),
-    under25: calculateKelly(
-      simulation.totalsMarket.under25,
-      input.bookmakerOdds.home * 1.1,
       bankroll,
       config.kellyFraction
     ),

@@ -281,6 +281,7 @@ export function calculateElo(
   awayElo: number,
   K: number = 40,
   homeAdvantage: number = 65,
+  actualOutcome?: 'home' | 'draw' | 'away',
 ): EloResult {
   const eloDiff = homeElo + homeAdvantage - awayElo;
 
@@ -320,13 +321,16 @@ export function calculateElo(
     3.5,
   );
 
-  // Assume a home win for demonstration of new ratings
-  const homeEloNew = Math.round(
-    homeElo + K * (1 - expectedHome),
-  );
-  const awayEloNew = Math.round(
-    awayElo + K * (0 - expectedAway),
-  );
+  // Only update ratings when the actual match outcome is known. A forecast
+  // must never imply that a home win already happened.
+  const actualHomeScore = actualOutcome === 'home' ? 1 : actualOutcome === 'draw' ? 0.5 : actualOutcome === 'away' ? 0 : null;
+  const actualAwayScore = actualHomeScore === null ? null : 1 - actualHomeScore;
+  const homeEloNew = actualHomeScore === null
+    ? homeElo
+    : Math.round(homeElo + K * (actualHomeScore - expectedHome));
+  const awayEloNew = actualAwayScore === null
+    ? awayElo
+    : Math.round(awayElo + K * (actualAwayScore - expectedAway));
 
   return {
     homeProb,
@@ -518,6 +522,81 @@ export function dixonColes(
     rawDrawProb: rawDraw,
     rawAwayWinProb: rawAwayWin,
   };
+}
+
+
+/**
+ * Dixon–Coles adjustment using expected-goal rates from an upstream model.
+ * Unlike dixonColes(), this accepts goal intensities directly and does not
+ * require separate attack/defence strength estimates.
+ */
+export function dixonColesFromExpectedGoals(
+  homeExpected: number,
+  awayExpected: number,
+  maxGoals: number = 8,
+  rho: number = -0.13,
+): DixonColesResult {
+  if (!Number.isFinite(homeExpected) || homeExpected <= 0 || homeExpected > 10 ||
+      !Number.isFinite(awayExpected) || awayExpected <= 0 || awayExpected > 10) {
+    throw new RangeError('Expected goals must be finite values greater than 0 and at most 10')
+  }
+  if (!Number.isInteger(maxGoals) || maxGoals < 2 || maxGoals > 15) {
+    throw new RangeError('maxGoals must be an integer between 2 and 15')
+  }
+  if (!Number.isFinite(rho) || rho < -0.2 || rho > 0.2) {
+    throw new RangeError('rho must be between -0.2 and 0.2')
+  }
+
+  const rawMatrix: number[][] = []
+  const adjMatrix: number[][] = []
+  let totalAdjusted = 0
+  for (let h = 0; h <= maxGoals; h++) {
+    rawMatrix[h] = []
+    adjMatrix[h] = []
+    for (let a = 0; a <= maxGoals; a++) {
+      const raw = poissonPmf(h, homeExpected) * poissonPmf(a, awayExpected)
+      const adjusted = raw * dixonColesTau(h, a, homeExpected, awayExpected, rho)
+      rawMatrix[h][a] = raw
+      adjMatrix[h][a] = adjusted
+      totalAdjusted += adjusted
+    }
+  }
+  if (!Number.isFinite(totalAdjusted) || totalAdjusted <= 0) {
+    throw new Error('Dixon–Coles probability matrix could not be normalized')
+  }
+
+  let rawHomeWinProb = 0
+  let rawDrawProb = 0
+  let rawAwayWinProb = 0
+  let homeWinProb = 0
+  let drawProb = 0
+  let awayWinProb = 0
+  for (let h = 0; h <= maxGoals; h++) {
+    for (let a = 0; a <= maxGoals; a++) {
+      const adjusted = adjMatrix[h][a] / totalAdjusted
+      adjMatrix[h][a] = adjusted
+      if (h > a) {
+        rawHomeWinProb += rawMatrix[h][a]
+        homeWinProb += adjusted
+      } else if (h === a) {
+        rawDrawProb += rawMatrix[h][a]
+        drawProb += adjusted
+      } else {
+        rawAwayWinProb += rawMatrix[h][a]
+        awayWinProb += adjusted
+      }
+    }
+  }
+
+  return {
+    matrix: adjMatrix,
+    homeWinProb,
+    drawProb,
+    awayWinProb,
+    rawHomeWinProb,
+    rawDrawProb,
+    rawAwayWinProb,
+  }
 }
 
 // ---------------------------------------------------------------------------

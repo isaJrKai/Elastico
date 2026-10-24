@@ -44,8 +44,8 @@ export async function POST(req: NextRequest) {
               date: m.date || '',
               home_team: m.homeTeam?.name || '',
               away_team: m.awayTeam?.name || '',
-              home_score: m.homeScore ?? 0,
-              away_score: m.awayScore ?? 0,
+              home_score: m.homeScore ?? '',
+              away_score: m.awayScore ?? '',
               status: m.status || '',
               competition: m.competition || '',
               source: 'espn',
@@ -136,9 +136,15 @@ export async function POST(req: NextRequest) {
         headers.join(','),
         ...data.map((row) =>
           headers.map((h) => {
-            const val = String((row as Record<string, unknown>)[h] ?? '')
-            // Proper CSV escaping: wrap in quotes if contains comma, quote, or newline
-            if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+            const raw = (row as Record<string, unknown>)[h]
+            let val = String(raw ?? '')
+            // Neutralize spreadsheet formula injection for untrusted string values.
+            // Numeric fields remain numeric (including legitimate negative values).
+            if (typeof raw === 'string' && /^[=+@\t\r]|^-(?=.*[A-Za-z(])/.test(val)) {
+              val = "'" + val
+            }
+            // Proper CSV escaping: wrap in quotes if contains comma, quote, or newline.
+            if (val.includes(',') || val.includes('"') || val.includes('\n') || val.includes('\r')) {
               return `"${val.replace(/"/g, '""')}"`
             }
             return val

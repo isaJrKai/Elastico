@@ -1,6 +1,6 @@
 // Cycle 4.5 Step 9b: Investigate fabricated xG in seeded matches
 
-process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_8zPlbIK5NwaR@ep-late-sunset-axydccn7-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require';
+if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL in the environment before running this script');
 process.env.DIRECT_URL = process.env.DATABASE_URL;
 
 var { PrismaClient } = require('@prisma/client');

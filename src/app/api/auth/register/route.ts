@@ -1,19 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { hashPassword, generateToken } from '@/lib/auth'
+import { hashPassword, generateToken, hashSessionToken, hasValidCookieRequestOrigin, toPublicUser } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
-import { validateEmail, validatePassword, sanitizeInput } from '@/lib/security'
+import { z } from 'zod'
+import { validatePassword, sanitizeInput } from '@/lib/security'
+
+const RegisterBodySchema = z.object({
+  email: z.string().trim().email().max(254),
+  password: z.string().min(12).max(128),
+  name: z.string().trim().max(100).optional(),
+})
 
 export async function POST(req: NextRequest) {
   try {
+    const origin = req.headers.get('origin')
+    if (origin && !hasValidCookieRequestOrigin(req)) {
+      return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 })
+    }
+    const contentLength = Number(req.headers.get('content-length') || 0)
+    if (Number.isFinite(contentLength) && contentLength > 16_384) {
+      return NextResponse.json({ error: 'Request body too large' }, { status: 413 })
+    }
+
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    const parsed = RegisterBodySchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'A valid email and password are required' }, { status: 400 })
+    }
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
     const { allowed } = rateLimit(`register:${ip}`, 5, 60_000)
     if (!allowed) {
       return NextResponse.json({ error: 'Too many registration attempts. Try again later.' }, { status: 429 })
     }
 
-    const body = await req.json()
-    let { email, password, name } = body
+    let { email, password, name } = parsed.data
+    if (Buffer.byteLength(password, 'utf8') > 72) {
+      return NextResponse.json({ error: 'Password must be at most 72 UTF-8 bytes' }, { status: 400 })
+    }
 
     // Sanitize inputs
     if (name) name = sanitizeInput(String(name))
@@ -21,12 +49,6 @@ export async function POST(req: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
-    }
-
-    // Validate email format
-    const emailCheck = validateEmail(email)
-    if (!emailCheck.valid) {
-      return NextResponse.json({ error: emailCheck.error }, { status: 400 })
     }
 
     // Validate password strength
@@ -49,38 +71,62 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await hashPassword(password)
 
-    const user = await db.user.create({
-      data: {
-        email: email.toLowerCase(),
-        passwordHash,
-        name: name || null,
-        displayName: sanitizeInput(name || email.split('@')[0]),
-      },
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || undefined
+    const { user, token } = await db.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email: email.toLowerCase(),
+          passwordHash,
+          name: name || null,
+          displayName: sanitizeInput(name || email.split('@')[0]),
+        },
+      })
+
+      const createdToken = generateToken({
+        userId: createdUser.id,
+        email: createdUser.email,
+        role: createdUser.role,
+        plan: createdUser.plan,
+      })
+
+      await tx.session.create({
+        data: {
+          userId: createdUser.id,
+          token: hashSessionToken(createdToken),
+          ipAddress: clientIp,
+          userAgent: req.headers.get('user-agent') || undefined,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      })
+      return { user: createdUser, token: createdToken }
     })
 
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      plan: user.plan,
-    })
+    // Activity logs are best-effort and must not make a committed registration appear to fail.
+    try {
+      await db.activity.create({
+        data: {
+          userId: user.id,
+          type: 'login',
+          metadata: JSON.stringify({ method: 'register' }),
+          ipAddress: clientIp,
+        },
+      })
+    } catch {
+      console.error('[Auth] Registration activity log write failed')
+    }
 
-    // Log activity
-    await db.activity.create({
-      data: {
-        userId: user.id,
-        type: 'login',
-        metadata: JSON.stringify({ method: 'register' }),
-        ipAddress: req.headers.get('x-forwarded-for') || undefined,
-      },
-    })
-
-    const { passwordHash: _, ...userWithoutPassword } = user
-
-    return NextResponse.json(
-      { user: userWithoutPassword, token },
-      { status: 201 }
+    const response = NextResponse.json(
+      { user: toPublicUser(user) },
+      { status: 201, headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } },
     )
+    response.cookies.set('elastico_session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    })
+    return response
   } catch (error) {
     console.error('Register error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

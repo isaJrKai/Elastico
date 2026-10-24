@@ -439,7 +439,6 @@ export default function SettingsView() {
   const user = useElasticoStore(s => s.user)
   const setSidebarOpen = useElasticoStore(s => s.setSidebarOpen)
   const sidebarOpen = useElasticoStore(s => s.sidebarOpen)
-  const token = useElasticoStore(s => s.token)
   const { theme, setTheme } = useTheme()
 
   // ── View State ────────────────────────────────────────────────────────
