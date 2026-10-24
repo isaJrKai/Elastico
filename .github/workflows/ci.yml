@@ -67,9 +67,11 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
       - name: Build production standalone bundle
+        if: always()
         run: npm run build
 
       - name: Verify standalone server bundle exists
+        if: always()
         run: |
           test -f .next/standalone/server.js
           test -d .next/standalone/.next/static
