@@ -33,6 +33,10 @@ export async function POST(request: NextRequest) {
     const config: Partial<EngineConfig> = body?.config || {}
     const bankroll = body?.bankroll
     const openingOdds = body?.openingOdds
+    const mode = body.mode || 'full'
+    if (mode !== 'full' && mode !== 'simulation-only') {
+      return NextResponse.json({ error: 'mode must be full or simulation-only' }, { status: 400 })
+    }
 
     if (!matchInput || typeof matchInput.homeTeam !== 'string' || !matchInput.homeTeam.trim()
       || typeof matchInput.awayTeam !== 'string' || !matchInput.awayTeam.trim()) {
@@ -46,7 +50,6 @@ export async function POST(request: NextRequest) {
       ['awayGoalsConceded', matchInput.awayGoalsConceded, 0, 10],
       ['homeElo', matchInput.homeElo, 500, 3000],
       ['awayElo', matchInput.awayElo, 500, 3000],
-      ['bankroll', bankroll, 0.01, 1_000_000_000],
     ]
     for (const [field, raw, min, max] of numericInputs) {
       if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < min || raw > max) {
@@ -54,11 +57,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!matchInput.bookmakerOdds
-      || !Number.isFinite(matchInput.bookmakerOdds.home) || matchInput.bookmakerOdds.home <= 1
-      || !Number.isFinite(matchInput.bookmakerOdds.draw) || matchInput.bookmakerOdds.draw <= 1
-      || !Number.isFinite(matchInput.bookmakerOdds.away) || matchInput.bookmakerOdds.away <= 1) {
-      return NextResponse.json({ error: 'Verified decimal bookmaker odds above 1.0 are required for all three outcomes' }, { status: 400 })
+    // A probability simulation does not require betting-market inputs. Only the
+    // full analysis/Kelly path may consume bookmaker odds or a bankroll.
+    if (mode === 'full') {
+      if (typeof bankroll !== 'number' || !Number.isFinite(bankroll) || bankroll < 0.01 || bankroll > 1_000_000_000) {
+        return NextResponse.json({ error: 'bankroll must be a finite number between 0.01 and 1000000000' }, { status: 400 })
+      }
+      if (!matchInput.bookmakerOdds
+        || !Number.isFinite(matchInput.bookmakerOdds.home) || matchInput.bookmakerOdds.home <= 1
+        || !Number.isFinite(matchInput.bookmakerOdds.draw) || matchInput.bookmakerOdds.draw <= 1
+        || !Number.isFinite(matchInput.bookmakerOdds.away) || matchInput.bookmakerOdds.away <= 1) {
+        return NextResponse.json({ error: 'Verified decimal bookmaker odds above 1.0 are required for all three outcomes in full-analysis mode' }, { status: 400 })
+      }
     }
 
     const requestedRuns = config.simulationRuns ?? 150_000
@@ -105,11 +115,6 @@ export async function POST(request: NextRequest) {
       jumpDiffusionEnabled: config.jumpDiffusionEnabled ?? true,
       minEdgeThreshold: config.minEdgeThreshold ?? 0.02,
       maxBankrollRisk: config.maxBankrollRisk ?? 0.05,
-    }
-
-    const mode = body.mode || 'full'
-    if (mode !== 'full' && mode !== 'simulation-only') {
-      return NextResponse.json({ error: 'mode must be full or simulation-only' }, { status: 400 })
     }
 
     if (mode === 'simulation-only') {
