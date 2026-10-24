@@ -280,11 +280,15 @@ export function runStochasticSimulation(
   // Step 1: Calibrate base intensity parameters from xG + ELO
   const eloDiff = input.homeElo - input.awayElo
   const eloFactor = 1 / (1 + Math.pow(10, -eloDiff / 400))
-  const avgXg = (input.homeXg + input.awayXg) / 2
+  const leagueAverageGoals = 1.35
 
-  // Home advantage adjustment (+0.25 goals typical for home field)
-  let muHome = input.homeXg * (0.7 + 0.3 * eloFactor) + 0.25
-  let muAway = input.awayXg * (0.7 + 0.3 * (1 - eloFactor))
+  // Team xG captures attacking output; opponent goals-conceded rates provide
+  // a separate defensive adjustment. Clamp the ratio so small samples/extremes
+  // cannot dominate. This is a transparent heuristic, not a trained calibration.
+  const homeDefenseFactor = clamp(input.awayGoalsConceded / leagueAverageGoals, 0.65, 1.45)
+  const awayDefenseFactor = clamp(input.homeGoalsConceded / leagueAverageGoals, 0.65, 1.45)
+  let muHome = input.homeXg * homeDefenseFactor * (0.85 + 0.3 * eloFactor) + 0.2
+  let muAway = input.awayXg * awayDefenseFactor * (0.85 + 0.3 * (1 - eloFactor))
 
   // Step 2: Apply injury adjustments
   const homeInjuries = input.injuries?.filter(i => i.teamId === input.homeTeamId) || []
