@@ -14,9 +14,11 @@ The Elo experiment requires Python 3.10+ and no third-party packages. The Poisso
 
 ```bash
 python scripts/train_openfootball_baseline.py
+python -m pip install numpy scipy
+python scripts/train_openfootball_poisson.py
 ```
 
-Optional:
+Optional Elo-only run:
 ```bash
 python scripts/train_openfootball_baseline.py --seasons 2021-22 2022-23 2023-24 2024-25 --leagues en.1 es.1 de.1 it.1 fr.1
 ```
