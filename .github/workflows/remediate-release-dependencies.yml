@@ -23,6 +23,11 @@ jobs:
   regenerate-and-verify:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: 1
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/elastico?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/elastico?schema=public
     permissions:
       contents: read
     steps:
