@@ -22,6 +22,15 @@ A feature is only marked **PASS** after the real user journey and its backend/da
 | PRED-008 | P1 | Prediction Engine UI | Core xG/ELO inputs are manual when trustworthy source data is absent; no complete match-input pipeline exists yet. | PARTIAL: xG auto-fills only when source class is REAL/DERIVED; goals-conceded rates derive from standings when possible; ELO remains explicitly manual. Build the canonical match-to-input pipeline next. |
 | PRED-009 | P1 | Model validation | No current evidence yet of a reproducible held-out backtest for the production prediction path. | OPEN: create dataset/version manifest, time-based train/test split, calibration metrics (log loss, Brier, reliability), and baseline comparisons. |
 | PRED-010 | P1 | ELO updates | `calculateElo` previously assumed a home win when returning post-match ratings, even when no result was known. | Fixed in candidate: ratings remain unchanged for a forecast; update only when an actual outcome is explicitly provided. Unit test added. |
+| PRED-011 | P1 | Training data licensing | The candidate Hugging Face dataset declares CC BY 4.0, but its stated upstream sources include football-data.co.uk, whose site states its data is intended for private individuals and not commercial data-training products. | BLOCKED for commercial training/use until rights and upstream terms are confirmed. Do not ship a model trained on this data based only on the dataset-card license. |
+| PRED-012 | P1 | Trained model pipeline | A reproducible chronological training/evaluation script and manual GitHub Actions workflow have been added. No trained artifact or measured result exists yet. | OPEN: run the workflow for research evaluation only, inspect metrics/schema/coverage, resolve data rights, then implement and test live inference with explicit team-name mapping. |
+
+## Training pipeline added
+
+- `ml/train_match_model.py`: chronological feature construction from prior results, multinomial logistic regression, held-out metrics (accuracy, log loss, multiclass Brier), final model coefficients and latest team-state export.
+- `ml/requirements.txt` and `ml/README.md`: reproducible setup and evaluation gates.
+- `.github/workflows/train-prediction-model.yml`: manual-only training run that uploads candidate model/evaluation artifacts for 14 days; it does not deploy or commit a model.
+- This is research infrastructure only. It has not been executed or independently validated yet, and the current dataset's commercial rights need resolution before production use.
 
 ## Deployment status at last check
 
