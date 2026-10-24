@@ -48,7 +48,7 @@ A feature is only marked **PASS** after the real user journey and its backend/da
 
 - Vercel team access was authorized by the user.
 - Latest ready preview deployment observed: commit `7138db3639b257fa9aef08b2de7593eedb88d75d`.
-- Latest candidate code commit checked: `4786d50751860c298f55f49dd79b3e0fc18f414d`; it is newer than the ready preview.
+- Latest candidate code commit checked: `5b9589fa31cee1f04263c79d399b5c2b6e66ecf0`; it is newer than the ready preview.
 - The fixes listed above are newer than that deployment and are **not yet verified in the running preview**.
 - Vercel status checks for the candidate still report `upgradeToPro=build-rate-limit`; this blocks reliable automatic preview updates. Do not promote or merge to production to work around it.
 - Added unit tests for stochastic probability normalization, observed-goal provenance, 1X2-only Kelly outputs, Dixon–Coles score-grid normalization/symmetry, and ELO updates.
