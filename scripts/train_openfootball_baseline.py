@@ -148,6 +148,13 @@ def evaluate(matches: list[dict[str, Any]], output_dir: Path) -> dict[str, Any]:
         ratings[away_key] = away_elo + K_FACTOR * ((1.0 - actual_score) - (1.0 - expected))
 
     n = len(test)
+    def summarize(values: dict[str, float]) -> dict[str, float]:
+        return {
+            "log_loss": values["log_loss"] / n,
+            "multiclass_brier_score": values["brier"] / n,
+            "accuracy": values["correct"] / n,
+        }
+
     metrics = {
         "dataset": "OpenFootball football.json",
         "datasetLicenceNote": "Verify the current repository licence and each file before commercial use.",
@@ -155,8 +162,8 @@ def evaluate(matches: list[dict[str, Any]], output_dir: Path) -> dict[str, Any]:
         "trainDateRange": [train[0]["date"], train[-1]["date"]],
         "testDateRange": [test[0]["date"], test[-1]["date"]],
         "drawProbabilityEstimatedFromTrainingOnly": draw_probability,
-        "elo": {k: (v / n if k != "correct" else v / n) for k, v in totals.items()},
-        "trainingFrequencyBaseline": {k: (v / n if k != "correct" else v / n) for k, v in baseline_totals.items()},
+        "elo": summarize(totals),
+        "trainingFrequencyBaseline": summarize(baseline_totals),
         "note": "Chronological 80/20 split with sequential rating updates. This is a baseline evaluation, not evidence of betting profitability or a trained ML model.",
     }
     output_dir.mkdir(parents=True, exist_ok=True)
