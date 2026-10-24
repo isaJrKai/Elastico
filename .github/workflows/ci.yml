@@ -4,7 +4,10 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches:
+      - main
+      - "fix/**"
+      - "audit/**"
   workflow_dispatch:
 
 permissions:
@@ -56,9 +59,7 @@ jobs:
       - name: Lint maintained application source
         # The repository currently contains a nested exported copy at elastico-work/Elastico-main;
         # it is not the build root and has malformed/stale source files. Exclude that copy.
-        # React's set-state-in-effect rule is being tracked for a dedicated refactor; it currently
-        # flags existing loading/initialization effects across the maintained UI, so do not mask
-        # other lint rules while this is addressed.
+        # React's set-state-in-effect rule is tracked for a dedicated refactor.
         run: npx eslint . --ignore-pattern 'elastico-work/**' --rule 'react-hooks/set-state-in-effect: off'
 
       - name: Audit production dependencies for high and critical advisories
