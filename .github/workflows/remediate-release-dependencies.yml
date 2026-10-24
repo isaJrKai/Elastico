@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   regenerate-and-verify:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -66,6 +67,7 @@ jobs:
           retention-days: 1
 
   commit-verified-remediation:
+    if: github.actor != 'github-actions[bot]'
     needs: regenerate-and-verify
     runs-on: ubuntu-latest
     permissions:
