@@ -105,6 +105,12 @@ export default function PredictionEngineView() {
   // ── Simulation state ──────────────────────────────────────────────────────────
   const [simulating, setSimulating] = useState(false)
   const [analysis, setAnalysis] = useState<FullMatchAnalysis | null>(null)
+  const [engineInfo, setEngineInfo] = useState<{
+    trainingStatus?: string
+    calibrationStatus?: string
+    simulationRuns?: number
+    computedAt?: string
+  } | null>(null)
 
   const [homeTeamId, setHomeTeamId] = useState('')
   const [awayTeamId, setAwayTeamId] = useState('')
@@ -112,9 +118,10 @@ export default function PredictionEngineView() {
   const [awayXg, setAwayXg] = useState('')
   const [homeElo, setHomeElo] = useState('1850')
   const [awayElo, setAwayElo] = useState('1780')
-  const [oddsHome, setOddsHome] = useState('2.10')
-  const [oddsDraw, setOddsDraw] = useState('3.40')
-  const [oddsAway, setOddsAway] = useState('3.60')
+  // Blank by default: bookmaker prices must be entered from a real, current source.
+  const [oddsHome, setOddsHome] = useState('')
+  const [oddsDraw, setOddsDraw] = useState('')
+  const [oddsAway, setOddsAway] = useState('')
   const [bankroll, setBankroll] = useState('1000')
   const [simRuns, setSimRuns] = useState('150000')
   const [injuries, setInjuries] = useState<InjuryAdjustment[]>([])
@@ -153,14 +160,37 @@ export default function PredictionEngineView() {
   // ── Run simulation ────────────────────────────────────────────────────────────
   const runSimulation = useCallback(async () => {
     if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
+    const hXg = Number(homeXg), aXg = Number(awayXg)
+    const hElo = Number(effectiveHomeElo), aElo = Number(effectiveAwayElo)
+    if (!Number.isFinite(hXg) || hXg < 0.1 || hXg > 5 || !Number.isFinite(aXg) || aXg < 0.1 || aXg > 5) {
+      toast.error('Enter genuine historical xG values between 0.1 and 5 for both teams')
+      return
+    }
+    if (!Number.isFinite(hElo) || hElo < 500 || hElo > 3000 || !Number.isFinite(aElo) || aElo < 500 || aElo > 3000) {
+      toast.error('ELO ratings must be between 500 and 3000')
+      return
+    }
+    const oddsValues = [oddsHome, oddsDraw, oddsAway]
+    const oddsEntered = oddsValues.filter(v => v.trim() !== '').length
+    if (oddsEntered > 0 && oddsEntered < 3) {
+      toast.error('Enter all three current bookmaker odds, or leave all three blank')
+      return
+    }
+    const parsedOdds = oddsEntered === 3
+      ? { home: Number(oddsHome), draw: Number(oddsDraw), away: Number(oddsAway) }
+      : null
+    if (parsedOdds && Object.values(parsedOdds).some(v => !Number.isFinite(v) || v <= 1.01 || v > 1000)) {
+      toast.error('Bookmaker odds must be real decimal odds greater than 1.01 and no greater than 1000')
+      return
+    }
     setSimulating(true)
     try {
       const input: MatchInput = {
         homeTeam: homeTeam?.name ?? '', awayTeam: awayTeam?.name ?? '',
-        homeTeamId, awayTeamId, homeXg: +homeXg, awayXg: +awayXg,
-        homeGoalsConceded: +awayXg * 0.9, awayGoalsConceded: +homeXg * 0.9,
-        homeElo: +effectiveHomeElo || 1500, awayElo: +effectiveAwayElo || 1500,
-        bookmakerOdds: { home: +oddsHome, draw: +oddsDraw, away: +oddsAway },
+        homeTeamId, awayTeamId, homeXg: hXg, awayXg: aXg,
+        homeGoalsConceded: 0, awayGoalsConceded: 0,
+        homeElo: hElo, awayElo: aElo,
+        bookmakerOdds: parsedOdds,
         injuries: injuries.length ? injuries : undefined,
       }
       const res = await fetch('/api/prediction-engine/simulate', {
@@ -173,6 +203,7 @@ export default function PredictionEngineView() {
       const json = await res.json()
       const data: FullMatchAnalysis = json.data || json
       setAnalysis(data)
+      setEngineInfo(json.engineInfo ?? null)
       toast.success('Simulation complete', { icon: <Sparkles className="text-emerald-400" /> })
     } catch (e: any) {
       toast.error(e.message || 'Simulation error')
@@ -313,8 +344,9 @@ export default function PredictionEngineView() {
         <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
           <Brain className="w-6 h-6 text-emerald-400" />
         </div>
-        <div>
-<p className="text-sm text-zinc-500">Stochastic simulation • Kelly criterion • Market signals</p>
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-white">ELASTICO — Stochastic Scenario Analysis</h1>
+          <p className="text-sm text-zinc-500">Monte Carlo scenarios • Match probabilities • Market analysis when verified odds are supplied</p>
         </div>
       </div>
 
@@ -371,7 +403,7 @@ export default function PredictionEngineView() {
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(t.xgTruthClass === 'REAL' && ['FRESH', 'CURRENT'].includes(t.xgFreshness ?? '') ? String(t.xgPerGame ?? '') : '') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -382,7 +414,7 @@ export default function PredictionEngineView() {
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(String(t.xgPerGame ?? '')) }
+                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(t.xgTruthClass === 'REAL' && ['FRESH', 'CURRENT'].includes(t.xgFreshness ?? '') ? String(t.xgPerGame ?? '') : '') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -411,7 +443,7 @@ export default function PredictionEngineView() {
                     </div>
                   </div>
                   <Separator className="bg-zinc-800/50" />
-                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(enter current market odds — pre-filled values are examples only)</span></p>
+                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(optional — leave all blank to disable Kelly calculations)</span></p>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <Label className="text-xs text-emerald-400">Home</Label>
@@ -528,6 +560,18 @@ export default function PredictionEngineView() {
                 </Card>
               ) : (
                 <>
+                  {/* Provenance and calibration disclosure */}
+                  <Card className="rounded-lg border border-amber-500/20 bg-amber-500/5">
+                    <CardContent className="p-3 space-y-1">
+                      <p className="text-xs font-semibold text-amber-300">Research status — not independently validated</p>
+                      <p className="text-xs text-zinc-400">
+                        {engineInfo?.trainingStatus ?? 'Stochastic simulation; no trained model is used by this endpoint.'}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        Calibration: {engineInfo?.calibrationStatus ?? 'Not reported'} · Runs: {engineInfo?.simulationRuns?.toLocaleString() ?? config.simulationRuns.toLocaleString()}
+                      </p>
+                    </CardContent>
+                  </Card>
                   {/* Meta badges */}
                   <div className="flex items-center gap-3 flex-wrap">
                     <Badge className={cn('text-xs font-medium border', CONF_COLORS[analysis.simulation.confidence])}>
