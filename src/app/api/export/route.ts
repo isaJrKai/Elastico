@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
             let val = String(raw ?? '')
             // Neutralize spreadsheet formula injection for untrusted string values.
             // Numeric fields remain numeric (including legitimate negative values).
-            if (typeof raw === 'string' && /^[=+@\\t\\r]|^-(?=.*[A-Za-z(])/.test(val)) {
+            if (typeof raw === 'string' && /^[=+@\t\r]|^-(?=.*[A-Za-z(])/.test(val)) {
               val = "'" + val
             }
             // Proper CSV escaping: wrap in quotes if contains comma, quote, or newline.
