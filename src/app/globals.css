@@ -61,23 +61,23 @@
   --radius: 0.5rem;
 
   /* ── Paper / ink default theme ──────────────────────────────────────────── */
-  --background: #F1F0EC;
+  --background: #E3E0D8;
   --foreground: #151C28;
-  --card: #FBFAF7;
+  --card: #F0EDE6;
   --card-foreground: #151C28;
-  --popover: #FBFAF7;
+  --popover: #F0EDE6;
   --popover-foreground: #151C28;
   --primary: #17263B;
   --primary-foreground: #FFFFFF;
-  --secondary: #E4E7EB;
+  --secondary: #D8DCE0;
   --secondary-foreground: #283548;
-  --muted: #E9EAEC;
-  --muted-foreground: #697382;
+  --muted: #DCD9D1;
+  --muted-foreground: #525D6B;
   --accent: #FCE7E4;
   --accent-foreground: #7B2426;
   --destructive: #C83D42;
-  --border: #D9DDE3;
-  --input: #F7F7F5;
+  --border: #C8CDD3;
+  --input: #E9E5DD;
   --ring: rgba(36, 115, 181, 0.32);
   --chart-1: #D44743;
   --chart-2: #287DB8;
@@ -86,13 +86,13 @@
   --chart-5: #6D5BD0;
 
   /* ── Sidebar ─────────────────────────────────────────────────────────────── */
-  --sidebar: #E8EAED;
+  --sidebar: #D8D9D6;
   --sidebar-foreground: #4D596A;
   --sidebar-primary: #17263B;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #DDE2E8;
+  --sidebar-accent: #C9CFD5;
   --sidebar-accent-foreground: #151C28;
-  --sidebar-border: #D9DDE3;
+  --sidebar-border: #C8CDD3;
   --sidebar-ring: rgba(36, 115, 181, 0.32);
 
   /* Restrained elevation; structure comes from spacing and borders, not glow. */
@@ -111,23 +111,23 @@
 
 /* ── Light theme ────────────────────────────────────────────────────────────── */
 .light {
-  --background: #F1F0EC;
+  --background: #E3E0D8;
   --foreground: #151C28;
-  --card: #FBFAF7;
+  --card: #F0EDE6;
   --card-foreground: #151C28;
-  --popover: #FBFAF7;
+  --popover: #F0EDE6;
   --popover-foreground: #151C28;
   --primary: #17263B;
   --primary-foreground: #FFFFFF;
-  --secondary: #E4E7EB;
+  --secondary: #D8DCE0;
   --secondary-foreground: #283548;
-  --muted: #E9EAEC;
-  --muted-foreground: #697382;
+  --muted: #DCD9D1;
+  --muted-foreground: #525D6B;
   --accent: #FCE7E4;
   --accent-foreground: #7B2426;
   --destructive: #C83D42;
-  --border: #D9DDE3;
-  --input: #F7F7F5;
+  --border: #C8CDD3;
+  --input: #E9E5DD;
   --ring: rgba(36, 115, 181, 0.32);
   --chart-1: #D44743;
   --chart-2: #287DB8;
@@ -135,13 +135,13 @@
   --chart-4: #66758B;
   --chart-5: #6D5BD0;
 
-  --sidebar: #E8EAED;
+  --sidebar: #D8D9D6;
   --sidebar-foreground: #4D596A;
   --sidebar-primary: #17263B;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #DDE2E8;
+  --sidebar-accent: #C9CFD5;
   --sidebar-accent-foreground: #151C28;
-  --sidebar-border: #D9DDE3;
+  --sidebar-border: #C8CDD3;
   --sidebar-ring: rgba(36, 115, 181, 0.32);
 
   --depth-1: 0 1px 2px rgba(21, 28, 40, 0.04);
@@ -823,10 +823,10 @@
   html { font-feature-settings: "ss01" on, "cv11" on; }
   body { letter-spacing: -0.012em; }
   h1, h2, h3, h4, [data-display="true"] {
-    font-family: "Arial Narrow", "Roboto Condensed", "DIN Alternate", system-ui, sans-serif;
+    font-family: "Arial Black", "Franklin Gothic Heavy", "Impact", "Arial Narrow", system-ui, sans-serif;
     font-stretch: condensed;
     letter-spacing: -0.035em;
-    font-weight: 800;
+    font-weight: 900;
   }
   :focus-visible {
     outline: 2px solid var(--ring);
@@ -841,5 +841,29 @@
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* Matchday readability pass: warmer surfaces, clearer hierarchy, heavier type. */
+@layer base {
+  body {
+    font-weight: 500;
+    text-rendering: optimizeLegibility;
+  }
+  p, li, label, input, textarea, select, button {
+    font-weight: 500;
+  }
+  h1, h2, h3, h4, h5, h6,
+  .font-bold, .font-extrabold, .font-black,
+  [class*="text-"][class*="xl"],
+  [class*="text-"][class*="2xl"],
+  [class*="text-"][class*="3xl"],
+  [class*="text-"][class*="4xl"] {
+    font-weight: 800;
+    text-rendering: geometricPrecision;
+  }
+  strong, b, .font-semibold {
+    font-weight: 750;
   }
 }
