@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     icon: [
       { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512x512.png", sizes: "512x512", type: "image/png" },
-      { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2310B981'/><text x='50' y='72' font-size='65' font-weight='bold' text-anchor='middle' fill='white'>E</text></svg>", sizes: "any" },
+      { url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23D44743'/><text x='50' y='72' font-size='65' font-weight='bold' text-anchor='middle' fill='white'>E</text></svg>", sizes: "any" },
     ],
     apple: [{ url: "/icons/icon-152x152.png", sizes: "152x152" }],
   },
@@ -44,9 +44,9 @@ export default function RootLayout({
       <body
         className="antialiased bg-background text-foreground"
         style={{
-          fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-          ["--font-dm-sans" as string]: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-          ["--font-jetbrains-mono" as string]: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontFamily: '"Aptos", "Segoe UI", system-ui, -apple-system, sans-serif',
+          ["--font-dm-sans" as string]: '"Aptos", "Segoe UI", system-ui, -apple-system, sans-serif',
+          ["--font-jetbrains-mono" as string]: '"SFMono-Regular", Consolas, "Liberation Mono", monospace',
         }}
       >
         <ThemeProvider
