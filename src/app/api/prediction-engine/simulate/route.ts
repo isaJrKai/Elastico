@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
     const config = (payload.config && typeof payload.config === 'object' && !Array.isArray(payload.config)
       ? payload.config : {}) as Partial<EngineConfig>
     const bankroll = payload.bankroll ?? 1000
-    const openingOdds = payload.openingOdds
+    const rawOpeningOdds = payload.openingOdds
+    const openingOdds = rawOpeningOdds as { home: number; draw: number; away: number } | undefined
     const mode = payload.mode ?? 'full'
 
     if (mode !== 'full' && mode !== 'simulation-only') {
@@ -67,6 +68,15 @@ export async function POST(request: NextRequest) {
       const odds = matchInput.bookmakerOdds
       if (!odds || !isFiniteIn(odds.home, 1.01, 1000) || !isFiniteIn(odds.draw, 1.01, 1000) || !isFiniteIn(odds.away, 1.01, 1000)) {
         return NextResponse.json({ error: 'All bookmaker odds must be finite numbers greater than 1.01 and no greater than 1000' }, { status: 400 })
+      }
+    }
+    if (rawOpeningOdds !== undefined) {
+      if (!rawOpeningOdds || typeof rawOpeningOdds !== 'object' || Array.isArray(rawOpeningOdds)) {
+        return NextResponse.json({ error: 'openingOdds must contain home, draw, and away decimal odds' }, { status: 400 })
+      }
+      const odds = rawOpeningOdds as Record<string, unknown>
+      if (!isFiniteIn(odds.home, 1.01, 1000) || !isFiniteIn(odds.draw, 1.01, 1000) || !isFiniteIn(odds.away, 1.01, 1000)) {
+        return NextResponse.json({ error: 'All opening odds must be finite numbers greater than 1.01 and no greater than 1000' }, { status: 400 })
       }
     }
 
