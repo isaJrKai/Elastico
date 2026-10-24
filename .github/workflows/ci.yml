@@ -1,0 +1,81 @@
+name: ELASTICO CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elastico-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Install, test, lint, audit, and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Non-secret placeholders allow build-time validation without connecting
+      # to or mutating any real database or third-party account.
+      DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/elastico_ci?schema=public
+      DIRECT_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/elastico_ci?schema=public
+      JWT_SECRET: ci-only-not-for-production-0123456789abcdef
+      NEXT_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      NODE_ENV: production
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run prediction-engine invariant tests
+        run: npm run test:prediction-engine
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Lint the full repository
+        run: npm run lint
+
+      - name: Audit production dependencies for high and critical advisories
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build production standalone bundle
+        run: npm run build
+
+      - name: Verify standalone server bundle exists
+        run: |
+          test -f .next/standalone/server.js
+          test -d .next/standalone/.next/static
+          test -d .next/standalone/public
+          echo "Standalone production bundle and copied assets are present."
+
+      - name: Upload build diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elastico-ci-diagnostics
+          path: |
+            .next/
+            npm-debug.log
+          if-no-files-found: ignore
+          retention-days: 7
