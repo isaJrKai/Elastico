@@ -96,3 +96,15 @@ test('fractional Kelly exposure is capped at the configured maximum risk', () =>
   const result = calculateKelly(0.9, 5, 1000, 1, 0.03)
   assert.ok(result.suggestedWager <= 30)
 })
+
+test('full analysis does not invent totals-market odds from home-win odds', () => {
+  const result = runFullMatchAnalysis({
+    ...input,
+    bookmakerOdds: { home: 2.1, draw: 3.4, away: 3.6 },
+  }, 1000, undefined, config)
+  assert.equal(result.kellyResults?.over25, undefined)
+  assert.equal(result.kellyResults?.under25, undefined)
+  for (const outcome of result.portfolioAllocation?.outcomes ?? []) {
+    assert.ok(outcome.wagerAmount <= 50)
+  }
+})
