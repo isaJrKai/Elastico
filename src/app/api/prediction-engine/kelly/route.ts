@@ -13,43 +13,73 @@ export async function POST(request: Request) {
     const rl = rateLimit(`kelly:${auth.user.id}`, 20, 60_000)
     if (!rl.allowed) return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
 
-    const body = await request.json()
-    const mode = body.mode || 'single'
+    const rawBody: unknown = await request.json()
+    if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
+      return NextResponse.json({ error: 'Request body must be a JSON object' }, { status: 400 })
+    }
+    const body = rawBody as Record<string, unknown>
+    const mode = body.mode ?? 'single'
+    const isFiniteIn = (value: unknown, min: number, max: number): value is number =>
+      typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max
 
     if (mode === 'portfolio') {
-      // Multi-asset portfolio allocation with covariance adjustment
-      const { outcomes, bankroll, correlationMatrix } = body
-      if (!outcomes || !Array.isArray(outcomes) || outcomes.length === 0) {
-        return NextResponse.json({ error: 'outcomes array is required for portfolio mode' }, { status: 400 })
+      const outcomes = body.outcomes
+      const bankroll = body.bankroll ?? 1000
+      const correlationMatrix = body.correlationMatrix
+      if (!Array.isArray(outcomes) || outcomes.length < 1 || outcomes.length > 20) {
+        return NextResponse.json({ error: 'outcomes must be an array containing 1 to 20 items' }, { status: 400 })
+      }
+      if (!isFiniteIn(bankroll, 1, 1_000_000_000)) {
+        return NextResponse.json({ error: 'bankroll must be between 1 and 1000000000' }, { status: 400 })
+      }
+      for (const [index, item] of outcomes.entries()) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          return NextResponse.json({ error: `outcomes[${index}] must be an object` }, { status: 400 })
+        }
+        const outcome = item as Record<string, unknown>
+        if (!isFiniteIn(outcome.modelProb, 0, 1) || !isFiniteIn(outcome.odds, 1.01, 1000)) {
+          return NextResponse.json({ error: `outcomes[${index}] requires modelProb from 0 to 1 and decimal odds greater than 1.01` }, { status: 400 })
+        }
+      }
+      if (correlationMatrix !== undefined) {
+        if (!Array.isArray(correlationMatrix) || correlationMatrix.length !== outcomes.length ||
+            correlationMatrix.some((row: unknown) => !Array.isArray(row) || row.length !== outcomes.length ||
+              row.some((v: unknown) => !isFiniteIn(v, -1, 1)))) {
+          return NextResponse.json({ error: 'correlationMatrix must be a square matrix matching outcomes, with values between -1 and 1' }, { status: 400 })
+        }
       }
       const allocation: PortfolioAllocation = calculatePortfolioAllocation(
         outcomes,
-        bankroll || 1000,
+        bankroll,
         correlationMatrix
       )
       return NextResponse.json({ success: true, mode: 'portfolio', data: allocation })
     }
 
-    // Single bet Kelly calculation
-    const { modelProbability, bookmakerOdds, bankroll, fractionalKelly } = body
-    if (modelProbability === undefined || !bookmakerOdds) {
-      return NextResponse.json({ error: 'modelProbability and bookmakerOdds are required' }, { status: 400 })
+    if (mode !== 'single') {
+      return NextResponse.json({ error: 'mode must be single or portfolio' }, { status: 400 })
     }
-    if (typeof modelProbability !== 'number' || modelProbability < 0.01 || modelProbability > 0.99) {
+    const { modelProbability, bookmakerOdds } = body
+    const bankroll = body.bankroll ?? 1000
+    const fractionalKelly = body.fractionalKelly ?? 0.25
+    if (!isFiniteIn(modelProbability, 0.01, 0.99)) {
       return NextResponse.json({ error: 'modelProbability must be between 0.01 and 0.99' }, { status: 400 })
     }
-    if (typeof bookmakerOdds !== 'number' || bookmakerOdds <= 1.01) {
-      return NextResponse.json({ error: 'bookmakerOdds must be greater than 1.01' }, { status: 400 })
+    if (!isFiniteIn(bookmakerOdds, 1.01, 1000)) {
+      return NextResponse.json({ error: 'bookmakerOdds must be greater than 1.01 and no greater than 1000' }, { status: 400 })
     }
-    if (bankroll !== undefined && (typeof bankroll !== 'number' || bankroll <= 0)) {
-      return NextResponse.json({ error: 'bankroll must be greater than 0' }, { status: 400 })
+    if (!isFiniteIn(bankroll, 1, 1_000_000_000)) {
+      return NextResponse.json({ error: 'bankroll must be between 1 and 1000000000' }, { status: 400 })
+    }
+    if (!isFiniteIn(fractionalKelly, 0, 1)) {
+      return NextResponse.json({ error: 'fractionalKelly must be between 0 and 1' }, { status: 400 })
     }
 
     const result: KellyResult = calculateKelly(
       modelProbability,
       bookmakerOdds,
-      bankroll || 1000,
-      fractionalKelly ?? 0.25
+      bankroll,
+      fractionalKelly
     )
 
     return NextResponse.json({ success: true, mode: 'single', data: result })
