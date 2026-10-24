@@ -13,7 +13,8 @@
     "db:reset": "prisma migrate reset",
     "db:seed": "npx tsx prisma/seed.ts",
     "setup": "prisma generate && prisma db push && npx tsx prisma/seed.ts",
-    "vercel-build": "prisma generate && next build"
+    "vercel-build": "prisma generate && next build",
+    "test:prediction-engine": "tsx --test src/lib/prediction-engine.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
