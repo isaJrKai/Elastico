@@ -37,7 +37,7 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: `outcomes[${index}] must be an object` }, { status: 400 })
         }
         const outcome = item as Record<string, unknown>
-        if (!isFiniteIn(outcome.modelProb, 0, 1) || !isFiniteIn(outcome.odds, 1.01, 1000)) {
+        if (typeof outcome.label !== 'string' || !outcome.label.trim() || !isFiniteIn(outcome.modelProb, 0, 1) || !isFiniteIn(outcome.odds, 1.01, 1000)) {
           return NextResponse.json({ error: `outcomes[${index}] requires modelProb from 0 to 1 and decimal odds greater than 1.01` }, { status: 400 })
         }
       }
@@ -46,6 +46,16 @@ export async function POST(request: Request) {
             correlationMatrix.some((row: unknown) => !Array.isArray(row) || row.length !== outcomes.length ||
               row.some((v: unknown) => !isFiniteIn(v, -1, 1)))) {
           return NextResponse.json({ error: 'correlationMatrix must be a square matrix matching outcomes, with values between -1 and 1' }, { status: 400 })
+        }
+        for (let i = 0; i < correlationMatrix.length; i++) {
+          if (Math.abs(correlationMatrix[i][i] - 1) > 1e-6) {
+            return NextResponse.json({ error: 'correlationMatrix diagonal values must equal 1' }, { status: 400 })
+          }
+          for (let j = i + 1; j < correlationMatrix.length; j++) {
+            if (Math.abs(correlationMatrix[i][j] - correlationMatrix[j][i]) > 1e-6) {
+              return NextResponse.json({ error: 'correlationMatrix must be symmetric' }, { status: 400 })
+            }
+          }
         }
       }
       // The core allocator's default matrix is 3x3. For 1-2 outcome portfolios,
