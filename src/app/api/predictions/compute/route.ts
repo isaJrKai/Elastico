@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
         goalsFor: true, goalsAgainst: true, source: true, lastSyncedAt: true,
       },
     })
-    const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]/g, '')
+    const normalizeName = (value: string) => value.toLocaleLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
     const findStoredTeam = (name: string, abbreviation: string) => {
       const normalizedName = normalizeName(name)
       return storedTeams.find(team => normalizeName(team.name) === normalizedName) ??
