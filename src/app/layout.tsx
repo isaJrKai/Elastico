@@ -23,8 +23,8 @@ export const metadata: Metadata = {
   },
   other: {
     "mobile-web-app-capable": "yes",
-    "theme-color": "#F4F1E8",
-    "msapplication-TileColor": "#F4F1E8",
+    "theme-color": "#F1F0EC",
+    "msapplication-TileColor": "#F1F0EC",
   },
 };
 
