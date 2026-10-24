@@ -403,7 +403,7 @@ export default function PredictionEngineView() {
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(t.xgTruthClass === 'REAL' ? String(t.xgPerGame ?? '') : '') }
+                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(t.xgTruthClass === 'REAL' && ['FRESH', 'CURRENT'].includes(t.xgFreshness ?? '') ? String(t.xgPerGame ?? '') : '') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -414,7 +414,7 @@ export default function PredictionEngineView() {
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(t.xgTruthClass === 'REAL' ? String(t.xgPerGame ?? '') : '') }
+                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(t.xgTruthClass === 'REAL' && ['FRESH', 'CURRENT'].includes(t.xgFreshness ?? '') ? String(t.xgPerGame ?? '') : '') }
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
