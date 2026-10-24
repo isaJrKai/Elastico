@@ -1,8 +1,9 @@
 name: Remediate release dependencies
 
 on:
-  push:
-    branches: [integration/release-candidate-03]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
     paths:
       - "package.json"
       - "package-lock.json"
