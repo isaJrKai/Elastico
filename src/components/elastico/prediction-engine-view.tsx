@@ -239,6 +239,10 @@ export default function PredictionEngineView() {
   // ── Run Kelly ─────────────────────────────────────────────────────────────────
   const runKelly = useCallback(async () => {
     if (!analysis) { toast.error('Run a simulation first'); return }
+    if (!analysis.portfolioAllocation?.outcomes?.length) {
+      toast.error('Kelly allocation needs full analysis with verified home/draw/away bookmaker odds.')
+      return
+    }
     if (kellyBankroll.trim() === '' || !Number.isFinite(Number(kellyBankroll)) || Number(kellyBankroll) <= 0) {
       toast.error('Enter a valid bankroll before calculating Kelly allocation')
       return
@@ -412,7 +416,7 @@ export default function PredictionEngineView() {
                 <CardDescription className="px-6 -mt-2 pb-1">
                   <p className="text-[10px] text-zinc-600 leading-relaxed">
                     <Info className="inline w-3 h-3 mr-1 opacity-60" />
-                    Monte Carlo simulation generates scenarios from explicitly supplied xG, goals-conceded rates, ELO ratings, and bookmaker odds. Missing values must be entered explicitly. Outputs are illustrative model scenarios, not calibrated forecasts or betting guarantees.
+                    Probability-only runs need team inputs; leave odds and bankroll blank. Full market analysis requires verified home/draw/away odds plus a bankroll. Team xG is prefilled only when marked REAL or DERIVED; ELO and missing statistics must be supplied explicitly. Outputs are model scenarios, not validated forecasts or betting guarantees.
                   </p>
                 </CardDescription>
                 <CardContent className="space-y-3">
@@ -432,7 +436,12 @@ export default function PredictionEngineView() {
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(''); setHomeXg(t.xgPerGame != null && (t.xgTruthClass === 'REAL' || t.xgTruthClass === 'DERIVED') ? String(t.xgPerGame) : '') }
+                        if (t) {
+                          setHomeElo('')
+                          setHomeXg(t.xgPerGame != null && (t.xgTruthClass === 'REAL' || t.xgTruthClass === 'DERIVED') ? String(t.xgPerGame) : '')
+                          const played = t.wins + t.draws + t.losses
+                          setHomeGoalsConceded(played > 0 ? (t.goalsAgainst / played).toFixed(2) : '')
+                        }
                       }}>
                         <SelectTrigger className="bg-background border-border text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -443,7 +452,12 @@ export default function PredictionEngineView() {
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
                         const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(''); setAwayXg(t.xgPerGame != null && (t.xgTruthClass === 'REAL' || t.xgTruthClass === 'DERIVED') ? String(t.xgPerGame) : '') }
+                        if (t) {
+                          setAwayElo('')
+                          setAwayXg(t.xgPerGame != null && (t.xgTruthClass === 'REAL' || t.xgTruthClass === 'DERIVED') ? String(t.xgPerGame) : '')
+                          const played = t.wins + t.draws + t.losses
+                          setAwayGoalsConceded(played > 0 ? (t.goalsAgainst / played).toFixed(2) : '')
+                        }
                       }}>
                         <SelectTrigger className="bg-background border-border text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
