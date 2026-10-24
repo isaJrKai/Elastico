@@ -61,7 +61,7 @@ jobs:
         # it is not the build root and has malformed/stale source files. Exclude that copy.
         # React's set-state-in-effect rule is tracked for a dedicated refactor.
         run: >-
-          npx eslint . --ignore-pattern 'elastico-work/**' --rule 'react-hooks/set-state-in-effect: off'
+          npx eslint src --rule 'react-hooks/set-state-in-effect: off'
 
       - name: Audit production dependencies for high and critical advisories
         run: npm audit --omit=dev --audit-level=high
