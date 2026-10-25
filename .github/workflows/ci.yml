@@ -44,6 +44,13 @@ jobs:
       - name: Install locked dependencies, including CI development tools
         run: npm install --legacy-peer-deps --include=dev
 
+      - name: Apply semver-compatible dependency security fixes for evaluation
+        run: npm audit fix --legacy-peer-deps
+
+      - name: Capture production dependency audit report
+        if: always()
+        run: npm audit --omit=dev --json > production-audit.json || true
+
       - name: Validate Prisma schema
         run: npx prisma validate
 
@@ -86,5 +93,8 @@ jobs:
           path: |
             .next/
             npm-debug.log
+            package.json
+            package-lock.json
+            production-audit.json
           if-no-files-found: ignore
           retention-days: 7
