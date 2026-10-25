@@ -1,11 +1,13 @@
 name: Dependency audit remediation
 
-on:
+"on":
   push:
     branches:
       - "fix/prediction-engine-production-audit"
     paths:
       - ".github/workflows/dependency-audit-remediation.yml"
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 permissions:
