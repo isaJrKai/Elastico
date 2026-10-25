@@ -69,13 +69,25 @@ export async function POST(request: NextRequest) {
       correlation: matchInput.correlation,
     }
 
+    const requestedRuns = config.simulationRuns ?? 150000
+    if (typeof requestedRuns !== 'number' || !Number.isInteger(requestedRuns) || requestedRuns < 1000 || requestedRuns > 200000) {
+      return NextResponse.json({ error: 'simulationRuns must be an integer between 1,000 and 200,000' }, { status: 400 })
+    }
+    const requestedKelly = config.kellyFraction ?? 0.25
+    const requestedEdge = config.minEdgeThreshold ?? 0.02
+    const requestedRisk = config.maxBankrollRisk ?? 0.05
+    if (typeof requestedKelly !== 'number' || !Number.isFinite(requestedKelly) || requestedKelly <= 0 || requestedKelly > 1
+      || typeof requestedEdge !== 'number' || !Number.isFinite(requestedEdge) || requestedEdge < 0 || requestedEdge > 1
+      || typeof requestedRisk !== 'number' || !Number.isFinite(requestedRisk) || requestedRisk <= 0 || requestedRisk > 0.25) {
+      return NextResponse.json({ error: 'Invalid risk configuration: Kelly must be (0, 1], edge must be [0, 1], max risk must be (0, 0.25]' }, { status: 400 })
+    }
     const fullConfig: EngineConfig = {
-      simulationRuns: config.simulationRuns || 150000,
-      kellyFraction: config.kellyFraction ?? 0.25,
+      simulationRuns: requestedRuns,
+      kellyFraction: requestedKelly,
       garchEnabled: config.garchEnabled ?? true,
       jumpDiffusionEnabled: config.jumpDiffusionEnabled ?? true,
-      minEdgeThreshold: config.minEdgeThreshold ?? 0.02,
-      maxBankrollRisk: config.maxBankrollRisk ?? 0.05,
+      minEdgeThreshold: requestedEdge,
+      maxBankrollRisk: requestedRisk,
     }
 
     if (mode === 'simulation-only') {
