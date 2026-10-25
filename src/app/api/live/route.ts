@@ -306,7 +306,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[LIVE] Error:', error)
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed' },
+      { success: false, error: 'Football data request failed' },
       { status: 500 }
     )
   }
