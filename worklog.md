@@ -170,3 +170,15 @@ Work Log:
 - Official model references reviewed: Groq supported-model catalog, Cerebras Inference quickstart, Gemini model catalog, NVIDIA Nemotron NIM docs, OpenRouter free-model catalog, and xAI Chat Completions reference.
 - The xAI key is not present in the Vercel environment inventory; Grok cannot be live-tested or used until a real `XAI_API_KEY` is added. Existing keys are not decrypted or exposed.
 - A fresh CI run must be triggered for the latest commits because the previous run was cancelled by later branch updates after unit tests passed.
+
+
+Task ID: 7
+Agent: ChatGPT
+Task: Repair Match Analysis navigation and source-ID lookup
+
+Work Log:
+- Production logs showed match detail requests using `fd:fd:<id>`. Root cause: football-data.org normalization already prefixes IDs with `fd:`, while MatchesView added the prefix a second time.
+- Updated MatchesView to preserve already-prefixed IDs and only add the prefix when missing.
+- Added defensive duplicate-prefix removal in `/api/matches/[id]` so old clients or stale UI state do not break lookup.
+- Removed the inaccessible Europa League (`EL`) competition from the football-data.org fallback search that had been emitting a 403 in production logs.
+- Live verification is pending a new deployment; current Vercel deployment checks remain blocked by the project's build-rate-limit status.
