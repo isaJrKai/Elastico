@@ -308,7 +308,10 @@ export async function callAiStream(
   const maxTokens = options?.maxTokens || 4096
   const temperature = options?.temperature ?? 0.7
 
-  let providers = [...PROVIDERS]
+  const providerPriority = ['Groq', 'NVIDIA Nemotron', 'OpenRouter', 'Cerebras', 'Google Gemini', 'Mistral', 'GitHub Models', 'Grok']
+  let providers = [...PROVIDERS].sort(
+    (a, b) => providerPriority.indexOf(a.name) - providerPriority.indexOf(b.name)
+  )
   if (options?.preferProvider) {
     const preferred = providers.find(p => p.name === options.preferProvider)
     if (preferred) {
@@ -326,9 +329,12 @@ export async function callAiStream(
   const errors: string[] = []
   let attemptedProviders = 0
   for (const provider of available) {
+    if (isCoolingDown(provider.name)) {
+      errors.push(`${provider.name}: cooling down`)
+      continue
+    }
     if (attemptedProviders >= 3) break
     attemptedProviders += 1
-    if (isCoolingDown(provider.name)) continue
 
     const apiKey = resolveKey(provider.envKey)
     const body: Record<string, unknown> = {
@@ -351,7 +357,9 @@ export async function callAiStream(
 
       if (!resp.ok || !resp.body) {
         if (resp.status === 429) markCooldown(provider.name, 120)
-        if (resp.status === 403 || resp.status === 401) markCooldown(provider.name, 300)
+        else if (resp.status === 401 || resp.status === 403) markCooldown(provider.name, 300)
+        else if (resp.status === 404 || resp.status === 410) markCooldown(provider.name, 600)
+        else if (resp.status >= 500) markCooldown(provider.name, 30)
         errors.push(`${provider.name}: ${resp.status}`)
         continue
       }
