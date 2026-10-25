@@ -192,3 +192,13 @@ Work Log:
 - Replaced broad user-object spreading with an explicit public AuthUser allowlist so route handlers do not receive password hashes, 2FA secrets, session IDs, provider IDs, private profile fields, or lockout internals.
 - Authentication now rejects banned/inactive accounts and returns 423 while a stored lockout is active.
 - Requires the latest CI run to validate Prisma field compatibility and TypeScript typing before merge.
+
+
+Task ID: 9
+Agent: ChatGPT
+Task: Align Dixon-Coles invocation with the existing score-matrix implementation
+
+Work Log:
+- Reviewed the actual `dixonColes` function signature and found that its first two arguments are score-matrix bounds, not expected-goal lambdas.
+- Updated the prediction-compute endpoint to use an 8×8 score matrix and derive attack/defence factors from the sourced goal-rate lambdas so the existing Dixon-Coles routine receives arguments in the intended shape.
+- Requires CI and out-of-sample validation before describing the ensemble as a calibrated model.
