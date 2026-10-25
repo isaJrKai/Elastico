@@ -4,12 +4,11 @@ on:
   pull_request:
     paths:
       - package.json
-      - package-lock.json
       - .github/workflows/lockfile-repair.yml
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   regenerate-lockfile:
@@ -18,6 +17,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          persist-credentials: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -30,6 +32,18 @@ jobs:
 
       - name: Validate clean install consistency
         run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Commit verified lockfile repair
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json is already consistent; no commit needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "fix(deps): regenerate npm lockfile"
+          git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Upload verified lockfile
         uses: actions/upload-artifact@v4
