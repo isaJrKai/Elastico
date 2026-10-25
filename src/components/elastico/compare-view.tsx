@@ -56,8 +56,10 @@ export default function CompareView() {
   // Stat comparisons — real data preferred, derived from basic stats when missing
   const statComparisons = useMemo(() => {
     if (!homeTeam || !awayTeam) return []
-    const homeMatches = Math.max(homeTeam.wins + homeTeam.draws + homeTeam.losses, 1)
-    const awayMatches = Math.max(awayTeam.wins + awayTeam.draws + awayTeam.losses, 1)
+    const homeMatches = homeTeam.wins + homeTeam.draws + homeTeam.losses
+    const awayMatches = awayTeam.wins + awayTeam.draws + awayTeam.losses
+    const homeHasHistory = homeMatches > 0
+    const awayHasHistory = awayMatches > 0
 
     // Expected goals are a model/provider metric, not a synonym for goals per game.
     // Leave them unavailable when the data source has not supplied xG/xGA.
@@ -76,19 +78,19 @@ export default function CompareView() {
 
     return [
       { label: 'ELO Rating', home: homeTeam.eloRating ?? null, away: awayTeam.eloRating ?? null, higher: 'higher' as const, truthClass: null as string | null, source: null as string | null },
-      { label: 'xG per Game', home: homeXg, away: awayXg, higher: 'higher' as const, truthClass: homeTeam.xgPerGame != null ? (homeTeam.xgTruthClass || 'REAL') : 'MISSING', source: homeTeam.xgSource || null },
-      { label: 'xGA per Game', home: homeXga, away: awayXga, higher: 'lower' as const, truthClass: homeTeam.xgaPerGame != null ? (homeTeam.xgTruthClass || 'REAL') : 'MISSING', source: homeTeam.xgSource || null },
+      { label: 'xG per Game', home: homeXg, away: awayXg, higher: 'higher' as const, truthClass: homeTeam.xgPerGame != null && awayTeam.xgPerGame != null ? (homeTeam.xgTruthClass || awayTeam.xgTruthClass || 'REAL') : 'MISSING', source: homeTeam.xgSource || null },
+      { label: 'xGA per Game', home: homeXga, away: awayXga, higher: 'lower' as const, truthClass: homeTeam.xgaPerGame != null && awayTeam.xgaPerGame != null ? (homeTeam.xgTruthClass || awayTeam.xgTruthClass || 'REAL') : 'MISSING', source: homeTeam.xgSource || null },
       { label: 'Possession %', home: homePoss, away: awayPoss, higher: 'higher' as const, truthClass: homePoss != null && awayPoss != null ? 'REAL' : 'MISSING', source: null },
       { label: 'Pass Accuracy %', home: homePass, away: awayPass, higher: 'higher' as const, truthClass: homePass != null && awayPass != null ? 'REAL' : 'MISSING', source: null },
       { label: 'Press Intensity', home: homePress, away: awayPress, higher: 'higher' as const, truthClass: homePress != null && awayPress != null ? 'REAL' : 'MISSING', source: null },
-      { label: 'Goals For', home: homeTeam.goalsFor ?? 0, away: awayTeam.goalsFor ?? 0, higher: 'higher' as const, truthClass: 'REAL' as string | null, source: null as string | null },
-      { label: 'Goals Against', home: homeTeam.goalsAgainst ?? 0, away: awayTeam.goalsAgainst ?? 0, higher: 'lower' as const, truthClass: 'REAL' as string | null, source: null as string | null },
-      { label: 'Wins', home: homeTeam.wins, away: awayTeam.wins, higher: 'higher' as const, truthClass: 'REAL' as string | null, source: null as string | null },
-      { label: 'Draws', home: homeTeam.draws, away: awayTeam.draws, higher: 'neutral' as const, truthClass: 'REAL' as string | null, source: null as string | null },
-      { label: 'Losses', home: homeTeam.losses, away: awayTeam.losses, higher: 'lower' as const, truthClass: 'REAL' as string | null, source: null as string | null },
-      { label: 'GD', home: homeTeam.goalsFor - homeTeam.goalsAgainst, away: awayTeam.goalsFor - awayTeam.goalsAgainst, higher: 'higher' as const, truthClass: 'REAL' as string | null, source: null as string | null },
-      { label: 'Avg Goals/Game', home: +(homeTeam.goalsFor / homeMatches).toFixed(2), away: +(awayTeam.goalsFor / awayMatches).toFixed(2), higher: 'higher' as const, truthClass: 'DERIVED' as string | null, source: 'basic-stats' },
-      { label: 'Win Rate %', home: +((homeTeam.wins / homeMatches) * 100).toFixed(1), away: +((awayTeam.wins / awayMatches) * 100).toFixed(1), higher: 'higher' as const, truthClass: 'DERIVED' as string | null, source: 'basic-stats' },
+      { label: 'Goals For', home: homeHasHistory ? homeTeam.goalsFor : null, away: awayHasHistory ? awayTeam.goalsFor : null, higher: 'higher' as const, truthClass: homeHasHistory && awayHasHistory ? 'REAL' as string | null : 'MISSING', source: null as string | null },
+      { label: 'Goals Against', home: homeHasHistory ? homeTeam.goalsAgainst : null, away: awayHasHistory ? awayTeam.goalsAgainst : null, higher: 'lower' as const, truthClass: homeHasHistory && awayHasHistory ? 'REAL' as string | null : 'MISSING', source: null as string | null },
+      { label: 'Wins', home: homeHasHistory ? homeTeam.wins : null, away: awayHasHistory ? awayTeam.wins : null, higher: 'higher' as const, truthClass: homeHasHistory && awayHasHistory ? 'REAL' as string | null : 'MISSING', source: null as string | null },
+      { label: 'Draws', home: homeHasHistory ? homeTeam.draws : null, away: awayHasHistory ? awayTeam.draws : null, higher: 'neutral' as const, truthClass: homeHasHistory && awayHasHistory ? 'REAL' as string | null : 'MISSING', source: null as string | null },
+      { label: 'Losses', home: homeHasHistory ? homeTeam.losses : null, away: awayHasHistory ? awayTeam.losses : null, higher: 'lower' as const, truthClass: homeHasHistory && awayHasHistory ? 'REAL' as string | null : 'MISSING', source: null as string | null },
+      { label: 'GD', home: homeHasHistory ? homeTeam.goalsFor - homeTeam.goalsAgainst : null, away: awayHasHistory ? awayTeam.goalsFor - awayTeam.goalsAgainst : null, higher: 'higher' as const, truthClass: homeHasHistory && awayHasHistory ? 'REAL' as string | null : 'MISSING', source: null as string | null },
+      { label: 'Avg Goals/Game', home: homeHasHistory ? +(homeTeam.goalsFor / homeMatches).toFixed(2) : null, away: awayHasHistory ? +(awayTeam.goalsFor / awayMatches).toFixed(2) : null, higher: 'higher' as const, truthClass: homeHasHistory && awayHasHistory ? 'DERIVED' as string | null : 'MISSING', source: 'basic-stats' },
+      { label: 'Win Rate %', home: homeHasHistory ? +((homeTeam.wins / homeMatches) * 100).toFixed(1) : null, away: awayHasHistory ? +((awayTeam.wins / awayMatches) * 100).toFixed(1) : null, higher: 'higher' as const, truthClass: homeHasHistory && awayHasHistory ? 'DERIVED' as string | null : 'MISSING', source: 'basic-stats' },
     ]
   }, [homeTeam, awayTeam])
 
