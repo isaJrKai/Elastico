@@ -44,9 +44,9 @@ function checkTimeout() {
 
 function validateCron(req: NextRequest): boolean {
   const secret = req.headers.get('x-cron-secret')
-  const expected = process.env.CRON_SECRET || 'elastico-cron-2024'
-  // Accept the expected secret OR the well-known default (for backward compat)
-  return secret === expected || secret === 'elastico-cron-2024'
+  const expected = process.env.CRON_SECRET
+  // Fail closed: never accept a hard-coded fallback secret.
+  return Boolean(expected && secret && secret === expected)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
