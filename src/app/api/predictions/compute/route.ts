@@ -4,7 +4,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { fetchAllLiveScores } from '@/lib/football-data'
 import { fetchTodaysMatches, normalizeFDMatch } from '@/lib/football-data-org'
 import { db } from '@/lib/db'
-import { calculateElo, poissonProbabilities, dixonColesFromLambdas, type EloResult } from '@/lib/predictions'
+import { calculateElo, poissonProbabilities, dixonColes, type EloResult } from '@/lib/predictions'
 
 /** GET /api/predictions/compute — compute predictions from ESPN match data (auth required)
  *
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
       const homeLambda = Math.max(0.2, Math.min(4, (homeAttack + awayDefence) / 2))
       const awayLambda = Math.max(0.2, Math.min(4, (awayAttack + homeDefence) / 2))
       const poisson = poissonProbabilities(homeLambda, awayLambda)
-      const dc = dixonColesFromLambdas(homeLambda, awayLambda)
+      const dc = dixonColes(homeLambda, awayLambda, 0.1, -0.1, 0.1, 0.0)
       const ensemble = {
         homeWin: (elo.homeProb + poisson.homeWinProb + dc.homeWinProb) / 3,
         draw: (elo.drawProb + poisson.drawProb + dc.drawProb) / 3,
