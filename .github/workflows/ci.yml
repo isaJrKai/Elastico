@@ -115,7 +115,43 @@ jobs:
           test -d .next/standalone/.next/static
           test -d .next/standalone/public
 
-${publish}      - name: Restore committed dependencies before enforcing the security gate
+      - name: Publish verified dependency fixes to the audit branch
+        id: publish_candidate
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/fix/prediction-engine-production-audit' &&
+          steps.candidate_remediation.outcome == 'success' &&
+          steps.candidate_audit.outcome == 'success' &&
+          steps.candidate_prisma_validate.outcome == 'success' &&
+          steps.candidate_prisma_generate.outcome == 'success' &&
+          steps.candidate_tests.outcome == 'success' &&
+          steps.candidate_tsc.outcome == 'success' &&
+          steps.candidate_lint.outcome == 'success' &&
+          steps.candidate_build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp dependency-remediation-candidate/package.json package.json
+          cp dependency-remediation-candidate/package-lock.json package-lock.json
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "Verified dependency manifests are already committed."
+          else
+            git commit -m "fix(deps): apply verified production security updates"
+            git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+            echo "Verified dependency updates committed; dispatching CI against the new branch head."
+            curl --fail --silent --show-error -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/dispatches" \
+              -d "{\"ref\":\"fix/prediction-engine-production-audit\"}"
+          fi
+
+      - name: Restore committed dependencies before enforcing the security gate
         if: always() && steps.publish_candidate.outcome != 'success'
         run: |
           cp /tmp/elastico-package.json package.json
