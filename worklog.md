@@ -110,3 +110,27 @@ Stage Summary:
 - Also fixed tactical-view which never fetched teams and had a homeTeamId access bug
 - All 21 tabs now have a reliable data path: DB → football-data.org → ESPN
 - Deploy: https://elastico-mk1zjv8ph-elastico.vercel.app (READY)
+
+
+---
+
+Task ID: 3
+Agent: ChatGPT
+Task: Production reliability pass — AI providers, auth fail-closed, and prediction input integrity
+
+Work Log:
+- Added an xAI/Grok provider entry using the server-side `XAI_API_KEY` environment variable and documented it in `.env.example`.
+- Changed the NVIDIA model to NVIDIA Nemotron and updated the protected environment diagnostic label for the provider.
+- Reduced each AI provider request timeout to 8 seconds and bounded a single request to at most three configured-provider attempts to limit serial failover latency.
+- Replaced the authentication fallback that trusted JWT claims / synthesized users during DB outages. Auth now returns 503 when database verification is unavailable and 401 for unknown or inactive accounts; sensitive fields are stripped from the returned user.
+- Disabled the demo-auth route in production, prohibited admin-role creation, normalized/validated email and plan, and rejected existing accounts rather than issuing them a token without password verification.
+- Removed default model values for ELO and bookmaker odds in the prediction-engine UI. Added explicit goals-conceded inputs and validation; removed derived goals-conceded values that were being inferred from the opposing team's xG.
+- Removed sample opening/current odds from market-signal controls and added numeric validation.
+- Added server-side validation for required model inputs, current odds, bankroll and bounded simulation/risk configuration. The simulation API no longer silently supplies neutral xG, goals-conceded, or ELO defaults.
+- Existing Vercel environment-variable inventory showed entries for Groq, NVIDIA, Gemini and OpenRouter. This was an inventory-only check; provider credentials were not decrypted or tested. No xAI key was present in that inventory.
+- Attempted repository clone for local verification, but outbound GitHub network resolution is unavailable in this environment. Vercel's production build checks are currently blocked by the project's build-rate-limit response. No merge or production deployment is claimed.
+- Remaining verification: fresh GitHub CI on the latest PR head, auth/demo regression tests, AI provider smoke test, prediction engine end-to-end test, live Match Analysis/navigation checks, and production deployment once the build quota allows it.
+
+Stage Summary:
+- Source changes are on branch `fix/ai-prediction-production-reliability`, PR #34.
+- PR remains draft; do not merge until CI/test evidence and runtime smoke tests are available.
