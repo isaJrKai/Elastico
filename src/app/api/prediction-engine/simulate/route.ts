@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
+import { validateSimulationRequest } from '@/lib/prediction-input-validation'
 import {
   runStochasticSimulation,
   runFullMatchAnalysis,
@@ -18,39 +19,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const matchInput: MatchInput | undefined = body?.matchInput
-    const config: Partial<EngineConfig> = body?.config || {}
-    const bankroll = body?.bankroll
-    const openingOdds = body?.openingOdds
-    const mode = body?.mode || 'full'
+    const validationError = validateSimulationRequest(body)
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
 
-    if (!matchInput || typeof matchInput.homeTeam !== 'string' || !matchInput.homeTeam.trim()
-      || typeof matchInput.awayTeam !== 'string' || !matchInput.awayTeam.trim()) {
-      return NextResponse.json({ error: 'matchInput with homeTeam and awayTeam is required' }, { status: 400 })
-    }
-
-    const numericInputs: Array<[string, unknown, number, number]> = [
-      ['homeXg', matchInput.homeXg, 0, 5],
-      ['awayXg', matchInput.awayXg, 0, 5],
-      ['homeGoalsConceded', matchInput.homeGoalsConceded, 0, 6],
-      ['awayGoalsConceded', matchInput.awayGoalsConceded, 0, 6],
-      ['homeElo', matchInput.homeElo, 500, 3000],
-      ['awayElo', matchInput.awayElo, 500, 3000],
-    ]
-    for (const [name, value, min, max] of numericInputs) {
-      if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
-        return NextResponse.json({ error: `${name} must be a real numeric input between ${min} and ${max}; defaults are not fabricated` }, { status: 400 })
-      }
-    }
-    if (mode !== 'simulation-only') {
-      const odds = matchInput.bookmakerOdds
-      if (!odds || ![odds.home, odds.draw, odds.away].every(value => typeof value === 'number' && Number.isFinite(value) && value > 1.01 && value <= 1000)) {
-        return NextResponse.json({ error: 'Current decimal bookmaker odds for home, draw and away are required for full market analysis' }, { status: 400 })
-      }
-    }
-    if (bankroll !== undefined && (typeof bankroll !== 'number' || !Number.isFinite(bankroll) || bankroll <= 0 || bankroll > 1_000_000_000)) {
-      return NextResponse.json({ error: 'bankroll must be a finite positive number within supported limits' }, { status: 400 })
-    }
+    const matchInput = body.matchInput as MatchInput
+    const config: Partial<EngineConfig> = body.config || {}
+    const bankroll = body.bankroll ?? 1000
+    const openingOdds = body.openingOdds
+    const mode = body.mode || 'full'
 
     const input: MatchInput = {
       homeTeam: matchInput.homeTeam.trim(),
@@ -69,25 +45,13 @@ export async function POST(request: NextRequest) {
       correlation: matchInput.correlation,
     }
 
-    const requestedRuns = config.simulationRuns ?? 150000
-    if (typeof requestedRuns !== 'number' || !Number.isInteger(requestedRuns) || requestedRuns < 1000 || requestedRuns > 200000) {
-      return NextResponse.json({ error: 'simulationRuns must be an integer between 1,000 and 200,000' }, { status: 400 })
-    }
-    const requestedKelly = config.kellyFraction ?? 0.25
-    const requestedEdge = config.minEdgeThreshold ?? 0.02
-    const requestedRisk = config.maxBankrollRisk ?? 0.05
-    if (typeof requestedKelly !== 'number' || !Number.isFinite(requestedKelly) || requestedKelly <= 0 || requestedKelly > 1
-      || typeof requestedEdge !== 'number' || !Number.isFinite(requestedEdge) || requestedEdge < 0 || requestedEdge > 1
-      || typeof requestedRisk !== 'number' || !Number.isFinite(requestedRisk) || requestedRisk <= 0 || requestedRisk > 0.25) {
-      return NextResponse.json({ error: 'Invalid risk configuration: Kelly must be (0, 1], edge must be [0, 1], max risk must be (0, 0.25]' }, { status: 400 })
-    }
     const fullConfig: EngineConfig = {
-      simulationRuns: requestedRuns,
-      kellyFraction: requestedKelly,
+      simulationRuns: config.simulationRuns ?? 150000,
+      kellyFraction: config.kellyFraction ?? 0.25,
       garchEnabled: config.garchEnabled ?? true,
       jumpDiffusionEnabled: config.jumpDiffusionEnabled ?? true,
-      minEdgeThreshold: requestedEdge,
-      maxBankrollRisk: requestedRisk,
+      minEdgeThreshold: config.minEdgeThreshold ?? 0.02,
+      maxBankrollRisk: config.maxBankrollRisk ?? 0.05,
     }
 
     if (mode === 'simulation-only') {
