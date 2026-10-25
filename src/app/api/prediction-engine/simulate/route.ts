@@ -18,26 +18,51 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const matchInput: MatchInput = body.matchInput
-    const config: Partial<EngineConfig> = body.config || {}
-    const bankroll = body.bankroll || 1000
-    const openingOdds = body.openingOdds
+    const matchInput: MatchInput | undefined = body?.matchInput
+    const config: Partial<EngineConfig> = body?.config || {}
+    const bankroll = body?.bankroll
+    const openingOdds = body?.openingOdds
+    const mode = body?.mode || 'full'
 
-    if (!matchInput || !matchInput.homeTeam || !matchInput.awayTeam) {
+    if (!matchInput || typeof matchInput.homeTeam !== 'string' || !matchInput.homeTeam.trim()
+      || typeof matchInput.awayTeam !== 'string' || !matchInput.awayTeam.trim()) {
       return NextResponse.json({ error: 'matchInput with homeTeam and awayTeam is required' }, { status: 400 })
     }
 
+    const numericInputs: Array<[string, unknown, number, number]> = [
+      ['homeXg', matchInput.homeXg, 0, 5],
+      ['awayXg', matchInput.awayXg, 0, 5],
+      ['homeGoalsConceded', matchInput.homeGoalsConceded, 0, 6],
+      ['awayGoalsConceded', matchInput.awayGoalsConceded, 0, 6],
+      ['homeElo', matchInput.homeElo, 500, 3000],
+      ['awayElo', matchInput.awayElo, 500, 3000],
+    ]
+    for (const [name, value, min, max] of numericInputs) {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+        return NextResponse.json({ error: `${name} must be a real numeric input between ${min} and ${max}; defaults are not fabricated` }, { status: 400 })
+      }
+    }
+    if (mode !== 'simulation-only') {
+      const odds = matchInput.bookmakerOdds
+      if (!odds || ![odds.home, odds.draw, odds.away].every(value => typeof value === 'number' && Number.isFinite(value) && value > 1.01 && value <= 1000)) {
+        return NextResponse.json({ error: 'Current decimal bookmaker odds for home, draw and away are required for full market analysis' }, { status: 400 })
+      }
+    }
+    if (bankroll !== undefined && (typeof bankroll !== 'number' || !Number.isFinite(bankroll) || bankroll <= 0 || bankroll > 1_000_000_000)) {
+      return NextResponse.json({ error: 'bankroll must be a finite positive number within supported limits' }, { status: 400 })
+    }
+
     const input: MatchInput = {
-      homeTeam: matchInput.homeTeam,
-      awayTeam: matchInput.awayTeam,
+      homeTeam: matchInput.homeTeam.trim(),
+      awayTeam: matchInput.awayTeam.trim(),
       homeTeamId: matchInput.homeTeamId,
       awayTeamId: matchInput.awayTeamId,
-      homeXg: matchInput.homeXg ?? 1.5,
-      awayXg: matchInput.awayXg ?? 1.1,
-      homeGoalsConceded: matchInput.homeGoalsConceded ?? 0.9,
-      awayGoalsConceded: matchInput.awayGoalsConceded ?? 1.2,
-      homeElo: matchInput.homeElo ?? 1600,
-      awayElo: matchInput.awayElo ?? 1500,
+      homeXg: matchInput.homeXg,
+      awayXg: matchInput.awayXg,
+      homeGoalsConceded: matchInput.homeGoalsConceded,
+      awayGoalsConceded: matchInput.awayGoalsConceded,
+      homeElo: matchInput.homeElo,
+      awayElo: matchInput.awayElo,
       bookmakerOdds: matchInput.bookmakerOdds ?? null,
       historicalResiduals: matchInput.historicalResiduals,
       injuries: matchInput.injuries,
@@ -52,8 +77,6 @@ export async function POST(request: NextRequest) {
       minEdgeThreshold: config.minEdgeThreshold ?? 0.02,
       maxBankrollRisk: config.maxBankrollRisk ?? 0.05,
     }
-
-    const mode = body.mode || 'full'
 
     if (mode === 'simulation-only') {
       const result = runStochasticSimulation(input, fullConfig)
