@@ -45,7 +45,7 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies, including CI development tools
-        run: npm install --legacy-peer-deps --include=dev
+        run: npm ci --legacy-peer-deps --include=dev
 
       - name: Preserve the committed dependency manifests
         run: |
@@ -63,9 +63,11 @@ jobs:
           remediation_status=$?
           set -e
           # Prisma CLI is build tooling; @prisma/client remains a production dependency.
-          npm install --legacy-peer-deps --save-dev 'prisma@^6.19.3'
+          npm install --include=dev --legacy-peer-deps --save-dev 'prisma@^6.19.3'
           # Test the patched image-processing dependency against the actual app build.
-          npm install --legacy-peer-deps 'sharp@0.35.5'
+          npm install --include=dev --legacy-peer-deps 'sharp@0.35.5'
+          # Assert local tooling remains installed; npx must not download unrelated latest CLIs.
+          npm ls --depth=0 prisma @prisma/client sharp tsx typescript eslint @tailwindcss/postcss
           mkdir -p dependency-remediation-candidate
           cp package.json dependency-remediation-candidate/package.json
           cp package-lock.json dependency-remediation-candidate/package-lock.json
