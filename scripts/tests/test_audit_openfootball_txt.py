@@ -77,6 +77,20 @@ class OpenFootballParserTests(unittest.TestCase):
         self.assertEqual(manifest["abandoned_fixtures"], 1)
         self.assertEqual(manifest["scheduled_or_incomplete_fixtures"], 1)
 
+
+    def test_bye_entry_is_not_a_malformed_match(self):
+        source = """= Uganda Premier League 2023/2024
+  Fri Sep 15 2023
+           Vipers SC            bye
+"""
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "sample.txt"
+            path.write_text(source, encoding="utf-8")
+            rows, manifest = MODULE.parse_file(path, "UG1")
+        self.assertEqual(rows, [])
+        self.assertEqual(manifest["bye_entries"], 1)
+        self.assertEqual(manifest["malformed_or_unparsed_lines"], 0)
+
     def test_cross_file_duplicates_are_removed(self):
         row = {"Date": "2024-09-13", "Div": "UG1", "HomeTeam": "KCCA", "AwayTeam": "URA",
                "FTHG": "1", "FTAG": "0", "FTR": "H"}
