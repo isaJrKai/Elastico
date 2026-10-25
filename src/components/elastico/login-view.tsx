@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import {
   Zap, Mail, Lock, User, Eye, EyeOff, Loader2,
-  ShieldCheck, Trophy, Crown, UserCheck, Megaphone, X, ChevronRight,
+  Trophy, Crown, UserCheck, Megaphone, X, ChevronRight,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -25,7 +25,6 @@ interface DemoAccount {
 }
 
 const DEMO_ACCOUNTS: DemoAccount[] = [
-  { label: 'Admin', email: 'admin@elastico.ai', password: '', icon: <ShieldCheck className="size-3.5" />, color: 'text-red-400', hoverColor: 'hover:border-red-500/40 hover:text-red-300', plan: 'admin' },
   { label: 'Pro', email: 'pro@elastico.ai', password: '', icon: <Crown className="size-3.5" />, color: 'text-amber-400', hoverColor: 'hover:border-amber-500/40 hover:text-amber-300', plan: 'pro' },
   { label: 'Elite', email: 'elite@elastico.ai', password: '', icon: <Trophy className="size-3.5" />, color: 'text-primary', hoverColor: 'hover:border-primary/40 hover:text-primary/80', plan: 'elite' },
   { label: 'Free', email: 'user@elastico.ai', password: '', icon: <UserCheck className="size-3.5" />, color: 'text-sky-400', hoverColor: 'hover:border-sky-500/40 hover:text-sky-300', plan: 'free' },
@@ -206,18 +205,20 @@ export default function LoginView() {
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-2.5">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><div className="h-px flex-1 bg-secondary" /><span>Click to Enter Instantly</span><div className="h-px flex-1 bg-secondary" /></div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {DEMO_ACCOUNTS.map(account => (
-                      <button key={account.label} type="button" onClick={() => fillDemo(account)} disabled={loginLoading} className={cn('flex flex-col items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2 py-3 text-xs transition-colors active:scale-95 hover:bg-secondary/80 hover:border-primary/50', account.hoverColor)}>
-                        <span className={account.color}>{account.icon}</span>
-                        <span className="text-muted-foreground font-medium">{account.label}</span>
-                        <Badge variant="outline" className="text-[8px] h-3 px-1 border-border text-muted-foreground">{account.plan}</Badge>
-                      </button>
-                    ))}
+                {process.env.NODE_ENV !== 'production' && (
+                  <div className="mt-5 space-y-2.5">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground"><div className="h-px flex-1 bg-secondary" /><span>Click to Enter Instantly</span><div className="h-px flex-1 bg-secondary" /></div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {DEMO_ACCOUNTS.map(account => (
+                        <button key={account.label} type="button" onClick={() => fillDemo(account)} disabled={loginLoading} className={cn('flex flex-col items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2 py-3 text-xs transition-colors active:scale-95 hover:bg-secondary/80 hover:border-primary/50', account.hoverColor)}>
+                          <span className={account.color}>{account.icon}</span>
+                          <span className="text-muted-foreground font-medium">{account.label}</span>
+                          <Badge variant="outline" className="text-[8px] h-3 px-1 border-border text-muted-foreground">{account.plan}</Badge>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </TabsContent>
 
               <TabsContent value="register">
