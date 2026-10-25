@@ -133,7 +133,7 @@ export function PlayerView() {
       // ESPN fallback: fetch teams for selected league, then fetch rosters
       try {
         const activeLeague = league
-        const teamsRes = await fetch(`/api/live?action=teams&league=${activeLeague}`)
+        const teamsRes = await fetch(`/api/live?action=teams&league=${activeLeague}&source=espn`)
         const teamsData = await teamsRes.json()
         const espnTeams = teamsData.data || teamsData.teams || []
 
