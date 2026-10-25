@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { fetchLeagueLeaders, fetchTeamRoster } from '@/lib/football-data'
+import { fetchTeamRoster } from '@/lib/football-data'
 
 import { rateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
@@ -117,42 +117,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // League leaders (top scorers)
-    const leaders = await fetchLeagueLeaders(league)
-    if (leaders.length > 0) {
-      const players = leaders.map((l, i) => ({
-        id: `espn-leader-${l.rank}-${i}`,
-        name: l.name,
-        firstName: '',
-        lastName: l.name,
-        position: 'Forward',
-        age: 0,
-        nationality: '',
-        shirtNumber: 0,
-        rating: undefined,
-        goals: l.value,
-        assists: 0,
-        appearances: 0,
-        team: { id: '', name: l.team, code: '', primaryColor: '#00e676', logo: l.teamLogo },
-        yellowCards: 0,
-        redCards: 0,
-      }))
-
-      const filtered = search
-        ? players.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
-        : players
-      const paginated = filtered.slice(offset, offset + limit)
-
-      return NextResponse.json({
-        players: paginated,
-        total: filtered.length,
-        limit,
-        offset,
-        hasMore: offset + limit < filtered.length,
-        source: 'espn-leaders',
-      })
-    }
-
+    // League leaders are not a full player dataset. Do not disguise them as
+    // complete player records with invented positions, ages, appearances, or cards.
+    // The player UI can use the roster endpoint to load actual team rosters instead.
     return NextResponse.json({
       players: [],
       total: 0,
