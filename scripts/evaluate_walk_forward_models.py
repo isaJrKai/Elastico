@@ -192,6 +192,9 @@ def evaluate(matches: list[Match], min_history: int, min_league_history: int) ->
         if len(hist) >= min_league_history and len(goals_for[(m.league, m.home)]) >= min_history and len(goals_for[(m.league, m.away)]) >= min_history:
             prior_draw_rate = sum(x.result == "D" for x in hist) / len(hist)
             elo = elo_probabilities(ratings[(m.league, m.home)], ratings[(m.league, m.away)], prior_draw_rate)
+            # Smoothed league-only frequency baseline, computed strictly from prior results.
+            prior_counts = [sum(x.result == outcome for x in hist) for outcome in OUTCOMES]
+            frequency = safe_normalize([count + 1.0 for count in prior_counts])
             league_home = sum(x.hg for x in hist) / len(hist)
             league_away = sum(x.ag for x in hist) / len(hist)
             home_att = sum(goals_for[(m.league, m.home)]) / len(goals_for[(m.league, m.home)])
@@ -202,6 +205,7 @@ def evaluate(matches: list[Match], min_history: int, min_league_history: int) ->
             lam_a = max(0.15, min(4.5, league_away * (away_att / max(0.1, league_away)) * (home_def / max(0.1, league_away))))
             dc = dc_probabilities(lam_h, lam_a)
             blend = safe_normalize([(elo[i] + dc[i]) / 2 for i in range(3)])
+            predictions["league_frequency"].append((m.result, frequency, m.league))
             predictions["elo"].append((m.result, elo, m.league))
             predictions["dixon_coles"].append((m.result, dc, m.league))
             predictions["blend_elo_dixon_coles"].append((m.result, blend, m.league))
@@ -240,6 +244,7 @@ def evaluate(matches: list[Match], min_history: int, min_league_history: int) ->
             "min_team_history": min_history,
             "min_league_history": min_league_history,
             "note": "Baseline-only; rho and hyperparameters are not fitted. No odds/profit claims.",
+            "league_frequency_smoothing": "Laplace +1 over prior home/draw/away outcomes only.",
         },
         "dataset": {
             "matches_loaded": len(matches),
