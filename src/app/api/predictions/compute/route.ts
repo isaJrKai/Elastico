@@ -55,12 +55,12 @@ export async function GET(request: NextRequest) {
       competition: m.competition,
       homeTeam: {
         id: m.homeTeam?.id || '',
-        name: m.homeTeam?.name || 'Home',
+        name: m.homeTeam?.name || '',
         abbreviation: m.homeTeam?.abbreviation || m.homeTeam?.code || '',
       },
       awayTeam: {
         id: m.awayTeam?.id || '',
-        name: m.awayTeam?.name || 'Away',
+        name: m.awayTeam?.name || '',
         abbreviation: m.awayTeam?.abbreviation || m.awayTeam?.code || '',
       },
       homeScore: m.homeScore ?? null,
@@ -71,8 +71,13 @@ export async function GET(request: NextRequest) {
       minute: m.minute,
     }))
 
-    // Use persisted team ratings/statistics when available. Never invent team strength
-    // from a name hash: unknown teams are explicitly marked as neutral-baseline estimates.
+    // Drop incomplete fixture records rather than inventing team names or dates.
+    const validFixtures = normalized.filter((m: any) =>
+      Boolean(m.id && m.homeTeam.name && m.awayTeam.name && m.date)
+    )
+    const invalidFixtureCount = normalized.length - validFixtures.length
+
+    // Use persisted team ratings/statistics only; unsupported records are withheld.
     const storedTeams = await db.team.findMany({
       select: {
         name: true, code: true, eloRating: true, wins: true, draws: true, losses: true,
@@ -86,7 +91,7 @@ export async function GET(request: NextRequest) {
         (abbreviation ? storedTeams.find(team => team.code?.toUpperCase() === abbreviation.toUpperCase()) : undefined)
     }
 
-    const predictionCandidates = normalized.slice(0, 40).map((m: any) => {
+    const predictionCandidates = validFixtures.slice(0, 40).map((m: any) => {
       const storedHome = findStoredTeam(m.homeTeam.name, m.homeTeam.abbreviation)
       const storedAway = findStoredTeam(m.awayTeam.name, m.awayTeam.abbreviation)
       const homePlayed = (storedHome?.wins ?? 0) + (storedHome?.draws ?? 0) + (storedHome?.losses ?? 0)
@@ -175,7 +180,7 @@ export async function GET(request: NextRequest) {
     const predictions = predictionCandidates.map((candidate: any) => candidate.prediction).filter(Boolean)
     const skippedMatches = predictionCandidates.map((candidate: any) => candidate.skipped).filter(Boolean)
 
-    return NextResponse.json({ success: true, count: predictions.length, skippedCount: skippedMatches.length, source: matchSource, modelStatus: 'statistical-baseline-not-trained-or-independently-validated', predictions, skippedMatches })
+    return NextResponse.json({ success: true, count: predictions.length, skippedCount: skippedMatches.length, invalidFixtureCount, source: matchSource, modelStatus: 'statistical-baseline-not-trained-or-independently-validated', predictions, skippedMatches })
   } catch (error) {
     console.error('[PREDICT] Error:', error)
     return NextResponse.json(
