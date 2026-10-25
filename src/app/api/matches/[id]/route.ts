@@ -132,8 +132,14 @@ export async function GET(
     // ── Detect source prefix (fd:, espn:, api-sports:) ────────────────────
     const prefixMatch = id.match(/^(fd|espn|api-sports):(.+)/)
     const hasPrefix = !!prefixMatch
-    const rawExternalId = hasPrefix ? prefixMatch[2] : id
+    let rawExternalId = hasPrefix ? prefixMatch[2] : id
     const sourcePrefix = hasPrefix ? prefixMatch[1] : null
+    // Defensively unwrap duplicated source prefixes from older clients/data.
+    if (sourcePrefix) {
+      while (rawExternalId.startsWith(`${sourcePrefix}:`)) {
+        rawExternalId = rawExternalId.slice(sourcePrefix.length + 1)
+      }
+    }
 
     // Auto-infer ESPN prefix for pure numeric IDs (dashboard passes raw ESPN IDs)
     const looksLikeEspnId = !hasPrefix && /^\d+$/.test(id)
@@ -225,7 +231,7 @@ export async function GET(
       if (hasKey) {
         try {
           const { fetchMatches, normalizeFDMatch } = await import('@/lib/football-data-org')
-          const competitions = ['PL', 'PD', 'SA', 'BL1', 'FL1', 'CL', 'EL']
+          const competitions = ['PL', 'PD', 'SA', 'BL1', 'FL1', 'CL']
           const allResults = await Promise.allSettled(
             competitions.map(comp => fetchMatches(comp).catch(() => []))
           )
