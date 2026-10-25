@@ -69,7 +69,7 @@ def parse_file(path: Path, league: str) -> tuple[list[dict[str, str]], dict[str,
                 annotated_results += 1
             continue
 
-        if FIXTURE_RE.match(line):
+        if FIXTURE_RE.match(line) and not re.search(r"\d+\s*-\s*\d+", line):
             scheduled += 1
             incomplete += 1
             continue
