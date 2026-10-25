@@ -29,6 +29,26 @@ jobs:
       - name: Test walk-forward prediction evaluator
         run: python -m unittest discover -s scripts/tests -p 'test_*.py' -v
 
+      - name: Audit pinned Uganda Premier League history
+        shell: bash
+        run: |
+          set -euo pipefail
+          upstream_commit: "42df8203e73e922cdfa36104e3acee3aea1f2bc0"
+          mkdir -p /tmp/elastico-uganda reports
+          for season in 2023-24 2024-25 2025-26; do
+            curl --fail --silent --show-error --location \
+              "https://raw.githubusercontent.com/openfootball/world/${upstream_commit}/africa/uganda/${season}_ug1.txt" \
+              --output "/tmp/elastico-uganda/${season}_ug1.txt"
+          done
+          python scripts/audit_openfootball_txt.py /tmp/elastico-uganda/*_ug1.txt \
+            --league UPL_UG \
+            --csv-output /tmp/elastico-uganda/uganda.csv \
+            --manifest-output reports/uganda-data-audit.json
+          python scripts/evaluate_walk_forward_models.py /tmp/elastico-uganda/uganda.csv \
+            --output reports/uganda-walk-forward.json
+          cat reports/uganda-data-audit.json
+          cat reports/uganda-walk-forward.json
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
