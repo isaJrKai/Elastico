@@ -429,8 +429,9 @@ export default function MatchesView() {
 
   const handleMatchClick = useCallback(
     (matchId: string) => {
-      // Prefix with fd: so match-detail API knows to use football-data.org fallback
-      selectMatch(`fd:${matchId}`)
+      // football-data.org normalization already prefixes IDs with "fd:".
+      // Avoid double-prefixing (fd:fd:<id>), which breaks match-detail lookup.
+      selectMatch(matchId.startsWith('fd:') ? matchId : `fd:${matchId}`)
     },
     [selectMatch],
   )
