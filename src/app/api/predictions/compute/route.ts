@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
       const homeLambda = Math.max(0.2, Math.min(4, (homeAttack + awayDefence) / 2))
       const awayLambda = Math.max(0.2, Math.min(4, (awayAttack + homeDefence) / 2))
       const poisson = poissonProbabilities(homeLambda, awayLambda)
-      const dc = dixonColes(homeLambda, awayLambda, 0.1, -0.1, 0.1, 0.0)
+      const dc = dixonColes(8, 8, homeLambda / 1.35, 1, awayLambda / 1.15, 1, 1, -0.13)
       const ensemble = {
         homeWin: (elo.homeProb + poisson.homeWinProb + dc.homeWinProb) / 3,
         draw: (elo.drawProb + poisson.drawProb + dc.drawProb) / 3,
