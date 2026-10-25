@@ -54,6 +54,9 @@ jobs:
           # npm audit fix exits non-zero when any advisory remains, even when it
           # successfully updates other packages. Capture the status but preserve
           # the candidate manifests and audit report for review.
+          # Remove direct dependencies that code search confirmed are unused
+          # in maintained source, avoiding risky major upgrades just to silence advisories.
+          npm uninstall --legacy-peer-deps @neondatabase/auth @mdxeditor/editor react-syntax-highlighter
           set +e
           npm audit fix --legacy-peer-deps
           remediation_status=$?
