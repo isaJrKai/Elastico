@@ -202,12 +202,12 @@ export async function callAi(
   const errors: string[] = []
   let attemptedProviders = 0
   for (const provider of available) {
-    if (attemptedProviders >= 3) break
-    attemptedProviders += 1
     if (isCoolingDown(provider.name)) {
       errors.push(`${provider.name}: cooling down`)
       continue
     }
+    if (attemptedProviders >= 3) break
+    attemptedProviders += 1
 
     const apiKey = resolveKey(provider.envKey)
     const start = Date.now()
@@ -237,10 +237,9 @@ export async function callAi(
 
       if (!resp.ok) {
         const errText = await resp.text().catch(() => 'unknown')
-        // Geo-block or auth error — longer cooldown
-        if (resp.status === 403 || resp.status === 401) {
-          markCooldown(provider.name, 300)
-        }
+        if (resp.status === 401 || resp.status === 403) markCooldown(provider.name, 300)
+        else if (resp.status === 404 || resp.status === 410) markCooldown(provider.name, 600)
+        else if (resp.status >= 500) markCooldown(provider.name, 30)
         errors.push(`${provider.name}: ${resp.status} ${errText.slice(0, 100)}`)
         continue
       }
