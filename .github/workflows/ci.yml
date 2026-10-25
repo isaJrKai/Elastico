@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          upstream_commit: "42df8203e73e922cdfa36104e3acee3aea1f2bc0"
+          upstream_commit="42df8203e73e922cdfa36104e3acee3aea1f2bc0"
           mkdir -p /tmp/elastico-uganda reports
           for season in 2023-24 2024-25 2025-26; do
             curl --fail --silent --show-error --location \
