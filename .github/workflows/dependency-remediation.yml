@@ -1,0 +1,65 @@
+name: Dependency remediation
+on:
+  push:
+    branches:
+      - main
+      - "fix/**"
+      - "audit/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  remediation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/elastico_ci?schema=public
+      DIRECT_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/elastico_ci?schema=public
+      JWT_SECRET: ci-only-not-for-production-0123456789abcdef
+      NEXT_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/prediction-engine-production-audit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps --include=dev
+      - name: Apply non-breaking fixes
+        run: npm audit fix --legacy-peer-deps
+      - name: Save audit report
+        if: always()
+        run: npm audit --omit=dev --json > production-audit.json || true
+      - name: Validate Prisma
+        run: npx prisma validate
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Test prediction engine
+        run: npm run test:prediction-engine
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npx eslint src --rule 'react-hooks/set-state-in-effect: off'
+      - name: Build
+        run: npm run build
+      - name: Verify standalone bundle
+        run: |
+          test -f .next/standalone/server.js
+          test -d .next/standalone/.next/static
+          test -d .next/standalone/public
+      - name: Upload candidate dependency files and audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-remediation-candidate
+          path: |
+            package.json
+            package-lock.json
+            production-audit.json
+          if-no-files-found: error
+          retention-days: 14
