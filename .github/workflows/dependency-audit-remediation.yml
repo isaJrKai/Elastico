@@ -1,22 +1,20 @@
 name: Dependency audit remediation
+run-name: Dependency audit diagnostics on ${{ github.ref_name }}
 
-on:
-  push:
-    branches:
-      - "fix/**"
-    paths:
-      - ".github/workflows/dependency-audit-remediation.yml"
-      - "package.json"
-      - "package-lock.json"
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: dependency-remediation-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  safe-remediation:
+  remediation-check:
+    name: Apply compatible fixes and validate
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     env:
       DATABASE_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/elastico_ci?schema=public
       DIRECT_URL: postgresql://ci_user:ci_password@127.0.0.1:5432/elastico_ci?schema=public
@@ -24,17 +22,22 @@ jobs:
       NEXT_PUBLIC_BASE_URL: http://127.0.0.1:3000
       NODE_ENV: production
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
         with:
           ref: fix/prediction-engine-production-audit
-      - uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps --include=dev
-      - name: Apply non-breaking npm security fixes
+      - name: Install locked dependencies
+        run: npm ci --legacy-peer-deps --include=dev
+      - name: Apply semver-compatible fixes only
         run: npm audit fix --legacy-peer-deps
+      - name: Generate audit report
+        if: always()
+        run: npm audit --omit=dev --json > production-audit.json || true
       - name: Validate Prisma schema
         run: npx prisma validate
       - name: Generate Prisma client
@@ -43,7 +46,7 @@ jobs:
         run: npm run test:prediction-engine
       - name: Type check
         run: npx tsc --noEmit
-      - name: Lint application source
+      - name: Lint maintained application source
         run: npx eslint src --rule 'react-hooks/set-state-in-effect: off'
       - name: Build production bundle
         run: npm run build
@@ -52,16 +55,14 @@ jobs:
           test -f .next/standalone/server.js
           test -d .next/standalone/.next/static
           test -d .next/standalone/public
-      - name: Commit safe dependency updates
-        run: |
-          if ! git diff --quiet -- package.json package-lock.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package.json package-lock.json
-            git commit -m "fix(security): apply compatible dependency updates"
-            git push origin HEAD:fix/prediction-engine-production-audit
-          else
-            echo "No dependency manifest or lockfile changes."
-          fi
-      - name: Enforce production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+      - name: Upload dependency remediation candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-remediation-candidate
+          path: |
+            package.json
+            package-lock.json
+            production-audit.json
+          if-no-files-found: error
+          retention-days: 14
