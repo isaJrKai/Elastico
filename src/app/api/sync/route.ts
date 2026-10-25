@@ -33,7 +33,10 @@ export async function POST(request: NextRequest) {
     const cronGet = cronModule.GET
 
     // Build a fake NextRequest with the cron secret header
-    const cronSecret = process.env.CRON_SECRET || 'elastico-cron-2024'
+    const cronSecret = process.env.CRON_SECRET
+    if (!cronSecret) {
+      return NextResponse.json({ error: 'Sync service is not configured' }, { status: 503 })
+    }
     const req = new NextRequest('http://internal/api/sync', {
       headers: { 'x-cron-secret': cronSecret },
     })

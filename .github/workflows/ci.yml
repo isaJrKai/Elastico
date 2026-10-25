@@ -38,3 +38,12 @@ jobs:
 
       - name: Type-check
         run: npx tsc --noEmit
+
+      - name: Production build
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/elastico
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/elastico
+          JWT_SECRET: ci-only-not-a-real-secret
+          CRON_SECRET: ci-only-not-a-real-secret
+          ENV_CHECK_TOKEN: ci-only-not-a-real-secret

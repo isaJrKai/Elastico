@@ -1,15 +1,14 @@
 /**
  * GET /api/system/env-check
  *
- * Returns which API keys are configured in the current environment.
- * This is the ONLY endpoint that exposes key presence (never key values).
- * Intended for post-deploy verification on Vercel.
- *
- * Security: returns only boolean configured/not-configured + key prefix.
- * Actual key values are NEVER sent to the client.
+ * Restricted operational diagnostic. Never expose secret prefixes, lengths,
+ * or infrastructure metadata to anonymous callers.
  */
-import { NextResponse } from 'next/server'
+import { timingSafeEqual } from 'node:crypto'
+import { NextRequest, NextResponse } from 'next/server'
 import { getProviderStatus } from '@/lib/ai-gateway'
+
+export const runtime = 'nodejs'
 
 const AI_KEYS = [
   { name: 'GROQ_API_KEY', label: 'Groq' },
@@ -36,59 +35,52 @@ const OTHER_KEYS = [
   { name: 'DISCORD_WEBHOOK_URL', label: 'Discord Webhook' },
 ] as const
 
-function keyStatus(envKey: string): { configured: boolean; prefix: string } {
-  const val = process.env[envKey]
-  if (!val || val.length === 0) return { configured: false, prefix: '' }
-  // Show first 4 chars + length to help identify which key it is
-  const prefix = val.length > 4 ? `${val.slice(0, 4)}... (${val.length} chars)` : `${val.slice(0, 2)}... (${val.length} chars)`
-  return { configured: true, prefix }
+function isAuthorized(request: NextRequest): boolean {
+  const expected = process.env.ENV_CHECK_TOKEN
+  const header = request.headers.get('authorization') || ''
+  const provided = header.startsWith('Bearer ') ? header.slice(7) : ''
+  if (!expected || !provided) return false
+  const a = Buffer.from(provided)
+  const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
 }
 
-export async function GET() {
+function keyStatus(envKey: string): { configured: boolean } {
+  return { configured: Boolean(process.env[envKey]) }
+}
+
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    // Conceal the existence of this operational endpoint from anonymous callers.
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   const aiProviders = getProviderStatus()
-
-  const aiKeys = AI_KEYS.map(k => {
-    const status = keyStatus(k.name)
-    return {
-      envVar: k.name,
-      label: k.label,
-      configured: status.configured,
-      prefix: status.prefix,
-    }
-  })
-
-  const dataKeys = DATA_KEYS.map(k => {
-    const status = keyStatus(k.name)
-    return {
-      envVar: k.name,
-      label: k.label,
-      configured: status.configured,
-      prefix: status.prefix,
-    }
-  })
-
-  const otherKeys = OTHER_KEYS.map(k => {
-    const status = keyStatus(k.name)
-    return {
-      envVar: k.name,
-      label: k.label,
-      configured: status.configured,
-      prefix: status.prefix,
-    }
-  })
+  const aiKeys = AI_KEYS.map(k => ({
+    envVar: k.name,
+    label: k.label,
+    configured: keyStatus(k.name).configured,
+  }))
+  const dataKeys = DATA_KEYS.map(k => ({
+    envVar: k.name,
+    label: k.label,
+    configured: keyStatus(k.name).configured,
+  }))
+  const otherKeys = OTHER_KEYS.map(k => ({
+    envVar: k.name,
+    label: k.label,
+    configured: keyStatus(k.name).configured,
+  }))
 
   const configuredAiCount = aiKeys.filter(k => k.configured).length
   const configuredDataCount = dataKeys.filter(k => k.configured).length
 
   return NextResponse.json({
-    environment: process.env.NODE_ENV || 'unknown',
-    vercel: !!process.env.VERCEL,
-    region: process.env.VERCEL_REGION || 'local',
     summary: {
       aiProvidersConfigured: configuredAiCount,
       dataProvidersConfigured: configuredDataCount,
       aiReady: configuredAiCount > 0,
-      databaseReady: !!process.env.DATABASE_URL,
+      databaseReady: Boolean(process.env.DATABASE_URL),
     },
     aiKeys,
     dataKeys,
