@@ -134,3 +134,14 @@ Work Log:
 Stage Summary:
 - Source changes are on branch `fix/ai-prediction-production-reliability`, PR #34.
 - PR remains draft; do not merge until CI/test evidence and runtime smoke tests are available.
+
+
+Task ID: 4
+Agent: ChatGPT
+Task: Prediction simulation regression coverage
+
+Work Log:
+- Extracted simulation request validation into `src/lib/prediction-input-validation.ts` and wired the production simulation API to use it.
+- Added Node test-runner coverage for complete valid inputs, missing team identity, missing xG/ELO, odds requirements, simulation-only mode, same-team selection, simulation run limits, bankroll bounds, and risk configuration bounds.
+- Added `npm test` and a CI step so the regression tests run before lint/type-check/build.
+- The tests have been committed to the open PR branch but have not yet been executed in this environment; CI status remains the source of truth for pass/fail.
