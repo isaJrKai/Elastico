@@ -44,12 +44,18 @@ jobs:
       - name: Install locked dependencies, including CI development tools
         run: npm install --legacy-peer-deps --include=dev
 
-      - name: Apply semver-compatible dependency security fixes for evaluation
-        run: npm audit fix --legacy-peer-deps
+      - name: Preserve the committed dependency manifests
+        run: |
+          cp package.json /tmp/elastico-package.json
+          cp package-lock.json /tmp/elastico-package-lock.json
 
-      - name: Capture production dependency audit report
-        if: always()
-        run: npm audit --omit=dev --json > production-audit.json || true
+      - name: Apply semver-compatible dependency security fixes to an isolated candidate
+        run: |
+          npm audit fix --legacy-peer-deps
+          mkdir -p .audit-candidate
+          cp package.json .audit-candidate/package.json
+          cp package-lock.json .audit-candidate/package-lock.json
+          npm audit --omit=dev --json > .audit-candidate/production-audit.json || true
 
       - name: Validate Prisma schema
         run: npx prisma validate
@@ -69,6 +75,24 @@ jobs:
         # React's set-state-in-effect rule is tracked for a dedicated refactor.
         run: >-
           npx eslint src --rule 'react-hooks/set-state-in-effect: off'
+
+      - name: Build and verify the dependency-remediation candidate
+        run: |
+          npm run build
+          test -f .next/standalone/server.js
+          test -d .next/standalone/.next/static
+          test -d .next/standalone/public
+
+      - name: Restore committed dependencies before enforcing the security gate
+        if: always()
+        run: |
+          cp /tmp/elastico-package.json package.json
+          cp /tmp/elastico-package-lock.json package-lock.json
+          npm ci --legacy-peer-deps --include=dev
+
+      - name: Capture committed production dependency audit report
+        if: always()
+        run: npm audit --omit=dev --json > production-audit.json || true
 
       - name: Audit production dependencies for high and critical advisories
         run: npm audit --omit=dev --audit-level=high
@@ -93,6 +117,8 @@ jobs:
           path: |
             .next/
             npm-debug.log
+            .audit-candidate/
+            production-audit.json
             package.json
             package-lock.json
             production-audit.json
