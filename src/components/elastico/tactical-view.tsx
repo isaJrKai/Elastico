@@ -98,40 +98,24 @@ function deriveTacticalProfile(team: {
   goalsFor?: number
   goalsAgainst?: number
 }) {
-  const wins = team.wins ?? 0
-  const draws = team.draws ?? 0
-  const losses = team.losses ?? 0
-  const goalsFor = team.goalsFor ?? 0
-  const goalsAgainst = team.goalsAgainst ?? 0
-  const played = Math.max(wins + draws + losses, 1)
-
-  // Attack: prefer real xG, fallback to goals per game scaled to 0-95
+  // Only populate dimensions backed by the relevant metric. Match outcomes do not
+  // identify pressing, possession, midfield control, or set-piece quality.
   const attack = team.xgPerGame != null
     ? Math.min(95, Math.max(20, team.xgPerGame * 25))
-    : Math.min(95, Math.max(20, (goalsFor / played) * 15))
-
-  // Defense: prefer real xGA, fallback to inverse of goals conceded
+    : null
   const defense = team.xgaPerGame != null
     ? Math.min(95, Math.max(20, 100 - team.xgaPerGame * 30))
-    : Math.min(95, Math.max(20, 100 - (goalsAgainst / played) * 25))
-
-  // Midfield: prefer real possession + pass accuracy, fallback to points percentage
-  const midfield = (team.possession != null && team.passAccuracy != null)
+    : null
+  const midfield = team.possession != null && team.passAccuracy != null
     ? Math.min(95, Math.max(20, team.possession * 0.7 + team.passAccuracy * 0.2))
-    : Math.min(95, Math.max(20, ((wins + draws * 0.5) / played) * 80 + 20))
-
-  // Pressing: prefer real pressIntensity, fallback to win ratio proxy
+    : null
   const pressing = team.pressIntensity != null && team.pressIntensity > 0
     ? Math.min(95, Math.max(20, team.pressIntensity))
-    : Math.min(95, Math.max(20, (wins / played) * 90 + 20))
-
-  // Possession: prefer real possession, fallback to goal diff proxy (clamped 30-70)
+    : null
   const possession = team.possession != null
     ? Math.min(95, Math.max(20, team.possession))
-    : Math.min(70, Math.max(30, 50 + ((goalsFor - goalsAgainst) / played) * 3))
-
-  // Set piece: goal efficiency proxy
-  const setPiece = Math.min(95, Math.max(20, ((goalsFor - goalsAgainst) / Math.max(goalsFor, 1)) * 40 + 50))
+    : null
+  const setPiece = null
 
   return { attack, midfield, defense, pressing, possession, setPiece }
 }
@@ -289,24 +273,23 @@ export function TacticalView() {
   // Style comparison bar chart
   const styleData = useMemo(() => {
     if (!homeTeam || !awayTeam) return []
-    const homePlayed = Math.max(homeTeam.wins + homeTeam.draws + homeTeam.losses, 1)
-    const awayPlayed = Math.max(awayTeam.wins + awayTeam.draws + awayTeam.losses, 1)
-
-    // Possession, passing and pressing cannot be inferred reliably from results alone.
-    // Keep these metrics missing unless the provider supplies them; never fabricate tactical data.
-
+    // Do not substitute goals/game for xG: they are different measurements.
     return [
       {
         metric: 'xG/Game',
-        [homeTeam.code]: homeTeam.xgPerGame ?? +(homeTeam.goalsFor / homePlayed).toFixed(2),
-        [awayTeam.code]: awayTeam.xgPerGame ?? +(awayTeam.goalsFor / awayPlayed).toFixed(2),
-        dataClass: homeTeam.xgPerGame != null ? (homeTeam.xgTruthClass || 'REAL') : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.xgPerGame ?? null,
+        [awayTeam.code]: awayTeam.xgPerGame ?? null,
+        dataClass: homeTeam.xgPerGame != null && awayTeam.xgPerGame != null
+          ? (homeTeam.xgTruthClass || 'REAL') as string
+          : 'MISSING' as const,
       },
       {
         metric: 'xGA/Game',
-        [homeTeam.code]: homeTeam.xgaPerGame ?? +(homeTeam.goalsAgainst / homePlayed).toFixed(2),
-        [awayTeam.code]: awayTeam.xgaPerGame ?? +(awayTeam.goalsAgainst / awayPlayed).toFixed(2),
-        dataClass: homeTeam.xgaPerGame != null ? (homeTeam.xgTruthClass || 'REAL') : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.xgaPerGame ?? null,
+        [awayTeam.code]: awayTeam.xgaPerGame ?? null,
+        dataClass: homeTeam.xgaPerGame != null && awayTeam.xgaPerGame != null
+          ? (homeTeam.xgTruthClass || 'REAL') as string
+          : 'MISSING' as const,
       },
       {
         metric: 'Poss %',
