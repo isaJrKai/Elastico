@@ -127,12 +127,12 @@ export default function PredictionEngineView() {
   const [kellyResult, setKellyResult] = useState<FullMatchAnalysis['portfolioAllocation'] | null>(null)
 
   // ── Market signals state ──────────────────────────────────────────────────────
-  const [sigOpenHome, setSigOpenHome] = useState('2.10')
-  const [sigOpenDraw, setSigOpenDraw] = useState('3.40')
-  const [sigOpenAway, setSigOpenAway] = useState('3.60')
-  const [sigCurHome, setSigCurHome] = useState('1.95')
-  const [sigCurDraw, setSigCurDraw] = useState('3.50')
-  const [sigCurAway, setSigCurAway] = useState('4.00')
+  const [sigOpenHome, setSigOpenHome] = useState('')
+  const [sigOpenDraw, setSigOpenDraw] = useState('')
+  const [sigOpenAway, setSigOpenAway] = useState('')
+  const [sigCurHome, setSigCurHome] = useState('')
+  const [sigCurDraw, setSigCurDraw] = useState('')
+  const [sigCurAway, setSigCurAway] = useState('')
   const [sigHomeTeam, setSigHomeTeam] = useState('')
   const [sigAwayTeam, setSigAwayTeam] = useState('')
   const [sigLoading, setSigLoading] = useState(false)
@@ -229,6 +229,18 @@ export default function PredictionEngineView() {
   // ── Run market signals ────────────────────────────────────────────────────────
   const runSignals = useCallback(async () => {
     if (!sigHomeTeam || !sigAwayTeam) { toast.error('Select both teams'); return }
+    if (sigHomeTeam === sigAwayTeam) { toast.error('Home and away teams must be different'); return }
+    const oddsInputs: Array<[string, string]> = [
+      ['Opening home odds', sigOpenHome], ['Opening draw odds', sigOpenDraw], ['Opening away odds', sigOpenAway],
+      ['Current home odds', sigCurHome], ['Current draw odds', sigCurDraw], ['Current away odds', sigCurAway],
+    ]
+    for (const [label, raw] of oddsInputs) {
+      const value = Number(raw)
+      if (raw.trim() === '' || !Number.isFinite(value) || value <= 1.01 || value > 1000) {
+        toast.error(`${label} must be current decimal odds greater than 1.01`)
+        return
+      }
+    }
     setSigLoading(true)
     try {
       const res = await fetch('/api/prediction-engine/market-signals', {
@@ -900,15 +912,15 @@ export default function PredictionEngineView() {
                 <Separator className="bg-zinc-800/50" />
                 <p className="text-xs text-zinc-500 font-medium">Opening Odds</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <Input type="number" step="0.01" placeholder="Home" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Draw" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Away" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" step="0.01" placeholder="Home" placeholder="Opening home odds" type="number" min="1.02" max="1000" step="0.01" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" step="0.01" placeholder="Draw" placeholder="Opening draw odds" type="number" min="1.02" max="1000" step="0.01" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" step="0.01" placeholder="Away" placeholder="Opening away odds" type="number" min="1.02" max="1000" step="0.01" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
                 </div>
                 <p className="text-xs text-zinc-500 font-medium">Current Odds</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <Input type="number" step="0.01" placeholder="Home" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Draw" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Away" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" step="0.01" placeholder="Home" placeholder="Current home odds" type="number" min="1.02" max="1000" step="0.01" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" step="0.01" placeholder="Draw" placeholder="Current draw odds" type="number" min="1.02" max="1000" step="0.01" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" step="0.01" placeholder="Away" placeholder="Current away odds" type="number" min="1.02" max="1000" step="0.01" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
                 </div>
                 <Button onClick={runSignals} disabled={sigLoading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
                   {sigLoading ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</> : <><Eye className="w-4 h-4 mr-2" /> ANALYZE</>}
