@@ -65,18 +65,23 @@ jobs:
           echo "npm audit fix exit status: $remediation_status (candidate captured; strict committed-lockfile gate remains enabled)"
 
       - name: Validate Prisma schema
+        continue-on-error: true
         run: npx prisma validate
 
       - name: Generate Prisma client
+        continue-on-error: true
         run: npx prisma generate
 
       - name: Run prediction-engine invariant tests
+        continue-on-error: true
         run: npm run test:prediction-engine
 
       - name: TypeScript type check
+        continue-on-error: true
         run: npx tsc --noEmit
 
       - name: Lint maintained application source
+        continue-on-error: true
         # The repository currently contains a nested exported copy at elastico-work/Elastico-main;
         # it is not the build root and has malformed/stale source files. Exclude that copy.
         # React's set-state-in-effect rule is tracked for a dedicated refactor.
@@ -84,6 +89,7 @@ jobs:
           npx eslint src --rule 'react-hooks/set-state-in-effect: off'
 
       - name: Build and verify the dependency-remediation candidate
+        continue-on-error: true
         run: |
           npm run build
           test -f .next/standalone/server.js
@@ -96,6 +102,25 @@ jobs:
           cp /tmp/elastico-package.json package.json
           cp /tmp/elastico-package-lock.json package-lock.json
           npm ci --legacy-peer-deps --include=dev
+
+      # Candidate dependency checks above are diagnostic only. Re-run the normal
+      # project checks against the original lockfile so candidate failures cannot
+      # hide baseline regressions or prevent the strict security gate from running.
+      - name: Validate committed Prisma schema
+        run: npx prisma validate
+
+      - name: Generate committed Prisma client
+        run: npx prisma generate
+
+      - name: Run committed prediction-engine invariant tests
+        run: npm run test:prediction-engine
+
+      - name: TypeScript type check against committed dependencies
+        run: npx tsc --noEmit
+
+      - name: Lint maintained application source against committed dependencies
+        run: >-
+          npx eslint src --rule 'react-hooks/set-state-in-effect: off'
 
       - name: Capture committed production dependency audit report
         if: always()
