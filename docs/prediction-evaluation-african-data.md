@@ -6,7 +6,7 @@ Elastico already contains Elo, Poisson, and Dixon-Coles calculations. The immedi
 
 ## New evaluation harness
 
-scripts/evaluate_walk_forward_models.py is a dependency-free first evaluation harness for common football-data.co.uk CSV columns (Date, Div, HomeTeam, AwayTeam, FTHG, FTAG, FTR). It evaluates expanding-history predictions in chronological order and reports log loss, multiclass Brier score, and accuracy for Elo, a rolling-goals Dixon-Coles baseline, and a 50/50 blend. It also reports league-level metrics and the warm-up rows excluded.
+scripts/evaluate_walk_forward_models.py is a dependency-free first evaluation harness for common football-data.co.uk CSV columns (Date, Div, HomeTeam, AwayTeam, FTHG, FTAG, FTR). It evaluates expanding-history predictions in chronological order and reports log loss, multiclass Brier score, and accuracy for Elo, a rolling-goals Dixon-Coles baseline, and a 50/50 blend. It also reports a smoothed league-only outcome-frequency baseline, league-level metrics, and the warm-up rows excluded.
 
 Example:
 
@@ -18,7 +18,7 @@ The first run should use a fixed, versioned dataset snapshot and retain its sour
 
 - This is a baseline harness, not a production training pipeline.
 - The first Dixon-Coles implementation uses a fixed rho rather than fitting parameters. Treat it as a comparator, then fit parameters using training data only.
-- The rolling-goal rates are deliberately simple and must be benchmarked against league-average and Elo-only baselines before adoption.
+- The rolling-goal rates are deliberately simple and must be benchmarked against the smoothed league-frequency and Elo-only baselines before adoption.
 - A future benchmark should add calibration/reliability tables, confidence intervals via time-block bootstrap, a market-implied probability baseline when legally usable historical odds are available, and pre-registered acceptance criteria.
 - A profitable-betting claim requires timestamp-correct odds, bookmaker margin removal, realistic execution assumptions, closing-line-value analysis, and a held-out period. Prediction accuracy alone is insufficient.
 
@@ -36,10 +36,15 @@ Do not infer that “free to download” means “licensed for commercial model 
 
 ## African coverage workstream
 
+### Initial source decision
+
+Use `openfootball/world` as the first African data audit source: its repository declares CC0-1.0/public-domain dedication and explicitly lists Egypt Premiership, Morocco Botola Pro 1, Algeria Ligue 1, and Nigeria Premier Football League. This establishes a promising permissive source, **not** proven season completeness. The source files must still be enumerated and audited by season before training. Do not infer Uganda coverage from the README; Uganda remains a separate discovery task. The `schochastics/football-data` archive is a valuable breadth/backfill candidate (1,237,935 results, 207 domestic leagues and 20 international competitions, 1888–2023), but it is ODbL Attribution, so use it only after recording attribution and reviewing database/share-alike obligations for the intended distribution and training workflow.
+
+
 Prioritise Egypt, Morocco, Algeria, and Nigeria as the first coverage audit because OpenFootball/world explicitly lists these domestic leagues. Uganda should be investigated separately: the source's public README does not establish a sufficiently deep Uganda Premier League history, so do not claim coverage until the actual season files and match counts are inspected.
 
 For each league, record:
-1. seasons and match counts, earliest/latest match date, missing scores, duplicate fixtures, and team-name variants;
+1. seasons and match counts, earliest/latest match date, expected-vs-observed fixtures where the competition format is known, missing scores, duplicate fixtures, and team-name variants;
 2. source and licence/terms, retrieval timestamp, file hashes, and update cadence;
 3. competition format changes, promoted/relegated teams, abandoned matches, and incomplete seasons;
 4. train/validation/test splits by date, never random row splits;
@@ -52,7 +57,8 @@ Do not pool African leagues into a single global model until cross-league transf
 
 - [ ] Fix production inference so it does not use team-name hashes or fixed illustrative model parameters as real team ratings.
 - [ ] Confirm the evaluator against a small hand-calculated fixture and test malformed CSV, duplicate rows, chronological order, and no future-data leakage.
-- [ ] Run the evaluator on the existing historical snapshot and save the reproducible report.
+- [ ] Enumerate and version a CC0/public-domain historical snapshot (source commit + retrieval timestamp + SHA-256 manifest); audit per-league season counts and completeness before accepting it.
+- [ ] Run the evaluator on that fixed snapshot and save the reproducible report.
 - [ ] Add Dixon-Coles parameter fitting on training-only data and tune only on a chronological validation period.
 - [ ] Audit African datasets and terms; publish a league coverage matrix with evidence.
 - [ ] Require out-of-sample improvement over simple baselines and report calibration before promoting a model.
