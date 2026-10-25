@@ -1,9 +1,9 @@
 name: Dependency audit remediation
 
-"on":
+on:
   push:
     branches:
-      - "fix/prediction-engine-production-audit"
+      - "fix/**"
     paths:
       - ".github/workflows/dependency-audit-remediation.yml"
       - "package.json"
@@ -13,13 +13,8 @@ name: Dependency audit remediation
 permissions:
   contents: write
 
-concurrency:
-  group: elastico-dependency-remediation
-  cancel-in-progress: false
-
 jobs:
   safe-remediation:
-    name: Apply non-breaking dependency fixes and verify
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -28,61 +23,45 @@ jobs:
       JWT_SECRET: ci-only-not-for-production-0123456789abcdef
       NEXT_PUBLIC_BASE_URL: http://127.0.0.1:3000
       NODE_ENV: production
-
     steps:
-      - name: Check out audit branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: fix/prediction-engine-production-audit
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Install locked dependencies including development tools
+      - name: Install dependencies
         run: npm install --legacy-peer-deps --include=dev
-
-      - name: Apply npm's non-forcing security fixes
-        # Deliberately do not use --force: major-version changes require manual compatibility review.
+      - name: Apply non-breaking npm security fixes
         run: npm audit fix --legacy-peer-deps
-
       - name: Validate Prisma schema
         run: npx prisma validate
-
       - name: Generate Prisma client
         run: npx prisma generate
-
-      - name: Run prediction-engine invariants
+      - name: Test prediction engine
         run: npm run test:prediction-engine
-
-      - name: TypeScript type check
+      - name: Type check
         run: npx tsc --noEmit
-
-      - name: Lint maintained application source
+      - name: Lint application source
         run: npx eslint src --rule 'react-hooks/set-state-in-effect: off'
-
-      - name: Build standalone production bundle
+      - name: Build production bundle
         run: npm run build
-
       - name: Verify standalone bundle
         run: |
           test -f .next/standalone/server.js
           test -d .next/standalone/.next/static
           test -d .next/standalone/public
-
-      - name: Commit dependency lockfile changes after tests pass
+      - name: Commit safe dependency updates
         run: |
           if ! git diff --quiet -- package.json package-lock.json; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add package.json package-lock.json
-            git commit -m "fix(security): apply non-breaking dependency updates"
+            git commit -m "fix(security): apply compatible dependency updates"
             git push origin HEAD:fix/prediction-engine-production-audit
           else
-            echo "No dependency manifest or lockfile changes were needed."
+            echo "No dependency manifest or lockfile changes."
           fi
-
-      - name: Enforce production dependency security gate
+      - name: Enforce production dependency audit
         run: npm audit --omit=dev --audit-level=high
