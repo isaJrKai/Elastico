@@ -101,13 +101,36 @@ export async function authenticateRequest(req: Request): Promise<
   try {
     const { db } = await import('@/lib/db')
     const user = await db.user.findUnique({ where: { id: payload.userId } })
-    if (!user || !(user as any).isActive) return jsonError('Unauthorized', 401)
+    if (!user || !user.isActive || user.isBanned) return jsonError('Unauthorized', 401)
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      return jsonError('Account temporarily locked', 423)
+    }
 
-    const safeUser = { ...(user as any) } as Record<string, unknown>
-    delete safeUser.passwordHash
-    delete safeUser.twoFactorSecret
-    delete safeUser.sessionId
-    return { user: safeUser as AuthUser, req }
+    // Explicit allowlist: never pass password hashes, 2FA secrets, session IDs,
+    // lockout internals, provider identifiers, or private profile fields to route handlers.
+    const safeUser: AuthUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      role: user.role,
+      plan: user.plan,
+      predictionAccuracy: user.predictionAccuracy,
+      predictionStreak: user.predictionStreak,
+      bestStreak: user.bestStreak,
+      totalPredictions: user.totalPredictions,
+      correctPredictions: user.correctPredictions,
+      achievements: user.achievements,
+      favoriteTeams: user.favoriteTeams,
+      twoFactorEnabled: user.twoFactorEnabled,
+      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      loginCount: user.loginCount,
+      createdAt: user.createdAt?.toISOString() ?? null,
+      updatedAt: user.updatedAt?.toISOString() ?? null,
+      isActive: user.isActive,
+    }
+    return { user: safeUser, req }
   } catch (error) {
     console.error('[Auth] Database verification failed; refusing token fallback.', error)
     return jsonError('Authentication service temporarily unavailable', 503)
