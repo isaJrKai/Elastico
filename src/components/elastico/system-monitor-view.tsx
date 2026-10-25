@@ -224,10 +224,14 @@ function NonAdminSystemMonitor() {
   }
 
   useEffect(() => {
-    runHealthChecks()
+    // Defer the initial health check until after this effect has completed.
+    const initialCheck = window.setTimeout(() => { void runHealthChecks() }, 0)
     // Re-check every 60 seconds
-    const interval = setInterval(runHealthChecks, 60_000)
-    return () => clearInterval(interval)
+    const interval = window.setInterval(() => { void runHealthChecks() }, 60_000)
+    return () => {
+      window.clearTimeout(initialCheck)
+      window.clearInterval(interval)
+    }
   }, [])
 
   return (
