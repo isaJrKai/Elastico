@@ -3,12 +3,11 @@ import jwt from 'jsonwebtoken'
 
 const JWT_SECRET = process.env.JWT_SECRET
 const JWT_MIN_LENGTH = 32
-const isProduction = process.env.NODE_ENV === 'production'
 
 function assertJwtSecret(): string {
-  if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  if (!JWT_SECRET || JWT_SECRET.length < JWT_MIN_LENGTH) {
     throw new Error(
-      `[AUTH CRITICAL] JWT_SECRET must be set in environment and be >= 32 characters. ` +
+      `[AUTH CRITICAL] JWT_SECRET must be set in environment and be >= ${JWT_MIN_LENGTH} characters. ` +
       `Current length: ${JWT_SECRET ? JWT_SECRET.length : 0}. ` +
       `Refusing to operate without a secure secret.`
     )
@@ -39,13 +38,13 @@ export interface AuthUser {
   createdAt: string | null
   updatedAt: string | null
   isActive: boolean
-  [key: string]: unknown // Allow extra fields from DB
+  [key: string]: unknown
 }
 
 // Log at import time (build-safe). Actual enforcement happens in assertJwtSecret().
-if (!JWT_SECRET || JWT_SECRET.length < 32) {
+if (!JWT_SECRET || JWT_SECRET.length < JWT_MIN_LENGTH) {
   console.error(
-    `[AUTH CRITICAL] JWT_SECRET is ${!JWT_SECRET ? 'not set' : 'too short (' + JWT_SECRET.length + ' chars, need >= 32)'}. ` +
+    `[AUTH CRITICAL] JWT_SECRET is ${!JWT_SECRET ? 'not set' : 'too short (' + JWT_SECRET.length + ' chars, need >= ' + JWT_MIN_LENGTH + ')'}. ` +
     `Authentication will fail at first usage. Set it in environment variables.`
   )
 }
@@ -66,11 +65,17 @@ export function verifyToken(token: string): { userId: string; email: string; rol
   return jwt.verify(token, assertJwtSecret(), { algorithms: ['HS256'] }) as { userId: string; email: string; role: string; plan: string }
 }
 
-/** Check if a real database connection is likely available */
+/** Check whether a database URL is configured; connectivity is verified by the query itself. */
 export function isDbAvailable(): boolean {
   const url = process.env.DATABASE_URL || ''
-  if (!url || url.startsWith('file:')) return false
-  return true
+  return Boolean(url && !url.startsWith('file:'))
+}
+
+function authResponse(status: number, error: string): Response {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  })
 }
 
 export async function authenticateRequest(req: Request): Promise<
@@ -80,64 +85,37 @@ export async function authenticateRequest(req: Request): Promise<
   const authHeader = req.headers.get('authorization')
 
   if (!authHeader?.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return authResponse(401, 'Unauthorized')
   }
 
-  const token = authHeader.slice(7)
+  const token = authHeader.slice(7).trim()
+  if (!token) return authResponse(401, 'Unauthorized')
+
+  let payload: { userId: string; email: string; role: string; plan: string }
   try {
-    const payload = verifyToken(token)
-
-    // Try DB first, fall back to token payload if DB unavailable
-    if (isDbAvailable()) {
-      try {
-        const { db } = await import('@/lib/db')
-        const user = await db.user.findUnique({ where: { id: payload.userId } })
-        if (!user || !(user as any).isActive) {
-          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        }
-        // Strip sensitive fields and cast to AuthUser
-        const { passwordHash, twoFactorSecret, sessionId, ...safeUser } = user as any
-        return { user: safeUser as AuthUser, req }
-      } catch (dbErr) {
-        console.warn('[Auth] DB lookup failed, falling back to token payload:', dbErr)
-      }
-    }
-
-    // Fallback: use token payload as user object (works without DB)
-    const role = payload.role
-    const fallbackUser: AuthUser = {
-      id: payload.userId,
-      email: payload.email,
-      role,
-      plan: payload.plan,
-      name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)} User`,
-      displayName: `${role.charAt(0).toUpperCase() + role.slice(1)} User`,
-      avatarUrl: null,
-      predictionAccuracy: 0,
-      predictionStreak: 0,
-      bestStreak: 0,
-      totalPredictions: 0,
-      correctPredictions: 0,
-      achievements: '{}',
-      favoriteTeams: '[]',
-      twoFactorEnabled: false,
-      lastLoginAt: new Date().toISOString(),
-      loginCount: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isActive: true,
-    }
-    return { user: fallbackUser, req }
+    payload = verifyToken(token)
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid token' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return authResponse(401, 'Invalid token')
+  }
+
+  // Authentication and authorization must use current database state. Never trust
+  // JWT role/plan claims when the database is unavailable or a lookup fails.
+  if (!isDbAvailable()) {
+    return authResponse(503, 'Authentication service unavailable')
+  }
+
+  try {
+    const { db } = await import('@/lib/db')
+    const user = await db.user.findUnique({ where: { id: payload.userId } })
+
+    if (!user || !(user as any).isActive) {
+      return authResponse(401, 'Unauthorized')
+    }
+
+    const { passwordHash, twoFactorSecret, sessionId, ...safeUser } = user as any
+    return { user: safeUser as AuthUser, req }
+  } catch (dbErr) {
+    console.error('[Auth] Database lookup failed; refusing authentication:', dbErr)
+    return authResponse(503, 'Authentication service unavailable')
   }
 }
