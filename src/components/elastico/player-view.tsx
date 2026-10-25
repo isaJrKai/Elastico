@@ -139,11 +139,14 @@ export function PlayerView() {
 
         if (espnTeams.length === 0) return
 
-        // Fetch rosters for up to 6 teams (to avoid too many requests)
+        // Fetch every team's roster in bounded batches so the player view covers the full league
+        // without firing an unbounded number of provider requests at once.
         const allPlayers: EnhancedPlayer[] = []
-        const teamsToFetch = espnTeams.slice(0, 6)
+        const teamsToFetch = espnTeams
 
-        await Promise.allSettled(teamsToFetch.map(async (t: any) => {
+        for (let batchStart = 0; batchStart < teamsToFetch.length; batchStart += 6) {
+          const batch = teamsToFetch.slice(batchStart, batchStart + 6)
+          await Promise.allSettled(batch.map(async (t: any) => {
           try {
             const rosterRes = await fetch(`/api/live?action=roster&league=${activeLeague}&team=${t.id}`)
             if (!rosterRes.ok) return
@@ -170,7 +173,8 @@ export function PlayerView() {
               } as unknown as EnhancedPlayer)
             }
           } catch (err) { console.warn('[PlayerView] Failed to fetch roster for team:', err) }
-        }))
+          }))
+        }
 
         if (allPlayers.length > 0 && !cancelled) setPlayers(allPlayers)
       } catch (err) {
