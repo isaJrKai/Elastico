@@ -385,8 +385,7 @@ export default function PredictionEngineView() {
                       <Label className="text-xs text-zinc-500 mb-1">Home Team</Label>
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
-                        const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(typeof t.eloRating === 'number' && Number.isFinite(t.eloRating) ? String(t.eloRating) : ''); setHomeXg(typeof t.xgPerGame === 'number' && Number.isFinite(t.xgPerGame) ? String(t.xgPerGame) : '') }
+                        // Team selection identifies the match only; it must not silently treat unverified DB fields as current model inputs.
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -396,8 +395,7 @@ export default function PredictionEngineView() {
                       <Label className="text-xs text-zinc-500 mb-1">Away Team</Label>
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
-                        const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(typeof t.eloRating === 'number' && Number.isFinite(t.eloRating) ? String(t.eloRating) : ''); setAwayXg(typeof t.xgPerGame === 'number' && Number.isFinite(t.xgPerGame) ? String(t.xgPerGame) : '') }
+                        // Team selection identifies the match only; it must not silently treat unverified DB fields as current model inputs.
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -408,31 +406,31 @@ export default function PredictionEngineView() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-zinc-500">Home xG</Label>
-                      <Input type="number" step="0.01" value={homeXg} onChange={e => setHomeXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="0" max="5" step="0.01" placeholder="Sourced recent xG" value={homeXg} onChange={e => setHomeXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-zinc-500">Away xG</Label>
-                      <Input type="number" step="0.01" value={awayXg} onChange={e => setAwayXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="0" max="5" step="0.01" placeholder="Sourced recent xG" value={awayXg} onChange={e => setAwayXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-zinc-500">Home goals conceded / match</Label>
-                      <Input type="number" min="0" max="6" step="0.01" value={homeGoalsConceded} onChange={e => setHomeGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="0" max="6" step="0.01" placeholder="Goals conceded / match" value={homeGoalsConceded} onChange={e => setHomeGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-zinc-500">Away goals conceded / match</Label>
-                      <Input type="number" min="0" max="6" step="0.01" value={awayGoalsConceded} onChange={e => setAwayGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="0" max="6" step="0.01" placeholder="Goals conceded / match" value={awayGoalsConceded} onChange={e => setAwayGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-zinc-500">Home ELO</Label>
-                      <Input type="number" value={homeElo} onChange={e => setHomeElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="500" max="3000" placeholder="Verified rating" value={homeElo} onChange={e => setHomeElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-zinc-500">Away ELO</Label>
-                      <Input type="number" value={awayElo} onChange={e => setAwayElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="500" max="3000" placeholder="Verified rating" value={awayElo} onChange={e => setAwayElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
                   <Separator className="bg-zinc-800/50" />
@@ -440,15 +438,15 @@ export default function PredictionEngineView() {
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <Label className="text-xs text-emerald-400">Home</Label>
-                      <Input type="number" step="0.01" value={oddsHome} onChange={e => setOddsHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current odds" value={oddsHome} onChange={e => setOddsHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-yellow-400">Draw</Label>
-                      <Input type="number" step="0.01" value={oddsDraw} onChange={e => setOddsDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current odds" value={oddsDraw} onChange={e => setOddsDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-red-400">Away</Label>
-                      <Input type="number" step="0.01" value={oddsAway} onChange={e => setOddsAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current odds" value={oddsAway} onChange={e => setOddsAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
