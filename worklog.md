@@ -145,3 +145,15 @@ Work Log:
 - Added Node test-runner coverage for complete valid inputs, missing team identity, missing xG/ELO, odds requirements, simulation-only mode, same-team selection, simulation run limits, bankroll bounds, and risk configuration bounds.
 - Added `npm test` and a CI step so the regression tests run before lint/type-check/build.
 - The tests have been committed to the open PR branch but have not yet been executed in this environment; CI status remains the source of truth for pass/fail.
+
+
+Task ID: 5
+Agent: ChatGPT
+Task: Remove fabricated team-strength fallback from the primary prediction-compute API
+
+Work Log:
+- Removed the team-name/hash/static-strength prediction path from `src/app/api/predictions/compute/route.ts`.
+- Prediction computation now requires recent sourced team records with observed match history for both sides. Team records marked unknown, seed or demo are excluded; unsupported fixtures are returned in `skippedMatches` with a reason rather than given neutral/fabricated ratings.
+- Probabilities and expected goals are explicitly labeled as a statistical baseline that is not trained or independently validated. The endpoint reports source, observed match counts and data-sync timestamps.
+- Reused ELASTICO's existing ELO, Poisson and Dixon-Coles functions; no second prediction engine was introduced.
+- Verification is pending a fresh full CI run and runtime data-coverage check. Where the DB lacks qualifying history, this change intentionally returns fewer predictions instead of manufacturing values.
