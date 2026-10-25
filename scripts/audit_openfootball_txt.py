@@ -20,6 +20,7 @@ DATE_RE = re.compile(r"^\s{2,}([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{4})\
 MATCH_RE = re.compile(r"^\s{2,}(.+?)\s+v\s+(.+?)\s+(\d+)\s*-\s*(\d+)(?:\s+\[[^\]]*\])?\s*$")
 FIXTURE_RE = re.compile(r"^\s{2,}(.+?)\s+v\s+(.+?)\s*$")
 ABANDONED_RE = re.compile(r"^\s{2,}(.+?)\s+abd\.\s+(.+?)(?:\s+\[[^\]]*\])?\s*$", re.IGNORECASE)
+BYE_RE = re.compile(r"^\s{2,}.+?\s+bye\s*$", re.IGNORECASE)
 
 
 def parse_file(path: Path, league: str) -> tuple[list[dict[str, str]], dict[str, object]]:
@@ -44,6 +45,9 @@ def parse_file(path: Path, league: str) -> tuple[list[dict[str, str]], dict[str,
             scheduled += 1
             incomplete += 1
             abandoned += 1
+            continue
+        if BYE_RE.match(line):
+            byes += 1
             continue
 
         match = MATCH_RE.match(line)
@@ -96,6 +100,7 @@ def parse_file(path: Path, league: str) -> tuple[list[dict[str, str]], dict[str,
         "scheduled_fixtures_including_completed": scheduled,
         "scheduled_or_incomplete_fixtures": incomplete,
         "abandoned_fixtures": abandoned,
+        "bye_entries": byes,
         "annotated_completed_results": annotated_results,
         "malformed_or_unparsed_lines": malformed,
         "first_result_date": min((r["Date"] for r in unique), default=None),
