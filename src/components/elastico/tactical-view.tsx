@@ -81,8 +81,8 @@ const RADAR_DIMS = [
 ]
 
 // ── Derived Tactical Profiles ───────────────────────────────────────────
-// Generates tactical dimensions from real team metrics where available.
-// When advanced analytics are missing, computes approximate values from basic stats.
+// Generates approximate display scores only from relevant provider metrics.
+// Missing advanced analytics remain unavailable; match outcomes are not used as substitutes.
 
 function deriveTacticalProfile(team: {
   style: string | null
