@@ -8,14 +8,8 @@
  *     Never hardcode secrets in source code. This file is server-only
  *     and keys are never sent to the browser.
  *
- * Priority order (7 providers):
- * 1. Groq (ultra-fast, ~200ms, free Llama 3.3 70B)
- * 2. Cerebras (insanely fast, ~2K tokens/sec)
- * 3. Google Gemini (best quality, 1M context)
- * 4. OpenRouter (multi-model gateway, free tier)
- * 5. NVIDIA NIM (Llama 3.3 70B)
- * 6. Mistral (huge daily token limit)
- * 7. GitHub Models (GPT-4o-mini free)
+ * Provider priority is configurable by order below. Keys are environment-only.
+ * Grok (xAI) and NVIDIA Nemotron are supported alongside the other providers.
  *
  * Automatic failover: if #1 fails, tries #2, then #3, etc.
  * The UI must never expose which provider answered — ELASTICO is the identity.
@@ -44,6 +38,14 @@ interface Provider {
 }
 
 const PROVIDERS: Provider[] = [
+  {
+    name: 'Grok',
+    baseUrl: 'https://api.x.ai/v1/chat/completions',
+    model: 'grok-3-mini',
+    maxTokens: 4096,
+    envKey: 'XAI_API_KEY',
+    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
+  },
   {
     name: 'Groq',
     baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
@@ -84,7 +86,7 @@ const PROVIDERS: Provider[] = [
   {
     name: 'NVIDIA',
     baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'meta/llama-3.3-70b-instruct',
+    model: 'nvidia/llama-3.1-nemotron-70b-instruct',
     maxTokens: 4096,
     envKey: 'NVIDIA_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
@@ -195,7 +197,10 @@ export async function callAi(
 
   // Try each provider with failover
   const errors: string[] = []
+  let attemptedProviders = 0
   for (const provider of available) {
+    if (attemptedProviders >= 3) break
+    attemptedProviders += 1
     if (isCoolingDown(provider.name)) {
       errors.push(`${provider.name}: cooling down`)
       continue
@@ -213,7 +218,7 @@ export async function callAi(
       }
 
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
+      const timeoutId = setTimeout(() => controller.abort(), 8000)
       const resp = await fetch(provider.baseUrl, {
         method: 'POST',
         headers: provider.headers(apiKey),
@@ -261,7 +266,7 @@ export async function callAi(
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'fetch failed'
       if (err instanceof DOMException && err.name === 'AbortError') {
-        errors.push(`${provider.name}: timed out (10s)`)
+        errors.push(`${provider.name}: timed out (8s)`)
         markCooldown(provider.name, 30)
       } else {
         errors.push(`${provider.name}: ${msg}`)
@@ -317,7 +322,10 @@ export async function callAiStream(
   if (available.length === 0) return null
 
   const errors: string[] = []
+  let attemptedProviders = 0
   for (const provider of available) {
+    if (attemptedProviders >= 3) break
+    attemptedProviders += 1
     if (isCoolingDown(provider.name)) continue
 
     const apiKey = resolveKey(provider.envKey)
@@ -331,7 +339,7 @@ export async function callAiStream(
 
     try {
       const ac = new AbortController()
-      const timeoutId = setTimeout(() => ac.abort(), 15000)
+      const timeoutId = setTimeout(() => ac.abort(), 8000)
       const resp = await fetch(provider.baseUrl, {
         method: 'POST',
         headers: provider.headers(apiKey),
