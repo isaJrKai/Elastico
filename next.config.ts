@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The production start script uses .next/standalone/server.js.
+  output: "standalone",
   typescript: {
     ignoreBuildErrors: false,
   },
