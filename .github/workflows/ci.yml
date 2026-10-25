@@ -11,7 +11,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  actions: write
 
 concurrency:
   group: elastico-ci-${{ github.workflow }}-${{ github.ref }}
@@ -34,6 +35,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -49,41 +52,53 @@ jobs:
           cp package.json /tmp/elastico-package.json
           cp package-lock.json /tmp/elastico-package-lock.json
 
-      - name: Apply semver-compatible dependency security fixes to an isolated candidate
+      - name: Build a dependency-remediation candidate
+        id: candidate_remediation
         run: |
-          # npm audit fix exits non-zero when any advisory remains, even when it
-          # successfully updates other packages. Capture the status but preserve
-          # the candidate manifests and audit report for review.
-          # Remove direct dependencies that code search confirmed are unused
-          # in maintained source, avoiding risky major upgrades just to silence advisories.
+          # These direct packages have no imports in maintained application source.
           npm uninstall --legacy-peer-deps @neondatabase/auth @mdxeditor/editor react-syntax-highlighter
+          # Apply compatible fixes first; capture npm's non-zero status if major advisories remain.
           set +e
           npm audit fix --legacy-peer-deps
           remediation_status=$?
           set -e
+          # Prisma CLI is build tooling; @prisma/client remains a production dependency.
+          npm install --legacy-peer-deps --save-dev 'prisma@^6.19.3'
+          # Test the patched image-processing dependency against the actual app build.
+          npm install --legacy-peer-deps 'sharp@0.35.5'
           mkdir -p dependency-remediation-candidate
           cp package.json dependency-remediation-candidate/package.json
           cp package-lock.json dependency-remediation-candidate/package-lock.json
           npm audit --omit=dev --json > dependency-remediation-candidate/production-audit.json || true
-          echo "npm audit fix exit status: $remediation_status (candidate captured; strict committed-lockfile gate remains enabled)"
+          echo "npm audit fix exit status: $remediation_status; candidate manifests and report captured."
+
+      - name: Audit candidate production dependencies
+        id: candidate_audit
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Validate Prisma schema
+        id: candidate_prisma_validate
         continue-on-error: true
         run: npx prisma validate
 
       - name: Generate Prisma client
+        id: candidate_prisma_generate
         continue-on-error: true
         run: npx prisma generate
 
       - name: Run prediction-engine invariant tests
+        id: candidate_tests
         continue-on-error: true
         run: npm run test:prediction-engine
 
       - name: TypeScript type check
+        id: candidate_tsc
         continue-on-error: true
         run: npx tsc --noEmit
 
       - name: Lint maintained application source
+        id: candidate_lint
         continue-on-error: true
         # The repository currently contains a nested exported copy at elastico-work/Elastico-main;
         # it is not the build root and has malformed/stale source files. Exclude that copy.
@@ -92,6 +107,7 @@ jobs:
           npx eslint src --rule 'react-hooks/set-state-in-effect: off'
 
       - name: Build and verify the dependency-remediation candidate
+        id: candidate_build
         continue-on-error: true
         run: |
           npm run build
@@ -99,29 +115,33 @@ jobs:
           test -d .next/standalone/.next/static
           test -d .next/standalone/public
 
-      - name: Restore committed dependencies before enforcing the security gate
-        if: always()
+${publish}      - name: Restore committed dependencies before enforcing the security gate
+        if: always() && steps.publish_candidate.outcome != 'success'
         run: |
           cp /tmp/elastico-package.json package.json
           cp /tmp/elastico-package-lock.json package-lock.json
           npm ci --legacy-peer-deps --include=dev
 
-      # Candidate dependency checks above are diagnostic only. Re-run the normal
-      # project checks against the original lockfile so candidate failures cannot
-      # hide baseline regressions or prevent the strict security gate from running.
+      # If the candidate cannot be safely published, restore and verify the committed baseline.
+      # A published candidate has already passed the same checks above.
       - name: Validate committed Prisma schema
+        if: steps.publish_candidate.outcome != 'success'
         run: npx prisma validate
 
       - name: Generate committed Prisma client
+        if: steps.publish_candidate.outcome != 'success'
         run: npx prisma generate
 
       - name: Run committed prediction-engine invariant tests
+        if: steps.publish_candidate.outcome != 'success'
         run: npm run test:prediction-engine
 
       - name: TypeScript type check against committed dependencies
+        if: steps.publish_candidate.outcome != 'success'
         run: npx tsc --noEmit
 
       - name: Lint maintained application source against committed dependencies
+        if: steps.publish_candidate.outcome != 'success'
         run: >-
           npx eslint src --rule 'react-hooks/set-state-in-effect: off'
 
