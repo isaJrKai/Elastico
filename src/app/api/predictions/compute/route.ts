@@ -96,8 +96,8 @@ export async function GET(request: NextRequest) {
         const ageMs = Date.now() - team.lastSyncedAt.getTime()
         return ageMs >= 0 && ageMs <= 45 * 24 * 60 * 60 * 1000
       }
-      const homeHistoryAvailable = Boolean(storedHome && homePlayed > 0 && storedHome.source !== 'unknown' && isRecentlySynced(storedHome))
-      const awayHistoryAvailable = Boolean(storedAway && awayPlayed > 0 && storedAway.source !== 'unknown' && isRecentlySynced(storedAway))
+      const homeHistoryAvailable = Boolean(storedHome && homePlayed > 0 && storedHome.source !== 'unknown' && storedHome.source !== 'seed' && storedHome.source !== 'demo' && isRecentlySynced(storedHome))
+      const awayHistoryAvailable = Boolean(storedAway && awayPlayed > 0 && storedAway.source !== 'unknown' && storedAway.source !== 'seed' && storedAway.source !== 'demo' && isRecentlySynced(storedAway))
       if (!homeHistoryAvailable || !awayHistoryAvailable) {
         return {
           prediction: null,
