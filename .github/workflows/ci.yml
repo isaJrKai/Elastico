@@ -44,8 +44,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install locked dependencies, including CI development tools
-        run: npm ci --legacy-peer-deps --include=dev
+      - name: Install dependencies and reconcile the existing lockfile
+        run: npm install --legacy-peer-deps --include=dev
 
       - name: Preserve the committed dependency manifests
         run: |
