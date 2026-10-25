@@ -40,8 +40,6 @@ export default function CompareView() {
   useEffect(() => {
     if (teams.length === 0) {
       fetchTeams().finally(() => setLoading(false))
-    } else {
-      setLoading(false)
     }
   }, [teams.length, fetchTeams])
 
