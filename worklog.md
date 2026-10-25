@@ -157,3 +157,16 @@ Work Log:
 - Probabilities and expected goals are explicitly labeled as a statistical baseline that is not trained or independently validated. The endpoint reports source, observed match counts and data-sync timestamps.
 - Reused ELASTICO's existing ELO, Poisson and Dixon-Coles functions; no second prediction engine was introduced.
 - Verification is pending a fresh full CI run and runtime data-coverage check. Where the DB lacks qualifying history, this change intentionally returns fewer predictions instead of manufacturing values.
+
+
+Task ID: 6
+Agent: ChatGPT
+Task: Repair provider model IDs identified by production logs
+
+Work Log:
+- Queried production runtime errors for the current deployment. Observed provider-specific failures: Groq model 404/access error, Cerebras archived-model 404, Gemini timeout/503, OpenRouter free-model 404, and NVIDIA model 410 Gone.
+- Updated provider model IDs to current documented options: Groq GPT-OSS 120B, Cerebras GPT-OSS 120B, Gemini 3.6 Flash, OpenRouter's free-model router, and NVIDIA Nemotron 3.5 Lightning. Added Grok 4.7 as the optional xAI provider.
+- Reordered failover to try Groq, Nemotron, and OpenRouter first, capped provider attempts at three, and reduced each request timeout to seven seconds. This limits sequential waiting; real latency still requires live smoke testing.
+- Official model references reviewed: Groq supported-model catalog, Cerebras Inference quickstart, Gemini model catalog, NVIDIA Nemotron NIM docs, OpenRouter free-model catalog, and xAI Chat Completions reference.
+- The xAI key is not present in the Vercel environment inventory; Grok cannot be live-tested or used until a real `XAI_API_KEY` is added. Existing keys are not decrypted or exposed.
+- A fresh CI run must be triggered for the latest commits because the previous run was cancelled by later branch updates after unit tests passed.
