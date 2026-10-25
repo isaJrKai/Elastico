@@ -103,12 +103,10 @@ export async function authenticateRequest(req: Request): Promise<
     const user = await db.user.findUnique({ where: { id: payload.userId } })
     if (!user || !(user as any).isActive) return jsonError('Unauthorized', 401)
 
-    const {
-      passwordHash,
-      twoFactorSecret,
-      sessionId,
-      ...safeUser
-    } = user as any
+    const safeUser = { ...(user as any) } as Record<string, unknown>
+    delete safeUser.passwordHash
+    delete safeUser.twoFactorSecret
+    delete safeUser.sessionId
     return { user: safeUser as AuthUser, req }
   } catch (error) {
     console.error('[Auth] Database verification failed; refusing token fallback.', error)
