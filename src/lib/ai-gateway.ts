@@ -84,7 +84,7 @@ const PROVIDERS: Provider[] = [
     }),
   },
   {
-    name: 'NVIDIA',
+    name: 'NVIDIA Nemotron',
     baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
     model: 'nvidia/llama-3.1-nemotron-70b-instruct',
     maxTokens: 4096,
