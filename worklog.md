@@ -182,3 +182,13 @@ Work Log:
 - Added defensive duplicate-prefix removal in `/api/matches/[id]` so old clients or stale UI state do not break lookup.
 - Removed the inaccessible Europa League (`EL`) competition from the football-data.org fallback search that had been emitting a 403 in production logs.
 - Live verification is pending a new deployment; current Vercel deployment checks remain blocked by the project's build-rate-limit status.
+
+
+Task ID: 8
+Agent: ChatGPT
+Task: Tighten authenticated-user projection
+
+Work Log:
+- Replaced broad user-object spreading with an explicit public AuthUser allowlist so route handlers do not receive password hashes, 2FA secrets, session IDs, provider IDs, private profile fields, or lockout internals.
+- Authentication now rejects banned/inactive accounts and returns 423 while a stored lockout is active.
+- Requires the latest CI run to validate Prisma field compatibility and TypeScript typing before merge.
