@@ -116,8 +116,8 @@ export default function PredictionEngineView() {
   const [awayTeamId, setAwayTeamId] = useState('')
   const [homeXg, setHomeXg] = useState('')
   const [awayXg, setAwayXg] = useState('')
-  const [homeElo, setHomeElo] = useState('1850')
-  const [awayElo, setAwayElo] = useState('1780')
+  const [homeElo, setHomeElo] = useState('1500')
+  const [awayElo, setAwayElo] = useState('1500')
   // Blank by default: bookmaker prices must be entered from a real, current source.
   const [oddsHome, setOddsHome] = useState('')
   const [oddsDraw, setOddsDraw] = useState('')
@@ -132,12 +132,12 @@ export default function PredictionEngineView() {
   const [kellyResult, setKellyResult] = useState<FullMatchAnalysis['portfolioAllocation'] | null>(null)
 
   // ── Market signals state ──────────────────────────────────────────────────────
-  const [sigOpenHome, setSigOpenHome] = useState('2.10')
-  const [sigOpenDraw, setSigOpenDraw] = useState('3.40')
-  const [sigOpenAway, setSigOpenAway] = useState('3.60')
-  const [sigCurHome, setSigCurHome] = useState('1.95')
-  const [sigCurDraw, setSigCurDraw] = useState('3.50')
-  const [sigCurAway, setSigCurAway] = useState('4.00')
+  const [sigOpenHome, setSigOpenHome] = useState('')
+  const [sigOpenDraw, setSigOpenDraw] = useState('')
+  const [sigOpenAway, setSigOpenAway] = useState('')
+  const [sigCurHome, setSigCurHome] = useState('')
+  const [sigCurDraw, setSigCurDraw] = useState('')
+  const [sigCurAway, setSigCurAway] = useState('')
   const [sigHomeTeam, setSigHomeTeam] = useState('')
   const [sigAwayTeam, setSigAwayTeam] = useState('')
   const [sigLoading, setSigLoading] = useState(false)
@@ -245,6 +245,11 @@ export default function PredictionEngineView() {
   // ── Run market signals ────────────────────────────────────────────────────────
   const runSignals = useCallback(async () => {
     if (!sigHomeTeam || !sigAwayTeam) { toast.error('Select both teams'); return }
+    const oddsInputs = [sigOpenHome, sigOpenDraw, sigOpenAway, sigCurHome, sigCurDraw, sigCurAway]
+    if (oddsInputs.some(value => value.trim() === '' || !Number.isFinite(Number(value)) || Number(value) <= 1.01 || Number(value) > 1000)) {
+      toast.error('Enter real opening and current decimal odds for all three outcomes (greater than 1.01 and no more than 1000)')
+      return
+    }
     setSigLoading(true)
     try {
       const res = await fetch('/api/prediction-engine/market-signals', {
