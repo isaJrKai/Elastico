@@ -52,10 +52,10 @@ jobs:
       - name: Apply semver-compatible dependency security fixes to an isolated candidate
         run: |
           npm audit fix --legacy-peer-deps
-          mkdir -p .audit-candidate
-          cp package.json .audit-candidate/package.json
-          cp package-lock.json .audit-candidate/package-lock.json
-          npm audit --omit=dev --json > .audit-candidate/production-audit.json || true
+          mkdir -p dependency-remediation-candidate
+          cp package.json dependency-remediation-candidate/package.json
+          cp package-lock.json dependency-remediation-candidate/package-lock.json
+          npm audit --omit=dev --json > dependency-remediation-candidate/production-audit.json || true
 
       - name: Validate Prisma schema
         run: npx prisma validate
@@ -117,7 +117,7 @@ jobs:
           path: |
             .next/
             npm-debug.log
-            .audit-candidate/
+            dependency-remediation-candidate/
             production-audit.json
             package.json
             package-lock.json
