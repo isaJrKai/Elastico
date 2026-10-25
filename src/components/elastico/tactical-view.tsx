@@ -292,15 +292,8 @@ export function TacticalView() {
     const homePlayed = Math.max(homeTeam.wins + homeTeam.draws + homeTeam.losses, 1)
     const awayPlayed = Math.max(awayTeam.wins + awayTeam.draws + awayTeam.losses, 1)
 
-    // Derived possession fallback (goal diff proxy, clamped 30-70)
-    const homePossDerived = Math.min(70, Math.max(30, 50 + ((homeTeam.goalsFor - homeTeam.goalsAgainst) / homePlayed) * 3))
-    const awayPossDerived = Math.min(70, Math.max(30, 50 + ((awayTeam.goalsFor - awayTeam.goalsAgainst) / awayPlayed) * 3))
-    // Derived pass accuracy fallback
-    const homePassDerived = Math.min(95, ((homeTeam.wins + homeTeam.draws) / homePlayed) * 15 + 70)
-    const awayPassDerived = Math.min(95, ((awayTeam.wins + awayTeam.draws) / awayPlayed) * 15 + 70)
-    // Derived pressing fallback
-    const homePressDerived = Math.min(95, (homeTeam.wins / homePlayed) * 90 + 20)
-    const awayPressDerived = Math.min(95, (awayTeam.wins / awayPlayed) * 90 + 20)
+    // Possession, passing and pressing cannot be inferred reliably from results alone.
+    // Keep these metrics missing unless the provider supplies them; never fabricate tactical data.
 
     return [
       {
@@ -317,21 +310,21 @@ export function TacticalView() {
       },
       {
         metric: 'Poss %',
-        [homeTeam.code]: homeTeam.possession ?? homePossDerived,
-        [awayTeam.code]: awayTeam.possession ?? awayPossDerived,
-        dataClass: (homeTeam.possession != null && awayTeam.possession != null) ? 'REAL' as const : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.possession ?? null,
+        [awayTeam.code]: awayTeam.possession ?? null,
+        dataClass: (homeTeam.possession != null && awayTeam.possession != null) ? 'REAL' as const : 'MISSING' as const,
       },
       {
         metric: 'Pass Acc',
-        [homeTeam.code]: homeTeam.passAccuracy ?? homePassDerived,
-        [awayTeam.code]: awayTeam.passAccuracy ?? awayPassDerived,
-        dataClass: (homeTeam.passAccuracy != null && awayTeam.passAccuracy != null) ? 'REAL' as const : 'DERIVED' as const,
+        [homeTeam.code]: homeTeam.passAccuracy ?? null,
+        [awayTeam.code]: awayTeam.passAccuracy ?? null,
+        dataClass: (homeTeam.passAccuracy != null && awayTeam.passAccuracy != null) ? 'REAL' as const : 'MISSING' as const,
       },
       {
         metric: 'Press',
-        [homeTeam.code]: (homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0) ? homeTeam.pressIntensity : homePressDerived,
-        [awayTeam.code]: (awayTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? awayTeam.pressIntensity : awayPressDerived,
-        dataClass: (homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0) ? 'DERIVED' as const : 'DERIVED' as const,
+        [homeTeam.code]: (homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0) ? homeTeam.pressIntensity : null,
+        [awayTeam.code]: (awayTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? awayTeam.pressIntensity : null,
+        dataClass: (homeTeam.pressIntensity != null && homeTeam.pressIntensity > 0 && awayTeam.pressIntensity != null && awayTeam.pressIntensity > 0) ? 'REAL' as const : 'MISSING' as const,
       },
     ]
   }, [homeTeam, awayTeam])
