@@ -912,15 +912,15 @@ export default function PredictionEngineView() {
                 <Separator className="bg-zinc-800/50" />
                 <p className="text-xs text-zinc-500 font-medium">Opening Odds</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <Input type="number" step="0.01" placeholder="Home" placeholder="Opening home odds" type="number" min="1.02" max="1000" step="0.01" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Draw" placeholder="Opening draw odds" type="number" min="1.02" max="1000" step="0.01" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Away" placeholder="Opening away odds" type="number" min="1.02" max="1000" step="0.01" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Opening home odds" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Opening draw odds" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Opening away odds" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
                 </div>
                 <p className="text-xs text-zinc-500 font-medium">Current Odds</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <Input type="number" step="0.01" placeholder="Home" placeholder="Current home odds" type="number" min="1.02" max="1000" step="0.01" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Draw" placeholder="Current draw odds" type="number" min="1.02" max="1000" step="0.01" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Away" placeholder="Current away odds" type="number" min="1.02" max="1000" step="0.01" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current home odds" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current draw odds" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current away odds" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
                 </div>
                 <Button onClick={runSignals} disabled={sigLoading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
                   {sigLoading ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</> : <><Eye className="w-4 h-4 mr-2" /> ANALYZE</>}
