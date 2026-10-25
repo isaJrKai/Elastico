@@ -41,7 +41,7 @@ const PROVIDERS: Provider[] = [
   {
     name: 'Grok',
     baseUrl: 'https://api.x.ai/v1/chat/completions',
-    model: 'grok-3-mini',
+    model: 'grok-4.7',
     maxTokens: 4096,
     envKey: 'XAI_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
@@ -49,7 +49,7 @@ const PROVIDERS: Provider[] = [
   {
     name: 'Groq',
     baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     maxTokens: 4096,
     envKey: 'GROQ_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
@@ -57,7 +57,7 @@ const PROVIDERS: Provider[] = [
   {
     name: 'Cerebras',
     baseUrl: 'https://api.cerebras.ai/v1/chat/completions',
-    model: 'llama-4-scout-17b-16e-instruct',
+    model: 'gpt-oss-120b',
     maxTokens: 4096,
     envKey: 'CEREBRAS_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
@@ -65,7 +65,7 @@ const PROVIDERS: Provider[] = [
   {
     name: 'Google Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.6-flash',
     maxTokens: 4096,
     envKey: 'GOOGLE_AI_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
@@ -73,7 +73,7 @@ const PROVIDERS: Provider[] = [
   {
     name: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'deepseek/deepseek-chat-v3-0324:free',
+    model: 'openrouter/free',
     maxTokens: 4096,
     envKey: 'OPENROUTER_API_KEY',
     headers: (key) => ({
@@ -86,7 +86,7 @@ const PROVIDERS: Provider[] = [
   {
     name: 'NVIDIA Nemotron',
     baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
-    model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+    model: 'nvidia/nemotron-3.5-lightning-30b-a3b',
     maxTokens: 4096,
     envKey: 'NVIDIA_API_KEY',
     headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' }),
