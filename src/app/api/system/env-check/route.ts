@@ -11,11 +11,12 @@ import { getProviderStatus } from '@/lib/ai-gateway'
 export const runtime = 'nodejs'
 
 const AI_KEYS = [
+  { name: 'XAI_API_KEY', label: 'Grok (xAI)' },
   { name: 'GROQ_API_KEY', label: 'Groq' },
   { name: 'CEREBRAS_API_KEY', label: 'Cerebras' },
   { name: 'GOOGLE_AI_API_KEY', label: 'Google Gemini' },
   { name: 'OPENROUTER_API_KEY', label: 'OpenRouter' },
-  { name: 'NVIDIA_API_KEY', label: 'NVIDIA' },
+  { name: 'NVIDIA_API_KEY', label: 'NVIDIA Nemotron' },
   { name: 'MISTRAL_API_KEY', label: 'Mistral' },
   { name: 'GITHUB_TOKEN', label: 'GitHub Models' },
 ] as const
