@@ -53,6 +53,8 @@ class WalkForwardEvaluatorTests(unittest.TestCase):
         self.assertTrue(report["methodology"]["walk_forward"])
         self.assertGreater(report["dataset"]["scored_matches"], 0)
         self.assertIn("UG1", report["per_league"])
+        self.assertIn("league_frequency", report["overall"])
+        self.assertEqual(report["overall"]["league_frequency"]["n"], report["dataset"]["scored_matches"])
         for metrics in report["overall"].values():
             self.assertGreater(metrics["n"], 0)
             self.assertGreaterEqual(metrics["log_loss"], 0)
