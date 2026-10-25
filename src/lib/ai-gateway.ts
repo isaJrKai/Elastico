@@ -412,7 +412,7 @@ export async function callAiStream(
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'fetch failed'
       if (err instanceof DOMException && err.name === 'AbortError') {
-        errors.push(`${provider.name}: timed out (10s)`)
+        errors.push(`${provider.name}: timed out (7s)`)
         markCooldown(provider.name, 30)
       } else {
         errors.push(`${provider.name}: ${msg}`)
