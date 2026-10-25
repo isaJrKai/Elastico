@@ -122,14 +122,18 @@ export async function GET(request: NextRequest) {
 
       case 'teams': {
         if (!league) return NextResponse.json({ error: 'league required' }, { status: 400 })
-        // Try DB first
-        const dbTeams = await db.team.findMany({
-          where: { leagueCode: league },
-          include: { _count: { select: { players: true } } },
-          orderBy: { name: 'asc' },
-        })
-        if (dbTeams.length > 0) {
-          return NextResponse.json({ success: true, league, source: 'database', count: dbTeams.length, data: dbTeams })
+        // Roster discovery needs provider IDs, not internal database IDs. Allow that
+        // consumer to explicitly request the ESPN team directory.
+        const requestedSource = searchParams.get('source')
+        if (requestedSource !== 'espn') {
+          const dbTeams = await db.team.findMany({
+            where: { leagueCode: league },
+            include: { _count: { select: { players: true } } },
+            orderBy: { name: 'asc' },
+          })
+          if (dbTeams.length > 0) {
+            return NextResponse.json({ success: true, league, source: 'database', count: dbTeams.length, data: dbTeams })
+          }
         }
         const teams = await fetchTeams(league)
         return NextResponse.json({ success: true, league, source: 'espn', count: teams.length, data: teams })
