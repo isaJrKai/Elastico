@@ -18,12 +18,19 @@ export async function GET(req: NextRequest) {
     const teamId = url.get('teamId')
     const search = url.get('search')
     const position = url.get('position')
-    const limit = Math.min(parseInt(url.get('limit') || '50'), 200)
-    const offset = parseInt(url.get('offset') || '0')
+    const league = url.get('league') || 'PL'
+    const rawLimit = Number.parseInt(url.get('limit') || '50', 10)
+    const rawOffset = Number.parseInt(url.get('offset') || '0', 10)
+    if (!Number.isFinite(rawLimit) || rawLimit < 1 || !Number.isFinite(rawOffset) || rawOffset < 0) {
+      return NextResponse.json({ error: 'limit must be a positive integer and offset must be a non-negative integer' }, { status: 400 })
+    }
+    const limit = Math.min(rawLimit, 200)
+    const offset = rawOffset
 
     // ── Try database first ──────────────────────────────────────────────
     const where: any = {}
     if (teamId) where.teamId = teamId
+    else where.team = { leagueCode: league }
     if (position) where.position = position
     if (search) where.name = { contains: search, mode: 'insensitive' }
 
@@ -78,8 +85,6 @@ export async function GET(req: NextRequest) {
 
     // ── Fallback: ESPN direct fetch ───────────────────────────────────────
     console.log('[Players] DB empty, falling back to ESPN')
-    const league = url.get('league') || 'PL'
-
     // Team roster (specific team)
     if (teamId) {
       const roster = await fetchTeamRoster(league, teamId)
