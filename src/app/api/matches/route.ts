@@ -19,7 +19,12 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') || undefined
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200)
+    const rawLimit = searchParams.get('limit')
+    const requestedLimit = rawLimit === null ? 50 : Number(rawLimit)
+    if (!Number.isInteger(requestedLimit) || requestedLimit < 1) {
+      return NextResponse.json({ error: 'limit must be a positive integer' }, { status: 400 })
+    }
+    const limit = Math.min(requestedLimit, 200)
     const search = searchParams.get('search') || undefined
     const league = searchParams.get('league') || undefined
 

@@ -80,6 +80,16 @@ interface ComputePrediction {
   btts: number
   mostLikelyScore: string
   expectedGoals: { home: string; away: string; total: string }
+  dataQuality?: 'database-team-history' | 'neutral-baseline-missing-team-history'
+  modelStatus?: string
+  dataQualityDetails?: {
+    homeTeamHistoryAvailable: boolean
+    awayTeamHistoryAvailable: boolean
+    homeRatingSource: string
+    awayRatingSource: string
+    homeMatchesObserved: number
+    awayMatchesObserved: number
+  }
   confidence?: number
   volatility?: number
 }
@@ -493,8 +503,10 @@ export default function PredictionsView() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              ELO + Poisson + Dixon-Coles. Data source: ESPN live scores.
-              Stochastic model available in the Prediction Engine view with real odds inputs.
+              Statistical baseline: ELO + Poisson + Dixon-Coles (not a trained or independently validated ML model).
+              Fixtures come from the configured live source; team ratings and goals use stored team history when available.
+              Missing team history is explicitly flagged and falls back to neutral estimates. No profitability is implied.
+              Stochastic scenario analysis is separate and requires explicit historical xG; bookmaker odds are optional.
             </p>
           </CardHeader>
           <CardContent>
@@ -547,6 +559,9 @@ export default function PredictionsView() {
                           <div className="flex flex-col">
                             <span className="font-medium truncate max-w-[140px]">{p.homeTeam.name} vs {p.awayTeam.name}</span>
                             <span className="text-[9px] text-muted-foreground">{p.competition}</span>
+                            <span className={cn('text-[9px]', p.dataQuality === 'database-team-history' ? 'text-emerald-500' : 'text-amber-500')}>
+                              {p.dataQuality === 'database-team-history' ? 'Stored team history' : 'Neutral baseline · history missing'}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell className="text-xs py-2 text-center font-bold text-emerald-400">{p.ensemble.homeWin}%</TableCell>

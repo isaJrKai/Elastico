@@ -440,6 +440,30 @@ export function poissonProbabilities(
  * @param homeAdv      Home advantage multiplier (default 0.3).
  * @param rho          Dixon-Coles correlation parameter (default -0.13).
  */
+/**
+ * Compute Dixon-Coles probabilities from explicit expected-goal lambdas.
+ * The lower-level dixonColes function takes score-grid dimensions and attack /
+ * defence multipliers; keeping this adapter prevents callers from accidentally
+ * passing lambdas as grid sizes or as strength multipliers.
+ */
+export function dixonColesFromLambdas(
+  homeLambda: number,
+  awayLambda: number,
+  rho: number = -0.13,
+): DixonColesResult {
+  if (!Number.isFinite(homeLambda) || !Number.isFinite(awayLambda) ||
+      homeLambda <= 0 || awayLambda <= 0 || homeLambda > 6 || awayLambda > 6 ||
+      !Number.isFinite(rho) || rho < -0.5 || rho > 0.5) {
+    throw new RangeError('Expected-goal lambdas must be finite values in (0, 6], and rho must be between -0.5 and 0.5')
+  }
+  return dixonColes(
+    10, 10,
+    homeLambda / 1.35, 1,
+    awayLambda / 1.15, 1,
+    1, rho,
+  )
+}
+
 export function dixonColes(
   homeGoals: number = 8,
   awayGoals: number = 8,

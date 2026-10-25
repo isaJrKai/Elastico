@@ -114,12 +114,15 @@ export function PlayerView() {
         if (res.ok) {
           const data = await res.json()
           if (data.players && data.players.length > 0) {
-            setPlayers(data.players.map((p: Record<string, unknown>) => ({
-              ...p,
-              teamName: (p.team as Record<string, unknown>)?.name as string || p.teamName,
-              teamCode: (p.team as Record<string, unknown>)?.code as string || p.teamCode,
-              teamColor: (p.team as Record<string, unknown>)?.primaryColor as string || '#00e676',
-            } as EnhancedPlayer)))
+            if (!cancelled) {
+              setPlayers(data.players.map((p: Record<string, unknown>) => ({
+                ...p,
+                teamName: (p.team as Record<string, unknown>)?.name as string || p.teamName,
+                teamCode: (p.team as Record<string, unknown>)?.code as string || p.teamCode,
+                teamColor: (p.team as Record<string, unknown>)?.primaryColor as string || '#00e676',
+              } as EnhancedPlayer)))
+              setLoading(false)
+            }
             return
           }
         }
@@ -130,17 +133,20 @@ export function PlayerView() {
       // ESPN fallback: fetch teams for selected league, then fetch rosters
       try {
         const activeLeague = league
-        const teamsRes = await fetch(`/api/live?action=teams&league=${activeLeague}`)
+        const teamsRes = await fetch(`/api/live?action=teams&league=${activeLeague}&source=espn`)
         const teamsData = await teamsRes.json()
         const espnTeams = teamsData.data || teamsData.teams || []
 
         if (espnTeams.length === 0) return
 
-        // Fetch rosters for up to 6 teams (to avoid too many requests)
+        // Fetch every team's roster in bounded batches so the player view covers the full league
+        // without firing an unbounded number of provider requests at once.
         const allPlayers: EnhancedPlayer[] = []
-        const teamsToFetch = espnTeams.slice(0, 6)
+        const teamsToFetch = espnTeams
 
-        await Promise.allSettled(teamsToFetch.map(async (t: any) => {
+        for (let batchStart = 0; batchStart < teamsToFetch.length; batchStart += 6) {
+          const batch = teamsToFetch.slice(batchStart, batchStart + 6)
+          await Promise.allSettled(batch.map(async (t: any) => {
           try {
             const rosterRes = await fetch(`/api/live?action=roster&league=${activeLeague}&team=${t.id}`)
             if (!rosterRes.ok) return
@@ -167,7 +173,8 @@ export function PlayerView() {
               } as unknown as EnhancedPlayer)
             }
           } catch (err) { console.warn('[PlayerView] Failed to fetch roster for team:', err) }
-        }))
+          }))
+        }
 
         if (allPlayers.length > 0 && !cancelled) setPlayers(allPlayers)
       } catch (err) {
@@ -201,7 +208,7 @@ export function PlayerView() {
   const pagedPlayers = filteredPlayers.slice(page * perPage, (page + 1) * perPage)
   const totalPages = Math.ceil(filteredPlayers.length / perPage)
 
-  const topScorers = useMemo(() => [...players].sort((a, b) => b.goals - a.goals).slice(0, 10), [players])
+  const topScorers = useMemo(() => [...players].sort((a, b) => (b.goals ?? -1) - (a.goals ?? -1)).slice(0, 10), [players])
   const topByValue = useMemo(() => [...players].filter(p => p.marketValue).sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0)).slice(0, 10), [players])
 
   const positionalGroups = useMemo(() => {
@@ -240,9 +247,9 @@ export function PlayerView() {
   // Similar players — based on same position and comparable goal/assist output
   // (radar-based similarity removed: generated stats were fabricated)
   const similarPlayers = useMemo(() => {
-    if (!selectedPlayer) return []
+    if (!selectedPlayer || selectedPlayer.goals == null || selectedPlayer.assists == null) return []
     return players
-      .filter(p => p.id !== selectedPlayer.id && p.position === selectedPlayer.position)
+      .filter(p => p.id !== selectedPlayer.id && p.position === selectedPlayer.position && p.goals != null && p.assists != null)
       .map(p => {
         const goalDiff = Math.abs(p.goals - selectedPlayer.goals) * 3
         const assistDiff = Math.abs(p.assists - selectedPlayer.assists) * 2
@@ -437,15 +444,15 @@ export function PlayerView() {
                     </div>
                     <div className="grid grid-cols-3 gap-2 mt-4">
                       <div className="text-center">
-                        <div className="text-lg font-bold text-primary">{player.goals}</div>
+                        <div className="text-lg font-bold text-primary">{player.goals ?? '—'}</div>
                         <div className="text-[10px] text-muted-foreground">Goals</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-lg font-bold text-primary">{player.assists}</div>
+                        <div className="text-lg font-bold text-primary">{player.assists ?? '—'}</div>
                         <div className="text-[10px] text-muted-foreground">Assists</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-lg font-bold text-primary">{player.yellowCards + player.redCards}</div>
+                        <div className="text-lg font-bold text-primary">{player.yellowCards != null && player.redCards != null ? player.yellowCards + player.redCards : '—'}</div>
                         <div className="text-[10px] text-muted-foreground">Cards</div>
                       </div>
                     </div>
@@ -508,11 +515,11 @@ export function PlayerView() {
                           </div>
                           <span className="text-[10px] text-muted-foreground">{p.teamName}</span>
                         </TableCell>
-                        <TableCell className="text-center font-bold text-primary">{p.goals}</TableCell>
-                        <TableCell className="text-center">{p.assists}</TableCell>
+                        <TableCell className="text-center font-bold text-primary">{p.goals ?? '—'}</TableCell>
+                        <TableCell className="text-center">{p.assists ?? '—'}</TableCell>
                         <TableCell className="text-center text-muted-foreground">{p.minutesPlayed ?? (p.appearances ?? 0) * 90}</TableCell>
                         <TableCell className="text-center font-medium">
-                          {(p.goals / Math.max(1, (p.minutesPlayed ?? (p.appearances ?? 0) * 90) / 90)).toFixed(2)}
+                          {p.goals != null && (p.minutesPlayed != null || p.appearances != null) ? (p.goals / Math.max(1, (p.minutesPlayed ?? p.appearances! * 90) / 90)).toFixed(2) : '—'}
                         </TableCell>
                         <TableCell className={cn('text-center font-bold', p.rating != null && p.rating > 0 ? getRatingColor(p.rating) : 'text-muted-foreground')}>{p.rating != null && p.rating > 0 ? p.rating.toFixed(1) : '—'}</TableCell>
                       </TableRow>
@@ -637,8 +644,10 @@ export function PlayerView() {
             {Object.entries(positionalGroups).map(([pos, group]) => {
               const rated = group.filter(p => p.rating != null && p.rating > 0)
               const avgRating = rated.length > 0 ? (rated.reduce((s, p) => s + p.rating!, 0) / rated.length).toFixed(1) : 'N/A'
-              const totalGoals = group.reduce((s, p) => s + p.goals, 0)
-              const totalAssists = group.reduce((s, p) => s + p.assists, 0)
+              const goalRecords = group.filter(p => p.goals != null)
+               const totalGoals = goalRecords.length ? goalRecords.reduce((s, p) => s + p.goals, 0) : null
+              const assistRecords = group.filter(p => p.assists != null)
+               const totalAssists = assistRecords.length ? assistRecords.reduce((s, p) => s + p.assists, 0) : null
               return (
                 <Card key={pos} className="rounded-lg border border-border bg-card">
                   <CardHeader className="pb-2">
@@ -736,12 +745,12 @@ export function PlayerView() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[...players].sort((a, b) => (b.yellowCards + b.redCards) - (a.yellowCards + a.redCards)).slice(0, 15).map(p => (
+                    {[...players].sort((a, b) => ((b.yellowCards ?? -1) + (b.redCards ?? -1)) - ((a.yellowCards ?? -1) + (a.redCards ?? -1))).slice(0, 15).map(p => (
                       <TableRow key={p.id}>
                         <TableCell className="text-sm">{p.name}</TableCell>
-                        <TableCell className="text-center"><Badge variant="outline" className="text-yellow-400 border-yellow-400/30">{p.yellowCards}</Badge></TableCell>
-                        <TableCell className="text-center"><Badge variant="outline" className="text-red-400 border-red-400/30">{p.redCards}</Badge></TableCell>
-                        <TableCell className="text-center font-bold">{p.yellowCards + p.redCards}</TableCell>
+                        <TableCell className="text-center"><Badge variant="outline" className="text-yellow-400 border-yellow-400/30">{p.yellowCards ?? '—'}</Badge></TableCell>
+                        <TableCell className="text-center"><Badge variant="outline" className="text-red-400 border-red-400/30">{p.redCards ?? '—'}</Badge></TableCell>
+                        <TableCell className="text-center font-bold">{p.yellowCards != null && p.redCards != null ? p.yellowCards + p.redCards : '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -879,8 +888,8 @@ export function PlayerView() {
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: 'Rating', value: selectedPlayer.rating != null && selectedPlayer.rating > 0 ? selectedPlayer.rating.toFixed(1) : 'N/A', color: selectedPlayer.rating != null && selectedPlayer.rating > 0 ? getRatingColor(selectedPlayer.rating) : 'text-muted-foreground' },
-                  { label: 'Goals', value: selectedPlayer.goals, color: 'text-primary' },
-                  { label: 'Assists', value: selectedPlayer.assists, color: 'text-primary' },
+                  { label: 'Goals', value: selectedPlayer.goals ?? 'N/A', color: 'text-primary' },
+                  { label: 'Assists', value: selectedPlayer.assists ?? 'N/A', color: 'text-primary' },
                   { label: 'Appearances', value: selectedPlayer.appearances || '-', color: 'text-foreground' },
                   { label: 'Minutes', value: selectedPlayer.minutesPlayed || '-', color: 'text-foreground' },
                   { label: 'Market Value', value: selectedPlayer.marketValue ? `€${selectedPlayer.marketValue}M` : '-', color: 'text-primary' },

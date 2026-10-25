@@ -415,7 +415,10 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
             await import('@/lib/compressed-data-stream')
           ).BandwidthTracker.log(parseInt(payloadBytes, 10), '/api/matches') } catch {}
         }
-        set({ matches })
+        set({ matches, errors: { ...get().errors, fetchMatches: '' } })
+      } else {
+        const message = `Failed to load matches (HTTP ${res.status})`
+        set((state) => ({ errors: { ...state.errors, fetchMatches: message } }))
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error'
@@ -434,7 +437,10 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
         if (payloadBytes) {
           try { (await import('@/lib/compressed-data-stream')).BandwidthTracker.log(parseInt(payloadBytes, 10), '/api/teams') } catch {}
         }
-        set({ teams })
+        set({ teams, errors: { ...get().errors, fetchTeams: '' } })
+      } else {
+        const message = `Failed to load teams (HTTP ${res.status})`
+        set((state) => ({ errors: { ...state.errors, fetchTeams: message } }))
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error'
@@ -514,7 +520,8 @@ export const useElasticoStore = create<ElasticoStore>()((set, get) => ({
         }))
         set({ liveMatches: matches, isLiveLoading: false })
       } else {
-        set({ isLiveLoading: false })
+        const message = `Failed to load live scores (HTTP ${res.status})`
+        set((state) => ({ isLiveLoading: false, errors: { ...state.errors, fetchLiveScores: message } }))
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error'

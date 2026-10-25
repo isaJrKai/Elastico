@@ -276,7 +276,6 @@ export function runStochasticSimulation(
   // Step 1: Calibrate base intensity parameters from xG + ELO
   const eloDiff = input.homeElo - input.awayElo
   const eloFactor = 1 / (1 + Math.pow(10, -eloDiff / 400))
-  const avgXg = (input.homeXg + input.awayXg) / 2
 
   // Home advantage adjustment (+0.25 goals typical for home field)
   let muHome = input.homeXg * (0.7 + 0.3 * eloFactor) + 0.25
@@ -297,10 +296,10 @@ export function runStochasticSimulation(
   // Step 4: Extract jump-diffusion parameters
   const homeJd = jumpDiffusionEnabled
     ? extractJumpDiffusionParams(homeResiduals)
-    : { sigma: 0.20, jumpLambda: 0.05, jumpMu: 0, jumpSigma: 0.15 }
+    : { sigma: 0.20, jumpLambda: 0, jumpMu: 0, jumpSigma: 0 }
   const awayJd = jumpDiffusionEnabled
     ? extractJumpDiffusionParams(awayResiduals)
-    : { sigma: 0.20, jumpLambda: 0.05, jumpMu: 0, jumpSigma: 0.15 }
+    : { sigma: 0.20, jumpLambda: 0, jumpMu: 0, jumpSigma: 0 }
 
   // Step 5: Compute inter-team correlation
   const rho = input.correlation ?? 0.12
@@ -453,7 +452,8 @@ export function calculateKelly(
   modelProbability: number,
   bookmakerOdds: number,
   bankroll: number,
-  fractionalKelly: number = 0.25
+  fractionalKelly: number = 0.25,
+  maxBankrollRisk: number = 0.05
 ): KellyResult {
   /**
    * Implements the Kelly Criterion for optimal bankroll allocation.
@@ -481,7 +481,7 @@ export function calculateKelly(
   const b = bookmakerOdds - 1  // Net odds
   const q = 1 - modelProbability
   const rawKelly = (modelProbability * b - q) / b
-  const safeKelly = rawKelly * fractionalKelly
+  const safeKelly = Math.min(rawKelly * clamp(fractionalKelly, 0, 1), clamp(maxBankrollRisk, 0, 0.25))
   const wager = bankroll * safeKelly
 
   // Risk classification
@@ -510,7 +510,8 @@ export function calculatePortfolioAllocation(
     [1.00, 0.55, 0.15],
     [0.55, 1.00, 0.20],
     [0.15, 0.20, 1.00],
-  ]
+  ],
+  maxBankrollRisk: number = 0.05
 ): PortfolioAllocation {
   /**
    * Implements a multi-asset Kelly Criterion with covariance adjustment.
@@ -534,7 +535,7 @@ export function calculatePortfolioAllocation(
     const b = out.odds - 1
     const q = 1 - out.modelProb
     const rawKelly = (out.modelProb * b - q) / b
-    const safeKelly = Math.max(0, rawKelly * 0.10) // 10% fractional Kelly
+    const safeKelly = Math.min(Math.max(0, rawKelly * 0.10), clamp(maxBankrollRisk, 0, 0.25)) // 10% fractional Kelly with explicit exposure cap
 
     return {
       label: out.label,
@@ -681,15 +682,16 @@ export interface FullMatchAnalysis {
     home: KellyResult
     draw: KellyResult
     away: KellyResult
-    over25: KellyResult
-    under25: KellyResult
+    over25?: KellyResult
+    under25?: KellyResult
   }
   portfolioAllocation?: PortfolioAllocation
   marketSignal: MarketSignal | null
+  // null when actual goals are unavailable; xG is never used as a fake goals proxy.
   luckAdjustment: {
     home: ReturnType<typeof adjustForLuck>
     away: ReturnType<typeof adjustForLuck>
-  }
+  } | null
   recommendation: string
   riskRating: 'low' | 'medium' | 'high' | 'very-high'
 }
@@ -710,23 +712,9 @@ export function runFullMatchAnalysis(
    * 6. Produce final recommendation
    */
 
-  // Step 1: Luck adjustment
-  const homeLuck = adjustForLuck(
-    input.homeXg * 1.1, // Approximate actual goals from xG
-    input.homeXg
-  )
-  const awayLuck = adjustForLuck(
-    input.awayXg * 0.9,
-    input.awayXg
-  )
-
-  // Step 2: Run simulation with luck-adjusted inputs
-  const adjustedInput: MatchInput = {
-    ...input,
-    homeXg: homeLuck.luckAdjustedGoals,
-    awayXg: awayLuck.luckAdjustedGoals,
-  }
-  const simulation = runStochasticSimulation(adjustedInput, config)
+  // Actual goals are not part of MatchInput, so luck adjustment is unavailable.
+  // Never synthesize observed goals from xG; simulate directly from supplied inputs.
+  const simulation = runStochasticSimulation(input, config)
 
   // Step 3: Kelly Criterion for each market (only when real odds provided)
   const kellyResults = input.bookmakerOdds ? {
@@ -734,13 +722,15 @@ export function runFullMatchAnalysis(
       simulation.matchProbabilities.homeVictory,
       input.bookmakerOdds.home,
       bankroll,
-      config.kellyFraction
+      config.kellyFraction,
+      config.maxBankrollRisk
     ),
     draw: calculateKelly(
       simulation.matchProbabilities.draw,
       input.bookmakerOdds.draw,
       bankroll,
-      config.kellyFraction
+      config.kellyFraction,
+      config.maxBankrollRisk
     ),
     away: calculateKelly(
       simulation.matchProbabilities.awayVictory,
@@ -748,18 +738,7 @@ export function runFullMatchAnalysis(
       bankroll,
       config.kellyFraction
     ),
-    over25: calculateKelly(
-      simulation.totalsMarket.over25,
-      input.bookmakerOdds.home * 0.9, // Approximate over/under odds
-      bankroll,
-      config.kellyFraction
-    ),
-    under25: calculateKelly(
-      simulation.totalsMarket.under25,
-      input.bookmakerOdds.home * 1.1,
-      bankroll,
-      config.kellyFraction
-    ),
+
   } : null
 
   // Step 4: Portfolio allocation (only when real odds provided)
@@ -768,7 +747,7 @@ export function runFullMatchAnalysis(
     { label: `Home Win (${input.homeTeam})`, modelProb: simulation.matchProbabilities.homeVictory, odds: input.bookmakerOdds.home },
     { label: `Draw`, modelProb: simulation.matchProbabilities.draw, odds: input.bookmakerOdds.draw },
     { label: `Away Win (${input.awayTeam})`, modelProb: simulation.matchProbabilities.awayVictory, odds: input.bookmakerOdds.away },
-  ], bankroll)
+  ], bankroll, undefined, config.maxBankrollRisk)
     : null
 
   // Step 5: Market signals
@@ -801,12 +780,12 @@ export function runFullMatchAnalysis(
     simulation.volatilityIndex > 30 ? 'medium' : 'low'
 
   return {
-    matchInput: adjustedInput,
+    matchInput: input,
     simulation,
     kellyResults: kellyResults ?? undefined,
     portfolioAllocation: portfolioAllocation ?? undefined,
     marketSignal,
-    luckAdjustment: { home: homeLuck, away: awayLuck },
+    luckAdjustment: null,
     recommendation,
     riskRating,
   }

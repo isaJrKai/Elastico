@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { fetchLeagueLeaders, fetchTeamRoster } from '@/lib/football-data'
+import { fetchTeamRoster } from '@/lib/football-data'
 
 import { rateLimit } from '@/lib/rate-limit'
 export const dynamic = 'force-dynamic'
@@ -18,12 +18,19 @@ export async function GET(req: NextRequest) {
     const teamId = url.get('teamId')
     const search = url.get('search')
     const position = url.get('position')
-    const limit = Math.min(parseInt(url.get('limit') || '50'), 200)
-    const offset = parseInt(url.get('offset') || '0')
+    const league = url.get('league') || 'PL'
+    const rawLimit = Number.parseInt(url.get('limit') || '50', 10)
+    const rawOffset = Number.parseInt(url.get('offset') || '0', 10)
+    if (!Number.isFinite(rawLimit) || rawLimit < 1 || !Number.isFinite(rawOffset) || rawOffset < 0) {
+      return NextResponse.json({ error: 'limit must be a positive integer and offset must be a non-negative integer' }, { status: 400 })
+    }
+    const limit = Math.min(rawLimit, 200)
+    const offset = rawOffset
 
     // ── Try database first ──────────────────────────────────────────────
     const where: any = {}
     if (teamId) where.teamId = teamId
+    else where.team = { leagueCode: league }
     if (position) where.position = position
     if (search) where.name = { contains: search, mode: 'insensitive' }
 
@@ -78,8 +85,6 @@ export async function GET(req: NextRequest) {
 
     // ── Fallback: ESPN direct fetch ───────────────────────────────────────
     console.log('[Players] DB empty, falling back to ESPN')
-    const league = url.get('league') || 'PL'
-
     // Team roster (specific team)
     if (teamId) {
       const roster = await fetchTeamRoster(league, teamId)
@@ -98,8 +103,9 @@ export async function GET(req: NextRequest) {
           assists: p.assists,
           appearances: p.appearances,
           team: { id: teamId, name: '', code: '', primaryColor: '#00e676' },
-          yellowCards: 0,
-          redCards: 0,
+          // Roster endpoint does not provide disciplinary totals; unknown is not zero.
+          yellowCards: null,
+          redCards: null,
         }))
         return NextResponse.json({
           players,
@@ -112,42 +118,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // League leaders (top scorers)
-    const leaders = await fetchLeagueLeaders(league)
-    if (leaders.length > 0) {
-      const players = leaders.map((l, i) => ({
-        id: `espn-leader-${l.rank}-${i}`,
-        name: l.name,
-        firstName: '',
-        lastName: l.name,
-        position: 'Forward',
-        age: 0,
-        nationality: '',
-        shirtNumber: 0,
-        rating: undefined,
-        goals: l.value,
-        assists: 0,
-        appearances: 0,
-        team: { id: '', name: l.team, code: '', primaryColor: '#00e676', logo: l.teamLogo },
-        yellowCards: 0,
-        redCards: 0,
-      }))
-
-      const filtered = search
-        ? players.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
-        : players
-      const paginated = filtered.slice(offset, offset + limit)
-
-      return NextResponse.json({
-        players: paginated,
-        total: filtered.length,
-        limit,
-        offset,
-        hasMore: offset + limit < filtered.length,
-        source: 'espn-leaders',
-      })
-    }
-
+    // League leaders are not a full player dataset. Do not disguise them as
+    // complete player records with invented positions, ages, appearances, or cards.
+    // The player UI can use the roster endpoint to load actual team rosters instead.
     return NextResponse.json({
       players: [],
       total: 0,
