@@ -51,11 +51,18 @@ jobs:
 
       - name: Apply semver-compatible dependency security fixes to an isolated candidate
         run: |
+          # npm audit fix exits non-zero when any advisory remains, even when it
+          # successfully updates other packages. Capture the status but preserve
+          # the candidate manifests and audit report for review.
+          set +e
           npm audit fix --legacy-peer-deps
+          remediation_status=$?
+          set -e
           mkdir -p dependency-remediation-candidate
           cp package.json dependency-remediation-candidate/package.json
           cp package-lock.json dependency-remediation-candidate/package-lock.json
           npm audit --omit=dev --json > dependency-remediation-candidate/production-audit.json || true
+          echo "npm audit fix exit status: $remediation_status (candidate captured; strict committed-lockfile gate remains enabled)"
 
       - name: Validate Prisma schema
         run: npx prisma validate
@@ -121,6 +128,5 @@ jobs:
             production-audit.json
             package.json
             package-lock.json
-            production-audit.json
           if-no-files-found: ignore
           retention-days: 7
