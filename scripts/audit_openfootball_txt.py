@@ -27,7 +27,7 @@ def parse_file(path: Path, league: str) -> tuple[list[dict[str, str]], dict[str,
     text = raw.decode("utf-8-sig")
     current_date: datetime | None = None
     rows: list[dict[str, str]] = []
-    scheduled = incomplete = abandoned = malformed = annotated_results = 0
+    scheduled = incomplete = abandoned = byes = malformed = annotated_results = 0
     for number, line in enumerate(text.splitlines(), 1):
         if not line.strip() or line.lstrip().startswith(("#", "=", "▪", "-")):
             continue
