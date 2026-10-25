@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useElasticoStore } from '@/store/use-elastico-store'
 import {
   Zap, Mail, Lock, User, Eye, EyeOff, Loader2,
-  ShieldCheck, Trophy, Crown, UserCheck, Megaphone, X, ChevronRight,
+  Trophy, Crown, UserCheck, Megaphone, X, ChevronRight,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
