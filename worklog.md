@@ -110,3 +110,95 @@ Stage Summary:
 - Also fixed tactical-view which never fetched teams and had a homeTeamId access bug
 - All 21 tabs now have a reliable data path: DB → football-data.org → ESPN
 - Deploy: https://elastico-mk1zjv8ph-elastico.vercel.app (READY)
+
+
+---
+
+Task ID: 3
+Agent: ChatGPT
+Task: Production reliability pass — AI providers, auth fail-closed, and prediction input integrity
+
+Work Log:
+- Added an xAI/Grok provider entry using the server-side `XAI_API_KEY` environment variable and documented it in `.env.example`.
+- Changed the NVIDIA model to NVIDIA Nemotron and updated the protected environment diagnostic label for the provider.
+- Reduced each AI provider request timeout to 8 seconds and bounded a single request to at most three configured-provider attempts to limit serial failover latency.
+- Replaced the authentication fallback that trusted JWT claims / synthesized users during DB outages. Auth now returns 503 when database verification is unavailable and 401 for unknown or inactive accounts; sensitive fields are stripped from the returned user.
+- Disabled the demo-auth route in production, prohibited admin-role creation, normalized/validated email and plan, and rejected existing accounts rather than issuing them a token without password verification.
+- Removed default model values for ELO and bookmaker odds in the prediction-engine UI. Added explicit goals-conceded inputs and validation; removed derived goals-conceded values that were being inferred from the opposing team's xG.
+- Removed sample opening/current odds from market-signal controls and added numeric validation.
+- Added server-side validation for required model inputs, current odds, bankroll and bounded simulation/risk configuration. The simulation API no longer silently supplies neutral xG, goals-conceded, or ELO defaults.
+- Existing Vercel environment-variable inventory showed entries for Groq, NVIDIA, Gemini and OpenRouter. This was an inventory-only check; provider credentials were not decrypted or tested. No xAI key was present in that inventory.
+- Attempted repository clone for local verification, but outbound GitHub network resolution is unavailable in this environment. Vercel's production build checks are currently blocked by the project's build-rate-limit response. No merge or production deployment is claimed.
+- Remaining verification: fresh GitHub CI on the latest PR head, auth/demo regression tests, AI provider smoke test, prediction engine end-to-end test, live Match Analysis/navigation checks, and production deployment once the build quota allows it.
+
+Stage Summary:
+- Source changes are on branch `fix/ai-prediction-production-reliability`, PR #34.
+- PR remains draft; do not merge until CI/test evidence and runtime smoke tests are available.
+
+
+Task ID: 4
+Agent: ChatGPT
+Task: Prediction simulation regression coverage
+
+Work Log:
+- Extracted simulation request validation into `src/lib/prediction-input-validation.ts` and wired the production simulation API to use it.
+- Added Node test-runner coverage for complete valid inputs, missing team identity, missing xG/ELO, odds requirements, simulation-only mode, same-team selection, simulation run limits, bankroll bounds, and risk configuration bounds.
+- Added `npm test` and a CI step so the regression tests run before lint/type-check/build.
+- The tests have been committed to the open PR branch but have not yet been executed in this environment; CI status remains the source of truth for pass/fail.
+
+
+Task ID: 5
+Agent: ChatGPT
+Task: Remove fabricated team-strength fallback from the primary prediction-compute API
+
+Work Log:
+- Removed the team-name/hash/static-strength prediction path from `src/app/api/predictions/compute/route.ts`.
+- Prediction computation now requires recent sourced team records with observed match history for both sides. Team records marked unknown, seed or demo are excluded; unsupported fixtures are returned in `skippedMatches` with a reason rather than given neutral/fabricated ratings.
+- Probabilities and expected goals are explicitly labeled as a statistical baseline that is not trained or independently validated. The endpoint reports source, observed match counts and data-sync timestamps.
+- Reused ELASTICO's existing ELO, Poisson and Dixon-Coles functions; no second prediction engine was introduced.
+- Verification is pending a fresh full CI run and runtime data-coverage check. Where the DB lacks qualifying history, this change intentionally returns fewer predictions instead of manufacturing values.
+
+
+Task ID: 6
+Agent: ChatGPT
+Task: Repair provider model IDs identified by production logs
+
+Work Log:
+- Queried production runtime errors for the current deployment. Observed provider-specific failures: Groq model 404/access error, Cerebras archived-model 404, Gemini timeout/503, OpenRouter free-model 404, and NVIDIA model 410 Gone.
+- Updated provider model IDs to current documented options: Groq GPT-OSS 120B, Cerebras GPT-OSS 120B, Gemini 3.6 Flash, OpenRouter's free-model router, and NVIDIA Nemotron 3.5 Lightning. Added Grok 4.7 as the optional xAI provider.
+- Reordered failover to try Groq, Nemotron, and OpenRouter first, capped provider attempts at three, and reduced each request timeout to seven seconds. This limits sequential waiting; real latency still requires live smoke testing.
+- Official model references reviewed: Groq supported-model catalog, Cerebras Inference quickstart, Gemini model catalog, NVIDIA Nemotron NIM docs, OpenRouter free-model catalog, and xAI Chat Completions reference.
+- The xAI key is not present in the Vercel environment inventory; Grok cannot be live-tested or used until a real `XAI_API_KEY` is added. Existing keys are not decrypted or exposed.
+- A fresh CI run must be triggered for the latest commits because the previous run was cancelled by later branch updates after unit tests passed.
+
+
+Task ID: 7
+Agent: ChatGPT
+Task: Repair Match Analysis navigation and source-ID lookup
+
+Work Log:
+- Production logs showed match detail requests using `fd:fd:<id>`. Root cause: football-data.org normalization already prefixes IDs with `fd:`, while MatchesView added the prefix a second time.
+- Updated MatchesView to preserve already-prefixed IDs and only add the prefix when missing.
+- Added defensive duplicate-prefix removal in `/api/matches/[id]` so old clients or stale UI state do not break lookup.
+- Removed the inaccessible Europa League (`EL`) competition from the football-data.org fallback search that had been emitting a 403 in production logs.
+- Live verification is pending a new deployment; current Vercel deployment checks remain blocked by the project's build-rate-limit status.
+
+
+Task ID: 8
+Agent: ChatGPT
+Task: Tighten authenticated-user projection
+
+Work Log:
+- Replaced broad user-object spreading with an explicit public AuthUser allowlist so route handlers do not receive password hashes, 2FA secrets, session IDs, provider IDs, private profile fields, or lockout internals.
+- Authentication now rejects banned/inactive accounts and returns 423 while a stored lockout is active.
+- Requires the latest CI run to validate Prisma field compatibility and TypeScript typing before merge.
+
+
+Task ID: 9
+Agent: ChatGPT
+Task: Align Dixon-Coles invocation with the existing score-matrix implementation
+
+Work Log:
+- Reviewed the actual `dixonColes` function signature and found that its first two arguments are score-matrix bounds, not expected-goal lambdas.
+- Updated the prediction-compute endpoint to use an 8×8 score matrix and derive attack/defence factors from the sourced goal-rate lambdas so the existing Dixon-Coles routine receives arguments in the intended shape.
+- Requires CI and out-of-sample validation before describing the ensemble as a calibrated model.

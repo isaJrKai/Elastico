@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
+import { validateSimulationRequest } from '@/lib/prediction-input-validation'
 import {
   runStochasticSimulation,
   runFullMatchAnalysis,
@@ -18,26 +19,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const matchInput: MatchInput = body.matchInput
-    const config: Partial<EngineConfig> = body.config || {}
-    const bankroll = body.bankroll || 1000
-    const openingOdds = body.openingOdds
+    const validationError = validateSimulationRequest(body)
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
 
-    if (!matchInput || !matchInput.homeTeam || !matchInput.awayTeam) {
-      return NextResponse.json({ error: 'matchInput with homeTeam and awayTeam is required' }, { status: 400 })
-    }
+    const matchInput = body.matchInput as MatchInput
+    const config: Partial<EngineConfig> = body.config || {}
+    const bankroll = body.bankroll ?? 1000
+    const openingOdds = body.openingOdds
+    const mode = body.mode || 'full'
 
     const input: MatchInput = {
-      homeTeam: matchInput.homeTeam,
-      awayTeam: matchInput.awayTeam,
+      homeTeam: matchInput.homeTeam.trim(),
+      awayTeam: matchInput.awayTeam.trim(),
       homeTeamId: matchInput.homeTeamId,
       awayTeamId: matchInput.awayTeamId,
-      homeXg: matchInput.homeXg ?? 1.5,
-      awayXg: matchInput.awayXg ?? 1.1,
-      homeGoalsConceded: matchInput.homeGoalsConceded ?? 0.9,
-      awayGoalsConceded: matchInput.awayGoalsConceded ?? 1.2,
-      homeElo: matchInput.homeElo ?? 1600,
-      awayElo: matchInput.awayElo ?? 1500,
+      homeXg: matchInput.homeXg,
+      awayXg: matchInput.awayXg,
+      homeGoalsConceded: matchInput.homeGoalsConceded,
+      awayGoalsConceded: matchInput.awayGoalsConceded,
+      homeElo: matchInput.homeElo,
+      awayElo: matchInput.awayElo,
       bookmakerOdds: matchInput.bookmakerOdds ?? null,
       historicalResiduals: matchInput.historicalResiduals,
       injuries: matchInput.injuries,
@@ -45,15 +46,13 @@ export async function POST(request: NextRequest) {
     }
 
     const fullConfig: EngineConfig = {
-      simulationRuns: config.simulationRuns || 150000,
+      simulationRuns: config.simulationRuns ?? 150000,
       kellyFraction: config.kellyFraction ?? 0.25,
       garchEnabled: config.garchEnabled ?? true,
       jumpDiffusionEnabled: config.jumpDiffusionEnabled ?? true,
       minEdgeThreshold: config.minEdgeThreshold ?? 0.02,
       maxBankrollRisk: config.maxBankrollRisk ?? 0.05,
     }
-
-    const mode = body.mode || 'full'
 
     if (mode === 'simulation-only') {
       const result = runStochasticSimulation(input, fullConfig)

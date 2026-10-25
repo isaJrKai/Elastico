@@ -110,11 +110,13 @@ export default function PredictionEngineView() {
   const [awayTeamId, setAwayTeamId] = useState('')
   const [homeXg, setHomeXg] = useState('')
   const [awayXg, setAwayXg] = useState('')
-  const [homeElo, setHomeElo] = useState('1850')
-  const [awayElo, setAwayElo] = useState('1780')
-  const [oddsHome, setOddsHome] = useState('2.10')
-  const [oddsDraw, setOddsDraw] = useState('3.40')
-  const [oddsAway, setOddsAway] = useState('3.60')
+  const [homeElo, setHomeElo] = useState('')
+  const [awayElo, setAwayElo] = useState('')
+  const [homeGoalsConceded, setHomeGoalsConceded] = useState('')
+  const [awayGoalsConceded, setAwayGoalsConceded] = useState('')
+  const [oddsHome, setOddsHome] = useState('')
+  const [oddsDraw, setOddsDraw] = useState('')
+  const [oddsAway, setOddsAway] = useState('')
   const [bankroll, setBankroll] = useState('1000')
   const [simRuns, setSimRuns] = useState('150000')
   const [injuries, setInjuries] = useState<InjuryAdjustment[]>([])
@@ -125,12 +127,12 @@ export default function PredictionEngineView() {
   const [kellyResult, setKellyResult] = useState<FullMatchAnalysis['portfolioAllocation'] | null>(null)
 
   // ── Market signals state ──────────────────────────────────────────────────────
-  const [sigOpenHome, setSigOpenHome] = useState('2.10')
-  const [sigOpenDraw, setSigOpenDraw] = useState('3.40')
-  const [sigOpenAway, setSigOpenAway] = useState('3.60')
-  const [sigCurHome, setSigCurHome] = useState('1.95')
-  const [sigCurDraw, setSigCurDraw] = useState('3.50')
-  const [sigCurAway, setSigCurAway] = useState('4.00')
+  const [sigOpenHome, setSigOpenHome] = useState('')
+  const [sigOpenDraw, setSigOpenDraw] = useState('')
+  const [sigOpenAway, setSigOpenAway] = useState('')
+  const [sigCurHome, setSigCurHome] = useState('')
+  const [sigCurDraw, setSigCurDraw] = useState('')
+  const [sigCurAway, setSigCurAway] = useState('')
   const [sigHomeTeam, setSigHomeTeam] = useState('')
   const [sigAwayTeam, setSigAwayTeam] = useState('')
   const [sigLoading, setSigLoading] = useState(false)
@@ -146,20 +148,33 @@ export default function PredictionEngineView() {
   const homeTeam = teams.find(t => t.id === homeTeamId)
   const awayTeam = teams.find(t => t.id === awayTeamId)
 
-  // Default ELO to 1500 when not available
-  const effectiveHomeElo = homeElo || '1500'
-  const effectiveAwayElo = awayElo || '1500'
-
   // ── Run simulation ────────────────────────────────────────────────────────────
   const runSimulation = useCallback(async () => {
     if (!homeTeamId || !awayTeamId) { toast.error('Select both teams'); return }
+    const requiredValues: Array<[string, string, number, number]> = [
+      ['Home xG', homeXg, 0, 5], ['Away xG', awayXg, 0, 5],
+      ['Home goals conceded per match', homeGoalsConceded, 0, 6],
+      ['Away goals conceded per match', awayGoalsConceded, 0, 6],
+      ['Home ELO', homeElo, 500, 3000], ['Away ELO', awayElo, 500, 3000],
+      ['Home bookmaker odds', oddsHome, 1.01, 1000],
+      ['Draw bookmaker odds', oddsDraw, 1.01, 1000],
+      ['Away bookmaker odds', oddsAway, 1.01, 1000],
+    ]
+    for (const [label, raw, min, max] of requiredValues) {
+      const value = Number(raw)
+      if (raw.trim() === '' || !Number.isFinite(value) || value < min || value > max || (label.includes('odds') && value <= 1.01)) {
+        toast.error(`${label} is required and must be between ${min} and ${max}`)
+        return
+      }
+    }
+    if (homeTeamId === awayTeamId) { toast.error('Home and away teams must be different'); return }
     setSimulating(true)
     try {
       const input: MatchInput = {
         homeTeam: homeTeam?.name ?? '', awayTeam: awayTeam?.name ?? '',
         homeTeamId, awayTeamId, homeXg: +homeXg, awayXg: +awayXg,
-        homeGoalsConceded: +awayXg * 0.9, awayGoalsConceded: +homeXg * 0.9,
-        homeElo: +effectiveHomeElo || 1500, awayElo: +effectiveAwayElo || 1500,
+        homeGoalsConceded: +homeGoalsConceded, awayGoalsConceded: +awayGoalsConceded,
+        homeElo: +homeElo, awayElo: +awayElo,
         bookmakerOdds: { home: +oddsHome, draw: +oddsDraw, away: +oddsAway },
         injuries: injuries.length ? injuries : undefined,
       }
@@ -179,7 +194,7 @@ export default function PredictionEngineView() {
     } finally {
       setSimulating(false)
     }
-  }, [homeTeamId, awayTeamId, homeTeam, awayTeam, homeXg, awayXg, homeElo, awayElo, oddsHome, oddsDraw, oddsAway, bankroll, simRuns, injuries])
+  }, [homeTeamId, awayTeamId, homeTeam, awayTeam, homeXg, awayXg, homeGoalsConceded, awayGoalsConceded, homeElo, awayElo, oddsHome, oddsDraw, oddsAway, bankroll, simRuns, injuries])
 
   // ── Run Kelly ─────────────────────────────────────────────────────────────────
   const runKelly = useCallback(async () => {
@@ -214,6 +229,18 @@ export default function PredictionEngineView() {
   // ── Run market signals ────────────────────────────────────────────────────────
   const runSignals = useCallback(async () => {
     if (!sigHomeTeam || !sigAwayTeam) { toast.error('Select both teams'); return }
+    if (sigHomeTeam === sigAwayTeam) { toast.error('Home and away teams must be different'); return }
+    const oddsInputs: Array<[string, string]> = [
+      ['Opening home odds', sigOpenHome], ['Opening draw odds', sigOpenDraw], ['Opening away odds', sigOpenAway],
+      ['Current home odds', sigCurHome], ['Current draw odds', sigCurDraw], ['Current away odds', sigCurAway],
+    ]
+    for (const [label, raw] of oddsInputs) {
+      const value = Number(raw)
+      if (raw.trim() === '' || !Number.isFinite(value) || value <= 1.01 || value > 1000) {
+        toast.error(`${label} must be current decimal odds greater than 1.01`)
+        return
+      }
+    }
     setSigLoading(true)
     try {
       const res = await fetch('/api/prediction-engine/market-signals', {
@@ -370,8 +397,7 @@ export default function PredictionEngineView() {
                       <Label className="text-xs text-zinc-500 mb-1">Home Team</Label>
                       <Select value={homeTeamId} onValueChange={v => {
                         setHomeTeamId(v)
-                        const t = teams.find(x => x.id === v)
-                        if (t) { setHomeElo(String(t.eloRating || 1500)); setHomeXg(String(t.xgPerGame ?? '')) }
+                        // Team selection identifies the match only; it must not silently treat unverified DB fields as current model inputs.
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Home'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -381,8 +407,7 @@ export default function PredictionEngineView() {
                       <Label className="text-xs text-zinc-500 mb-1">Away Team</Label>
                       <Select value={awayTeamId} onValueChange={v => {
                         setAwayTeamId(v)
-                        const t = teams.find(x => x.id === v)
-                        if (t) { setAwayElo(String(t.eloRating || 1500)); setAwayXg(String(t.xgPerGame ?? '')) }
+                        // Team selection identifies the match only; it must not silently treat unverified DB fields as current model inputs.
                       }}>
                         <SelectTrigger className="bg-zinc-900/60 border-zinc-700/50 text-sm"><SelectValue placeholder={teamsLoading ? 'Loading teams…' : 'Away'} /></SelectTrigger>
                         <SelectContent>{simFilteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -393,37 +418,47 @@ export default function PredictionEngineView() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-zinc-500">Home xG</Label>
-                      <Input type="number" step="0.01" value={homeXg} onChange={e => setHomeXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="0" max="5" step="0.01" placeholder="Sourced recent xG" value={homeXg} onChange={e => setHomeXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-zinc-500">Away xG</Label>
-                      <Input type="number" step="0.01" value={awayXg} onChange={e => setAwayXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="0" max="5" step="0.01" placeholder="Sourced recent xG" value={awayXg} onChange={e => setAwayXg(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-zinc-500">Home goals conceded / match</Label>
+                      <Input type="number" min="0" max="6" step="0.01" placeholder="Goals conceded / match" value={homeGoalsConceded} onChange={e => setHomeGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-zinc-500">Away goals conceded / match</Label>
+                      <Input type="number" min="0" max="6" step="0.01" placeholder="Goals conceded / match" value={awayGoalsConceded} onChange={e => setAwayGoalsConceded(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-zinc-500">Home ELO</Label>
-                      <Input type="number" value={homeElo} onChange={e => setHomeElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="500" max="3000" placeholder="Verified rating" value={homeElo} onChange={e => setHomeElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-zinc-500">Away ELO</Label>
-                      <Input type="number" value={awayElo} onChange={e => setAwayElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="500" max="3000" placeholder="Verified rating" value={awayElo} onChange={e => setAwayElo(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
                   <Separator className="bg-zinc-800/50" />
-                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(enter current market odds — pre-filled values are examples only)</span></p>
+                  <p className="text-xs text-zinc-500 font-medium">Bookmaker Odds <span className="text-zinc-600">(required: enter current decimal odds)</span></p>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <Label className="text-xs text-emerald-400">Home</Label>
-                      <Input type="number" step="0.01" value={oddsHome} onChange={e => setOddsHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current odds" value={oddsHome} onChange={e => setOddsHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-yellow-400">Draw</Label>
-                      <Input type="number" step="0.01" value={oddsDraw} onChange={e => setOddsDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current odds" value={oddsDraw} onChange={e => setOddsDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs text-red-400">Away</Label>
-                      <Input type="number" step="0.01" value={oddsAway} onChange={e => setOddsAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
+                      <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current odds" value={oddsAway} onChange={e => setOddsAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-sm" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -877,15 +912,15 @@ export default function PredictionEngineView() {
                 <Separator className="bg-zinc-800/50" />
                 <p className="text-xs text-zinc-500 font-medium">Opening Odds</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <Input type="number" step="0.01" placeholder="Home" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Draw" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Away" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Opening home odds" value={sigOpenHome} onChange={e => setSigOpenHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Opening draw odds" value={sigOpenDraw} onChange={e => setSigOpenDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Opening away odds" value={sigOpenAway} onChange={e => setSigOpenAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
                 </div>
                 <p className="text-xs text-zinc-500 font-medium">Current Odds</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <Input type="number" step="0.01" placeholder="Home" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Draw" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
-                  <Input type="number" step="0.01" placeholder="Away" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current home odds" value={sigCurHome} onChange={e => setSigCurHome(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current draw odds" value={sigCurDraw} onChange={e => setSigCurDraw(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
+                  <Input type="number" min="1.02" max="1000" step="0.01" placeholder="Current away odds" value={sigCurAway} onChange={e => setSigCurAway(e.target.value)} className="bg-zinc-900/60 border-zinc-700/50 text-xs" />
                 </div>
                 <Button onClick={runSignals} disabled={sigLoading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
                   {sigLoading ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Analyzing...</> : <><Eye className="w-4 h-4 mr-2" /> ANALYZE</>}

@@ -77,67 +77,62 @@ export async function authenticateRequest(req: Request): Promise<
   | { user: AuthUser; req: Request }
   | Response
 > {
-  const authHeader = req.headers.get('authorization')
-
-  if (!authHeader?.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
+  const jsonError = (message: string, status: number) =>
+    new Response(JSON.stringify({ error: message }), {
+      status,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     })
-  }
+
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader?.startsWith('Bearer ')) return jsonError('Unauthorized', 401)
 
   const token = authHeader.slice(7)
+  let payload: ReturnType<typeof verifyToken>
   try {
-    const payload = verifyToken(token)
-
-    // Try DB first, fall back to token payload if DB unavailable
-    if (isDbAvailable()) {
-      try {
-        const { db } = await import('@/lib/db')
-        const user = await db.user.findUnique({ where: { id: payload.userId } })
-        if (!user || !(user as any).isActive) {
-          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        }
-        // Strip sensitive fields and cast to AuthUser
-        const { passwordHash, twoFactorSecret, sessionId, ...safeUser } = user as any
-        return { user: safeUser as AuthUser, req }
-      } catch (dbErr) {
-        console.warn('[Auth] DB lookup failed, falling back to token payload:', dbErr)
-      }
-    }
-
-    // Fallback: use token payload as user object (works without DB)
-    const role = payload.role
-    const fallbackUser: AuthUser = {
-      id: payload.userId,
-      email: payload.email,
-      role,
-      plan: payload.plan,
-      name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)} User`,
-      displayName: `${role.charAt(0).toUpperCase() + role.slice(1)} User`,
-      avatarUrl: null,
-      predictionAccuracy: 0,
-      predictionStreak: 0,
-      bestStreak: 0,
-      totalPredictions: 0,
-      correctPredictions: 0,
-      achievements: '{}',
-      favoriteTeams: '[]',
-      twoFactorEnabled: false,
-      lastLoginAt: new Date().toISOString(),
-      loginCount: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isActive: true,
-    }
-    return { user: fallbackUser, req }
+    payload = verifyToken(token)
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid token' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return jsonError('Invalid token', 401)
+  }
+
+  // Authorization must always be grounded in current database state. A signed
+  // JWT is not a substitute for an account-status/role lookup.
+  if (!isDbAvailable()) return jsonError('Authentication service temporarily unavailable', 503)
+
+  try {
+    const { db } = await import('@/lib/db')
+    const user = await db.user.findUnique({ where: { id: payload.userId } })
+    if (!user || !user.isActive || user.isBanned) return jsonError('Unauthorized', 401)
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      return jsonError('Account temporarily locked', 423)
+    }
+
+    // Explicit allowlist: never pass password hashes, 2FA secrets, session IDs,
+    // lockout internals, provider identifiers, or private profile fields to route handlers.
+    const safeUser: AuthUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      role: user.role,
+      plan: user.plan,
+      predictionAccuracy: user.predictionAccuracy,
+      predictionStreak: user.predictionStreak,
+      bestStreak: user.bestStreak,
+      totalPredictions: user.totalPredictions,
+      correctPredictions: user.correctPredictions,
+      achievements: user.achievements,
+      favoriteTeams: user.favoriteTeams,
+      twoFactorEnabled: user.twoFactorEnabled,
+      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      loginCount: user.loginCount,
+      createdAt: user.createdAt?.toISOString() ?? null,
+      updatedAt: user.updatedAt?.toISOString() ?? null,
+      isActive: user.isActive,
+    }
+    return { user: safeUser, req }
+  } catch (error) {
+    console.error('[Auth] Database verification failed; refusing token fallback.', error)
+    return jsonError('Authentication service temporarily unavailable', 503)
   }
 }
