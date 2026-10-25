@@ -170,7 +170,10 @@ export async function callAi(
   const temperature = options?.temperature ?? 0.7
 
   // Build ordered provider list
-  let providers = [...PROVIDERS]
+  const providerPriority = ['Groq', 'NVIDIA Nemotron', 'OpenRouter', 'Cerebras', 'Google Gemini', 'Mistral', 'GitHub Models', 'Grok']
+  let providers = [...PROVIDERS].sort(
+    (a, b) => providerPriority.indexOf(a.name) - providerPriority.indexOf(b.name)
+  )
 
   // If a preferred provider is specified, try it first
   if (options?.preferProvider) {
@@ -218,7 +221,7 @@ export async function callAi(
       }
 
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 8000)
+      const timeoutId = setTimeout(() => controller.abort(), 7000)
       const resp = await fetch(provider.baseUrl, {
         method: 'POST',
         headers: provider.headers(apiKey),
@@ -266,7 +269,7 @@ export async function callAi(
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'fetch failed'
       if (err instanceof DOMException && err.name === 'AbortError') {
-        errors.push(`${provider.name}: timed out (8s)`)
+        errors.push(`${provider.name}: timed out (7s)`)
         markCooldown(provider.name, 30)
       } else {
         errors.push(`${provider.name}: ${msg}`)
@@ -339,7 +342,7 @@ export async function callAiStream(
 
     try {
       const ac = new AbortController()
-      const timeoutId = setTimeout(() => ac.abort(), 8000)
+      const timeoutId = setTimeout(() => ac.abort(), 7000)
       const resp = await fetch(provider.baseUrl, {
         method: 'POST',
         headers: provider.headers(apiKey),
