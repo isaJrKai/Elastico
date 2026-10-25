@@ -257,8 +257,8 @@ export async function GET(request: NextRequest) {
                   id: m.id, competition: m.competition, competitionCode: m.competitionCode,
                   homeTeam: { id: m.homeTeam.id, name: m.homeTeam.name, abbreviation: m.homeTeam.abbreviation || m.homeTeam.code, logo: m.homeTeam.logo, color: m.homeTeam.color || '#fff' },
                   awayTeam: { id: m.awayTeam.id, name: m.awayTeam.name, abbreviation: m.awayTeam.abbreviation || m.awayTeam.code, logo: m.awayTeam.logo, color: m.awayTeam.color || '#fff' },
-                  homeScore: m.homeScore ?? m.score?.fullTime?.home ?? 0,
-                  awayScore: m.awayScore ?? m.score?.fullTime?.away ?? 0,
+                  homeScore: m.homeScore ?? m.score?.fullTime?.home ?? null,
+                  awayScore: m.awayScore ?? m.score?.fullTime?.away ?? null,
                   status: m.status, date: m.date || m.utcDate, venue: m.venue || '',
                 })),
               })
