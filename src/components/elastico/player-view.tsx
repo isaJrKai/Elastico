@@ -120,7 +120,7 @@ export function PlayerView() {
                 teamName: (p.team as Record<string, unknown>)?.name as string || p.teamName,
                 teamCode: (p.team as Record<string, unknown>)?.code as string || p.teamCode,
                 teamColor: (p.team as Record<string, unknown>)?.primaryColor as string || '#00e676',
-              } as EnhancedPlayer))
+              } as EnhancedPlayer)))
               setLoading(false)
             }
             return
