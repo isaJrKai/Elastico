@@ -103,8 +103,9 @@ export async function GET(req: NextRequest) {
           assists: p.assists,
           appearances: p.appearances,
           team: { id: teamId, name: '', code: '', primaryColor: '#00e676' },
-          yellowCards: 0,
-          redCards: 0,
+          // Roster endpoint does not provide disciplinary totals; unknown is not zero.
+          yellowCards: null,
+          redCards: null,
         }))
         return NextResponse.json({
           players,
