@@ -1,5 +1,6 @@
 import importlib.util
 import tempfile
+import sys
 import unittest
 from pathlib import Path
 
@@ -7,6 +8,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "evaluate_walk_forward_models.py"
 SPEC = importlib.util.spec_from_file_location("walk_forward", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
+sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 
