@@ -1,14 +1,15 @@
 name: Dependency audit remediation
-run-name: Dependency audit diagnostics on ${{ github.ref_name }}
 
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches:
+      - main
+      - "fix/**"
+      - "audit/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: dependency-remediation-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   remediation-check:
