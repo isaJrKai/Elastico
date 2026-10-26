@@ -56,12 +56,12 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     system: 'ELASTICO Market Signal Tracker',
-    description: 'Detects sharp money action and line movement anomalies',
+    description: 'Summarizes observed odds movement; it does not infer professional betting activity',
     dataSource: hasApiKey ? 'football-data.org (real odds)' : 'user-entered odds',
     signals: {
-      steamMove: 'Rapid odds movement (>3% change) indicating heavy professional betting volume',
-      rlmDetected: 'Reverse Line Movement — odds move AGAINST public betting direction, a strong sharp indicator',
-      sharpAction: 'Direction where professional syndicate money is concentrated',
+      steamMove: 'Rapid odds movement (>3% change); movement alone does not establish betting volume or cause',
+      opposingMoveDetected: 'Home and away odds moved in opposite directions; public betting data is not available, so this is not a verified reverse-line-movement signal',
+      largestMove: 'Side with the largest absolute odds movement; this does not identify professional bettors',
       lineVelocity: 'Speed and magnitude of odds changes, expressed as percentage of opening line',
       confidence: 'Aggregate confidence score (0-100) based on movement magnitude and consistency',
     },
