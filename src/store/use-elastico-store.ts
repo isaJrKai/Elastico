@@ -34,6 +34,11 @@ export interface User {
   name: string | null
   displayName: string | null
   avatarUrl: string | null
+  bio?: string | null
+  location?: string | null
+  timezone?: string
+  locale?: string
+  notificationPrefs?: string
   role: string
   plan: string
   predictionAccuracy: number
