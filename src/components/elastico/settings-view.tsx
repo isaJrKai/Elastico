@@ -998,6 +998,12 @@ export default function SettingsView() {
               }
             />
           </div>
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <p className="text-xs text-muted-foreground">Save your notification preferences to your account.</p>
+            <Button variant="outline" size="sm" onClick={handleSaveProfile} disabled={profileSaving}>
+              {profileSaving ? 'Saving…' : 'Save Preferences'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
