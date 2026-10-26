@@ -259,6 +259,21 @@ export function applyInjuryAdjustments(
 
 // ── Core Stochastic Simulation Engine ──────────────────────────────────────────
 
+/** Deterministic baseline goal intensities from sourced xG, defensive rates, and ELO. */
+export function deriveExpectedGoalIntensities(
+  input: Pick<MatchInput, 'homeXg' | 'awayXg' | 'homeGoalsConceded' | 'awayGoalsConceded' | 'homeElo' | 'awayElo'>
+): { home: number; away: number } {
+  const eloDiff = input.homeElo - input.awayElo
+  const homeEloFactor = 1 / (1 + Math.pow(10, -eloDiff / 400))
+  const homeAttackDefenseBlend = (input.homeXg + input.awayGoalsConceded) / 2
+  const awayAttackDefenseBlend = (input.awayXg + input.homeGoalsConceded) / 2
+
+  return {
+    home: homeAttackDefenseBlend * (0.7 + 0.3 * homeEloFactor) + 0.25,
+    away: awayAttackDefenseBlend * (0.7 + 0.3 * (1 - homeEloFactor)),
+  }
+}
+
 export function runStochasticSimulation(
   input: MatchInput,
   config: EngineConfig = DEFAULT_CONFIG
@@ -273,14 +288,10 @@ export function runStochasticSimulation(
    */
   const { simulationRuns, garchEnabled, jumpDiffusionEnabled } = config
 
-  // Step 1: Calibrate base intensity parameters from xG + ELO
-  const eloDiff = input.homeElo - input.awayElo
-  const eloFactor = 1 / (1 + Math.pow(10, -eloDiff / 400))
-  const avgXg = (input.homeXg + input.awayXg) / 2
-
-  // Home advantage adjustment (+0.25 goals typical for home field)
-  let muHome = input.homeXg * (0.7 + 0.3 * eloFactor) + 0.25
-  let muAway = input.awayXg * (0.7 + 0.3 * (1 - eloFactor))
+  // Step 1: Blend each team's attack estimate with the opponent's goals-conceded rate.
+  const expectedGoals = deriveExpectedGoalIntensities(input)
+  let muHome = expectedGoals.home
+  let muAway = expectedGoals.away
 
   // Step 2: Apply injury adjustments
   const homeInjuries = input.injuries?.filter(i => i.teamId === input.homeTeamId) || []
