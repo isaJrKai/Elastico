@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
 
     // ── Build DB where clause ─────────────────────────────────────────────
     const buildDbWhere = () => {
-      const where: any = { category: 'sports' }
+      const where: any = { OR: [{ category: 'sports' }, { sourceName: 'ELASTICO Editorial' }] }
       if (search) where.title = { contains: search.toLowerCase() }
       if (categoryFilter) where.AND = [categoryFilter]
       return where
