@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
+import { db } from '@/lib/db'
 import { validateSimulationRequest } from '@/lib/prediction-input-validation'
 import {
   runStochasticSimulation,
   runFullMatchAnalysis,
+  DEFAULT_CONFIG,
   type MatchInput,
   type EngineConfig,
 } from '@/lib/prediction-engine'
@@ -45,13 +47,29 @@ export async function POST(request: NextRequest) {
       correlation: matchInput.correlation,
     }
 
+    // Load the persisted admin configuration so the configuration UI actually affects simulations.
+    let savedConfig: Partial<EngineConfig> = {}
+    try {
+      const setting = await db.systemSetting.findUnique({ where: { key: 'prediction_engine_config' } })
+      if (setting?.type === 'json') {
+        const parsed: unknown = JSON.parse(setting.value)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          savedConfig = parsed as Partial<EngineConfig>
+        }
+      }
+    } catch (error) {
+      // The simulation can still run with safe defaults if the settings record is unavailable.
+      console.warn('[PREDICTION ENGINE] Could not load saved config; using defaults:', error)
+    }
+
+    const adminOverrides: Partial<EngineConfig> = auth.user.role === 'admin' ? config : {}
     const fullConfig: EngineConfig = {
-      simulationRuns: config.simulationRuns ?? 150000,
-      kellyFraction: config.kellyFraction ?? 0.25,
-      garchEnabled: config.garchEnabled ?? true,
-      jumpDiffusionEnabled: config.jumpDiffusionEnabled ?? true,
-      minEdgeThreshold: config.minEdgeThreshold ?? 0.02,
-      maxBankrollRisk: config.maxBankrollRisk ?? 0.05,
+      simulationRuns: config.simulationRuns ?? savedConfig.simulationRuns ?? DEFAULT_CONFIG.simulationRuns,
+      kellyFraction: adminOverrides.kellyFraction ?? savedConfig.kellyFraction ?? DEFAULT_CONFIG.kellyFraction,
+      garchEnabled: adminOverrides.garchEnabled ?? savedConfig.garchEnabled ?? DEFAULT_CONFIG.garchEnabled,
+      jumpDiffusionEnabled: adminOverrides.jumpDiffusionEnabled ?? savedConfig.jumpDiffusionEnabled ?? DEFAULT_CONFIG.jumpDiffusionEnabled,
+      minEdgeThreshold: adminOverrides.minEdgeThreshold ?? savedConfig.minEdgeThreshold ?? DEFAULT_CONFIG.minEdgeThreshold,
+      maxBankrollRisk: adminOverrides.maxBankrollRisk ?? savedConfig.maxBankrollRisk ?? DEFAULT_CONFIG.maxBankrollRisk,
     }
 
     if (mode === 'simulation-only') {
