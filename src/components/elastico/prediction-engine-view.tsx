@@ -241,6 +241,9 @@ export default function PredictionEngineView() {
           mode: 'portfolio',
           outcomes,
           bankroll: +kellyBankroll,
+          fractionalKelly: config.kellyFraction,
+          maxBankrollRisk: config.maxBankrollRisk,
+          minEdgeThreshold: config.minEdgeThreshold,
         }),
       })
       if (!res.ok) throw new Error('Kelly calculation failed')
@@ -252,7 +255,7 @@ export default function PredictionEngineView() {
     } finally {
       setKellyLoading(false)
     }
-  }, [analysis, kellyBankroll])
+  }, [analysis, kellyBankroll, config.kellyFraction, config.maxBankrollRisk, config.minEdgeThreshold])
 
   // ── Run market signals ────────────────────────────────────────────────────────
   const runSignals = useCallback(async () => {
