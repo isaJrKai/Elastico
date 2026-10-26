@@ -38,10 +38,13 @@ test('expected-goal baseline responds to the opposing defence and ELO inputs', (
   const strongerAwayDefence = deriveExpectedGoalIntensities({ ...matchInput, awayGoalsConceded: 0.4 })
   const weakerAwayDefence = deriveExpectedGoalIntensities({ ...matchInput, awayGoalsConceded: 2.4 })
   const weakerHomeDefence = deriveExpectedGoalIntensities({ ...matchInput, homeGoalsConceded: 2.2 })
+  const strongerHomeElo = deriveExpectedGoalIntensities({ ...matchInput, homeElo: 1900 })
 
   assert.ok(strongerAwayDefence.home < baseline.home)
   assert.ok(weakerAwayDefence.home > baseline.home)
   assert.ok(weakerHomeDefence.away > baseline.away)
+  assert.ok(strongerHomeElo.home > baseline.home)
+  assert.ok(strongerHomeElo.away < baseline.away)
 })
 
 test('stochastic simulation returns bounded, normalized 1X2 probabilities', () => {
