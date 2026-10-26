@@ -480,7 +480,7 @@ export default function SettingsView() {
   const [newPassword, setNewPassword] = useState('')
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.twoFactorEnabled || false)
+  const twoFactorEnabled = Boolean(user?.twoFactorEnabled)
 
   // ── Favorite Teams ────────────────────────────────────────────────────────
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>(() => {
@@ -1091,13 +1091,10 @@ export default function SettingsView() {
                 Two-Factor Authentication
               </p>
               <p className="text-xs text-muted-foreground">
-                Add an extra layer of security to your account
+                Two-factor setup is not deployed; this status is read-only.
               </p>
             </div>
-            <Switch
-              checked={twoFactorEnabled}
-              onCheckedChange={setTwoFactorEnabled}
-            />
+            <Switch checked={twoFactorEnabled} disabled aria-label="Two-factor status (read-only)" />
           </div>
 
           <Separator className="opacity-50" />
@@ -1105,54 +1102,11 @@ export default function SettingsView() {
           {/* Active Sessions */}
           <div className="space-y-3">
             <p className="text-sm font-medium text-foreground">Active Sessions</p>
-            <div className="space-y-2">
-              {[
-                {
-                  device: 'Chrome on macOS',
-                  icon: Monitor,
-                  location: 'San Francisco, US',
-                  current: true,
-                },
-                {
-                  device: 'Safari on iPhone',
-                  icon: Smartphone,
-                  location: 'San Francisco, US',
-                  current: false,
-                },
-              ].map((session, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-3 py-2.5"
-                >
-                  <div className="flex items-center gap-3">
-                    <session.icon className="size-4 text-muted-foreground" />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-medium text-foreground">
-                          {session.device}
-                        </p>
-                        {session.current && (
-                          <Badge className="h-4 bg-primary/15 px-1.5 text-[9px] font-semibold text-primary border-primary/30">
-                            Current
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        {session.location} · Active now
-                      </p>
-                    </div>
-                  </div>
-                  {!session.current && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[10px] text-muted-foreground hover:text-destructive"
-                    >
-                      Revoke
-                    </Button>
-                  )}
-                </div>
-              ))}
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/20 p-3">
+              <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
+                Session inventory and remote session revocation are not connected to the server yet. No device list is shown because active sessions cannot currently be verified.
+              </p>
             </div>
           </div>
 
@@ -1183,7 +1137,7 @@ export default function SettingsView() {
                     className="h-9 text-xs"
                   >
                     <Trash2 className="mr-2 size-3.5" />
-                    Delete Account
+                    Account deletion unavailable
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent className="rounded-lg border border-border bg-card border-border">
@@ -1192,9 +1146,7 @@ export default function SettingsView() {
                       Are you sure?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                      This action cannot be undone. All your data including
-                      predictions, favorites, and profile information will be
-                      permanently deleted.
+                      Account deletion is not implemented yet. No account data will be deleted from this screen.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -1322,6 +1274,11 @@ export default function SettingsView() {
                 })}
               </div>
             )}
+          </div>
+          <div className="flex justify-end border-t border-border pt-3">
+            <Button variant="outline" size="sm" onClick={handleSaveProfile} disabled={profileSaving}>
+              {profileSaving ? 'Saving…' : 'Save Favorite Teams'}
+            </Button>
           </div>
         </CardContent>
       </Card>
