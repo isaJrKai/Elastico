@@ -3,6 +3,7 @@ import * as assert from 'node:assert/strict'
 import {
   analyzeMarketSignals,
   calculateKelly,
+  deriveExpectedGoalIntensities,
   runFullMatchAnalysis,
   runStochasticSimulation,
   type EngineConfig,
@@ -31,6 +32,17 @@ const testConfig: EngineConfig = {
   minEdgeThreshold: 0.02,
   maxBankrollRisk: 0.05,
 }
+
+test('expected-goal baseline responds to the opposing defence and ELO inputs', () => {
+  const baseline = deriveExpectedGoalIntensities(matchInput)
+  const strongerAwayDefence = deriveExpectedGoalIntensities({ ...matchInput, awayGoalsConceded: 0.4 })
+  const weakerAwayDefence = deriveExpectedGoalIntensities({ ...matchInput, awayGoalsConceded: 2.4 })
+  const weakerHomeDefence = deriveExpectedGoalIntensities({ ...matchInput, homeGoalsConceded: 2.2 })
+
+  assert.ok(strongerAwayDefence.home < baseline.home)
+  assert.ok(weakerAwayDefence.home > baseline.home)
+  assert.ok(weakerHomeDefence.away > baseline.away)
+})
 
 test('stochastic simulation returns bounded, normalized 1X2 probabilities', () => {
   const result = runStochasticSimulation(matchInput, testConfig)
