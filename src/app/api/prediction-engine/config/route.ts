@@ -54,7 +54,7 @@ async function handleConfigUpdate(request: Request) {
 
     // Validate ranges
     if (updates.simulationRuns !== undefined) {
-      updates.simulationRuns = Math.min(500000, Math.max(10000, updates.simulationRuns))
+      updates.simulationRuns = Math.min(200000, Math.max(10000, updates.simulationRuns))
     }
     if (updates.kellyFraction !== undefined) {
       updates.kellyFraction = Math.min(1, Math.max(0.05, updates.kellyFraction))
