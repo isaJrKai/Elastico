@@ -634,9 +634,7 @@ export default function SettingsView() {
   // ── Delete Account ────────────────────────────────────────────────────────
 
   const handleDeleteAccount = useCallback(() => {
-    toast('Account deletion requested', {
-      description: 'This is a demo — your account was not deleted.',
-    })
+    toast.error('Account deletion is not implemented. No data was deleted.')
   }, [])
 
   // ── Filter Teams for Search ───────────────────────────────────────────────
@@ -1134,6 +1132,8 @@ export default function SettingsView() {
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="destructive"
+                    disabled
+                    title="Account deletion endpoint is not configured"
                     className="h-9 text-xs"
                   >
                     <Trash2 className="mr-2 size-3.5" />
@@ -1155,9 +1155,10 @@ export default function SettingsView() {
                     </AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleDeleteAccount}
+                      disabled
                       className="bg-destructive text-white hover:bg-destructive/90"
                     >
-                      Delete Account
+                      Account deletion unavailable
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
