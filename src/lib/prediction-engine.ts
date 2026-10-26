@@ -67,7 +67,7 @@ export interface PortfolioAllocation {
   totalBankroll: number
   totalExposure: number
   totalExpectedValue: number
-  sharpeRatio: number
+  riskAdjustedProxy: number
 }
 
 export interface MarketSignal {
@@ -564,14 +564,14 @@ export function calculatePortfolioAllocation(
   const totalEV = results.reduce((sum, outcome) => sum + outcome.wagerAmount * outcome.edge / 100, 0)
   const avgReturn = totalExposure > 0 ? totalEV / totalExposure : 0
   const variance = results.reduce((sum, outcome) => sum + (outcome.edge / 100 - avgReturn) ** 2, 0) / (results.length || 1)
-  const sharpeRatio = results.length > 1 ? avgReturn / (Math.sqrt(variance) || 0.01) : 0
+  const riskAdjustedProxy = results.length > 1 ? avgReturn / (Math.sqrt(variance) || 0.01) : 0
 
   return {
     outcomes: results,
     totalBankroll: bankroll,
     totalExposure: Math.round(totalExposure * 100) / 100,
     totalExpectedValue: Math.round(totalEV * 100) / 100,
-    sharpeRatio: Math.round(sharpeRatio * 100) / 100,
+    riskAdjustedProxy: Math.round(riskAdjustedProxy * 100) / 100,
   }
 }
 
