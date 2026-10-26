@@ -810,8 +810,8 @@ export default function PredictionEngineView() {
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500">Sharpe Ratio</span>
-                        <span className="text-white font-medium">{kellyResult.sharpeRatio.toFixed(3)}</span>
+                        <span className="text-zinc-500">Risk-adjusted proxy (heuristic)</span>
+                        <span className="text-white font-medium">{kellyResult.riskAdjustedProxy.toFixed(3)}</span>
                       </div>
                       <Separator className="bg-zinc-800/50" />
                       <div className="flex justify-between text-sm">
