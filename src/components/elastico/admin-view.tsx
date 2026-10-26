@@ -296,15 +296,32 @@ export default function AdminView() {
         body.type = 'info'
       }
       const res = await fetch('/api/admin', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) })
-      if (res.ok) {
-        const data = await res.json()
-        toast.success(data.message || `Action "${action}" completed`)
-        if (action === 'maintenance') fetchAdminData()
-      } else {
-        toast.error('Action failed')
-      }
-    } catch { toast.error('Action error') }
-    finally { setActionLoading(null) }
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Action failed (${res.status})`)
+      toast.success(data.message || `Action "${action}" completed`)
+      if (action === 'maintenance') fetchAdminData()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Action error')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleClearLocalCache = async () => {
+    setActionLoading('clearCache')
+    try {
+      if (!('caches' in window)) throw new Error('This browser does not support Cache Storage')
+      const cacheNames = await window.caches.keys()
+      const deleted = await Promise.all(cacheNames.map(name => window.caches.delete(name)))
+      const count = deleted.filter(Boolean).length
+      toast.success(`Cleared ${count} local browser cache${count === 1 ? '' : 's'}`, {
+        description: 'This affects only this browser; other users’ devices are unchanged.',
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to clear local browser cache')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleExportCSV = () => {
@@ -362,10 +379,32 @@ export default function AdminView() {
     toast.success('News deleted')
   }
 
-  const handleSendPush = () => {
-    if (!pushForm.title || !pushForm.message) { toast.error('Title and message required'); return }
-    toast.success(`Push notification sent to ${pushForm.segment === 'all' ? 'all users' : pushForm.segment}`)
-    setPushForm({ title: '', message: '', segment: 'all' })
+  const handleSendPush = async () => {
+    if (!pushForm.title.trim() || !pushForm.message.trim()) {
+      toast.error('Title and message required')
+      return
+    }
+    setActionLoading('notifySegment')
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          action: 'notifySegment',
+          title: pushForm.title.trim(),
+          message: pushForm.message.trim(),
+          segment: pushForm.segment,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Notification request failed (${res.status})`)
+      toast.success(data.message || `In-app notification sent to ${data.notifiedUsers ?? 0} users`)
+      setPushForm({ title: '', message: '', segment: 'all' })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Notification send failed')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleBulkAction = async () => {
@@ -392,10 +431,11 @@ export default function AdminView() {
   }
 
   const handleInviteUser = () => {
-    if (!inviteForm.email || !inviteForm.email.includes('@')) { toast.error('Valid email required'); return }
-    toast.success(`Invitation sent to ${inviteForm.email} with ${inviteForm.plan} plan`)
-    setInviteForm({ email: '', plan: 'free', role: 'user' })
-    setInviteModal(false)
+    if (!inviteForm.email || !inviteForm.email.includes('@')) {
+      toast.error('Valid email required')
+      return
+    }
+    toast.error('Invitation delivery is not configured. No email was sent and no account was created.')
   }
 
   const handleToggleSetting = async (key: string, value: string) => {
@@ -658,8 +698,8 @@ export default function AdminView() {
             {/* Feature 5: Quick Actions Panel */}
             <SectionCard title="Quick Actions" icon={Zap}>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Cache cleared'); handleQuickAction('clearCache') }}>
-                  <RefreshCw className={`h-3.5 w-3.5 ${actionLoading === 'clearCache' ? 'animate-spin' : ''}`} /> Clear Cache
+                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={handleClearLocalCache} disabled={actionLoading === 'clearCache'}>
+                  <RefreshCw className={`h-3.5 w-3.5 ${actionLoading === 'clearCache' ? 'animate-spin' : ''}`} /> Clear Local Cache
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('broadcast')}>
                   <Megaphone className="h-3.5 w-3.5" /> Send Broadcast
@@ -667,8 +707,8 @@ export default function AdminView() {
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('maintenance')}>
                   <ToggleLeft className="h-3.5 w-3.5" /> Maintenance
                 </Button>
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('sync')}>
-                  <Upload className="h-3.5 w-3.5" /> Sync Data
+                <Button variant="outline" size="sm" className="gap-2 justify-start" disabled title="No background sync job is configured; match data is fetched live">
+                  <Upload className="h-3.5 w-3.5" /> Sync unavailable
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={handleExportCSV}>
                   <Download className="h-3.5 w-3.5" /> Export CSV
@@ -859,7 +899,7 @@ export default function AdminView() {
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setInviteModal(false)}>Cancel</Button>
-                      <Button onClick={handleInviteUser}>Send Invitation</Button>
+                      <Button onClick={handleInviteUser}>Check Invitation Availability</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -1296,7 +1336,7 @@ export default function AdminView() {
             </SectionCard>
 
             {/* Feature 16: Push Notification Composer */}
-            <SectionCard title="Push Notification Composer" icon={Radio}>
+            <SectionCard title="In-App Notification Composer" icon={Radio}>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Title</Label>
@@ -1319,8 +1359,8 @@ export default function AdminView() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleSendPush}>
-                  <Send className="h-4 w-4 mr-2" /> Send Push Notification
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleSendPush} disabled={actionLoading === 'notifySegment'}>
+                  <Send className="h-4 w-4 mr-2" /> {actionLoading === 'notifySegment' ? 'Sending…' : 'Send In-App Notification'}
                 </Button>
               </div>
             </SectionCard>
