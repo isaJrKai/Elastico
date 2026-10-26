@@ -358,7 +358,10 @@ function DataFoundationPanel() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/data-provenance')
+      const token = localStorage.getItem('elastico_token')
+      const res = await fetch('/api/data-provenance', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       setData(json)
