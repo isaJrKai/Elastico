@@ -77,6 +77,8 @@ export default function PredictionEngineView() {
   const teams = useElasticoStore(s => s.teams)
   const fetchTeams = useElasticoStore(s => s.fetchTeams)
   const token = useElasticoStore(s => s.token)
+  const user = useElasticoStore(s => s.user)
+  const isAdmin = user?.role === 'admin'
 
   // Fetch teams on mount if the store is empty
   const [teamsLoading, setTeamsLoading] = useState(false)
@@ -144,6 +146,29 @@ export default function PredictionEngineView() {
     jumpDiffusionEnabled: true, minEdgeThreshold: 0.02, maxBankrollRisk: 0.05,
   })
   const [configLoading, setConfigLoading] = useState(false)
+  const [configFetching, setConfigFetching] = useState(false)
+
+  // Configuration is global and admin-only. Load persisted values before allowing edits.
+  useEffect(() => {
+    if (!isAdmin) return
+    let active = true
+    setConfigFetching(true)
+    fetch('/api/prediction-engine/config', { headers: authHeaders() })
+      .then(async res => {
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(payload.error || 'Unable to load engine configuration')
+        return payload
+      })
+      .then(payload => {
+        const persisted = payload.config || payload.defaults
+        if (active && persisted) setConfig(persisted)
+      })
+      .catch(error => {
+        if (active) toast.error(error instanceof Error ? error.message : 'Unable to load engine configuration')
+      })
+      .finally(() => { if (active) setConfigFetching(false) })
+    return () => { active = false }
+  }, [isAdmin])
 
   const homeTeam = teams.find(t => t.id === homeTeamId)
   const awayTeam = teams.find(t => t.id === awayTeamId)
@@ -281,13 +306,14 @@ export default function PredictionEngineView() {
   const resetConfig = useCallback(async () => {
     try {
       const res = await fetch('/api/prediction-engine/config', { headers: authHeaders() })
-      if (res.ok) {
-        const json = await res.json()
-        const data: EngineConfig = json.config || json.defaults || json
-        setConfig(data)
-        toast.success('Configuration reset')
-      }
-    } catch { toast.error('Failed to reset config') }
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'Failed to load saved configuration')
+      const data: EngineConfig = json.config || json.defaults || json
+      setConfig(data)
+      toast.success('Saved configuration restored')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reset config')
+    }
   }, [])
 
   // ── Injury management ─────────────────────────────────────────────────────────
@@ -356,9 +382,11 @@ export default function PredictionEngineView() {
           <TabsTrigger value="signals" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Radio className="w-4 h-4 mr-2" />Market Signals
           </TabsTrigger>
-          <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
-            <Settings className="w-4 h-4 mr-2" />Engine Config
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+              <Settings className="w-4 h-4 mr-2" />Engine Config
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ═════════════════════ TAB 1: STOCHASTIC SIMULATOR ═════════════════════ */}
@@ -1035,7 +1063,7 @@ export default function PredictionEngineView() {
         </TabsContent>
 
         {/* ═════════════════════ TAB 4: ENGINE CONFIG ═════════════════════ */}
-        <TabsContent value="config" className="space-y-6 mt-6">
+        {isAdmin && <TabsContent value="config" className="space-y-6 mt-6">
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
               <CardHeader>
@@ -1053,10 +1081,10 @@ export default function PredictionEngineView() {
                   </div>
                   <Slider
                     value={[config.simulationRuns]}
-                    min={10000} max={500000} step={10000}
+                    min={10000} max={200000} step={10000}
                     onValueChange={([v]) => setConfig(p => ({ ...p, simulationRuns: v }))}
                   />
-                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>500K</span></div>
+                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>200K</span></div>
                 </div>
 
                 <Separator className="bg-zinc-800/50" />
@@ -1085,10 +1113,10 @@ export default function PredictionEngineView() {
                   </div>
                   <Slider
                     value={[config.minEdgeThreshold * 100]}
-                    min={0} max={10} step={0.5}
+                    min={0.5} max={20} step={0.5}
                     onValueChange={([v]) => setConfig(p => ({ ...p, minEdgeThreshold: v / 100 }))}
                   />
-                  <div className="flex justify-between text-[10px] text-zinc-600"><span>0%</span><span>10%</span></div>
+                  <div className="flex justify-between text-[10px] text-zinc-600"><span>0.5%</span><span>20%</span></div>
                 </div>
 
                 <Separator className="bg-zinc-800/50" />
@@ -1130,17 +1158,17 @@ export default function PredictionEngineView() {
                 <Separator className="bg-zinc-800/50" />
 
                 <div className="flex gap-3">
-                  <Button onClick={saveConfig} disabled={configLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
+                  <Button onClick={saveConfig} disabled={configLoading || configFetching} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
                     <Save className="w-4 h-4 mr-2" /> {configLoading ? 'Saving...' : 'Save Configuration'}
                   </Button>
-                  <Button onClick={resetConfig} variant="outline" className="border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl">
+                  <Button onClick={resetConfig} disabled={configFetching} variant="outline" className="border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl">
                     <RotateCcw className="w-4 h-4 mr-2" /> Reset
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
     </div>
   )
