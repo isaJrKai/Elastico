@@ -464,7 +464,9 @@ export function calculateKelly(
   modelProbability: number,
   bookmakerOdds: number,
   bankroll: number,
-  fractionalKelly: number = 0.25
+  fractionalKelly: number = 0.25,
+  minEdgeThreshold: number = 0.02,
+  maxBankrollRisk: number = 0.05
 ): KellyResult {
   /**
    * Implements the Kelly Criterion for optimal bankroll allocation.
@@ -476,10 +478,10 @@ export function calculateKelly(
   const impliedProb = 1 / bookmakerOdds
   const edge = modelProbability - impliedProb
 
-  if (edge <= 0) {
+  if (edge <= minEdgeThreshold) {
     return {
       action: 'NO_EDGE',
-      edgePercentage: -Math.abs(edge) * 100,
+      edgePercentage: edge * 100,
       impliedProbability: impliedProb,
       modelProbability,
       suggestedFraction: 0,
@@ -492,7 +494,7 @@ export function calculateKelly(
   const b = bookmakerOdds - 1  // Net odds
   const q = 1 - modelProbability
   const rawKelly = (modelProbability * b - q) / b
-  const safeKelly = rawKelly * fractionalKelly
+  const safeKelly = Math.min(rawKelly * fractionalKelly, maxBankrollRisk)
   const wager = bankroll * safeKelly
 
   // Risk classification
@@ -517,35 +519,24 @@ export function calculateKelly(
 export function calculatePortfolioAllocation(
   outcomes: { label: string; modelProb: number; odds: number }[],
   bankroll: number,
-  correlationMatrix: number[][] = [
-    [1.00, 0.55, 0.15],
-    [0.55, 1.00, 0.20],
-    [0.15, 0.20, 1.00],
-  ]
+  fractionalKelly: number = 0.25,
+  maxBankrollRisk: number = 0.05,
+  minEdgeThreshold: number = 0.02
 ): PortfolioAllocation {
   /**
-   * Implements a multi-asset Kelly Criterion with covariance adjustment.
-   * Accounts for correlation between bet outcomes to prevent overexposure
-   * on correlated positions (e.g., home win + over 2.5 goals).
+   * Fractional-Kelly portfolio allocation with a hard cap on total bankroll exposure.
+   * Correlation/covariance is not applied because the app does not yet have a validated
+   * covariance estimator for these markets.
    */
-
-  // Invert correlation matrix for covariance-weighted allocation
-  const n = correlationMatrix.length
-  const covInv = invertMatrix(correlationMatrix)
-
-  const results = outcomes.map((out, i) => {
+  const provisional = outcomes.map(out => {
     const impliedProb = 1 / out.odds
     const edge = out.modelProb - impliedProb
-
-    // Covariance-adjusted edge
-    const adjustedEdge = covInv
-      ? covInv[i]?.reduce((sum, c, j) => sum + c * (outcomes[j].modelProb - 1 / outcomes[j].odds), 0) || edge
-      : edge
-
     const b = out.odds - 1
     const q = 1 - out.modelProb
     const rawKelly = (out.modelProb * b - q) / b
-    const safeKelly = Math.max(0, rawKelly * 0.10) // 10% fractional Kelly
+    const safeKelly = edge > minEdgeThreshold
+      ? Math.max(0, Math.min(rawKelly * fractionalKelly, maxBankrollRisk))
+      : 0
 
     return {
       label: out.label,
@@ -553,15 +544,27 @@ export function calculatePortfolioAllocation(
       marketOdds: out.odds,
       edge: edge * 100,
       kellyFraction: safeKelly,
-      wagerAmount: Math.round(bankroll * safeKelly * 100) / 100,
-      action: edge > 0.02 ? 'BET' as const : edge > 0 ? 'RISKY' as const : 'NO_EDGE' as const,
+      wagerAmount: bankroll * safeKelly,
+      action: edge > minEdgeThreshold ? 'BET' as const : edge > 0 ? 'RISKY' as const : 'NO_EDGE' as const,
     }
   })
 
-  const totalExposure = results.reduce((s, r) => s + r.wagerAmount, 0)
-  const totalEV = results.reduce((s, r) => s + r.wagerAmount * r.edge / 100, 0)
+  const provisionalExposure = provisional.reduce((sum, outcome) => sum + outcome.wagerAmount, 0)
+  const exposureLimit = bankroll * maxBankrollRisk
+  const scale = provisionalExposure > exposureLimit && provisionalExposure > 0
+    ? exposureLimit / provisionalExposure
+    : 1
+  const results = provisional.map(outcome => ({
+    ...outcome,
+    kellyFraction: Math.round(outcome.kellyFraction * scale * 10000) / 10000,
+    wagerAmount: Math.round(outcome.wagerAmount * scale * 100) / 100,
+  }))
+
+  const totalExposure = results.reduce((sum, outcome) => sum + outcome.wagerAmount, 0)
+  const totalEV = results.reduce((sum, outcome) => sum + outcome.wagerAmount * outcome.edge / 100, 0)
   const avgReturn = totalExposure > 0 ? totalEV / totalExposure : 0
-  const sharpeRatio = results.length > 1 ? avgReturn / (Math.sqrt(results.reduce((s, r) => s + (r.edge / 100 - avgReturn) ** 2, 0) / results.length) || 0.01) : 0
+  const variance = results.reduce((sum, outcome) => sum + (outcome.edge / 100 - avgReturn) ** 2, 0) / (results.length || 1)
+  const sharpeRatio = results.length > 1 ? avgReturn / (Math.sqrt(variance) || 0.01) : 0
 
   return {
     outcomes: results,
@@ -570,26 +573,6 @@ export function calculatePortfolioAllocation(
     totalExpectedValue: Math.round(totalEV * 100) / 100,
     sharpeRatio: Math.round(sharpeRatio * 100) / 100,
   }
-}
-
-// ── Matrix Inversion (3x3) ─────────────────────────────────────────────────────
-
-function invertMatrix(m: number[][]): number[][] | null {
-  if (m.length !== 3 || m[0].length !== 3) return null
-
-  const [a, b, c] = m[0]
-  const [d, e, f] = m[1]
-  const [g, h, i] = m[2]
-
-  const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
-  if (Math.abs(det) < 1e-10) return null
-
-  const invDet = 1 / det
-  return [
-    [(e * i - f * h) * invDet, (c * h - b * i) * invDet, (b * f - c * e) * invDet],
-    [(f * g - d * i) * invDet, (a * i - c * g) * invDet, (c * d - a * f) * invDet],
-    [(d * h - e * g) * invDet, (b * g - a * h) * invDet, (a * e - b * d) * invDet],
-  ]
 }
 
 // ── Market Signal Tracker ───────────────────────────────────────────────────────
@@ -738,19 +721,25 @@ export function runFullMatchAnalysis(
       simulation.matchProbabilities.homeVictory,
       input.bookmakerOdds.home,
       bankroll,
-      config.kellyFraction
+      config.kellyFraction,
+      config.minEdgeThreshold,
+      config.maxBankrollRisk
     ),
     draw: calculateKelly(
       simulation.matchProbabilities.draw,
       input.bookmakerOdds.draw,
       bankroll,
-      config.kellyFraction
+      config.kellyFraction,
+      config.minEdgeThreshold,
+      config.maxBankrollRisk
     ),
     away: calculateKelly(
       simulation.matchProbabilities.awayVictory,
       input.bookmakerOdds.away,
       bankroll,
-      config.kellyFraction
+      config.kellyFraction,
+      config.minEdgeThreshold,
+      config.maxBankrollRisk
     ),
   } : null
 
@@ -760,7 +749,7 @@ export function runFullMatchAnalysis(
     { label: `Home Win (${input.homeTeam})`, modelProb: simulation.matchProbabilities.homeVictory, odds: input.bookmakerOdds.home },
     { label: `Draw`, modelProb: simulation.matchProbabilities.draw, odds: input.bookmakerOdds.draw },
     { label: `Away Win (${input.awayTeam})`, modelProb: simulation.matchProbabilities.awayVictory, odds: input.bookmakerOdds.away },
-  ], bankroll)
+  ], bankroll, config.kellyFraction, config.maxBankrollRisk, config.minEdgeThreshold)
     : null
 
   // Step 5: Market signals
