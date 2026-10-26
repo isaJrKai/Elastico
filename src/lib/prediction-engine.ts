@@ -84,7 +84,7 @@ export interface MarketSignal {
   largestMove: 'home' | 'draw' | 'away' | 'neutral'
   steamMove: boolean
   opposingMoveDetected: boolean // Opposing odds movement, not verified reverse line movement
-  confidence: number
+  movementStrength: number // 0-100 heuristic based on observed odds movement
   timestamp: string
 }
 
@@ -621,7 +621,7 @@ export function analyzeMarketSignals(
 
   // Confidence score based on magnitude of movement
   const maxMove = Math.max(Math.abs(homeVelocity), Math.abs(drawVelocity), Math.abs(awayVelocity))
-  const confidence = clamp(maxMove * 500, 0, 100)
+  const movementStrength = clamp(maxMove * 500, 0, 100)
 
   return {
     matchId,
@@ -637,7 +637,7 @@ export function analyzeMarketSignals(
     largestMove,
     steamMove: homeSteam || awaySteam || drawSteam,
     opposingMoveDetected,
-    confidence: Math.round(confidence),
+    movementStrength: Math.round(movementStrength),
     timestamp: new Date().toISOString(),
   }
 }
