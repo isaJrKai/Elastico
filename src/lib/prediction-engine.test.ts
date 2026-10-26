@@ -3,6 +3,7 @@ import * as assert from 'node:assert/strict'
 import {
   analyzeMarketSignals,
   calculateKelly,
+  calculatePortfolioAllocation,
   deriveExpectedGoalIntensities,
   runFullMatchAnalysis,
   runStochasticSimulation,
@@ -88,6 +89,23 @@ test('Kelly calculation keeps a positive-edge wager finite and fractional', () =
   assert.equal(result.action, 'BET')
   assert.ok(Number.isFinite(result.suggestedWager))
   assert.ok(result.suggestedWager > 0 && result.suggestedWager < 1000)
+})
+
+test('Kelly threshold prevents a small positive edge from becoming a bet', () => {
+  const result = calculateKelly(0.52, 2.0, 1000, 0.25, 0.05, 0.05)
+  assert.equal(result.action, 'NO_EDGE')
+  assert.equal(result.suggestedWager, 0)
+})
+
+test('portfolio allocation enforces the configured total bankroll exposure cap', () => {
+  const allocation = calculatePortfolioAllocation([
+    { label: 'Home', modelProb: 0.7, odds: 2.0 },
+    { label: 'Draw', modelProb: 0.4, odds: 3.2 },
+    { label: 'Away', modelProb: 0.3, odds: 4.0 },
+  ], 1000, 0.25, 0.05, 0.01)
+
+  assert.ok(allocation.totalExposure <= 50.01)
+  assert.ok(allocation.outcomes.every(outcome => Number.isFinite(outcome.wagerAmount) && outcome.wagerAmount >= 0))
 })
 
 test('market signal calculation reports line movement in percentage points', () => {
