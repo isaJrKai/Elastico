@@ -1162,7 +1162,7 @@ export default function PredictionEngineView() {
                     <Save className="w-4 h-4 mr-2" /> {configLoading ? 'Saving...' : 'Save Configuration'}
                   </Button>
                   <Button onClick={resetConfig} disabled={configFetching} variant="outline" className="border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl">
-                    <RotateCcw className="w-4 h-4 mr-2" /> Reset
+                    <RotateCcw className="w-4 h-4 mr-2" /> Reload Saved
                   </Button>
                 </div>
               </CardContent>
