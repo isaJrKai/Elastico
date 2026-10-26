@@ -7,7 +7,7 @@
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production node .next/standalone/server.js",
     "lint": "eslint src",
-    "test": "tsx --test src/lib/prediction-input-validation.test.ts",
+    "test": "tsx --test src/lib/prediction-input-validation.test.ts src/lib/prediction-engine.test.ts",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
