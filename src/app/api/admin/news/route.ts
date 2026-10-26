@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     if (!limit.allowed) return NextResponse.json({ error: 'Too many editorial changes' }, { status: 429 })
     const body: unknown = await req.json().catch(() => null)
     const validated = validateArticle(body)
-    if ('error' in validated) return NextResponse.json({ error: validated.error }, { status: 400)
+    if ('error' in validated) return NextResponse.json({ error: validated.error }, { status: 400 })
     const article = await db.newsArticle.create({
       data: {
         externalId: `editorial-${randomUUID()}`,
@@ -122,12 +122,12 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Article id is required' }, { status: 400 })
     }
     const validated = validateArticle(body)
-    if ('error' in validated) return NextResponse.json({ error: validated.error }, { status: 400)
+    if ('error' in validated) return NextResponse.json({ error: validated.error }, { status: 400 })
     const existing = await db.newsArticle.findFirst({
       where: { id: body.id, sourceName: 'ELASTICO Editorial' },
       select: { id: true },
     })
-    if (!existing) return NextResponse.json({ error: 'Editorial article not found' }, { status: 404)
+    if (!existing) return NextResponse.json({ error: 'Editorial article not found' }, { status: 404 })
     const article = await db.newsArticle.update({
       where: { id: existing.id },
       data: {
@@ -159,7 +159,7 @@ export async function DELETE(req: NextRequest) {
       where: { id: body.id, sourceName: 'ELASTICO Editorial' },
       select: { id: true },
     })
-    if (!existing) return NextResponse.json({ error: 'Editorial article not found' }, { status: 404)
+    if (!existing) return NextResponse.json({ error: 'Editorial article not found' }, { status: 404 })
     await db.newsArticle.delete({ where: { id: existing.id } })
     return NextResponse.json({ success: true, message: 'Article deleted' })
   } catch (error) {
