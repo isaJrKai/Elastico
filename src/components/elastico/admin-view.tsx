@@ -175,7 +175,7 @@ export default function AdminView() {
   const [newsItems, setNewsItems] = useState<any[]>([])
   const [newsModal, setNewsModal] = useState(false)
   const [editingNews, setEditingNews] = useState<any>(null)
-  const [newsForm, setNewsForm] = useState({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
+  const [newsForm, setNewsForm] = useState({ title: '', summary: '', content: '', sourceUrl: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
   const [pushForm, setPushForm] = useState({ title: '', message: '', segment: 'all' })
 
   // ── Invite User State ──
@@ -197,13 +197,14 @@ export default function AdminView() {
     setLoading(true)
     try {
       const headers = authHeaders()
-      const [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes] = await Promise.all([
+      const [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes, newsRes] = await Promise.all([
         fetch('/api/admin', { headers }).then(r => r.json()).catch(() => null),
         fetch('/api/admin/users', { headers }).then(r => r.json()).catch(() => ({ users: [] })),
         fetch('/api/admin/logs?limit=50', { headers }).then(r => r.json()).catch(() => ({ logs: [] })),
         fetch('/api/admin/settings', { headers }).then(r => r.json()).catch(() => ({ settings: [] })),
         fetch('/api/admin/announcements', { headers }).then(r => r.json()).catch(() => ({ announcements: [] })),
         fetch('/api/admin/feature-flags', { headers }).then(r => r.json()).catch(() => ({ flags: [] })),
+        fetch('/api/admin/news', { headers }).then(r => r.json()).catch(() => ({ articles: [] })),
       ])
       setStats(statsRes?.dashboard || statsRes || null)
       setUsers(usersRes.users || [])
@@ -213,6 +214,7 @@ export default function AdminView() {
       setSettingsList(Array.isArray(settingsRes.settings) ? settingsRes.settings : [])
       setAnnouncements(Array.isArray(annRes.announcements) ? annRes.announcements : [])
       setFeatureFlags(Array.isArray(flagsRes.flags) ? flagsRes.flags : [])
+      setNewsItems(Array.isArray(newsRes.articles) ? newsRes.articles : [])
     } catch (e) { console.error('Admin fetch error:', e) }
     finally { setLoading(false) }
   }, [])
@@ -359,24 +361,46 @@ export default function AdminView() {
     } catch { toast.error('Error creating announcement') }
   }
 
-  const handleCreateNews = () => {
-    if (!newsForm.title) { toast.error('Title required'); return }
-    if (editingNews) {
-      setNewsItems(prev => prev.map(n => n.id === editingNews.id ? { ...n, ...newsForm } : n))
-      toast.success('News updated')
-    } else {
-      const newItem = { id: `n-${Date.now()}`, ...newsForm, readCount: 0, publishedAt: new Date().toISOString() }
-      setNewsItems(prev => [newItem, ...prev])
-      toast.success('News published')
+  const handleCreateNews = async () => {
+    if (!newsForm.title.trim()) { toast.error('Title required'); return }
+    if (!newsForm.sourceUrl.trim()) { toast.error('A canonical source URL is required'); return }
+    setActionLoading('news')
+    try {
+      const res = await fetch('/api/admin/news', {
+        method: editingNews ? 'PATCH' : 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ ...newsForm, sourceUrl: newsForm.sourceUrl.trim(), ...(editingNews ? { id: editingNews.id } : {}) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Article save failed (${res.status})`)
+      setNewsItems(prev => editingNews
+        ? prev.map(article => article.id === editingNews.id ? data.article : article)
+        : [data.article, ...prev])
+      toast.success(editingNews ? 'Article updated' : 'Article published')
+      setNewsForm({ title: '', summary: '', content: '', sourceUrl: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
+      setNewsModal(false)
+      setEditingNews(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to save article')
+    } finally {
+      setActionLoading(null)
     }
-    setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
-    setNewsModal(false)
-    setEditingNews(null)
   }
 
-  const handleDeleteNews = (id: string) => {
-    setNewsItems(prev => prev.filter(n => n.id !== id))
-    toast.success('News deleted')
+  const handleDeleteNews = async (id: string) => {
+    try {
+      const res = await fetch('/api/admin/news', {
+        method: 'DELETE',
+        headers: authHeaders(),
+        body: JSON.stringify({ id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Article delete failed (${res.status})`)
+      setNewsItems(prev => prev.filter(article => article.id !== id))
+      toast.success('Article deleted')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to delete article')
+    }
   }
 
   const handleSendPush = async () => {
@@ -1228,7 +1252,7 @@ export default function AdminView() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">{newsItems.length} articles</p>
-                  <Dialog open={newsModal} onOpenChange={(open) => { setNewsModal(open); if (!open) { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) } }}>
+                  <Dialog open={newsModal} onOpenChange={(open) => { setNewsModal(open); if (!open) { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', sourceUrl: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) } }}>
                     <DialogTrigger asChild>
                       <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 h-8"
                         onClick={() => { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) }}>
@@ -1251,6 +1275,10 @@ export default function AdminView() {
                         <div className="space-y-2">
                           <Label>Content</Label>
                           <Textarea value={newsForm.content} onChange={e => setNewsForm(p => ({ ...p, content: e.target.value }))} rows={4} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Canonical Source URL</Label>
+                          <Input type="url" value={newsForm.sourceUrl} onChange={e => setNewsForm(p => ({ ...p, sourceUrl: e.target.value }))} placeholder="https://example.com/article" />
                         </div>
                         <div className="grid grid-cols-3 gap-3">
                           <div className="space-y-2">
@@ -1281,7 +1309,7 @@ export default function AdminView() {
                       </div>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setNewsModal(false)}>Cancel</Button>
-                        <Button onClick={handleCreateNews}>{editingNews ? 'Update' : 'Publish'}</Button>
+                        <Button onClick={handleCreateNews} disabled={actionLoading === 'news'}>{actionLoading === 'news' ? 'Saving…' : editingNews ? 'Update' : 'Publish'}</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
@@ -1297,7 +1325,7 @@ export default function AdminView() {
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-[10px]">{news.category}</Badge>
-                            <span className="text-[10px] text-muted-foreground">{news.readCount} reads</span>
+                            <span className="text-[10px] text-muted-foreground">{news.publishedAt ? new Date(news.publishedAt).toLocaleDateString() : 'Draft'}</span>
                             <span className="text-[10px] text-muted-foreground">
                               {news.sentiment === 'positive' ? '😊' : news.sentiment === 'negative' ? '😟' : '😐'}
                             </span>
@@ -1305,7 +1333,7 @@ export default function AdminView() {
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button size="icon" variant="ghost" className="h-7 w-7"
-                            onClick={() => { setEditingNews(news); setNewsForm({ title: news.title, summary: news.summary || '', content: news.content || '', category: news.category, isBreaking: news.isBreaking, sentiment: news.sentiment || 'neutral' }); setNewsModal(true) }}>
+                            onClick={() => { setEditingNews(news); setNewsForm({ title: news.title, summary: news.summary || '', content: news.content || '', sourceUrl: news.sourceUrl || '', category: news.category, isBreaking: news.isBreaking, sentiment: news.sentiment || 'neutral' }); setNewsModal(true) }}>
                             <Edit className="h-3 w-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteNews(news.id)}>
