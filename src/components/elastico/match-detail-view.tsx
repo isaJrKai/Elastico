@@ -32,6 +32,7 @@ interface Prediction { id: string; userId: string; matchId: string; predictedHom
 
 interface SimulatedScenario {
   match: {
+    id: string
     homeTeam: { name: string }
     awayTeam: { name: string }
     homeScore: number
@@ -188,7 +189,6 @@ export default function MatchDetailView() {
   }, [selectedMatchId, token])
 
   useEffect(() => { fetchMatch() }, [fetchMatch])
-  useEffect(() => { setSimulationResult(null) }, [selectedMatchId])
 
   const handleVote = useCallback(async (choice: 'home' | 'draw' | 'away') => {
     if (!selectedMatchId || !token) return
@@ -218,6 +218,7 @@ export default function MatchDetailView() {
   const handleSimulate = useCallback(async () => {
     if (!selectedMatchId || !token) return
     setSimulating(true)
+    setSimulationResult(null)
     try {
       const res = await fetch(`/api/matches/${selectedMatchId}/simulate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) {
@@ -403,7 +404,7 @@ export default function MatchDetailView() {
           )}
         </div>
 
-        {simulationResult && (
+        {simulationResult && simulationResult.match.id === selectedMatchId && (
           <Card className="rounded-xl border border-amber-500/30 bg-card">
             <CardHeader className="pb-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
