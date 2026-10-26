@@ -7,20 +7,31 @@ import { rateLimit } from '@/lib/rate-limit'
 // Simple ELO-based simulation using team names from ESPN data.
 // Since matches are now ESPN-live, simulation works on ESPN match data.
 
-function computeEloFromName(name: string): number {
-  // Well-known teams get realistic base ELOs; others get a default.
-  const eloMap: Record<string, number> = {
-    'Argentina': 1910, 'France': 1870, 'Spain': 1890, 'England': 1850,
-    'Brazil': 1840, 'Germany': 1830, 'Portugal': 1820, 'Netherlands': 1790,
-    'Italy': 1770, 'Uruguay': 1750, 'Japan': 1680, 'USA': 1660,
-    'Mexico': 1640, 'South Korea': 1650, 'Colombia': 1710, 'Croatia': 1720,
-    'Belgium': 1780, 'Denmark': 1700, 'Switzerland': 1690, 'Austria': 1670,
-    'Turkey': 1645, 'Serbia': 1630, 'Senegal': 1620, 'Morocco': 1665,
-    'Australia': 1590, 'Canada': 1610, 'Chile': 1600, 'Ecuador': 1580,
-    'Peru': 1560, 'Paraguay': 1550, 'Venezuela': 1530, 'Nigeria': 1595,
-    'Egypt': 1545, 'Tunisia': 1535, 'Ghana': 1540, 'Cameroon': 1525,
+async function getVerifiedElo(name: string): Promise<number | null> {
+  const team = await db.team.findFirst({
+    where: { name: { equals: name, mode: 'insensitive' } },
+    select: {
+      eloRating: true,
+      wins: true,
+      draws: true,
+      losses: true,
+      source: true,
+      lastSyncedAt: true,
+    },
+  })
+
+  if (!team) return null
+  const played = (team.wins ?? 0) + (team.draws ?? 0) + (team.losses ?? 0)
+  const source = (team.source ?? '').toLowerCase()
+  const excludedSource = ['unknown', 'seed', 'demo'].includes(source)
+  const syncAge = team.lastSyncedAt ? Date.now() - team.lastSyncedAt.getTime() : Number.POSITIVE_INFINITY
+  const recentlySynced = syncAge >= 0 && syncAge <= 45 * 24 * 60 * 60 * 1000
+
+  if (played < 1 || excludedSource || !recentlySynced || !Number.isFinite(team.eloRating) || team.eloRating <= 0) {
+    return null
   }
-  return eloMap[name] || 1500
+
+  return team.eloRating
 }
 
 export async function POST(
@@ -33,7 +44,6 @@ export async function POST(
     const rl = rateLimit(`match-simulate:${auth.user.id}`, 10, 60_000)
     if (!rl.allowed) return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
 
-    const { user } = auth
     const { id } = await params
     // Strip source prefixes for lookups
     const rawId = id.replace(/^(fd|espn|api-sports):/, '')
@@ -69,10 +79,19 @@ export async function POST(
       return NextResponse.json({ error: 'Can only simulate upcoming matches' }, { status: 400 })
     }
 
-    // Compute ELO from team names
-    const homeElo = computeEloFromName(espnMatch.homeTeam.name)
-    const awayElo = computeEloFromName(espnMatch.awayTeam.name)
-    const homeStrength = homeElo / (homeElo + awayElo)
+    // Only simulate when both teams have recent, sourced historical ratings.
+    // Never substitute a static team-name map or a neutral default rating.
+    const [homeElo, awayElo] = await Promise.all([
+      getVerifiedElo(espnMatch.homeTeam.name),
+      getVerifiedElo(espnMatch.awayTeam.name),
+    ])
+    if (homeElo === null || awayElo === null) {
+      return NextResponse.json({
+        error: 'Simulation unavailable: recent, sourced team history is missing for one or both teams.',
+        code: 'INSUFFICIENT_VERIFIED_HISTORY',
+      }, { status: 422 })
+    }
+    const homeStrength = 1 / (1 + Math.pow(10, (awayElo - (homeElo + 65)) / 400))
     const awayStrength = 1 - homeStrength
 
     // Simulate 90 minutes
@@ -96,7 +115,7 @@ export async function POST(
           minute: currentMinute,
           type: 'goal',
           team: scorerTeam,
-          playerName: scorerName,
+          playerName: 'Simulated scorer',
           description: `GOAL! Goal for ${scorerName}!`,
         })
       } else if (rand < 0.07) {
@@ -108,7 +127,7 @@ export async function POST(
           minute: currentMinute,
           type: 'yellow_card',
           team: isHome ? 'home' : 'away',
-          playerName: team,
+          playerName: 'Simulated player',
           description: `Yellow card for ${team}`,
         })
       } else {
@@ -136,7 +155,7 @@ export async function POST(
         id: espnMatch.id,
         homeTeam: espnMatch.homeTeam,
         awayTeam: espnMatch.awayTeam,
-        status: 'finished',
+        status: 'simulated',
         homeScore,
         awayScore,
         homeXg,
@@ -152,53 +171,14 @@ export async function POST(
         foulsHome: Math.round(Math.random() * 8) + 8,
         foulsAway: Math.round(Math.random() * 8) + 8,
         isSimulated: true,
+        dataQuality: 'simulated',
         events,
       },
       eloBefore: { home: homeElo, away: awayElo },
+      simulationNotice: 'Synthetic scenario only. This is not a real match result and is never used to grade user predictions.',
     }
 
-    // Evaluate any existing predictions for this match
-    const predictions = await db.prediction.findMany({ where: { matchId: id } })
-    const actualOutcome = homeScore > awayScore ? 'home' : homeScore === awayScore ? 'draw' : 'away'
-
-    for (const pred of predictions) {
-      const isCorrect = pred.predictedOutcome === actualOutcome
-      const points = isCorrect ? Math.round(pred.confidence * 10) : 0
-
-      await db.prediction.update({
-        where: { id: pred.id },
-        data: { isCorrect, points },
-      })
-
-      if (isCorrect) {
-        const currentUser = await db.user.findUnique({ where: { id: pred.userId }, select: { bestStreak: true, predictionStreak: true } })
-        const newStreak = (currentUser?.predictionStreak || 0) + 1
-        await db.user.update({
-          where: { id: pred.userId },
-          data: {
-            totalPredictions: { increment: 1 },
-            correctPredictions: { increment: 1 },
-            predictionStreak: { increment: 1 },
-            bestStreak: Math.max(newStreak, currentUser?.bestStreak || 0),
-          },
-        })
-        const updatedUser = await db.user.findUnique({ where: { id: pred.userId }, select: { totalPredictions: true, correctPredictions: true } })
-        if (updatedUser && updatedUser.totalPredictions > 0) {
-          await db.user.update({
-            where: { id: pred.userId },
-            data: { predictionAccuracy: Math.round((updatedUser.correctPredictions / updatedUser.totalPredictions) * 1000) / 100 },
-          })
-        }
-      } else {
-        await db.user.update({
-          where: { id: pred.userId },
-          data: {
-            totalPredictions: { increment: 1 },
-            predictionStreak: 0,
-          },
-        })
-      }
-    }
+    // Simulation output is synthetic. Never write it into real prediction records or user accuracy.
 
     return NextResponse.json(result)
   } catch (error) {

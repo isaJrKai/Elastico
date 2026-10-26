@@ -725,7 +725,7 @@ function AdminSystemMonitor() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Forecast request failed'
       console.error('[SystemMonitor] Forecast failed:', err)
-      setForecastResult({ projection: 0, model: `error: ${message}` })
+      setForecastResult(null)
       toast.error(message)
     } finally {
       setForecastLoading(false)

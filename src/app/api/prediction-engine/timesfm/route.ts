@@ -79,9 +79,9 @@ function callNvidiaNim(model: string, systemPrompt: string, userPrompt: string):
   })
 }
 
-// ── Mock Fallback Projection ───────────────────────────────────────────────────
+// ── Local Statistical Baseline ───────────────────────────────────────────────────
 
-function mockProjection(coreHistory: number[], recentIndicators: number[]): number {
+function baselineProjection(coreHistory: number[], recentIndicators: number[]): number {
   // Simple weighted moving average with recent indicator influence
   const recentWeight = 0.4
   const historicalWeight = 0.6
@@ -196,13 +196,15 @@ export async function POST(request: Request) {
     const isKeyConfigured = !!apiKey && apiKey !== 'nvapi-PLACEHOLDER_USER_MUST_REPLACE'
 
     if (!isKeyConfigured) {
-      // Fallback to mock calculation
-      const conditionedProjection = mockProjection(normalizedHistory, indicators)
+      // This is a transparent local baseline, not a TimesFM model forecast.
+      const conditionedProjection = baselineProjection(normalizedHistory, indicators)
       return NextResponse.json({
         success: true,
         conditionedProjection,
-        rawResponse: 'Mock fallback — NVIDIA_API_KEY not configured',
-        model: 'mock-fallback',
+        rawResponse: 'NVIDIA_API_KEY is not configured; using a weighted moving-average baseline, not TimesFM.',
+        model: 'weighted-moving-average-baseline',
+        forecastType: 'baseline',
+        isModelForecast: false,
         lookbackUsed: normalizedHistory.length,
         indicatorsCount: indicators.length,
       })
@@ -236,30 +238,45 @@ Based on the time series pattern and conditioning variables, project the expecte
         usedModel = FALLBACK_MODEL
       } catch (fallbackErr) {
         const errMsg = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown error'
-        // Both models failed — use mock
-        const conditionedProjection = mockProjection(normalizedHistory, indicators)
+        // Both provider models failed; return an explicitly labeled local baseline.
+        const conditionedProjection = baselineProjection(normalizedHistory, indicators)
         return NextResponse.json({
           success: true,
           conditionedProjection,
-          rawResponse: `Both NVIDIA models failed: ${errMsg}. Used mock fallback.`,
-          model: 'mock-fallback',
+          rawResponse: `Both NVIDIA models failed: ${errMsg}. Used a weighted moving-average baseline instead.`,
+          model: 'weighted-moving-average-baseline',
+          forecastType: 'baseline',
+          isModelForecast: false,
           lookbackUsed: normalizedHistory.length,
           indicatorsCount: indicators.length,
         })
       }
     }
 
-    // Parse the numeric projection from the response
-    const projectionMatch = rawResponse.match(/(\d+\.?\d*)/)
-    const conditionedProjection = projectionMatch
-      ? Math.max(0, parseFloat(projectionMatch[1]))
-      : mockProjection(normalizedHistory, indicators)
+    // Never disguise an invalid model response as a successful forecast.
+    const projectionMatch = rawResponse.trim().match(/^\s*(\d+(?:\.\d+)?)\s*$/)
+    if (!projectionMatch) {
+      return NextResponse.json({
+        error: 'Forecast provider returned a non-numeric response. No forecast was produced.',
+        model: usedModel,
+      }, { status: 502 })
+    }
+    const parsedProjection = Number(projectionMatch[1])
+    if (!Number.isFinite(parsedProjection) || parsedProjection < 0 || parsedProjection > 20) {
+      return NextResponse.json({
+        error: 'Forecast provider returned a value outside the supported 0–20 goal range. No forecast was produced.',
+        model: usedModel,
+      }, { status: 502 })
+    }
+    const conditionedProjection = Math.round(parsedProjection * 1000) / 1000
 
     return NextResponse.json({
       success: true,
       conditionedProjection,
       rawResponse: rawResponse.trim(),
       model: usedModel,
+      forecastType: 'provider-model',
+      isModelForecast: true,
       lookbackUsed: normalizedHistory.length,
       indicatorsCount: indicators.length,
     })

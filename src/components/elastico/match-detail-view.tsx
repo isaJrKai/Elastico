@@ -29,6 +29,26 @@ interface Vote { id: string; userId: string; matchId: string; choice: string; cr
 interface PredictionUser { id: string; name: string; displayName: string | null; avatarUrl: string | null; predictionAccuracy: number }
 interface Prediction { id: string; userId: string; matchId: string; predictedHomeGoals: number; predictedAwayGoals: number; predictedOutcome: string; confidence: number; model: string; isCorrect: boolean | null; points: number; createdAt: string; user: PredictionUser }
 
+
+interface SimulatedScenario {
+  match: {
+    id: string
+    homeTeam: { name: string }
+    awayTeam: { name: string }
+    homeScore: number
+    awayScore: number
+    homeXg: number
+    awayXg: number
+    possessionHome: number
+    possessionAway: number
+    shotsHome: number
+    shotsAway: number
+    isSimulated: true
+  }
+  eloBefore: { home: number; away: number }
+  simulationNotice: string
+}
+
 interface MatchDetail extends Match {
   homeTeam: Team & { players: Team['players'] }
   awayTeam: Team & { players: Team['players'] }
@@ -141,6 +161,7 @@ export default function MatchDetailView() {
   const [copied, setCopied] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [simulating, setSimulating] = useState(false)
+  const [simulationResult, setSimulationResult] = useState<SimulatedScenario | null>(null)
 
   const fetchMatch = useCallback(async () => {
     if (!selectedMatchId) return
@@ -197,6 +218,7 @@ export default function MatchDetailView() {
   const handleSimulate = useCallback(async () => {
     if (!selectedMatchId || !token) return
     setSimulating(true)
+    setSimulationResult(null)
     try {
       const res = await fetch(`/api/matches/${selectedMatchId}/simulate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) {
@@ -204,8 +226,9 @@ export default function MatchDetailView() {
         toast.error('Simulation failed', { description: err.error || 'Unknown error' })
         return
       }
-      toast.success('Simulation complete', { description: 'Match has been simulated with events and stats' })
-      fetchMatch()
+      const result = await res.json() as SimulatedScenario
+      setSimulationResult(result)
+      toast.success('Simulation complete', { description: 'Synthetic scenario generated. It is not a real match result.' })
     } catch (e: any) {
       toast.error('Simulation error', { description: e.message || 'Failed to run simulation' })
     } finally { setSimulating(false) }
@@ -380,6 +403,37 @@ export default function MatchDetailView() {
             </Button>
           )}
         </div>
+
+        {simulationResult && simulationResult.match.id === selectedMatchId && (
+          <Card className="rounded-xl border border-amber-500/30 bg-card">
+            <CardHeader className="pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-base">Simulated match scenario</CardTitle>
+                <Badge variant="outline" className="border-amber-500/40 text-amber-500">NOT A REAL RESULT</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">{simulationResult.simulationNotice}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                <div className="min-w-0 text-center">
+                  <p className="truncate text-sm font-semibold">{simulationResult.match.homeTeam.name}</p>
+                  <p className="text-3xl font-black tabular-nums">{simulationResult.match.homeScore}</p>
+                </div>
+                <span className="text-xs text-muted-foreground">SIMULATED SCORE</span>
+                <div className="min-w-0 text-center">
+                  <p className="truncate text-sm font-semibold">{simulationResult.match.awayTeam.name}</p>
+                  <p className="text-3xl font-black tabular-nums">{simulationResult.match.awayScore}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">xG · home / away</p><p className="font-semibold tabular-nums">{simulationResult.match.homeXg.toFixed(2)} / {simulationResult.match.awayXg.toFixed(2)}</p></div>
+                <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Possession</p><p className="font-semibold tabular-nums">{simulationResult.match.possessionHome}% / {simulationResult.match.possessionAway}%</p></div>
+                <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Shots</p><p className="font-semibold tabular-nums">{simulationResult.match.shotsHome} / {simulationResult.match.shotsAway}</p></div>
+                <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">ELO inputs</p><p className="font-semibold tabular-nums">{Math.round(simulationResult.eloBefore.home)} / {Math.round(simulationResult.eloBefore.away)}</p></div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════════════
             MATCH HEADER
