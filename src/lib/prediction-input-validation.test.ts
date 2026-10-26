@@ -47,6 +47,21 @@ test('rejects invalid bankroll and unsafe risk parameters', () => {
   assert.match(validateSimulationRequest({ ...validBody, config: { maxBankrollRisk: 0.9 } }) || '', /Invalid risk configuration/)
 })
 
+test('rejects invalid model flags and unsupported edge thresholds', () => {
+  assert.match(validateSimulationRequest({ ...validBody, config: { ...validBody.config, garchEnabled: 'false' } }) || '', /garchEnabled must be a boolean/)
+  assert.match(validateSimulationRequest({ ...validBody, config: { ...validBody.config, minEdgeThreshold: 0.5 } }) || '', /Invalid risk configuration/)
+})
+
+test('rejects invalid correlation, residual series, and injury records', () => {
+  assert.match(validateSimulationRequest({ ...validBody, matchInput: { ...validBody.matchInput, correlation: 1.2 } }) || '', /correlation/)
+  assert.match(validateSimulationRequest({ ...validBody, matchInput: { ...validBody.matchInput, historicalResiduals: { home: [0, Number.NaN], away: [] } } }) || '', /historicalResiduals/)
+  assert.match(validateSimulationRequest({ ...validBody, matchInput: { ...validBody.matchInput, injuries: [{ teamId: 'home-1', playerName: 'Player', status: 'out', importance: 'star', xgImpact: 3 }] } }) || '', /injuries/)
+})
+
+test('rejects unknown simulation modes', () => {
+  assert.match(validateSimulationRequest({ ...validBody, mode: 'mock-success' }) || '', /mode must be full or simulation-only/)
+})
+
 test('rejects the same team selected as home and away', () => {
   assert.match(validateSimulationRequest({ ...validBody, matchInput: { ...validBody.matchInput, awayTeamId: 'home-1' } }) || '', /different/)
 })
