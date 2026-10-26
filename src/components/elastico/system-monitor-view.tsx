@@ -769,7 +769,7 @@ function AdminSystemMonitor() {
             <Lock className="size-3.5" /> SAIM Security
           </TabsTrigger>
           <TabsTrigger value="timesfm" className="gap-1.5">
-            <Brain className="size-3.5" /> TimesFM 2.5
+            <Brain className="size-3.5" /> Conditioned Forecast (experimental)
           </TabsTrigger>
           <TabsTrigger value="data-foundation" className="gap-1.5">
             <Database className="size-3.5" /> Data Foundation
@@ -1338,7 +1338,7 @@ function AdminSystemMonitor() {
                     </span>
                   </div>
                   <div className="space-y-2 text-xs text-muted-foreground">
-                    <p><strong className="text-foreground">Model:</strong> {modelStatus === 'CONNECTED' ? 'TimesFM request with LLM fallback' : 'Weighted moving-average baseline'}</p>
+                    <p><strong className="text-foreground">Model:</strong> {modelStatus === 'CONNECTED' ? 'NVIDIA NIM request with LLM fallback' : 'Weighted moving-average baseline'}</p>
                     <p><strong className="text-foreground">Backend:</strong> {modelStatus === 'CONNECTED' ? 'NVIDIA NIM API' : 'Local baseline fallback'}</p>
                     <p><strong className="text-foreground">Status:</strong> {modelStatus === 'CONNECTED' ? 'Key configured; provider reachability is verified per request' : 'Configure NVIDIA_API_KEY to enable provider requests'}</p>
                   </div>
