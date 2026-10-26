@@ -2,7 +2,7 @@
 // Probabilistic goal projection via NVIDIA NIM TimesFM with covariate conditioning
 
 import { NextResponse } from 'next/server'
-import http from 'http'
+import https from 'https'
 import { authenticateRequest } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 
@@ -44,7 +44,7 @@ function callNvidiaNim(model: string, systemPrompt: string, userPrompt: string):
       },
     }
 
-    const req = http.request(options, (res) => {
+    const req = https.request(options, (res) => {
       let data = ''
       res.on('data', (chunk) => {
         data += chunk
@@ -145,6 +145,14 @@ function buildCovariateDescription(indicators: number[]): string {
 
 // ── POST Handler ───────────────────────────────────────────────────────────────
 
+export async function GET(request: Request) {
+  const auth = await authenticateRequest(request)
+  if (auth instanceof Response) return auth
+  const apiKey = process.env.NVIDIA_API_KEY
+  const configured = Boolean(apiKey && apiKey !== 'nvapi-PLACEHOLDER_USER_MUST_REPLACE')
+  return NextResponse.json({ configured, provider: 'NVIDIA NIM', requestedModel: TIMESFM_MODEL })
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await authenticateRequest(request)
@@ -155,17 +163,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
     }
 
-    const body = await request.json()
-    const { coreHistory, recentIndicators } = body
+    const body = await request.json().catch(() => null)
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Request body must be a JSON object' }, { status: 400 })
+    }
+    const { coreHistory, recentIndicators } = body as { coreHistory?: unknown; recentIndicators?: unknown }
 
-    if (!coreHistory || !Array.isArray(coreHistory) || coreHistory.length === 0) {
+    if (!Array.isArray(coreHistory) || coreHistory.length === 0 || coreHistory.length > LOOKBACK_SIZE) {
       return NextResponse.json(
-        { error: 'coreHistory is required (array of numbers representing goal trends)' },
+        { error: `coreHistory must contain between 1 and ${LOOKBACK_SIZE} recent match goal totals` },
         { status: 400 }
       )
     }
+    if (!coreHistory.every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 20)) {
+      return NextResponse.json({ error: 'coreHistory values must be finite goal totals between 0 and 20' }, { status: 400 })
+    }
+    if (recentIndicators !== undefined && (!Array.isArray(recentIndicators) || recentIndicators.length > 8
+      || !recentIndicators.every(value => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1000))) {
+      return NextResponse.json({ error: 'recentIndicators must contain up to 8 finite numeric values within ±1000' }, { status: 400 })
+    }
+    const indicators: number[] = Array.isArray(recentIndicators) ? recentIndicators as number[] : []
 
-    const indicators: number[] = Array.isArray(recentIndicators) ? recentIndicators : []
+    // Status endpoint reports configuration only; it does not expose the secret or claim the provider is reachable.
+    
 
     // Normalize coreHistory to exactly 64 values
     const normalizedHistory = normalizeToLookback(coreHistory, LOOKBACK_SIZE)
