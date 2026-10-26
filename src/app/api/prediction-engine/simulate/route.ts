@@ -132,7 +132,7 @@ export async function GET() {
       'Market Signal Tracking',
       'xG Luck Adjustment',
       'Injury Impact Modeling',
-      'Portfolio Covariance Analysis',
+      'Exposure-Capped Portfolio Kelly Allocation',
     ],
     defaultConfig: {
       simulationRuns: 150000,
