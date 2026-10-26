@@ -81,9 +81,9 @@ export interface MarketSignal {
     draw: number
     away: number
   }
-  sharpAction: 'home' | 'draw' | 'away' | 'neutral'
+  largestMove: 'home' | 'draw' | 'away' | 'neutral'
   steamMove: boolean
-  rlmDetected: boolean // Reverse Line Movement
+  opposingMoveDetected: boolean // Opposing odds movement, not verified reverse line movement
   confidence: number
   timestamp: string
 }
@@ -589,8 +589,8 @@ export function analyzeMarketSignals(
    * 
    * Key signals:
    * - Steam Move: Rapid odds movement in one direction
-   * - Reverse Line Movement (RLM): Line moves AGAINST public betting
-   * - Sharp Action: Professional syndicate money detected
+   * - Opposing odds movement: home and away odds move in opposite directions
+   * - Largest move: side with the largest absolute odds movement; this does not identify sharp money
    */
 
   // Calculate line velocity (negative = odds dropping = money coming in)
@@ -605,7 +605,7 @@ export function analyzeMarketSignals(
   const drawSteam = drawVelocity < -threshold
 
   // Detect RLM: odds drop on one side despite public likely betting the other
-  const rlmDetected = (homeVelocity < -threshold && awayVelocity > threshold) ||
+  const opposingMoveDetected = (homeVelocity < -threshold && awayVelocity > threshold) ||
     (awayVelocity < -threshold && homeVelocity > threshold)
 
   // Determine sharp action direction
@@ -616,7 +616,7 @@ export function analyzeMarketSignals(
   ]
   velocities.sort((a, b) => b.vel - a.vel)
 
-  const sharpAction: MarketSignal['sharpAction'] =
+  const largestMove: MarketSignal['largestMove'] =
     velocities[0].vel > threshold ? velocities[0].dir : 'neutral'
 
   // Confidence score based on magnitude of movement
@@ -634,9 +634,9 @@ export function analyzeMarketSignals(
       draw: Math.round(drawVelocity * 10000) / 100,
       away: Math.round(awayVelocity * 10000) / 100,
     },
-    sharpAction,
+    largestMove,
     steamMove: homeSteam || awaySteam || drawSteam,
-    rlmDetected,
+    opposingMoveDetected,
     confidence: Math.round(confidence),
     timestamp: new Date().toISOString(),
   }
