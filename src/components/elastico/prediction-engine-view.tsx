@@ -300,7 +300,11 @@ export default function PredictionEngineView() {
       const res = await fetch('/api/prediction-engine/config', {
         method: 'PATCH', headers: authHeaders(), body: JSON.stringify(config),
       })
-      if (!res.ok) throw new Error('Save failed')
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload.error || 'Save failed')
+      const saved = payload.config || config
+      setConfig(saved)
+      setSimRuns(String(saved.simulationRuns))
       toast.success('Configuration saved')
     } catch (e: any) {
       toast.error(e.message || 'Config error')
@@ -316,6 +320,7 @@ export default function PredictionEngineView() {
       if (!res.ok) throw new Error(json.error || 'Failed to load saved configuration')
       const data: EngineConfig = json.config || json.defaults || json
       setConfig(data)
+      setSimRuns(String(data.simulationRuns))
       toast.success('Saved configuration restored')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to reset config')
