@@ -1,10 +1,43 @@
 import { NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
-import { calculateKelly, calculatePortfolioAllocation, type KellyResult, type PortfolioAllocation } from '@/lib/prediction-engine'
+import { db } from '@/lib/db'
+import { DEFAULT_CONFIG, calculateKelly, calculatePortfolioAllocation, type EngineConfig, type KellyResult, type PortfolioAllocation } from '@/lib/prediction-engine'
 
 // ── POST /api/prediction-engine/kelly ───────────────────────────────────────────
 // Calculate Kelly Criterion for a single bet or portfolio
+
+// Read persisted risk controls so non-admin clients cannot override global limits.
+async function getEffectiveRiskSettings(
+  role: string,
+  requested: { fractionalKelly?: number; maxBankrollRisk?: number; minEdgeThreshold?: number }
+) {
+  let saved: Partial<EngineConfig> = {}
+  try {
+    const setting = await db.systemSetting.findUnique({ where: { key: 'prediction_engine_config' } })
+    if (setting?.type === 'json') {
+      const parsed: unknown = JSON.parse(setting.value)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) saved = parsed as Partial<EngineConfig>
+    }
+  } catch (error) {
+    console.warn('[KELLY] Could not load saved risk settings; using defaults:', error)
+  }
+
+  const savedKelly = typeof saved.kellyFraction === 'number' && Number.isFinite(saved.kellyFraction)
+    && saved.kellyFraction >= 0.05 && saved.kellyFraction <= 1 ? saved.kellyFraction : DEFAULT_CONFIG.kellyFraction
+  const savedRisk = typeof saved.maxBankrollRisk === 'number' && Number.isFinite(saved.maxBankrollRisk)
+    && saved.maxBankrollRisk >= 0.01 && saved.maxBankrollRisk <= 0.25 ? saved.maxBankrollRisk : DEFAULT_CONFIG.maxBankrollRisk
+  const savedEdge = typeof saved.minEdgeThreshold === 'number' && Number.isFinite(saved.minEdgeThreshold)
+    && saved.minEdgeThreshold >= 0.005 && saved.minEdgeThreshold <= 0.2 ? saved.minEdgeThreshold : DEFAULT_CONFIG.minEdgeThreshold
+  const isAdmin = role === 'admin'
+
+  return {
+    fractionalKelly: isAdmin ? requested.fractionalKelly ?? savedKelly : savedKelly,
+    maxBankrollRisk: isAdmin ? requested.maxBankrollRisk ?? savedRisk : savedRisk,
+    minEdgeThreshold: isAdmin ? requested.minEdgeThreshold ?? savedEdge : savedEdge,
+  }
+}
+
 
 export async function POST(request: Request) {
   try {
@@ -40,12 +73,13 @@ export async function POST(request: Request) {
       if (minEdgeThreshold !== undefined && (typeof minEdgeThreshold !== 'number' || !Number.isFinite(minEdgeThreshold) || minEdgeThreshold < 0 || minEdgeThreshold > 0.2)) {
         return NextResponse.json({ error: 'minEdgeThreshold must be in [0, 0.2]' }, { status: 400 })
       }
+      const riskSettings = await getEffectiveRiskSettings(auth.user.role, { fractionalKelly, maxBankrollRisk, minEdgeThreshold })
       const allocation: PortfolioAllocation = calculatePortfolioAllocation(
         outcomes,
         bankroll ?? 1000,
-        fractionalKelly ?? 0.25,
-        maxBankrollRisk ?? 0.05,
-        minEdgeThreshold ?? 0.02
+        riskSettings.fractionalKelly,
+        riskSettings.maxBankrollRisk,
+        riskSettings.minEdgeThreshold
       )
       return NextResponse.json({ success: true, mode: 'portfolio', data: allocation })
     }
@@ -75,13 +109,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'minEdgeThreshold must be in [0, 0.2]' }, { status: 400 })
     }
 
+    const riskSettings = await getEffectiveRiskSettings(auth.user.role, { fractionalKelly, maxBankrollRisk, minEdgeThreshold })
     const result: KellyResult = calculateKelly(
       modelProbability,
       bookmakerOdds,
       bankroll ?? 1000,
-      fractionalKelly ?? 0.25,
-      minEdgeThreshold ?? 0.02,
-      maxBankrollRisk ?? 0.05
+      riskSettings.fractionalKelly,
+      riskSettings.minEdgeThreshold,
+      riskSettings.maxBankrollRisk
     )
 
     return NextResponse.json({ success: true, mode: 'single', data: result })
