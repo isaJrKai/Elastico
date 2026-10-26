@@ -681,8 +681,6 @@ export interface FullMatchAnalysis {
     home: KellyResult
     draw: KellyResult
     away: KellyResult
-    over25: KellyResult
-    under25: KellyResult
   }
   portfolioAllocation?: PortfolioAllocation
   marketSignal: MarketSignal | null
@@ -710,15 +708,10 @@ export function runFullMatchAnalysis(
    * 6. Produce final recommendation
    */
 
-  // Step 1: Luck adjustment
-  const homeLuck = adjustForLuck(
-    input.homeXg * 1.1, // Approximate actual goals from xG
-    input.homeXg
-  )
-  const awayLuck = adjustForLuck(
-    input.awayXg * 0.9,
-    input.awayXg
-  )
+  // Step 1: Do not infer actual goals from xG. A luck adjustment requires observed goals,
+  // which MatchInput does not contain, so preserve the sourced xG values without adjustment.
+  const homeLuck = { luckAdjustedGoals: input.homeXg, luckFactor: 1 }
+  const awayLuck = { luckAdjustedGoals: input.awayXg, luckFactor: 1 }
 
   // Step 2: Run simulation with luck-adjusted inputs
   const adjustedInput: MatchInput = {
@@ -745,18 +738,6 @@ export function runFullMatchAnalysis(
     away: calculateKelly(
       simulation.matchProbabilities.awayVictory,
       input.bookmakerOdds.away,
-      bankroll,
-      config.kellyFraction
-    ),
-    over25: calculateKelly(
-      simulation.totalsMarket.over25,
-      input.bookmakerOdds.home * 0.9, // Approximate over/under odds
-      bankroll,
-      config.kellyFraction
-    ),
-    under25: calculateKelly(
-      simulation.totalsMarket.under25,
-      input.bookmakerOdds.home * 1.1,
       bankroll,
       config.kellyFraction
     ),
