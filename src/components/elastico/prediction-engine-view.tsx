@@ -1026,7 +1026,7 @@ export default function PredictionEngineView() {
                             <AlertOctagon className={cn('w-4 h-4', signalResult.opposingMoveDetected ? 'text-purple-400' : 'text-zinc-600')} />
                             <span className="text-sm text-zinc-300">Opposing Odds Move</span>
                           </div>
-                          {signalResult.rlmDetected
+                          {signalResult.opposingMoveDetected
                             ? <Badge className="text-[10px] font-bold bg-purple-500/20 text-purple-400 border-purple-500/30">DETECTED</Badge>
                             : <Badge className="text-[10px] font-bold bg-zinc-800/60 text-zinc-500 border-zinc-700/50">NONE</Badge>
                           }
@@ -1037,9 +1037,9 @@ export default function PredictionEngineView() {
                             <span className="text-sm text-zinc-300">Largest Line Move</span>
                           </div>
                           <Badge className={cn('text-[10px] font-bold border',
-                            signalResult.sharpAction === 'neutral' ? 'bg-zinc-800/60 text-zinc-500 border-zinc-700/50' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                            signalResult.largestMove === 'neutral' ? 'bg-zinc-800/60 text-zinc-500 border-zinc-700/50' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                           )}>
-                            {signalResult.sharpAction === 'neutral' ? 'NEUTRAL' : signalResult.sharpAction.toUpperCase()}
+                            {signalResult.largestMove === 'neutral' ? 'NEUTRAL' : signalResult.largestMove.toUpperCase()}
                           </Badge>
                         </div>
                       </CardContent>
