@@ -1,5 +1,5 @@
-// ELASTICO — TimesFM 2.5 In-Context Conditioning Engine
-// Probabilistic goal projection via NVIDIA NIM TimesFM with covariate conditioning
+// ELASTICO — Experimental conditioned-goal forecast endpoint.
+// Requests the configured TimesFM model ID through NVIDIA NIM and may fall back to an LLM or local baseline.
 
 import { NextResponse } from 'next/server'
 import https from 'https'
