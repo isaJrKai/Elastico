@@ -161,7 +161,10 @@ export default function PredictionEngineView() {
       })
       .then(payload => {
         const persisted = payload.config || payload.defaults
-        if (active && persisted) setConfig(persisted)
+        if (active && persisted) {
+          setConfig(persisted)
+          setSimRuns(String(persisted.simulationRuns))
+        }
       })
       .catch(error => {
         if (active) toast.error(error instanceof Error ? error.message : 'Unable to load engine configuration')
