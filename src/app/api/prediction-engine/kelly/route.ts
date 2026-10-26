@@ -17,21 +17,41 @@ export async function POST(request: Request) {
     const mode = body.mode || 'single'
 
     if (mode === 'portfolio') {
-      // Multi-asset portfolio allocation with covariance adjustment
-      const { outcomes, bankroll, correlationMatrix } = body
-      if (!outcomes || !Array.isArray(outcomes) || outcomes.length === 0) {
-        return NextResponse.json({ error: 'outcomes array is required for portfolio mode' }, { status: 400 })
+      const { outcomes, bankroll, fractionalKelly, maxBankrollRisk, minEdgeThreshold } = body
+      if (!Array.isArray(outcomes) || outcomes.length === 0 || outcomes.length > 20) {
+        return NextResponse.json({ error: 'outcomes must be an array containing 1 to 20 entries' }, { status: 400 })
+      }
+      if (!outcomes.every((out: any) =>
+        out && typeof out.label === 'string' && out.label.trim()
+        && typeof out.modelProb === 'number' && Number.isFinite(out.modelProb) && out.modelProb >= 0 && out.modelProb <= 1
+        && typeof out.odds === 'number' && Number.isFinite(out.odds) && out.odds > 1.01 && out.odds <= 1000
+      )) {
+        return NextResponse.json({ error: 'Each outcome requires a label, model probability between 0 and 1, and decimal odds greater than 1.01' }, { status: 400 })
+      }
+      if (bankroll !== undefined && (typeof bankroll !== 'number' || !Number.isFinite(bankroll) || bankroll <= 0 || bankroll > 1_000_000_000)) {
+        return NextResponse.json({ error: 'bankroll must be a finite positive number within supported limits' }, { status: 400 })
+      }
+      if (fractionalKelly !== undefined && (typeof fractionalKelly !== 'number' || !Number.isFinite(fractionalKelly) || fractionalKelly <= 0 || fractionalKelly > 1)) {
+        return NextResponse.json({ error: 'fractionalKelly must be in (0, 1]' }, { status: 400 })
+      }
+      if (maxBankrollRisk !== undefined && (typeof maxBankrollRisk !== 'number' || !Number.isFinite(maxBankrollRisk) || maxBankrollRisk <= 0 || maxBankrollRisk > 0.25)) {
+        return NextResponse.json({ error: 'maxBankrollRisk must be in (0, 0.25]' }, { status: 400 })
+      }
+      if (minEdgeThreshold !== undefined && (typeof minEdgeThreshold !== 'number' || !Number.isFinite(minEdgeThreshold) || minEdgeThreshold < 0 || minEdgeThreshold > 0.2)) {
+        return NextResponse.json({ error: 'minEdgeThreshold must be in [0, 0.2]' }, { status: 400 })
       }
       const allocation: PortfolioAllocation = calculatePortfolioAllocation(
         outcomes,
-        bankroll || 1000,
-        correlationMatrix
+        bankroll ?? 1000,
+        fractionalKelly ?? 0.25,
+        maxBankrollRisk ?? 0.05,
+        minEdgeThreshold ?? 0.02
       )
       return NextResponse.json({ success: true, mode: 'portfolio', data: allocation })
     }
 
     // Single bet Kelly calculation
-    const { modelProbability, bookmakerOdds, bankroll, fractionalKelly } = body
+    const { modelProbability, bookmakerOdds, bankroll, fractionalKelly, maxBankrollRisk, minEdgeThreshold } = body
     if (modelProbability === undefined || !bookmakerOdds) {
       return NextResponse.json({ error: 'modelProbability and bookmakerOdds are required' }, { status: 400 })
     }
@@ -45,11 +65,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'bankroll must be greater than 0' }, { status: 400 })
     }
 
+    if (fractionalKelly !== undefined && (typeof fractionalKelly !== 'number' || !Number.isFinite(fractionalKelly) || fractionalKelly <= 0 || fractionalKelly > 1)) {
+      return NextResponse.json({ error: 'fractionalKelly must be in (0, 1]' }, { status: 400 })
+    }
+    if (maxBankrollRisk !== undefined && (typeof maxBankrollRisk !== 'number' || !Number.isFinite(maxBankrollRisk) || maxBankrollRisk <= 0 || maxBankrollRisk > 0.25)) {
+      return NextResponse.json({ error: 'maxBankrollRisk must be in (0, 0.25]' }, { status: 400 })
+    }
+    if (minEdgeThreshold !== undefined && (typeof minEdgeThreshold !== 'number' || !Number.isFinite(minEdgeThreshold) || minEdgeThreshold < 0 || minEdgeThreshold > 0.2)) {
+      return NextResponse.json({ error: 'minEdgeThreshold must be in [0, 0.2]' }, { status: 400 })
+    }
+
     const result: KellyResult = calculateKelly(
       modelProbability,
       bookmakerOdds,
-      bankroll || 1000,
-      fractionalKelly ?? 0.25
+      bankroll ?? 1000,
+      fractionalKelly ?? 0.25,
+      minEdgeThreshold ?? 0.02,
+      maxBankrollRisk ?? 0.05
     )
 
     return NextResponse.json({ success: true, mode: 'single', data: result })
