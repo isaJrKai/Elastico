@@ -2,6 +2,7 @@
 // Proves the data truth pipeline works end-to-end with REAL Understat data
 
 if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL in the environment before running this maintenance script.');
+if (process.env.ALLOW_MUTATING_MAINTENANCE_SCRIPT !== 'true') throw new Error('Set ALLOW_MUTATING_MAINTENANCE_SCRIPT=true after reviewing the target database.');
 process.env.DIRECT_URL = process.env.DATABASE_URL;
 
 var { PrismaClient } = require('@prisma/client');
