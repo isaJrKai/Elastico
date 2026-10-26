@@ -14,7 +14,7 @@
     "db:reset": "prisma migrate reset",
     "db:seed": "npx tsx prisma/seed.ts",
     "setup": "prisma generate && prisma db push && npx tsx prisma/seed.ts",
-    "vercel-build": "prisma generate && next build"
+    "vercel-build": "if [ \"$PRISMA_DB_PUSH_ON_BUILD\" = \"true\" ]; then if [ \"$VERCEL_ENV\" != \"production\" ]; then echo \"PRISMA_DB_PUSH_ON_BUILD is production-only.\" >&2; exit 1; fi; if [ -z \"$DATABASE_URL_UNPOOLED\" ]; then echo \"DATABASE_URL_UNPOOLED is required for schema bootstrap.\" >&2; exit 1; fi; DIRECT_URL=\"$DATABASE_URL_UNPOOLED\" prisma db push; fi && prisma generate && next build"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
