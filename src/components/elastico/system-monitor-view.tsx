@@ -588,7 +588,6 @@ function AdminSystemMonitor() {
   }
 
   // ── Tab 2: Veronica ─────────────────────────────────────────────────────
-  const veronicaOnline = false // No self-healing service is deployed; never report a fabricated ONLINE state.
   const [healingEvents] = useState<HealingEvent[]>([])
   const [sandboxCode, setSandboxCode] = useState('// Test code here\nconsole.log("Hello from sandbox");')
   const [sandboxFilename, setSandboxFilename] = useState('test.ts')
