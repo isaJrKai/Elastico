@@ -44,6 +44,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useElasticoStore } from '@/store/use-elastico-store'
+import { toast } from 'sonner'
 import { SectionHeader, DataState } from '@/components/elastico/primitives'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -168,8 +169,9 @@ function NonAdminSystemMonitor() {
     setChecking(true)
 
     // Check all services in parallel
-    const [liveRes, matchesRes, standingsRes, newsRes, playersRes] = await Promise.all([
+    const [liveRes, engineRes, matchesRes, standingsRes, newsRes, playersRes] = await Promise.all([
       checkServiceHealth('/api/live?action=leagues'),
+      checkServiceHealth('/api/prediction-engine/simulate'),
       checkServiceHealth('/api/matches?limit=1'),
       checkServiceHealth('/api/standings'),
       checkServiceHealth('/api/news?limit=1'),
@@ -180,9 +182,9 @@ function NonAdminSystemMonitor() {
     const espnOk = liveRes.ok && liveRes.data?.success !== false
     const espnTime = liveRes.timeMs
 
-    // Prediction engine: check if matches endpoint works (it powers predictions)
-    const predictionOk = matchesRes.ok || standingsRes.ok
-    const predictionTime = Math.max(matchesRes.timeMs, standingsRes.timeMs)
+    // Check the actual prediction-engine route, not unrelated matches/standings endpoints.
+    const predictionOk = engineRes.ok && engineRes.data?.status === 'operational'
+    const predictionTime = engineRes.timeMs
 
     // Database: if matches/players return source:'database', DB is working
     const dbWorking = matchesRes.data?.source === 'database' || playersRes.data?.source === 'database'
@@ -203,7 +205,7 @@ function NonAdminSystemMonitor() {
         icon: Server,
         status: predictionOk ? 'HEALTHY' : 'DOWN',
         sublabel: predictionOk
-          ? `Models ready (${predictionTime}ms)`
+          ? `Engine endpoint responding (${predictionTime}ms)`
           : `Service error (${predictionTime}ms)`,
         responseTime: predictionTime,
       },
@@ -357,7 +359,10 @@ function DataFoundationPanel() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/data-provenance')
+      const token = localStorage.getItem('elastico_token')
+      const res = await fetch('/api/data-provenance', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       setData(json)
@@ -489,7 +494,7 @@ function AdminSystemMonitor() {
 
   // ── Tab 1: Audit Core ────────────────────────────────────────────────────
   const [scraperStatus, setScraperStatus] = useState<'HEALTHY' | 'DEGRADED' | 'DOWN'>('HEALTHY')
-  const [driftStatus, setDriftStatus] = useState<'HEALTHY' | 'DRIFT_DETECTED'>('HEALTHY')
+  const [driftStatus, setDriftStatus] = useState<'HEALTHY' | 'DRIFT_DETECTED' | 'DEGRADED'>('DEGRADED')
   const [clvEdge, setClvEdge] = useState<number | null>(null)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [auditLoading, setAuditLoading] = useState<string | null>(null)
@@ -497,114 +502,98 @@ function AdminSystemMonitor() {
   const runAudit = async (type: 'scraper' | 'drift' | 'convergence') => {
     setAuditLoading(type)
     try {
-      // Map UI audit type to the API's expected action field
       const actionMap = {
         scraper: 'scraper_fidelity',
         drift: 'data_drift',
         convergence: 'market_convergence',
       } as const
       const action = actionMap[type]
-      const data = {} // Empty payload — the API requires specific data structures
+      const token = localStorage.getItem('elastico_token')
+      let data: Record<string, unknown> = {}
+
+      if (type === 'scraper' || type === 'drift') {
+        const matchesResponse = await fetch('/api/matches?limit=200&status=finished', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        const matchesPayload = await matchesResponse.json().catch(() => ({}))
+        if (!matchesResponse.ok) {
+          throw new Error(matchesPayload.error || 'Unable to load finished matches for audit')
+        }
+        const matches = Array.isArray(matchesPayload.matches) ? matchesPayload.matches : []
+        const finished = matches.filter((match: any) =>
+          match?.status === 'finished'
+          && Number.isFinite(match.homeScore)
+          && Number.isFinite(match.awayScore)
+        )
+
+        if (type === 'scraper') {
+          data = { df: finished.map((match: any) => ({ home_goals: match.homeScore, away_goals: match.awayScore })) }
+        } else {
+          const chronological = finished
+            .filter((match: any) => match.date && Number.isFinite(new Date(match.date).getTime()))
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          data = { chronological_goals: chronological.map((match: any) => match.homeScore + match.awayScore) }
+        }
+      } else {
+        // No persisted closing-line-value history is currently wired to the app.
+        // Ask the API to report that missing evidence rather than inventing a series.
+        data = { historical_clv_tracking: [] }
+      }
 
       const res = await fetch('/api/system/self-audit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ action, data }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        if (type === 'scraper') setScraperStatus(data.passed ? 'HEALTHY' : 'DEGRADED')
-        if (type === 'drift') setDriftStatus(data.status === 'DRIFT_DETECTED' ? 'DRIFT_DETECTED' : 'HEALTHY')
-        if (type === 'convergence' && data.meanClvEdge !== undefined) setClvEdge(data.meanClvEdge)
-        setAuditLogs(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          type,
-          status: data.passed === false || data.status === 'DRIFT_DETECTED' ? 'WARNING' : 'PASS',
-          details: data.details || data.status || `Audit completed for ${type}`,
-        }, ...prev])
-      } else {
-        // API returned 400 — typically means data payload is required
-        let details = `Audit endpoint returned an error for ${type}.`
-        try {
-          const errBody = await res.json()
-          if (errBody.error) details = errBody.error
-        } catch { /* non-JSON error body, using default message */ }
-        setAuditLogs(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          type,
-          status: 'FAIL' as const,
-          details,
-        }, ...prev])
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(result.error || `Audit request failed (${res.status})`)
+
+      if (type === 'scraper') setScraperStatus(result.passed ? 'HEALTHY' : 'DEGRADED')
+      if (type === 'drift') {
+        setDriftStatus(result.status === 'DRIFT_DETECTED'
+          ? 'DRIFT_DETECTED'
+          : result.status === 'STABLE' ? 'HEALTHY' : 'DEGRADED')
       }
+      if (type === 'convergence') {
+        setClvEdge(result.count > 0 && Number.isFinite(result.meanClvEdge) ? result.meanClvEdge * 100 : null)
+      }
+
+      const warning = result.passed === false
+        || result.status === 'DRIFT_DETECTED'
+        || result.status === 'INSUFFICIENT_DATA'
+      const details = result.details || result.alert?.details || result.status || `Audit completed for ${type}`
+      setAuditLogs(prev => [{
+        id: String(Date.now()),
+        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        type,
+        status: warning ? 'WARNING' : 'PASS',
+        details,
+      }, ...prev])
     } catch (err) {
+      const details = err instanceof Error ? err.message : `Audit failed for ${type}`
       console.error('[SystemMonitor] Audit request failed for', type, err)
       setAuditLogs(prev => [{
         id: String(Date.now()),
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
         type,
         status: 'FAIL' as const,
-        details: `Could not reach audit service for ${type}. Check network connectivity.`,
+        details,
       }, ...prev])
+    } finally {
+      setAuditLoading(null)
     }
-    setAuditLoading(null)
   }
 
   // ── Tab 2: Veronica ─────────────────────────────────────────────────────
-  const [veronicaOnline, setVeronicaOnline] = useState<boolean | null>(null)
-  const [healingEvents, setHealingEvents] = useState<HealingEvent[]>([])
-  const [healingLoading, setHealingLoading] = useState(false)
+  const [healingEvents] = useState<HealingEvent[]>([])
   const [sandboxCode, setSandboxCode] = useState('// Test code here\nconsole.log("Hello from sandbox");')
   const [sandboxFilename, setSandboxFilename] = useState('test.ts')
-  const [sandboxResult, setSandboxResult] = useState('')
-  const [sandboxLoading, setSandboxLoading] = useState(false)
+  const [sandboxResult] = useState('Sandbox unavailable: no isolated execution runtime is deployed. The code above has not been executed.')
 
-  const triggerDiagnostic = async () => {
-    setHealingLoading(true)
-    try {
-      const res = await fetch('/api/system/veronica-heal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'diagnose', brokenCode: '', filename: 'system-check' }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.events) setHealingEvents(prev => [...data.events, ...prev])
-        if (data.fixCode) {
-          setHealingEvents(prev => [{
-            id: String(Date.now()),
-            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-            file: data.filename || 'system-check',
-            errorType: data.action || 'ScanComplete',
-            status: 'HEALED',
-          }, ...prev])
-        }
-      } else {
-        let errorMsg = 'Service unavailable'
-        try { const err = await res.json(); errorMsg = err.error || errorMsg } catch { /* non-JSON error body */ }
-        setHealingEvents(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          file: 'N/A',
-          errorType: 'ServiceUnavailable',
-          status: 'FAILED',
-        }, ...prev])
-      }
-    } catch (err) {
-      console.error('[SystemMonitor] Diagnostic request failed:', err)
-      await new Promise(r => setTimeout(r, 800))
-    }
-    setHealingLoading(false)
-  }
 
-  const testInSandbox = async () => {
-    setSandboxLoading(true)
-    setSandboxResult('')
-    await new Promise(r => setTimeout(r, 1200))
-    setSandboxResult(`⚠ Sandbox execution unavailable\nFile: ${sandboxFilename}\nNo sandbox runtime is connected. The sandbox service is not yet deployed.`)
-    setSandboxLoading(false)
-  }
 
   // ── Tab 3: SAIM Security ────────────────────────────────────────────────
   const [integrityScore, setIntegrityScore] = useState<number | null>(null)
@@ -617,9 +606,10 @@ function AdminSystemMonitor() {
     setIntegrityLoading(true)
     try {
       // The 'audit' action hashes all critical files server-side — no payload needed
+      const token = localStorage.getItem('elastico_token')
       const res = await fetch('/api/system/saim-security', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ action: 'audit' }),
       })
       if (res.ok) {
@@ -660,76 +650,86 @@ function AdminSystemMonitor() {
   const [forecastResult, setForecastResult] = useState<{ projection: number; model: string } | null>(null)
 
   useEffect(() => {
-    // Check if NVIDIA API is configured by inspecting env indicator
-    fetch('/api/prediction-engine/config')
-      .then(r => r.json())
-      .then(data => {
-        // The config endpoint returns { success, config, defaults } —
-        // check whether NVIDIA_API_KEY is set via the model field in defaults
-        if (data.config?.model && data.config.model !== 'mock-fallback') {
-          setModelStatus('CONNECTED')
-        }
+    const token = localStorage.getItem('elastico_token')
+    fetch('/api/prediction-engine/timesfm', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(async res => {
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Unable to check NVIDIA NIM configuration')
+        return data
       })
-      .catch((err) => { console.warn('[SystemMonitor] Failed to fetch prediction-engine config:', err) })
+      .then(data => setModelStatus(data.configured ? 'CONNECTED' : 'OFFLINE'))
+      .catch((err) => {
+        console.warn('[SystemMonitor] Failed to check forecast provider configuration:', err)
+        setModelStatus('OFFLINE')
+      })
   }, [])
 
   const runForecast = async () => {
-    if (!forecastTeam) return
+    if (!forecastTeam.trim()) {
+      toast.error('Enter a team name')
+      return
+    }
+    if (!forecastHistory.trim()) {
+      toast.error('Enter real historical total-goal values before running a forecast')
+      return
+    }
+
+    const historyTokens = forecastHistory.split(',').map(value => value.trim())
+    const indicatorTokens = forecastIndicators.trim()
+      ? forecastIndicators.split(',').map(value => value.trim())
+      : []
+    const validNumericTokens = (tokens: string[]) =>
+      tokens.every(value => value !== '' && Number.isFinite(Number(value)))
+    if (historyTokens.length > 64 || !validNumericTokens(historyTokens)
+      || historyTokens.some(value => Number(value) < 0 || Number(value) > 20)) {
+      toast.error('Enter 1–64 historical goal totals, each between 0 and 20, separated by commas')
+      return
+    }
+    if (indicatorTokens.length > 8 || !validNumericTokens(indicatorTokens)
+      || indicatorTokens.some(value => Math.abs(Number(value)) > 1000)) {
+      toast.error('Enter up to 8 finite numeric indicators, each within ±1000')
+      return
+    }
+
+    const coreHistory = historyTokens.map(Number)
+    const recentIndicators = indicatorTokens.map(Number)
     setForecastLoading(true)
     setForecastResult(null)
     try {
-      // Parse user input into number arrays for the API
-      const historyStr = forecastHistory || '1,1,3,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3,1,0,3,1,1,0,3,1,0,1,3,0,0,1,3'
-      const indicatorStr = forecastIndicators || '1.2,1.5,0.8,2.1,1.9,2.4,1.7,2.8'
-      const coreHistory = historyStr.split(',').map(Number).filter(n => !isNaN(n))
-      const recentIndicators = indicatorStr.split(',').map(Number).filter(n => !isNaN(n))
-
-      if (coreHistory.length === 0) {
-        setForecastResult({ projection: 0, model: 'error' })
-        setForecastLoading(false)
-        return
-      }
-
+      const token = localStorage.getItem('elastico_token')
       const res = await fetch('/api/prediction-engine/timesfm', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ coreHistory, recentIndicators }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        const projection = data.conditionedProjection ?? 0
-        const model = data.model || 'unknown'
-        setForecastResult({ projection, model })
-        setForecasts(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          team: forecastTeam,
-          projection,
-          model,
-        }, ...prev])
-      } else {
-        const errBody = await res.json().catch(() => ({}))
-        setForecastResult({ projection: 0, model: 'error' })
-        setForecasts(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          team: forecastTeam,
-          projection: 0,
-          model: `error: ${errBody.error || res.status}`,
-        }, ...prev])
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Forecast request failed (${res.status})`)
+      const projection = Number(data.conditionedProjection)
+      if (!Number.isFinite(projection) || projection < 0 || projection > 20) {
+        throw new Error('Forecast provider returned an invalid projection')
       }
-    } catch (err) {
-      console.error('[SystemMonitor] Forecast failed:', err)
-      setForecastResult({ projection: 0, model: 'error' })
+      const model = String(data.model || 'unknown')
+      setForecastResult({ projection, model })
       setForecasts(prev => [{
         id: String(Date.now()),
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-        team: forecastTeam,
-        projection: 0,
-        model: 'network-error',
+        team: forecastTeam.trim(),
+        projection,
+        model,
       }, ...prev])
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Forecast request failed'
+      console.error('[SystemMonitor] Forecast failed:', err)
+      setForecastResult({ projection: 0, model: `error: ${message}` })
+      toast.error(message)
+    } finally {
+      setForecastLoading(false)
     }
-    setForecastLoading(false)
   }
 
   // ── Render ──────────────────────────────────────────────────────────────
@@ -768,7 +768,7 @@ function AdminSystemMonitor() {
             <Lock className="size-3.5" /> SAIM Security
           </TabsTrigger>
           <TabsTrigger value="timesfm" className="gap-1.5">
-            <Brain className="size-3.5" /> TimesFM 2.5
+            <Brain className="size-3.5" /> Conditioned Forecast (experimental)
           </TabsTrigger>
           <TabsTrigger value="data-foundation" className="gap-1.5">
             <Database className="size-3.5" /> Data Foundation
@@ -962,21 +962,19 @@ function AdminSystemMonitor() {
                     <div
                       className="size-4 rounded-full"
                       style={{
-                        backgroundColor: statusColor(veronicaOnline === true ? 'ONLINE' : 'OFFLINE'),
-                        boxShadow: `0 0 12px ${statusColor(veronicaOnline === true ? 'ONLINE' : 'OFFLINE')}80`,
+                        backgroundColor: statusColor('OFFLINE'),
+                        boxShadow: `0 0 12px ${statusColor('OFFLINE')}80`,
                       }}
                     />
-                    <span className="text-xl font-bold" style={{ color: statusColor(veronicaOnline === true ? 'ONLINE' : 'OFFLINE') }}>
-                      {veronicaOnline === true ? 'ONLINE' : veronicaOnline === false ? 'OFFLINE' : 'UNKNOWN'}
-                    </span>
+                    <span className="text-xl font-bold" style={{ color: statusColor('OFFLINE') }}>NOT DEPLOYED</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Self-healing engine active · Monitoring {healingEvents.length} events
+                    Self-healing service is not deployed. No automated code changes will be made.
                   </p>
                   <div className="flex gap-2 pt-2">
-                    <Button size="sm" className="flex-1 gap-2" onClick={triggerDiagnostic} disabled={healingLoading}>
-                      {healingLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Terminal className="size-3.5" />}
-                      Trigger Diagnostic
+                    <Button size="sm" className="flex-1 gap-2" disabled title="Diagnostic service is not deployed">
+                      <Terminal className="size-3.5" />
+                      Diagnostic service unavailable
                     </Button>
                   </div>
                 </CardContent>
@@ -1088,9 +1086,9 @@ function AdminSystemMonitor() {
                     </div>
                   </div>
                   <div className="flex items-end">
-                    <Button size="sm" className="w-full gap-2" onClick={testInSandbox} disabled={sandboxLoading}>
-                      {sandboxLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-                      Test in Sandbox
+                    <Button size="sm" className="w-full gap-2" disabled title="No isolated sandbox runtime is deployed">
+                      <Play className="size-3.5" />
+                      Sandbox runtime unavailable
                     </Button>
                   </div>
                 </div>
@@ -1333,13 +1331,13 @@ function AdminSystemMonitor() {
                       }}
                     />
                     <span className="text-lg font-bold" style={{ color: statusColor(modelStatus === 'CONNECTED' ? 'ONLINE' : 'OFFLINE') }}>
-                      {modelStatus === 'CONNECTED' ? 'Connected to NVIDIA NIM' : 'Offline (Mock Mode)'}
+                      {modelStatus === 'CONNECTED' ? 'NVIDIA NIM key configured' : 'NVIDIA NIM not configured'}
                     </span>
                   </div>
                   <div className="space-y-2 text-xs text-muted-foreground">
-                    <p><strong className="text-foreground">Model:</strong> {modelStatus === 'CONNECTED' ? 'TimesFM via NVIDIA NIM' : 'Not connected'}</p>
-                    <p><strong className="text-foreground">Backend:</strong> {modelStatus === 'CONNECTED' ? 'NVIDIA NIM API' : 'No backend configured'}</p>
-                    <p><strong className="text-foreground">Status:</strong> {modelStatus === 'CONNECTED' ? 'Active' : 'Configure NVIDIA_API_KEY to enable'}</p>
+                    <p><strong className="text-foreground">Model:</strong> {modelStatus === 'CONNECTED' ? 'NVIDIA NIM request with LLM fallback' : 'Weighted moving-average baseline'}</p>
+                    <p><strong className="text-foreground">Backend:</strong> {modelStatus === 'CONNECTED' ? 'NVIDIA NIM API' : 'Local baseline fallback'}</p>
+                    <p><strong className="text-foreground">Status:</strong> {modelStatus === 'CONNECTED' ? 'Key configured; provider reachability is verified per request' : 'Configure NVIDIA_API_KEY to enable provider requests'}</p>
                   </div>
                   {forecastResult && (
                     <div className="bg-muted/50 rounded-lg p-3 space-y-2 border border-primary/20">
@@ -1381,16 +1379,16 @@ function AdminSystemMonitor() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">64-Game History (comma separated: W=3, D=1, L=0)</Label>
+                    <Label className="text-xs text-muted-foreground">Historical Total Goals (up to 64 recent matches; comma separated)</Label>
                     <Textarea
                       value={forecastHistory}
                       onChange={e => setForecastHistory(e.target.value)}
-                      placeholder="3,1,0,3,3,1,0,0,3,1,..."
+                      placeholder="2,1,4,0,3,2,..."
                       className="min-h-[60px] font-mono text-xs bg-muted/50 resize-y"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Recent Indicators (comma separated)</Label>
+                    <Label className="text-xs text-muted-foreground">Recent Indicators (optional; up to 8 comma-separated numbers)</Label>
                     <Input
                       value={forecastIndicators}
                       onChange={e => setForecastIndicators(e.target.value)}

@@ -28,9 +28,8 @@ async function setConfig(config: EngineConfig): Promise<void> {
 export async function GET(req: Request) {
   const auth = await authenticateRequest(req)
   if (auth instanceof Response) return auth
-  if (!auth.user || auth.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-  }
+  // Configuration values are not secret; authenticated users need to read them so
+  // simulations and Kelly calculations use the same effective model settings.
   const config = await getConfig()
   return NextResponse.json({
     success: true,
@@ -49,21 +48,35 @@ async function handleConfigUpdate(request: Request) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const body = await request.json()
-    const updates: Partial<EngineConfig> = body
+    const body: unknown = await request.json().catch(() => null)
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Configuration must be a JSON object' }, { status: 400 })
+    }
+    const updates = body as Partial<EngineConfig>
 
-    // Validate ranges
+    // Reject malformed values rather than coercing strings or persisting invalid flags.
     if (updates.simulationRuns !== undefined) {
-      updates.simulationRuns = Math.min(500000, Math.max(10000, updates.simulationRuns))
+      if (typeof updates.simulationRuns !== 'number' || !Number.isInteger(updates.simulationRuns)
+        || updates.simulationRuns < 10000 || updates.simulationRuns > 200000) {
+        return NextResponse.json({ error: 'simulationRuns must be an integer between 10,000 and 200,000' }, { status: 400 })
+      }
     }
-    if (updates.kellyFraction !== undefined) {
-      updates.kellyFraction = Math.min(1, Math.max(0.05, updates.kellyFraction))
+    if (updates.kellyFraction !== undefined && (typeof updates.kellyFraction !== 'number'
+      || !Number.isFinite(updates.kellyFraction) || updates.kellyFraction < 0.05 || updates.kellyFraction > 1)) {
+      return NextResponse.json({ error: 'kellyFraction must be between 0.05 and 1' }, { status: 400 })
     }
-    if (updates.minEdgeThreshold !== undefined) {
-      updates.minEdgeThreshold = Math.min(0.2, Math.max(0.005, updates.minEdgeThreshold))
+    if (updates.minEdgeThreshold !== undefined && (typeof updates.minEdgeThreshold !== 'number'
+      || !Number.isFinite(updates.minEdgeThreshold) || updates.minEdgeThreshold < 0.005 || updates.minEdgeThreshold > 0.2)) {
+      return NextResponse.json({ error: 'minEdgeThreshold must be between 0.005 and 0.2' }, { status: 400 })
     }
-    if (updates.maxBankrollRisk !== undefined) {
-      updates.maxBankrollRisk = Math.min(0.25, Math.max(0.01, updates.maxBankrollRisk))
+    if (updates.maxBankrollRisk !== undefined && (typeof updates.maxBankrollRisk !== 'number'
+      || !Number.isFinite(updates.maxBankrollRisk) || updates.maxBankrollRisk < 0.01 || updates.maxBankrollRisk > 0.25)) {
+      return NextResponse.json({ error: 'maxBankrollRisk must be between 0.01 and 0.25' }, { status: 400 })
+    }
+    for (const key of ['garchEnabled', 'jumpDiffusionEnabled'] as const) {
+      if (updates[key] !== undefined && typeof updates[key] !== 'boolean') {
+        return NextResponse.json({ error: `${key} must be a boolean` }, { status: 400 })
+      }
     }
 
     const currentConfig = await getConfig()

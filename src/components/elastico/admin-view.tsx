@@ -175,7 +175,7 @@ export default function AdminView() {
   const [newsItems, setNewsItems] = useState<any[]>([])
   const [newsModal, setNewsModal] = useState(false)
   const [editingNews, setEditingNews] = useState<any>(null)
-  const [newsForm, setNewsForm] = useState({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
+  const [newsForm, setNewsForm] = useState({ title: '', summary: '', content: '', sourceUrl: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
   const [pushForm, setPushForm] = useState({ title: '', message: '', segment: 'all' })
 
   // ── Invite User State ──
@@ -197,13 +197,14 @@ export default function AdminView() {
     setLoading(true)
     try {
       const headers = authHeaders()
-      const [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes] = await Promise.all([
+      const [statsRes, usersRes, logsRes, settingsRes, annRes, flagsRes, newsRes] = await Promise.all([
         fetch('/api/admin', { headers }).then(r => r.json()).catch(() => null),
         fetch('/api/admin/users', { headers }).then(r => r.json()).catch(() => ({ users: [] })),
         fetch('/api/admin/logs?limit=50', { headers }).then(r => r.json()).catch(() => ({ logs: [] })),
         fetch('/api/admin/settings', { headers }).then(r => r.json()).catch(() => ({ settings: [] })),
         fetch('/api/admin/announcements', { headers }).then(r => r.json()).catch(() => ({ announcements: [] })),
         fetch('/api/admin/feature-flags', { headers }).then(r => r.json()).catch(() => ({ flags: [] })),
+        fetch('/api/admin/news', { headers }).then(r => r.json()).catch(() => ({ articles: [] })),
       ])
       setStats(statsRes?.dashboard || statsRes || null)
       setUsers(usersRes.users || [])
@@ -213,6 +214,7 @@ export default function AdminView() {
       setSettingsList(Array.isArray(settingsRes.settings) ? settingsRes.settings : [])
       setAnnouncements(Array.isArray(annRes.announcements) ? annRes.announcements : [])
       setFeatureFlags(Array.isArray(flagsRes.flags) ? flagsRes.flags : [])
+      setNewsItems(Array.isArray(newsRes.articles) ? newsRes.articles : [])
     } catch (e) { console.error('Admin fetch error:', e) }
     finally { setLoading(false) }
   }, [])
@@ -296,15 +298,32 @@ export default function AdminView() {
         body.type = 'info'
       }
       const res = await fetch('/api/admin', { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) })
-      if (res.ok) {
-        const data = await res.json()
-        toast.success(data.message || `Action "${action}" completed`)
-        if (action === 'maintenance') fetchAdminData()
-      } else {
-        toast.error('Action failed')
-      }
-    } catch { toast.error('Action error') }
-    finally { setActionLoading(null) }
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Action failed (${res.status})`)
+      toast.success(data.message || `Action "${action}" completed`)
+      if (action === 'maintenance') fetchAdminData()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Action error')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleClearLocalCache = async () => {
+    setActionLoading('clearCache')
+    try {
+      if (!('caches' in window)) throw new Error('This browser does not support Cache Storage')
+      const cacheNames = await window.caches.keys()
+      const deleted = await Promise.all(cacheNames.map(name => window.caches.delete(name)))
+      const count = deleted.filter(Boolean).length
+      toast.success(`Cleared ${count} local browser cache${count === 1 ? '' : 's'}`, {
+        description: 'This affects only this browser; other users’ devices are unchanged.',
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to clear local browser cache')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleExportCSV = () => {
@@ -342,30 +361,74 @@ export default function AdminView() {
     } catch { toast.error('Error creating announcement') }
   }
 
-  const handleCreateNews = () => {
-    if (!newsForm.title) { toast.error('Title required'); return }
-    if (editingNews) {
-      setNewsItems(prev => prev.map(n => n.id === editingNews.id ? { ...n, ...newsForm } : n))
-      toast.success('News updated')
-    } else {
-      const newItem = { id: `n-${Date.now()}`, ...newsForm, readCount: 0, publishedAt: new Date().toISOString() }
-      setNewsItems(prev => [newItem, ...prev])
-      toast.success('News published')
+  const handleCreateNews = async () => {
+    if (!newsForm.title.trim()) { toast.error('Title required'); return }
+    if (!newsForm.sourceUrl.trim()) { toast.error('A canonical source URL is required'); return }
+    setActionLoading('news')
+    try {
+      const res = await fetch('/api/admin/news', {
+        method: editingNews ? 'PATCH' : 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ ...newsForm, sourceUrl: newsForm.sourceUrl.trim(), ...(editingNews ? { id: editingNews.id } : {}) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Article save failed (${res.status})`)
+      setNewsItems(prev => editingNews
+        ? prev.map(article => article.id === editingNews.id ? data.article : article)
+        : [data.article, ...prev])
+      toast.success(editingNews ? 'Article updated' : 'Article published')
+      setNewsForm({ title: '', summary: '', content: '', sourceUrl: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
+      setNewsModal(false)
+      setEditingNews(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to save article')
+    } finally {
+      setActionLoading(null)
     }
-    setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' })
-    setNewsModal(false)
-    setEditingNews(null)
   }
 
-  const handleDeleteNews = (id: string) => {
-    setNewsItems(prev => prev.filter(n => n.id !== id))
-    toast.success('News deleted')
+  const handleDeleteNews = async (id: string) => {
+    try {
+      const res = await fetch('/api/admin/news', {
+        method: 'DELETE',
+        headers: authHeaders(),
+        body: JSON.stringify({ id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Article delete failed (${res.status})`)
+      setNewsItems(prev => prev.filter(article => article.id !== id))
+      toast.success('Article deleted')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to delete article')
+    }
   }
 
-  const handleSendPush = () => {
-    if (!pushForm.title || !pushForm.message) { toast.error('Title and message required'); return }
-    toast.success(`Push notification sent to ${pushForm.segment === 'all' ? 'all users' : pushForm.segment}`)
-    setPushForm({ title: '', message: '', segment: 'all' })
+  const handleSendPush = async () => {
+    if (!pushForm.title.trim() || !pushForm.message.trim()) {
+      toast.error('Title and message required')
+      return
+    }
+    setActionLoading('notifySegment')
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          action: 'notifySegment',
+          title: pushForm.title.trim(),
+          message: pushForm.message.trim(),
+          segment: pushForm.segment,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Notification request failed (${res.status})`)
+      toast.success(data.message || `In-app notification sent to ${data.notifiedUsers ?? 0} users`)
+      setPushForm({ title: '', message: '', segment: 'all' })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Notification send failed')
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleBulkAction = async () => {
@@ -391,12 +454,7 @@ export default function AdminView() {
     fetchAdminData()
   }
 
-  const handleInviteUser = () => {
-    if (!inviteForm.email || !inviteForm.email.includes('@')) { toast.error('Valid email required'); return }
-    toast.success(`Invitation sent to ${inviteForm.email} with ${inviteForm.plan} plan`)
-    setInviteForm({ email: '', plan: 'free', role: 'user' })
-    setInviteModal(false)
-  }
+
 
   const handleToggleSetting = async (key: string, value: string) => {
     try {
@@ -658,8 +716,8 @@ export default function AdminView() {
             {/* Feature 5: Quick Actions Panel */}
             <SectionCard title="Quick Actions" icon={Zap}>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => { toast.success('Cache cleared'); handleQuickAction('clearCache') }}>
-                  <RefreshCw className={`h-3.5 w-3.5 ${actionLoading === 'clearCache' ? 'animate-spin' : ''}`} /> Clear Cache
+                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={handleClearLocalCache} disabled={actionLoading === 'clearCache'}>
+                  <RefreshCw className={`h-3.5 w-3.5 ${actionLoading === 'clearCache' ? 'animate-spin' : ''}`} /> Clear Local Cache
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('broadcast')}>
                   <Megaphone className="h-3.5 w-3.5" /> Send Broadcast
@@ -667,8 +725,8 @@ export default function AdminView() {
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('maintenance')}>
                   <ToggleLeft className="h-3.5 w-3.5" /> Maintenance
                 </Button>
-                <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={() => handleQuickAction('sync')}>
-                  <Upload className="h-3.5 w-3.5" /> Sync Data
+                <Button variant="outline" size="sm" className="gap-2 justify-start" disabled title="No background sync job is configured; match data is fetched live">
+                  <Upload className="h-3.5 w-3.5" /> Sync unavailable
                 </Button>
                 <Button variant="outline" size="sm" className="gap-2 justify-start" onClick={handleExportCSV}>
                   <Download className="h-3.5 w-3.5" /> Export CSV
@@ -857,9 +915,10 @@ export default function AdminView() {
                         </Select>
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground">Email delivery is not configured. No invitation will be sent from this screen.</p>
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setInviteModal(false)}>Cancel</Button>
-                      <Button onClick={handleInviteUser}>Send Invitation</Button>
+                      <Button variant="outline" onClick={() => setInviteModal(false)}>Close</Button>
+                      <Button disabled title="Invitation email delivery is not configured">Invitations unavailable</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -1193,10 +1252,10 @@ export default function AdminView() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">{newsItems.length} articles</p>
-                  <Dialog open={newsModal} onOpenChange={(open) => { setNewsModal(open); if (!open) { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) } }}>
+                  <Dialog open={newsModal} onOpenChange={(open) => { setNewsModal(open); if (!open) { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', sourceUrl: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) } }}>
                     <DialogTrigger asChild>
                       <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 h-8"
-                        onClick={() => { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) }}>
+                        onClick={() => { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', sourceUrl: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) }}>
                         <Plus className="h-3.5 w-3.5" /> New Article
                       </Button>
                     </DialogTrigger>
@@ -1216,6 +1275,10 @@ export default function AdminView() {
                         <div className="space-y-2">
                           <Label>Content</Label>
                           <Textarea value={newsForm.content} onChange={e => setNewsForm(p => ({ ...p, content: e.target.value }))} rows={4} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Canonical Source URL</Label>
+                          <Input type="url" value={newsForm.sourceUrl} onChange={e => setNewsForm(p => ({ ...p, sourceUrl: e.target.value }))} placeholder="https://example.com/article" />
                         </div>
                         <div className="grid grid-cols-3 gap-3">
                           <div className="space-y-2">
@@ -1246,7 +1309,7 @@ export default function AdminView() {
                       </div>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setNewsModal(false)}>Cancel</Button>
-                        <Button onClick={handleCreateNews}>{editingNews ? 'Update' : 'Publish'}</Button>
+                        <Button onClick={handleCreateNews} disabled={actionLoading === 'news'}>{actionLoading === 'news' ? 'Saving…' : editingNews ? 'Update' : 'Publish'}</Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
@@ -1262,7 +1325,7 @@ export default function AdminView() {
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-[10px]">{news.category}</Badge>
-                            <span className="text-[10px] text-muted-foreground">{news.readCount} reads</span>
+                            <span className="text-[10px] text-muted-foreground">{news.publishedAt ? new Date(news.publishedAt).toLocaleDateString() : 'Draft'}</span>
                             <span className="text-[10px] text-muted-foreground">
                               {news.sentiment === 'positive' ? '😊' : news.sentiment === 'negative' ? '😟' : '😐'}
                             </span>
@@ -1270,7 +1333,7 @@ export default function AdminView() {
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button size="icon" variant="ghost" className="h-7 w-7"
-                            onClick={() => { setEditingNews(news); setNewsForm({ title: news.title, summary: news.summary || '', content: news.content || '', category: news.category, isBreaking: news.isBreaking, sentiment: news.sentiment || 'neutral' }); setNewsModal(true) }}>
+                            onClick={() => { setEditingNews(news); setNewsForm({ title: news.title, summary: news.summary || '', content: news.content || '', sourceUrl: news.sourceUrl || '', category: news.category, isBreaking: news.isBreaking, sentiment: news.sentiment || 'neutral' }); setNewsModal(true) }}>
                             <Edit className="h-3 w-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteNews(news.id)}>
@@ -1296,7 +1359,7 @@ export default function AdminView() {
             </SectionCard>
 
             {/* Feature 16: Push Notification Composer */}
-            <SectionCard title="Push Notification Composer" icon={Radio}>
+            <SectionCard title="In-App Notification Composer" icon={Radio}>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Title</Label>
@@ -1319,8 +1382,8 @@ export default function AdminView() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleSendPush}>
-                  <Send className="h-4 w-4 mr-2" /> Send Push Notification
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleSendPush} disabled={actionLoading === 'notifySegment'}>
+                  <Send className="h-4 w-4 mr-2" /> {actionLoading === 'notifySegment' ? 'Sending…' : 'Send In-App Notification'}
                 </Button>
               </div>
             </SectionCard>

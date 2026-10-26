@@ -77,6 +77,8 @@ export default function PredictionEngineView() {
   const teams = useElasticoStore(s => s.teams)
   const fetchTeams = useElasticoStore(s => s.fetchTeams)
   const token = useElasticoStore(s => s.token)
+  const user = useElasticoStore(s => s.user)
+  const isAdmin = user?.role === 'admin'
 
   // Fetch teams on mount if the store is empty
   const [teamsLoading, setTeamsLoading] = useState(false)
@@ -144,6 +146,32 @@ export default function PredictionEngineView() {
     jumpDiffusionEnabled: true, minEdgeThreshold: 0.02, maxBankrollRisk: 0.05,
   })
   const [configLoading, setConfigLoading] = useState(false)
+  const [configFetching, setConfigFetching] = useState(false)
+
+  // Configuration is global and admin-only. Load persisted values before allowing edits.
+  useEffect(() => {
+    if (!token) return
+    let active = true
+    setConfigFetching(true)
+    fetch('/api/prediction-engine/config', { headers: { Authorization: `Bearer ${token}` } })
+      .then(async res => {
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(payload.error || 'Unable to load engine configuration')
+        return payload
+      })
+      .then(payload => {
+        const persisted = payload.config || payload.defaults
+        if (active && persisted) {
+          setConfig(persisted)
+          setSimRuns(String(persisted.simulationRuns))
+        }
+      })
+      .catch(error => {
+        if (active) toast.error(error instanceof Error ? error.message : 'Unable to load engine configuration')
+      })
+      .finally(() => { if (active) setConfigFetching(false) })
+    return () => { active = false }
+  }, [token])
 
   const homeTeam = teams.find(t => t.id === homeTeamId)
   const awayTeam = teams.find(t => t.id === awayTeamId)
@@ -213,6 +241,9 @@ export default function PredictionEngineView() {
           mode: 'portfolio',
           outcomes,
           bankroll: +kellyBankroll,
+          fractionalKelly: config.kellyFraction,
+          maxBankrollRisk: config.maxBankrollRisk,
+          minEdgeThreshold: config.minEdgeThreshold,
         }),
       })
       if (!res.ok) throw new Error('Kelly calculation failed')
@@ -224,7 +255,7 @@ export default function PredictionEngineView() {
     } finally {
       setKellyLoading(false)
     }
-  }, [analysis, kellyBankroll])
+  }, [analysis, kellyBankroll, config.kellyFraction, config.maxBankrollRisk, config.minEdgeThreshold])
 
   // ── Run market signals ────────────────────────────────────────────────────────
   const runSignals = useCallback(async () => {
@@ -269,7 +300,11 @@ export default function PredictionEngineView() {
       const res = await fetch('/api/prediction-engine/config', {
         method: 'PATCH', headers: authHeaders(), body: JSON.stringify(config),
       })
-      if (!res.ok) throw new Error('Save failed')
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload.error || 'Save failed')
+      const saved = payload.config || config
+      setConfig(saved)
+      setSimRuns(String(saved.simulationRuns))
       toast.success('Configuration saved')
     } catch (e: any) {
       toast.error(e.message || 'Config error')
@@ -281,13 +316,15 @@ export default function PredictionEngineView() {
   const resetConfig = useCallback(async () => {
     try {
       const res = await fetch('/api/prediction-engine/config', { headers: authHeaders() })
-      if (res.ok) {
-        const json = await res.json()
-        const data: EngineConfig = json.config || json.defaults || json
-        setConfig(data)
-        toast.success('Configuration reset')
-      }
-    } catch { toast.error('Failed to reset config') }
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'Failed to load saved configuration')
+      const data: EngineConfig = json.config || json.defaults || json
+      setConfig(data)
+      setSimRuns(String(data.simulationRuns))
+      toast.success('Saved configuration restored')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to reset config')
+    }
   }, [])
 
   // ── Injury management ─────────────────────────────────────────────────────────
@@ -356,9 +393,11 @@ export default function PredictionEngineView() {
           <TabsTrigger value="signals" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
             <Radio className="w-4 h-4 mr-2" />Market Signals
           </TabsTrigger>
-          <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
-            <Settings className="w-4 h-4 mr-2" />Engine Config
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="config" className="flex-shrink-0 min-w-[140px] data-[state=active]:bg-emerald-500/15 data-[state=active]:text-emerald-400 text-zinc-400 transition-all">
+              <Settings className="w-4 h-4 mr-2" />Engine Config
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ═════════════════════ TAB 1: STOCHASTIC SIMULATOR ═════════════════════ */}
@@ -776,8 +815,8 @@ export default function PredictionEngineView() {
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-zinc-500">Sharpe Ratio</span>
-                        <span className="text-white font-medium">{kellyResult.sharpeRatio.toFixed(3)}</span>
+                        <span className="text-zinc-500">Risk-adjusted proxy (heuristic)</span>
+                        <span className="text-white font-medium">{kellyResult.riskAdjustedProxy.toFixed(3)}</span>
                       </div>
                       <Separator className="bg-zinc-800/50" />
                       <div className="flex justify-between text-sm">
@@ -980,7 +1019,7 @@ export default function PredictionEngineView() {
                         <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
                           <div className="flex items-center gap-2">
                             <Flame className={cn('w-4 h-4', signalResult.steamMove ? 'text-orange-400' : 'text-zinc-600')} />
-                            <span className="text-sm text-zinc-300">Steam Move</span>
+                            <span className="text-sm text-zinc-300">Rapid Odds Move</span>
                           </div>
                           {signalResult.steamMove
                             ? <Badge className="text-[10px] font-bold bg-orange-500/20 text-orange-400 border-orange-500/30">DETECTED</Badge>
@@ -989,39 +1028,39 @@ export default function PredictionEngineView() {
                         </div>
                         <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
                           <div className="flex items-center gap-2">
-                            <AlertOctagon className={cn('w-4 h-4', signalResult.rlmDetected ? 'text-purple-400' : 'text-zinc-600')} />
-                            <span className="text-sm text-zinc-300">RLM Detected</span>
+                            <AlertOctagon className={cn('w-4 h-4', signalResult.opposingMoveDetected ? 'text-purple-400' : 'text-zinc-600')} />
+                            <span className="text-sm text-zinc-300">Opposing Odds Move</span>
                           </div>
-                          {signalResult.rlmDetected
+                          {signalResult.opposingMoveDetected
                             ? <Badge className="text-[10px] font-bold bg-purple-500/20 text-purple-400 border-purple-500/30">DETECTED</Badge>
                             : <Badge className="text-[10px] font-bold bg-zinc-800/60 text-zinc-500 border-zinc-700/50">NONE</Badge>
                           }
                         </div>
                         <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
                           <div className="flex items-center gap-2">
-                            <Eye className={cn('w-4 h-4', signalResult.sharpAction !== 'neutral' ? 'text-emerald-400' : 'text-zinc-600')} />
-                            <span className="text-sm text-zinc-300">Sharp Action</span>
+                            <Eye className={cn('w-4 h-4', signalResult.largestMove !== 'neutral' ? 'text-emerald-400' : 'text-zinc-600')} />
+                            <span className="text-sm text-zinc-300">Largest Line Move</span>
                           </div>
                           <Badge className={cn('text-[10px] font-bold border',
-                            signalResult.sharpAction === 'neutral' ? 'bg-zinc-800/60 text-zinc-500 border-zinc-700/50' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                            signalResult.largestMove === 'neutral' ? 'bg-zinc-800/60 text-zinc-500 border-zinc-700/50' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                           )}>
-                            {signalResult.sharpAction === 'neutral' ? 'NEUTRAL' : signalResult.sharpAction.toUpperCase()}
+                            {signalResult.largestMove === 'neutral' ? 'NEUTRAL' : signalResult.largestMove.toUpperCase()}
                           </Badge>
                         </div>
                       </CardContent>
                     </Card>
                     <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Signal Confidence</CardTitle>
+                        <CardTitle className="text-xs font-medium text-zinc-400">Movement Strength (heuristic)</CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[160px] space-y-3">
-                        <p className="text-4xl font-bold text-white">{(signalResult.confidence * 100).toFixed(0)}%</p>
+                        <p className="text-4xl font-bold text-white">{signalResult.movementStrength.toFixed(0)}%</p>
                         <div className="w-full h-3 rounded-full bg-zinc-800 overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
-                            animate={{ width: `${signalResult.confidence * 100}%` }}
+                            animate={{ width: `${signalResult.movementStrength}%` }}
                             transition={{ duration: 1 }}
-                            className={cn('h-full rounded-full', signalResult.confidence > 0.7 ? 'bg-emerald-500' : signalResult.confidence > 0.4 ? 'bg-amber-500' : 'bg-red-500')}
+                            className={cn('h-full rounded-full', signalResult.movementStrength > 70 ? 'bg-emerald-500' : signalResult.movementStrength > 40 ? 'bg-amber-500' : 'bg-red-500')}
                           />
                         </div>
                         <p className="text-xs text-zinc-500">{signalResult.homeTeam} vs {signalResult.awayTeam}</p>
@@ -1035,7 +1074,7 @@ export default function PredictionEngineView() {
         </TabsContent>
 
         {/* ═════════════════════ TAB 4: ENGINE CONFIG ═════════════════════ */}
-        <TabsContent value="config" className="space-y-6 mt-6">
+        {isAdmin && <TabsContent value="config" className="space-y-6 mt-6">
           <div className="max-w-2xl mx-auto space-y-6">
             <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
               <CardHeader>
@@ -1053,10 +1092,10 @@ export default function PredictionEngineView() {
                   </div>
                   <Slider
                     value={[config.simulationRuns]}
-                    min={10000} max={500000} step={10000}
+                    min={10000} max={200000} step={10000}
                     onValueChange={([v]) => setConfig(p => ({ ...p, simulationRuns: v }))}
                   />
-                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>500K</span></div>
+                  <div className="flex justify-between text-[10px] text-zinc-600"><span>10K</span><span>200K</span></div>
                 </div>
 
                 <Separator className="bg-zinc-800/50" />
@@ -1085,10 +1124,10 @@ export default function PredictionEngineView() {
                   </div>
                   <Slider
                     value={[config.minEdgeThreshold * 100]}
-                    min={0} max={10} step={0.5}
+                    min={0.5} max={20} step={0.5}
                     onValueChange={([v]) => setConfig(p => ({ ...p, minEdgeThreshold: v / 100 }))}
                   />
-                  <div className="flex justify-between text-[10px] text-zinc-600"><span>0%</span><span>10%</span></div>
+                  <div className="flex justify-between text-[10px] text-zinc-600"><span>0.5%</span><span>20%</span></div>
                 </div>
 
                 <Separator className="bg-zinc-800/50" />
@@ -1130,17 +1169,17 @@ export default function PredictionEngineView() {
                 <Separator className="bg-zinc-800/50" />
 
                 <div className="flex gap-3">
-                  <Button onClick={saveConfig} disabled={configLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
+                  <Button onClick={saveConfig} disabled={configLoading || configFetching} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-sm rounded-xl">
                     <Save className="w-4 h-4 mr-2" /> {configLoading ? 'Saving...' : 'Save Configuration'}
                   </Button>
-                  <Button onClick={resetConfig} variant="outline" className="border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl">
-                    <RotateCcw className="w-4 h-4 mr-2" /> Reset
+                  <Button onClick={resetConfig} disabled={configFetching} variant="outline" className="border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl">
+                    <RotateCcw className="w-4 h-4 mr-2" /> Reload Saved
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
     </div>
   )

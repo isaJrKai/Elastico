@@ -103,6 +103,7 @@ function matchesFilter(notification: Notification, tab: FilterTab): boolean {
 export default function NotificationsView() {
   const notifications = useElasticoStore(s => s.notifications)
   const setNotifications = useElasticoStore(s => s.setNotifications)
+  const token = useElasticoStore(s => s.token)
   const markNotificationRead = useElasticoStore(s => s.markNotificationRead)
   const [activeTab, setActiveTab] = useState<FilterTab>('all')
   const [isLoading, setIsLoading] = useState(true)
@@ -115,23 +116,20 @@ export default function NotificationsView() {
     setIsLoading(true)
     setFetchError(false)
     try {
-      const res = await fetch('/api/notifications')
-      if (res.ok) {
-        const data = await res.json()
-        if (Array.isArray(data)) {
-          setNotifications(data)
-        } else {
-          setNotifications([])
-        }
-      } else {
-        setFetchError(true)
-      }
+      if (!token) throw new Error('Sign in to view notifications')
+      const res = await fetch('/api/notifications', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Notifications request failed (${res.status})`)
+      if (!Array.isArray(data.notifications)) throw new Error('Notifications response has an unexpected format')
+      setNotifications(data.notifications)
     } catch {
       setFetchError(true)
     } finally {
       setIsLoading(false)
     }
-  }, [setNotifications])
+  }, [setNotifications, token])
 
   useEffect(() => {
     fetchNotifications()
@@ -145,43 +143,45 @@ export default function NotificationsView() {
       if (notification?.isRead) return
 
       try {
-        await fetch('/api/notifications', {
+        if (!token) throw new Error('Sign in to update notifications')
+        const res = await fetch('/api/notifications', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ id }),
         })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || `Notification update failed (${res.status})`)
+        markNotificationRead(id)
       } catch (err) {
-        console.warn('[NotificationsView] Failed to mark notification as read:', err)
+        toast.error(err instanceof Error ? err.message : 'Failed to mark notification as read')
       }
-      markNotificationRead(id)
     },
-    [notifications, markNotificationRead],
+    [notifications, markNotificationRead, token],
   )
 
   // ── Mark all as read ───────────────────────────────────────────────────────
 
   const handleMarkAllRead = useCallback(async () => {
-    const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id)
-    if (unreadIds.length === 0) return
+    const unreadCount = notifications.filter((n) => !n.isRead).length
+    if (unreadCount === 0) return
 
     try {
-      await Promise.all(
-        unreadIds.map((id) =>
-          fetch('/api/notifications', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id }),
-          }),
-        ),
-      )
+      if (!token) throw new Error('Sign in to update notifications')
+      const res = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ markAllRead: true }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Notification update failed (${res.status})`)
+      setNotifications(notifications.map(notification => ({ ...notification, isRead: true })))
+      toast.success('All caught up!', {
+        description: `${unreadCount} notification${unreadCount > 1 ? 's' : ''} marked as read.`,
+      })
     } catch (err) {
-      console.warn('[NotificationsView] Failed to mark all as read:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to mark notifications as read')
     }
-    unreadIds.forEach((id) => markNotificationRead(id))
-    toast.success('All caught up!', {
-      description: `${unreadIds.length} notification${unreadIds.length > 1 ? 's' : ''} marked as read.`,
-    })
-  }, [notifications, markNotificationRead])
+  }, [notifications, setNotifications, token])
 
   // ── Derived state ──────────────────────────────────────────────────────────
 

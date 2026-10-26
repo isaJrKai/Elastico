@@ -437,6 +437,7 @@ function StatusPill({ label, value, active, icon: Icon }: { label: string; value
 
 export default function SettingsView() {
   const user = useElasticoStore(s => s.user)
+  const setUser = useElasticoStore(s => s.setUser)
   const setSidebarOpen = useElasticoStore(s => s.setSidebarOpen)
   const sidebarOpen = useElasticoStore(s => s.sidebarOpen)
   const token = useElasticoStore(s => s.token)
@@ -444,6 +445,7 @@ export default function SettingsView() {
 
   // ── View State ────────────────────────────────────────────────────────
   const [viewState, setViewState] = useState<'loading' | 'empty' | 'error' | 'success'>('loading')
+  const [profileSaving, setProfileSaving] = useState(false)
 
   useEffect(() => {
     // Settings is always available — immediate success once store hydrates
@@ -476,8 +478,9 @@ export default function SettingsView() {
   // ── Security State ────────────────────────────────────────────────────────
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.twoFactorEnabled || false)
+  const twoFactorEnabled = Boolean(user?.twoFactorEnabled)
 
   // ── Favorite Teams ────────────────────────────────────────────────────────
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>(() => {
@@ -492,6 +495,28 @@ export default function SettingsView() {
   const [teamsLoading, setTeamsLoading] = useState(false)
   const [teamSearch, setTeamSearch] = useState('')
 
+  useEffect(() => {
+    if (!user) return
+    setDisplayName(user.displayName || user.name || '')
+    setBio(typeof user.bio === 'string' ? user.bio : '')
+    setLocation(typeof user.location === 'string' ? user.location : '')
+    setTimezone(typeof user.timezone === 'string' ? user.timezone : 'UTC')
+    setLanguage(typeof user.locale === 'string' ? user.locale : 'en')
+    try {
+      const parsedFavorites = typeof user.favoriteTeams === 'string' ? JSON.parse(user.favoriteTeams) : user.favoriteTeams
+      setFavoriteTeams(Array.isArray(parsedFavorites) ? parsedFavorites.filter((id): id is string => typeof id === 'string') : [])
+    } catch {
+      setFavoriteTeams([])
+    }
+    try {
+      const parsedPrefs = typeof user.notificationPrefs === 'string' ? JSON.parse(user.notificationPrefs) : user.notificationPrefs
+      if (parsedPrefs && typeof parsedPrefs === 'object' && !Array.isArray(parsedPrefs)) {
+        setNotifications(prev => ({ ...prev, ...parsedPrefs }))
+      }
+    } catch {
+      // Keep safe default notification preferences when stored JSON is malformed.
+    }
+  }, [user])
   // ── Fetch Teams ───────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -514,41 +539,64 @@ export default function SettingsView() {
 
   // ── Save Profile ─────────────────────────────────────────────────────────
 
-  const handleSaveProfile = useCallback(() => {
-    toast.info('Coming soon', {
-      description: 'Profile editing with server-side persistence is planned for a future update.',
-    })
-  }, [])
+  const handleSaveProfile = useCallback(async () => {
+    if (!token) {
+      toast.error('Sign in again to save your profile')
+      return
+    }
+    setProfileSaving(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ displayName, bio, location, timezone, locale: language, favoriteTeams, notificationPrefs: notifications }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Profile update failed (${res.status})`)
+      if (user) setUser({ ...user, ...data.user } as typeof user, token)
+      toast.success('Profile and preferences saved')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to save profile')
+    } finally {
+      setProfileSaving(false)
+    }
+  }, [token, user, setUser, displayName, bio, location, timezone, language, favoriteTeams, notifications])
 
   // ── Change Password ───────────────────────────────────────────────────────
 
-  const handleChangePassword = useCallback(() => {
+  const handleChangePassword = useCallback(async () => {
+    if (!token) { toast.error('Sign in again to change your password'); return }
     if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error('Error', {
-        description: 'Please fill in all password fields.',
-      })
+      toast.error('Please fill in all password fields')
       return
     }
     if (newPassword !== confirmPassword) {
-      toast.error('Error', {
-        description: 'New passwords do not match.',
-      })
+      toast.error('New passwords do not match')
       return
     }
-    if (newPassword.length < 8) {
-      toast.error('Error', {
-        description: 'Password must be at least 8 characters.',
-      })
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      toast.error('New password must be between 8 and 128 characters')
       return
     }
-
-    toast.info('Coming soon', {
-      description: 'Password changes require a backend auth endpoint which is planned for a future update.',
-    })
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-  }, [currentPassword, newPassword, confirmPassword])
+    setPasswordSaving(true)
+    try {
+      const res = await fetch('/api/user/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Password update failed (${res.status})`)
+      toast.success(data.message || 'Password updated successfully')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update password')
+    } finally {
+      setPasswordSaving(false)
+    }
+  }, [token, currentPassword, newPassword, confirmPassword])
 
   // ── Toggle Favorite Team ──────────────────────────────────────────────────
 
@@ -586,9 +634,7 @@ export default function SettingsView() {
   // ── Delete Account ────────────────────────────────────────────────────────
 
   const handleDeleteAccount = useCallback(() => {
-    toast('Account deletion requested', {
-      description: 'This is a demo — your account was not deleted.',
-    })
+    toast.error('Account deletion is not implemented. No data was deleted.')
   }, [])
 
   // ── Filter Teams for Search ───────────────────────────────────────────────
@@ -957,6 +1003,12 @@ export default function SettingsView() {
               }
             />
           </div>
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <p className="text-xs text-muted-foreground">Save your notification preferences to your account.</p>
+            <Button variant="outline" size="sm" onClick={handleSaveProfile} disabled={profileSaving}>
+              {profileSaving ? 'Saving…' : 'Save Preferences'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -1019,10 +1071,11 @@ export default function SettingsView() {
             <div className="flex justify-end">
               <Button
                 onClick={handleChangePassword}
+                disabled={passwordSaving}
                 variant="outline"
                 className="h-8 border-border text-xs text-muted-foreground hover:text-foreground"
               >
-                Update Password
+                {passwordSaving ? 'Updating…' : 'Update Password'}
               </Button>
             </div>
           </div>
@@ -1036,13 +1089,10 @@ export default function SettingsView() {
                 Two-Factor Authentication
               </p>
               <p className="text-xs text-muted-foreground">
-                Add an extra layer of security to your account
+                Two-factor setup is not deployed; this status is read-only.
               </p>
             </div>
-            <Switch
-              checked={twoFactorEnabled}
-              onCheckedChange={setTwoFactorEnabled}
-            />
+            <Switch checked={twoFactorEnabled} disabled aria-label="Two-factor status (read-only)" />
           </div>
 
           <Separator className="opacity-50" />
@@ -1050,54 +1100,11 @@ export default function SettingsView() {
           {/* Active Sessions */}
           <div className="space-y-3">
             <p className="text-sm font-medium text-foreground">Active Sessions</p>
-            <div className="space-y-2">
-              {[
-                {
-                  device: 'Chrome on macOS',
-                  icon: Monitor,
-                  location: 'San Francisco, US',
-                  current: true,
-                },
-                {
-                  device: 'Safari on iPhone',
-                  icon: Smartphone,
-                  location: 'San Francisco, US',
-                  current: false,
-                },
-              ].map((session, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 px-3 py-2.5"
-                >
-                  <div className="flex items-center gap-3">
-                    <session.icon className="size-4 text-muted-foreground" />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-medium text-foreground">
-                          {session.device}
-                        </p>
-                        {session.current && (
-                          <Badge className="h-4 bg-primary/15 px-1.5 text-[9px] font-semibold text-primary border-primary/30">
-                            Current
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        {session.location} · Active now
-                      </p>
-                    </div>
-                  </div>
-                  {!session.current && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-[10px] text-muted-foreground hover:text-destructive"
-                    >
-                      Revoke
-                    </Button>
-                  )}
-                </div>
-              ))}
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/20 p-3">
+              <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
+                Session inventory and remote session revocation are not connected to the server yet. No device list is shown because active sessions cannot currently be verified.
+              </p>
             </div>
           </div>
 
@@ -1125,10 +1132,12 @@ export default function SettingsView() {
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="destructive"
+                    disabled
+                    title="Account deletion endpoint is not configured"
                     className="h-9 text-xs"
                   >
                     <Trash2 className="mr-2 size-3.5" />
-                    Delete Account
+                    Account deletion unavailable
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent className="rounded-lg border border-border bg-card border-border">
@@ -1137,9 +1146,7 @@ export default function SettingsView() {
                       Are you sure?
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                      This action cannot be undone. All your data including
-                      predictions, favorites, and profile information will be
-                      permanently deleted.
+                      Account deletion is not implemented yet. No account data will be deleted from this screen.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -1148,9 +1155,10 @@ export default function SettingsView() {
                     </AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleDeleteAccount}
+                      disabled
                       className="bg-destructive text-white hover:bg-destructive/90"
                     >
-                      Delete Account
+                      Account deletion unavailable
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1267,6 +1275,11 @@ export default function SettingsView() {
                 })}
               </div>
             )}
+          </div>
+          <div className="flex justify-end border-t border-border pt-3">
+            <Button variant="outline" size="sm" onClick={handleSaveProfile} disabled={profileSaving}>
+              {profileSaving ? 'Saving…' : 'Save Favorite Teams'}
+            </Button>
           </div>
         </CardContent>
       </Card>

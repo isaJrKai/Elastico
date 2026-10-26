@@ -80,13 +80,47 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'maintenance') {
-      // Set maintenance mode
+      const current = await db.systemSetting.findUnique({ where: { key: 'maintenance_mode' } })
+      const enabled = current?.value !== 'true'
       await db.systemSetting.upsert({
         where: { key: 'maintenance_mode' },
-        update: { value: 'true' },
-        create: { key: 'maintenance_mode', value: 'true', type: 'boolean' },
+        update: { value: String(enabled), type: 'boolean' },
+        create: { key: 'maintenance_mode', value: String(enabled), type: 'boolean' },
       })
-      return NextResponse.json({ success: true, message: 'Maintenance mode enabled' })
+      return NextResponse.json({
+        success: true,
+        enabled,
+        message: enabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
+      })
+    }
+
+    if (action === 'notifySegment') {
+      const { message, title, segment } = body
+      if (typeof title !== 'string' || !title.trim() || typeof message !== 'string' || !message.trim()) {
+        return NextResponse.json({ error: 'A notification title and message are required' }, { status: 400 })
+      }
+      const validSegments = ['all', 'free', 'pro', 'elite', 'inactive']
+      if (typeof segment !== 'string' || !validSegments.includes(segment)) {
+        return NextResponse.json({ error: 'segment must be all, free, pro, elite, or inactive' }, { status: 400 })
+      }
+      const where: any = { isActive: true }
+      if (segment === 'free' || segment === 'pro' || segment === 'elite') where.plan = segment
+      if (segment === 'inactive') {
+        const inactiveSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        where.OR = [{ lastLoginAt: null }, { lastLoginAt: { lt: inactiveSince } }]
+      }
+      const recipients = await db.user.findMany({ where, select: { id: true } })
+      if (recipients.length > 0) {
+        await db.notification.createMany({
+          data: recipients.map(recipient => ({
+            userId: recipient.id,
+            type: 'system',
+            title: title.trim(),
+            message: message.trim(),
+          })),
+        })
+      }
+      return NextResponse.json({ success: true, notifiedUsers: recipients.length, message: `In-app notification sent to ${recipients.length} users` })
     }
 
     if (action === 'broadcast') {
@@ -122,12 +156,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'sync') {
-      // Teams, players, matches data now comes from ESPN — no local sync needed
       return NextResponse.json({
-        success: true,
-        message: 'Data sync completed',
-        synced: { teams: 0, players: 0, matches: 0 },
-      })
+        error: 'No background sync job is configured. Match data is fetched live from the provider.',
+      }, { status: 501 })
     }
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
