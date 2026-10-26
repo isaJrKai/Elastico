@@ -62,8 +62,6 @@ export async function GET(request: Request) {
   const auth = await authenticateRequest(request)
   if (auth instanceof Response) return auth
 
-  const hasApiKey = !!process.env.FOOTBALL_DATA_API_KEY
-
   return NextResponse.json({
     system: 'ELASTICO Market Signal Tracker',
     description: 'Summarizes observed odds movement; it does not infer professional betting activity',
