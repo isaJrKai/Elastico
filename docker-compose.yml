@@ -4,12 +4,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=file:/data/elastico.db
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set to a PostgreSQL connection string}
+      - DIRECT_URL=${DIRECT_URL:-${DATABASE_URL:?DATABASE_URL must be set}}
       - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
-    volumes:
-      - elastico-data:/data
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a random string of at least 32 characters}
     restart: unless-stopped
 
   caddy:
@@ -26,6 +25,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  elastico-data:
   caddy-data:
   caddy-config:
