@@ -1023,8 +1023,8 @@ export default function PredictionEngineView() {
                         </div>
                         <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
                           <div className="flex items-center gap-2">
-                            <AlertOctagon className={cn('w-4 h-4', signalResult.rlmDetected ? 'text-purple-400' : 'text-zinc-600')} />
-                            <span className="text-sm text-zinc-300">RLM Detected</span>
+                            <AlertOctagon className={cn('w-4 h-4', signalResult.opposingMoveDetected ? 'text-purple-400' : 'text-zinc-600')} />
+                            <span className="text-sm text-zinc-300">Opposing Odds Move</span>
                           </div>
                           {signalResult.rlmDetected
                             ? <Badge className="text-[10px] font-bold bg-purple-500/20 text-purple-400 border-purple-500/30">DETECTED</Badge>
@@ -1033,8 +1033,8 @@ export default function PredictionEngineView() {
                         </div>
                         <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
                           <div className="flex items-center gap-2">
-                            <Eye className={cn('w-4 h-4', signalResult.sharpAction !== 'neutral' ? 'text-emerald-400' : 'text-zinc-600')} />
-                            <span className="text-sm text-zinc-300">Sharp Action</span>
+                            <Eye className={cn('w-4 h-4', signalResult.largestMove !== 'neutral' ? 'text-emerald-400' : 'text-zinc-600')} />
+                            <span className="text-sm text-zinc-300">Largest Line Move</span>
                           </div>
                           <Badge className={cn('text-[10px] font-bold border',
                             signalResult.sharpAction === 'neutral' ? 'bg-zinc-800/60 text-zinc-500 border-zinc-700/50' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
