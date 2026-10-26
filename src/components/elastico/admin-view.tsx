@@ -430,13 +430,7 @@ export default function AdminView() {
     fetchAdminData()
   }
 
-  const handleInviteUser = () => {
-    if (!inviteForm.email || !inviteForm.email.includes('@')) {
-      toast.error('Valid email required')
-      return
-    }
-    toast.error('Invitation delivery is not configured. No email was sent and no account was created.')
-  }
+
 
   const handleToggleSetting = async (key: string, value: string) => {
     try {
@@ -897,9 +891,10 @@ export default function AdminView() {
                         </Select>
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground">Email delivery is not configured. No invitation will be sent from this screen.</p>
                     <DialogFooter>
-                      <Button variant="outline" onClick={() => setInviteModal(false)}>Cancel</Button>
-                      <Button onClick={handleInviteUser}>Check Invitation Availability</Button>
+                      <Button variant="outline" onClick={() => setInviteModal(false)}>Close</Button>
+                      <Button disabled title="Invitation email delivery is not configured">Invitations unavailable</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
