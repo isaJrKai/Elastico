@@ -150,10 +150,10 @@ export default function PredictionEngineView() {
 
   // Configuration is global and admin-only. Load persisted values before allowing edits.
   useEffect(() => {
-    if (!isAdmin) return
+    if (!token) return
     let active = true
     setConfigFetching(true)
-    fetch('/api/prediction-engine/config', { headers: authHeaders() })
+    fetch('/api/prediction-engine/config', { headers: { Authorization: `Bearer ${token}` } })
       .then(async res => {
         const payload = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(payload.error || 'Unable to load engine configuration')
@@ -171,7 +171,7 @@ export default function PredictionEngineView() {
       })
       .finally(() => { if (active) setConfigFetching(false) })
     return () => { active = false }
-  }, [isAdmin])
+  }, [token])
 
   const homeTeam = teams.find(t => t.id === homeTeamId)
   const awayTeam = teams.find(t => t.id === awayTeamId)
