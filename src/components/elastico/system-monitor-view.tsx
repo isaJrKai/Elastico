@@ -963,13 +963,11 @@ function AdminSystemMonitor() {
                     <div
                       className="size-4 rounded-full"
                       style={{
-                        backgroundColor: statusColor(veronicaOnline === true ? 'ONLINE' : 'OFFLINE'),
-                        boxShadow: `0 0 12px ${statusColor(veronicaOnline === true ? 'ONLINE' : 'OFFLINE')}80`,
+                        backgroundColor: statusColor('OFFLINE'),
+                        boxShadow: `0 0 12px ${statusColor('OFFLINE')}80`,
                       }}
                     />
-                    <span className="text-xl font-bold" style={{ color: statusColor(veronicaOnline === true ? 'ONLINE' : 'OFFLINE') }}>
-                      {veronicaOnline === true ? 'ONLINE' : veronicaOnline === false ? 'OFFLINE' : 'UNKNOWN'}
-                    </span>
+                    <span className="text-xl font-bold" style={{ color: statusColor('OFFLINE') }}>NOT DEPLOYED</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Self-healing service is not deployed. No automated code changes will be made.
