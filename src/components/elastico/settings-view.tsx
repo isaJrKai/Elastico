@@ -478,6 +478,7 @@ export default function SettingsView() {
   // ── Security State ────────────────────────────────────────────────────────
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState('')
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(user?.twoFactorEnabled || false)
 
@@ -563,33 +564,39 @@ export default function SettingsView() {
 
   // ── Change Password ───────────────────────────────────────────────────────
 
-  const handleChangePassword = useCallback(() => {
+  const handleChangePassword = useCallback(async () => {
+    if (!token) { toast.error('Sign in again to change your password'); return }
     if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error('Error', {
-        description: 'Please fill in all password fields.',
-      })
+      toast.error('Please fill in all password fields')
       return
     }
     if (newPassword !== confirmPassword) {
-      toast.error('Error', {
-        description: 'New passwords do not match.',
-      })
+      toast.error('New passwords do not match')
       return
     }
-    if (newPassword.length < 8) {
-      toast.error('Error', {
-        description: 'Password must be at least 8 characters.',
-      })
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      toast.error('New password must be between 8 and 128 characters')
       return
     }
-
-    toast.info('Coming soon', {
-      description: 'Password changes require a backend auth endpoint which is planned for a future update.',
-    })
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-  }, [currentPassword, newPassword, confirmPassword])
+    setPasswordSaving(true)
+    try {
+      const res = await fetch('/api/user/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Password update failed (${res.status})`)
+      toast.success(data.message || 'Password updated successfully')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update password')
+    } finally {
+      setPasswordSaving(false)
+    }
+  }, [token, currentPassword, newPassword, confirmPassword])
 
   // ── Toggle Favorite Team ──────────────────────────────────────────────────
 
@@ -1066,10 +1073,11 @@ export default function SettingsView() {
             <div className="flex justify-end">
               <Button
                 onClick={handleChangePassword}
+                disabled={passwordSaving}
                 variant="outline"
                 className="h-8 border-border text-xs text-muted-foreground hover:text-foreground"
               >
-                Update Password
+                {passwordSaving ? 'Updating…' : 'Update Password'}
               </Button>
             </div>
           </div>
