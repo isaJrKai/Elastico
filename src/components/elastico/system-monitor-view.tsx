@@ -169,8 +169,9 @@ function NonAdminSystemMonitor() {
     setChecking(true)
 
     // Check all services in parallel
-    const [liveRes, matchesRes, standingsRes, newsRes, playersRes] = await Promise.all([
+    const [liveRes, engineRes, matchesRes, standingsRes, newsRes, playersRes] = await Promise.all([
       checkServiceHealth('/api/live?action=leagues'),
+      checkServiceHealth('/api/prediction-engine/simulate'),
       checkServiceHealth('/api/matches?limit=1'),
       checkServiceHealth('/api/standings'),
       checkServiceHealth('/api/news?limit=1'),
@@ -181,9 +182,9 @@ function NonAdminSystemMonitor() {
     const espnOk = liveRes.ok && liveRes.data?.success !== false
     const espnTime = liveRes.timeMs
 
-    // Prediction engine: check if matches endpoint works (it powers predictions)
-    const predictionOk = matchesRes.ok || standingsRes.ok
-    const predictionTime = Math.max(matchesRes.timeMs, standingsRes.timeMs)
+    // Check the actual prediction-engine route, not unrelated matches/standings endpoints.
+    const predictionOk = engineRes.ok && engineRes.data?.status === 'operational'
+    const predictionTime = engineRes.timeMs
 
     // Database: if matches/players return source:'database', DB is working
     const dbWorking = matchesRes.data?.source === 'database' || playersRes.data?.source === 'database'
@@ -204,7 +205,7 @@ function NonAdminSystemMonitor() {
         icon: Server,
         status: predictionOk ? 'HEALTHY' : 'DOWN',
         sublabel: predictionOk
-          ? `Models ready (${predictionTime}ms)`
+          ? `Engine endpoint responding (${predictionTime}ms)`
           : `Service error (${predictionTime}ms)`,
         responseTime: predictionTime,
       },
