@@ -1014,7 +1014,7 @@ export default function PredictionEngineView() {
                         <div className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
                           <div className="flex items-center gap-2">
                             <Flame className={cn('w-4 h-4', signalResult.steamMove ? 'text-orange-400' : 'text-zinc-600')} />
-                            <span className="text-sm text-zinc-300">Steam Move</span>
+                            <span className="text-sm text-zinc-300">Rapid Odds Move</span>
                           </div>
                           {signalResult.steamMove
                             ? <Badge className="text-[10px] font-bold bg-orange-500/20 text-orange-400 border-orange-500/30">DETECTED</Badge>
@@ -1046,16 +1046,16 @@ export default function PredictionEngineView() {
                     </Card>
                     <Card className="rounded-lg border border-border bg-card border-zinc-800/50">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-xs font-medium text-zinc-400">Signal Confidence</CardTitle>
+                        <CardTitle className="text-xs font-medium text-zinc-400">Movement Strength (heuristic)</CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center justify-center h-[160px] space-y-3">
-                        <p className="text-4xl font-bold text-white">{(signalResult.confidence * 100).toFixed(0)}%</p>
+                        <p className="text-4xl font-bold text-white">{signalResult.movementStrength.toFixed(0)}%</p>
                         <div className="w-full h-3 rounded-full bg-zinc-800 overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
-                            animate={{ width: `${signalResult.confidence * 100}%` }}
+                            animate={{ width: `${signalResult.movementStrength}%` }}
                             transition={{ duration: 1 }}
-                            className={cn('h-full rounded-full', signalResult.confidence > 0.7 ? 'bg-emerald-500' : signalResult.confidence > 0.4 ? 'bg-amber-500' : 'bg-red-500')}
+                            className={cn('h-full rounded-full', signalResult.movementStrength > 70 ? 'bg-emerald-500' : signalResult.movementStrength > 40 ? 'bg-amber-500' : 'bg-red-500')}
                           />
                         </div>
                         <p className="text-xs text-zinc-500">{signalResult.homeTeam} vs {signalResult.awayTeam}</p>
