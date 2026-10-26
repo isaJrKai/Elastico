@@ -437,6 +437,7 @@ function StatusPill({ label, value, active, icon: Icon }: { label: string; value
 
 export default function SettingsView() {
   const user = useElasticoStore(s => s.user)
+  const setUser = useElasticoStore(s => s.setUser)
   const setSidebarOpen = useElasticoStore(s => s.setSidebarOpen)
   const sidebarOpen = useElasticoStore(s => s.sidebarOpen)
   const token = useElasticoStore(s => s.token)
@@ -444,6 +445,7 @@ export default function SettingsView() {
 
   // ── View State ────────────────────────────────────────────────────────
   const [viewState, setViewState] = useState<'loading' | 'empty' | 'error' | 'success'>('loading')
+  const [profileSaving, setProfileSaving] = useState(false)
 
   useEffect(() => {
     // Settings is always available — immediate success once store hydrates
@@ -492,6 +494,28 @@ export default function SettingsView() {
   const [teamsLoading, setTeamsLoading] = useState(false)
   const [teamSearch, setTeamSearch] = useState('')
 
+  useEffect(() => {
+    if (!user) return
+    setDisplayName(user.displayName || user.name || '')
+    setBio(typeof user.bio === 'string' ? user.bio : '')
+    setLocation(typeof user.location === 'string' ? user.location : '')
+    setTimezone(typeof user.timezone === 'string' ? user.timezone : 'UTC')
+    setLanguage(typeof user.locale === 'string' ? user.locale : 'en')
+    try {
+      const parsedFavorites = typeof user.favoriteTeams === 'string' ? JSON.parse(user.favoriteTeams) : user.favoriteTeams
+      setFavoriteTeams(Array.isArray(parsedFavorites) ? parsedFavorites.filter((id): id is string => typeof id === 'string') : [])
+    } catch {
+      setFavoriteTeams([])
+    }
+    try {
+      const parsedPrefs = typeof user.notificationPrefs === 'string' ? JSON.parse(user.notificationPrefs) : user.notificationPrefs
+      if (parsedPrefs && typeof parsedPrefs === 'object' && !Array.isArray(parsedPrefs)) {
+        setNotifications(prev => ({ ...prev, ...parsedPrefs }))
+      }
+    } catch {
+      // Keep safe default notification preferences when stored JSON is malformed.
+    }
+  }, [user])
   // ── Fetch Teams ───────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -514,11 +538,28 @@ export default function SettingsView() {
 
   // ── Save Profile ─────────────────────────────────────────────────────────
 
-  const handleSaveProfile = useCallback(() => {
-    toast.info('Coming soon', {
-      description: 'Profile editing with server-side persistence is planned for a future update.',
-    })
-  }, [])
+  const handleSaveProfile = useCallback(async () => {
+    if (!token) {
+      toast.error('Sign in again to save your profile')
+      return
+    }
+    setProfileSaving(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ displayName, bio, location, timezone, locale: language, favoriteTeams, notificationPrefs: notifications }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Profile update failed (${res.status})`)
+      if (user) setUser({ ...user, ...data.user } as typeof user, token)
+      toast.success('Profile and preferences saved')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to save profile')
+    } finally {
+      setProfileSaving(false)
+    }
+  }, [token, user, setUser, displayName, bio, location, timezone, language, favoriteTeams, notifications])
 
   // ── Change Password ───────────────────────────────────────────────────────
 
