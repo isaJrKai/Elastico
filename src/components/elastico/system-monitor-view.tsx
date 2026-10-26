@@ -584,59 +584,13 @@ function AdminSystemMonitor() {
   }
 
   // ── Tab 2: Veronica ─────────────────────────────────────────────────────
-  const [veronicaOnline, setVeronicaOnline] = useState<boolean | null>(null)
-  const [healingEvents, setHealingEvents] = useState<HealingEvent[]>([])
-  const [healingLoading, setHealingLoading] = useState(false)
+  const veronicaOnline = false // No self-healing service is deployed; never report a fabricated ONLINE state.
+  const [healingEvents] = useState<HealingEvent[]>([])
   const [sandboxCode, setSandboxCode] = useState('// Test code here\nconsole.log("Hello from sandbox");')
   const [sandboxFilename, setSandboxFilename] = useState('test.ts')
-  const [sandboxResult, setSandboxResult] = useState('')
-  const [sandboxLoading, setSandboxLoading] = useState(false)
+  const [sandboxResult] = useState('Sandbox unavailable: no isolated execution runtime is deployed. The code above has not been executed.')
 
-  const triggerDiagnostic = async () => {
-    setHealingLoading(true)
-    try {
-      const res = await fetch('/api/system/veronica-heal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'diagnose', brokenCode: '', filename: 'system-check' }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.events) setHealingEvents(prev => [...data.events, ...prev])
-        if (data.fixCode) {
-          setHealingEvents(prev => [{
-            id: String(Date.now()),
-            timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-            file: data.filename || 'system-check',
-            errorType: data.action || 'ScanComplete',
-            status: 'HEALED',
-          }, ...prev])
-        }
-      } else {
-        let errorMsg = 'Service unavailable'
-        try { const err = await res.json(); errorMsg = err.error || errorMsg } catch { /* non-JSON error body */ }
-        setHealingEvents(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          file: 'N/A',
-          errorType: 'ServiceUnavailable',
-          status: 'FAILED',
-        }, ...prev])
-      }
-    } catch (err) {
-      console.error('[SystemMonitor] Diagnostic request failed:', err)
-      await new Promise(r => setTimeout(r, 800))
-    }
-    setHealingLoading(false)
-  }
 
-  const testInSandbox = async () => {
-    setSandboxLoading(true)
-    setSandboxResult('')
-    await new Promise(r => setTimeout(r, 1200))
-    setSandboxResult(`⚠ Sandbox execution unavailable\nFile: ${sandboxFilename}\nNo sandbox runtime is connected. The sandbox service is not yet deployed.`)
-    setSandboxLoading(false)
-  }
 
   // ── Tab 3: SAIM Security ────────────────────────────────────────────────
   const [integrityScore, setIntegrityScore] = useState<number | null>(null)
@@ -649,9 +603,10 @@ function AdminSystemMonitor() {
     setIntegrityLoading(true)
     try {
       // The 'audit' action hashes all critical files server-side — no payload needed
+      const token = localStorage.getItem('elastico_token')
       const res = await fetch('/api/system/saim-security', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ action: 'audit' }),
       })
       if (res.ok) {
@@ -1013,12 +968,12 @@ function AdminSystemMonitor() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Self-healing engine active · Monitoring {healingEvents.length} events
+                    Self-healing service is not deployed. No automated code changes will be made.
                   </p>
                   <div className="flex gap-2 pt-2">
-                    <Button size="sm" className="flex-1 gap-2" onClick={triggerDiagnostic} disabled={healingLoading}>
-                      {healingLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Terminal className="size-3.5" />}
-                      Trigger Diagnostic
+                    <Button size="sm" className="flex-1 gap-2" disabled title="Diagnostic service is not deployed">
+                      <Terminal className="size-3.5" />
+                      Diagnostic service unavailable
                     </Button>
                   </div>
                 </CardContent>
@@ -1130,9 +1085,9 @@ function AdminSystemMonitor() {
                     </div>
                   </div>
                   <div className="flex items-end">
-                    <Button size="sm" className="w-full gap-2" onClick={testInSandbox} disabled={sandboxLoading}>
-                      {sandboxLoading ? <RefreshCw className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
-                      Test in Sandbox
+                    <Button size="sm" className="w-full gap-2" disabled title="No isolated sandbox runtime is deployed">
+                      <Play className="size-3.5" />
+                      Sandbox runtime unavailable
                     </Button>
                   </div>
                 </div>
