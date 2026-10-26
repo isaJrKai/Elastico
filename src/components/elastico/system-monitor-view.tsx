@@ -490,7 +490,7 @@ function AdminSystemMonitor() {
 
   // ── Tab 1: Audit Core ────────────────────────────────────────────────────
   const [scraperStatus, setScraperStatus] = useState<'HEALTHY' | 'DEGRADED' | 'DOWN'>('HEALTHY')
-  const [driftStatus, setDriftStatus] = useState<'HEALTHY' | 'DRIFT_DETECTED'>('HEALTHY')
+  const [driftStatus, setDriftStatus] = useState<'HEALTHY' | 'DRIFT_DETECTED' | 'DEGRADED'>('DEGRADED')
   const [clvEdge, setClvEdge] = useState<number | null>(null)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [auditLoading, setAuditLoading] = useState<string | null>(null)
@@ -498,58 +498,89 @@ function AdminSystemMonitor() {
   const runAudit = async (type: 'scraper' | 'drift' | 'convergence') => {
     setAuditLoading(type)
     try {
-      // Map UI audit type to the API's expected action field
       const actionMap = {
         scraper: 'scraper_fidelity',
         drift: 'data_drift',
         convergence: 'market_convergence',
       } as const
       const action = actionMap[type]
-      const data = {} // Empty payload — the API requires specific data structures
+      const token = localStorage.getItem('elastico_token')
+      let data: Record<string, unknown> = {}
+
+      if (type === 'scraper' || type === 'drift') {
+        const matchesResponse = await fetch('/api/matches?limit=200&status=finished', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        const matchesPayload = await matchesResponse.json().catch(() => ({}))
+        if (!matchesResponse.ok) {
+          throw new Error(matchesPayload.error || 'Unable to load finished matches for audit')
+        }
+        const matches = Array.isArray(matchesPayload.matches) ? matchesPayload.matches : []
+        const finished = matches.filter((match: any) =>
+          match?.status === 'finished'
+          && Number.isFinite(match.homeScore)
+          && Number.isFinite(match.awayScore)
+        )
+
+        if (type === 'scraper') {
+          data = { df: finished.map((match: any) => ({ home_goals: match.homeScore, away_goals: match.awayScore })) }
+        } else {
+          const chronological = finished
+            .filter((match: any) => match.date && Number.isFinite(new Date(match.date).getTime()))
+            .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          data = { chronological_goals: chronological.map((match: any) => match.homeScore + match.awayScore) }
+        }
+      } else {
+        // No persisted closing-line-value history is currently wired to the app.
+        // Ask the API to report that missing evidence rather than inventing a series.
+        data = { historical_clv_tracking: [] }
+      }
 
       const res = await fetch('/api/system/self-audit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ action, data }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        if (type === 'scraper') setScraperStatus(data.passed ? 'HEALTHY' : 'DEGRADED')
-        if (type === 'drift') setDriftStatus(data.status === 'DRIFT_DETECTED' ? 'DRIFT_DETECTED' : 'HEALTHY')
-        if (type === 'convergence' && data.meanClvEdge !== undefined) setClvEdge(data.meanClvEdge)
-        setAuditLogs(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          type,
-          status: data.passed === false || data.status === 'DRIFT_DETECTED' ? 'WARNING' : 'PASS',
-          details: data.details || data.status || `Audit completed for ${type}`,
-        }, ...prev])
-      } else {
-        // API returned 400 — typically means data payload is required
-        let details = `Audit endpoint returned an error for ${type}.`
-        try {
-          const errBody = await res.json()
-          if (errBody.error) details = errBody.error
-        } catch { /* non-JSON error body, using default message */ }
-        setAuditLogs(prev => [{
-          id: String(Date.now()),
-          timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-          type,
-          status: 'FAIL' as const,
-          details,
-        }, ...prev])
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(result.error || `Audit request failed (${res.status})`)
+
+      if (type === 'scraper') setScraperStatus(result.passed ? 'HEALTHY' : 'DEGRADED')
+      if (type === 'drift') {
+        setDriftStatus(result.status === 'DRIFT_DETECTED'
+          ? 'DRIFT_DETECTED'
+          : result.status === 'STABLE' ? 'HEALTHY' : 'DEGRADED')
       }
+      if (type === 'convergence') {
+        setClvEdge(result.count > 0 && Number.isFinite(result.meanClvEdge) ? result.meanClvEdge * 100 : null)
+      }
+
+      const warning = result.passed === false
+        || result.status === 'DRIFT_DETECTED'
+        || result.status === 'INSUFFICIENT_DATA'
+      const details = result.details || result.alert?.details || result.status || `Audit completed for ${type}`
+      setAuditLogs(prev => [{
+        id: String(Date.now()),
+        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        type,
+        status: warning ? 'WARNING' : 'PASS',
+        details,
+      }, ...prev])
     } catch (err) {
+      const details = err instanceof Error ? err.message : `Audit failed for ${type}`
       console.error('[SystemMonitor] Audit request failed for', type, err)
       setAuditLogs(prev => [{
         id: String(Date.now()),
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
         type,
         status: 'FAIL' as const,
-        details: `Could not reach audit service for ${type}. Check network connectivity.`,
+        details,
       }, ...prev])
+    } finally {
+      setAuditLoading(null)
     }
-    setAuditLoading(null)
   }
 
   // ── Tab 2: Veronica ─────────────────────────────────────────────────────
