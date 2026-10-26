@@ -44,7 +44,6 @@ export async function POST(
     const rl = rateLimit(`match-simulate:${auth.user.id}`, 10, 60_000)
     if (!rl.allowed) return NextResponse.json({ error: 'Rate limited', retryAfterMs: rl.retryAfterMs }, { status: 429 })
 
-    const { user } = auth
     const { id } = await params
     // Strip source prefixes for lookups
     const rawId = id.replace(/^(fd|espn|api-sports):/, '')
