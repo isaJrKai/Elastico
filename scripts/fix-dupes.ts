@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client'
 if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL before running this maintenance script.');
 if (process.env.ALLOW_MUTATING_MAINTENANCE_SCRIPT !== 'true') throw new Error('Set ALLOW_MUTATING_MAINTENANCE_SCRIPT=true after reviewing the target database.');
 const db = new PrismaClient({
-  datasources: { db: { url: 'process.env.DATABASE_URL!' } }
+  datasources: { db: { url: process.env.DATABASE_URL! } }
 })
 async function main() {
   const dups = await db.$queryRawUnsafe<{code: string, cnt: bigint}[]>(`SELECT code, COUNT(*) as cnt FROM "Team" GROUP BY code HAVING COUNT(*) > 1`)
