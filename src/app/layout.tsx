@@ -1,18 +1,6 @@
 import type { Metadata } from "next";
-import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
-
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "ELASTICO — Football Analytics",
@@ -56,7 +44,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
       </head>
       <body
-        className={`${dmSans.variable} ${jetbrainsMono.variable} antialiased bg-background text-foreground`}
+        className="antialiased bg-background text-foreground"
         style={{ fontFamily: 'var(--font-dm-sans), system-ui, sans-serif' }}
       >
         <ThemeProvider
