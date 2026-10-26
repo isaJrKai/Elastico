@@ -71,7 +71,7 @@ export async function GET(request: Request) {
       opposingMoveDetected: 'Home and away odds moved in opposite directions; public betting data is not available, so this is not a verified reverse-line-movement signal',
       largestMove: 'Side with the largest absolute odds movement; this does not identify professional bettors',
       lineVelocity: 'Speed and magnitude of odds changes, expressed as percentage of opening line',
-      confidence: 'Aggregate confidence score (0-100) based on movement magnitude and consistency',
+      movementStrength: 'Heuristic score from 0 to 100 based only on observed odds movement; not a calibrated prediction confidence',
     },
   })
 }
