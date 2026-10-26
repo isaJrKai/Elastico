@@ -1255,7 +1255,7 @@ export default function AdminView() {
                   <Dialog open={newsModal} onOpenChange={(open) => { setNewsModal(open); if (!open) { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', sourceUrl: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) } }}>
                     <DialogTrigger asChild>
                       <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 h-8"
-                        onClick={() => { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) }}>
+                        onClick={() => { setEditingNews(null); setNewsForm({ title: '', summary: '', content: '', sourceUrl: '', category: 'general', isBreaking: false, sentiment: 'neutral' }) }}>
                         <Plus className="h-3.5 w-3.5" /> New Article
                       </Button>
                     </DialogTrigger>
