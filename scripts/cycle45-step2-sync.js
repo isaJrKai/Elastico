@@ -1,7 +1,8 @@
 // Cycle 4.5 Step 2: Full Understat Sync → CanonicalTeam + SourceIdentity + TeamAnalytic
 // Proves the data truth pipeline works end-to-end with REAL Understat data
 
-process.env.DATABASE_URL = 'postgresql://neondb_owner:npg_8zPlbIK5NwaR@ep-late-sunset-axydccn7-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require';
+if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL in the environment before running this maintenance script.');
+if (process.env.ALLOW_MUTATING_MAINTENANCE_SCRIPT !== 'true') throw new Error('Set ALLOW_MUTATING_MAINTENANCE_SCRIPT=true after reviewing the target database.');
 process.env.DIRECT_URL = process.env.DATABASE_URL;
 
 var { PrismaClient } = require('@prisma/client');
