@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit all dependencies, including build tooling
+        run: npm audit --audit-level=high
+
       - name: Generate Prisma client
         run: npx prisma generate
 
