@@ -4,7 +4,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { fetchAllLiveScores, mapStatus, type ESPNMatch } from '@/lib/football-data'
 import { fetchTodaysMatches, normalizeFDMatch } from '@/lib/football-data-org'
 import { db } from '@/lib/db'
-import { calculateElo, poissonProbabilities, dixonColesFromLambdas, type EloResult } from '@/lib/predictions'
+import { calculateElo, poissonProbabilities, dixonColes, type EloResult } from '@/lib/predictions'
 
 /** GET /api/predictions/compute — compute predictions from ESPN match data (auth required)
  *
